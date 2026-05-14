@@ -160,6 +160,7 @@ textarea {
   .store-page-transition,
   .store-product-card,
   .store-category-pill,
+  .storefront-motion-root [data-category-menu],
   .store-product-image,
   .storefront-motion-root a,
   .storefront-motion-root button {

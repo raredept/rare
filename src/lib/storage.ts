@@ -142,6 +142,7 @@ export async function saveUploadedImage(file: File) {
         Body: bytes,
         ContentType: file.type,
         CacheControl: UPLOAD_CACHE_CONTROL,
+        IfNoneMatch: "*",
       }),
     );
 

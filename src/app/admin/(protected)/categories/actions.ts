@@ -57,3 +57,12 @@ export async function deleteCategoryAction(formData: FormData) {
   revalidatePath("/");
   revalidatePath("/admin/categories");
 }
+
+export async function toggleCategoryActiveAction(formData: FormData) {
+  await requireAdmin();
+  const id = value(formData, "id");
+  const active = value(formData, "active") === "true";
+  await prisma.category.update({ where: { id }, data: { active: !active } });
+  revalidatePath("/");
+  revalidatePath("/admin/categories");
+}

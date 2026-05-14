@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildObjectKey,
   getMaxUploadBytes,
@@ -11,6 +11,21 @@ import {
   validateUploadedImageMetadata,
 } from "@/lib/storage";
 
+const s3Mocks = vi.hoisted(() => ({
+  send: vi.fn(),
+  S3Client: vi.fn(function S3Client(config: unknown) {
+    return { config, send: s3Mocks.send };
+  }),
+  PutObjectCommand: vi.fn(function PutObjectCommand(input: unknown) {
+    return { input };
+  }),
+}));
+
+vi.mock("@aws-sdk/client-s3", () => ({
+  S3Client: s3Mocks.S3Client,
+  PutObjectCommand: s3Mocks.PutObjectCommand,
+}));
+
 const originalEnv = process.env;
 const testStorageDir = path.join(process.cwd(), "output", "test-storage");
 
@@ -19,6 +34,8 @@ const jpgBytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0]);
 const webpBytes = new Uint8Array(Buffer.from("RIFFxxxxWEBP", "ascii"));
 
 beforeEach(() => {
+  vi.clearAllMocks();
+  s3Mocks.send.mockResolvedValue({});
   process.env = {
     ...originalEnv,
     NODE_ENV: "development",
@@ -52,8 +69,11 @@ describe("storage helpers", () => {
     expect(validateUploadedImageMetadata(new File([webpBytes], "produto.webp", { type: "image/webp" }))).toBe("webp");
   });
 
-  it("rejects SVG and MP4 metadata", () => {
+  it("rejects SVG, GIF and MP4 metadata", () => {
     expect(() => validateUploadedImageMetadata(new File([Buffer.from("<svg></svg>")], "icone.svg", { type: "image/svg+xml" }))).toThrow(
+      "Formato invalido",
+    );
+    expect(() => validateUploadedImageMetadata(new File([Buffer.from("GIF89a")], "animado.gif", { type: "image/gif" }))).toThrow(
       "Formato invalido",
     );
     expect(() => validateUploadedImageMetadata(new File([Buffer.from("mp4")], "video.mp4", { type: "video/mp4" }))).toThrow(
@@ -93,5 +113,59 @@ describe("storage helpers", () => {
     const saved = await saveUploadedImage(new File([jpgBytes], "foto-final.jpeg", { type: "image/jpeg" }));
 
     expect(saved.key).toMatch(/foto-final\.jpg$/);
+  });
+
+  it("blocks local upload storage in production by default", async () => {
+    process.env = {
+      ...process.env,
+      NODE_ENV: "production",
+      STORAGE_DRIVER: "local",
+      ALLOW_LOCAL_STORAGE_IN_PRODUCTION: "false",
+    };
+
+    await expect(saveUploadedImage(new File([pngBytes], "produto.png", { type: "image/png" }))).rejects.toThrow(
+      "Upload local nao e permitido em producao",
+    );
+    expect(s3Mocks.S3Client).not.toHaveBeenCalled();
+  });
+
+  it("requires complete R2 env vars before sending an upload", async () => {
+    process.env.STORAGE_DRIVER = "r2";
+    process.env.R2_ACCOUNT_ID = "configured-account-id";
+    process.env.R2_BUCKET = "";
+    process.env.R2_ACCESS_KEY_ID = "configured-access-key";
+    process.env.R2_SECRET_ACCESS_KEY = "";
+    process.env.R2_PUBLIC_BASE_URL = "https://media.rare.example";
+
+    await expect(saveUploadedImage(new File([pngBytes], "produto.png", { type: "image/png" }))).rejects.toThrow(
+      "Upload Cloudflare R2 incompleto",
+    );
+    expect(s3Mocks.S3Client).not.toHaveBeenCalled();
+  });
+
+  it("stores valid R2 uploads with the configured public URL and image metadata", async () => {
+    process.env.STORAGE_DRIVER = "r2";
+    process.env.R2_ACCOUNT_ID = "abc123";
+    process.env.R2_BUCKET = "rare-media";
+    process.env.R2_ACCESS_KEY_ID = "configured-access-key";
+    process.env.R2_SECRET_ACCESS_KEY = "configured-secret-key";
+    process.env.R2_PUBLIC_BASE_URL = "https://media.rare.example/";
+
+    const saved = await saveUploadedImage(new File([webpBytes], "produto.webp", { type: "image/webp" }));
+    const command = s3Mocks.PutObjectCommand.mock.calls[0]?.[0] as { Bucket: string; Key: string; ContentType: string; IfNoneMatch: string };
+
+    expect(saved.url).toBe(`https://media.rare.example/${saved.key}`);
+    expect(s3Mocks.S3Client).toHaveBeenCalledWith(
+      expect.objectContaining({
+        endpoint: "https://abc123.r2.cloudflarestorage.com",
+      }),
+    );
+    expect(command).toMatchObject({
+      Bucket: "rare-media",
+      Key: saved.key,
+      ContentType: "image/webp",
+      IfNoneMatch: "*",
+    });
+    expect(s3Mocks.send).toHaveBeenCalledTimes(1);
   });
 });

@@ -3,6 +3,11 @@ import { access } from "node:fs/promises";
 import path from "node:path";
 import { PrismaClient, type Prisma } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import {
+  accessoryCatalogSubcategories,
+  legacyAccessoryCategorySlugs,
+  primaryCatalogCategories,
+} from "../src/lib/catalog-categories";
 import { getDatabaseUrl, isProductionEnv } from "../src/lib/env";
 
 type CatalogProduct = {
@@ -22,23 +27,6 @@ type CatalogProduct = {
     alt: string;
   };
 };
-
-const categories = [
-  { name: "Camisetas", slug: "camisetas", sortOrder: 1 },
-  { name: "Jaquetas", slug: "jaquetas", sortOrder: 2 },
-  { name: "Acessórios", slug: "acessorios", sortOrder: 3 },
-];
-
-const accessorySubcategories = [
-  { name: "Bags", slug: "bags", sortOrder: 1 },
-  { name: "Bonés", slug: "bones", sortOrder: 2 },
-];
-
-const legacyCategorySortOrders = [
-  { slug: "conjuntos", sortOrder: 50 },
-  { slug: "bermudas", sortOrder: 51 },
-  { slug: "calcas", sortOrder: 52 },
-];
 
 const products: CatalogProduct[] = [
   {
@@ -200,7 +188,7 @@ async function importCatalog() {
   const result = await prisma.$transaction(async (tx) => {
     const categoryBySlug = new Map<string, { id: string }>();
 
-    for (const category of categories) {
+    for (const category of primaryCatalogCategories) {
       const saved = await upsertCategory(tx, category);
       categoryBySlug.set(category.slug, saved);
     }
@@ -208,20 +196,13 @@ async function importCatalog() {
     const accessories = categoryBySlug.get("acessorios");
     if (!accessories) throw new Error("Categoria Acessórios nao encontrada.");
 
-    for (const subcategory of accessorySubcategories) {
+    for (const subcategory of accessoryCatalogSubcategories) {
       const saved = await upsertCategory(tx, subcategory, accessories.id);
       categoryBySlug.set(subcategory.slug, saved);
     }
 
-    for (const legacyCategory of legacyCategorySortOrders) {
-      await tx.category.updateMany({
-        where: { slug: legacyCategory.slug },
-        data: { sortOrder: legacyCategory.sortOrder },
-      });
-    }
-
     await tx.category.updateMany({
-      where: { slug: "bolsas-bag" },
+      where: { slug: { in: [...legacyAccessoryCategorySlugs] } },
       data: { active: false, sortOrder: 90 },
     });
 

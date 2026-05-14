@@ -127,12 +127,40 @@ export function ProductForm({ product, categories, error }: ProductFormProps) {
         </section>
 
         <section className="space-y-4 rounded-lg border border-neutral-200 bg-white p-5">
+          <div>
+            <h2 className="text-sm font-black uppercase tracking-wide text-neutral-500">Imagens do produto</h2>
+            <p className="mt-1 text-xs font-semibold text-neutral-500">
+              Em producao, o upload usa Cloudflare R2 quando STORAGE_DRIVER=r2 esta configurado.
+            </p>
+          </div>
+          {product?.images.length ? (
+            <div className="grid grid-cols-4 gap-2">
+              {product.images.slice(0, 8).map((image) => (
+                <div key={image.url} className="aspect-square overflow-hidden rounded-md border border-neutral-200 bg-neutral-100">
+                  <img src={image.url} alt="" className="h-full w-full object-cover" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-md border border-dashed border-neutral-300 px-3 py-4 text-center text-xs font-bold text-neutral-500">
+              Nenhuma imagem cadastrada.
+            </div>
+          )}
           <Field label="URLs de imagens (uma por linha, na ordem)">
             <textarea name="imageUrls" defaultValue={product?.images.map((image) => image.url).join("\n")} rows={5} className="admin-input" />
           </Field>
           <Field label="Upload de imagens">
-            <input name="images" type="file" multiple accept="image/jpeg,image/png,image/webp" className="text-sm" />
-            <p className="mt-2 text-xs font-semibold text-neutral-500">Formatos aceitos: JPG, PNG ou WEBP. Tamanho máximo: 5 MB.</p>
+            <input
+              name="images"
+              type="file"
+              multiple
+              accept="image/jpeg,image/png,image/webp"
+              className="text-sm"
+              aria-describedby="product-images-help"
+            />
+            <p id="product-images-help" className="mt-2 text-xs font-semibold text-neutral-500">
+              Formatos aceitos: JPG, PNG ou WEBP ate 5 MB. SVG, GIF e MP4 sao rejeitados.
+            </p>
           </Field>
         </section>
 

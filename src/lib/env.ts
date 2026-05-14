@@ -145,7 +145,7 @@ export function getStorageDriver(): StorageDriver {
   if (rawDriver === "local" || rawDriver === "r2") {
     return rawDriver;
   }
-  throw new Error("STORAGE_DRIVER must be local or r2.");
+  throw new Error("STORAGE_DRIVER deve ser local em desenvolvimento ou r2 em producao.");
 }
 
 export function getStorageLocalDir() {
@@ -159,11 +159,11 @@ export function getStoragePublicBaseUrl() {
 export function getR2PublicBaseUrl() {
   const publicBaseUrl = clean(process.env.R2_PUBLIC_BASE_URL) ?? clean(process.env.STORAGE_PUBLIC_BASE_URL);
   if (!publicBaseUrl || hasPlaceholderValue(publicBaseUrl)) {
-    throw new Error("R2_PUBLIC_BASE_URL or STORAGE_PUBLIC_BASE_URL is required for R2 upload storage.");
+    throw new Error("Configure R2_PUBLIC_BASE_URL ou STORAGE_PUBLIC_BASE_URL para publicar uploads do Cloudflare R2.");
   }
 
   if (!isHttpUrl(publicBaseUrl)) {
-    throw new Error("R2 public base URL must be an absolute http(s) URL.");
+    throw new Error("A URL publica do R2 deve ser absoluta e iniciar com http(s).");
   }
 
   return normalizeUrl(publicBaseUrl);
@@ -191,7 +191,7 @@ export function getR2StorageConfig() {
   }
 
   if (missing.length) {
-    throw new Error(`R2 upload storage is not configured: ${missing.join(", ")}.`);
+    throw new Error(`Upload Cloudflare R2 incompleto. Configure no ambiente: ${missing.join(", ")}.`);
   }
 
   return {
@@ -213,7 +213,7 @@ export function assertUploadStorageReady() {
 
   if (driver === "local") {
     if (isProductionEnv() && !isLocalStorageAllowedInProduction()) {
-      throw new Error("Local upload storage is not allowed in production. Configure persistent storage first.");
+      throw new Error("Upload local nao e permitido em producao. Configure STORAGE_DRIVER=r2 com Cloudflare R2.");
     }
     return;
   }
@@ -295,16 +295,16 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
   }
 
   if (!storageDriver) {
-    addIssue(issues, "error", "STORAGE_DRIVER", "STORAGE_DRIVER must be local or r2.");
+    addIssue(issues, "error", "STORAGE_DRIVER", "Use STORAGE_DRIVER=local em desenvolvimento ou STORAGE_DRIVER=r2 em producao.");
   } else if (requireStorage && storageDriver === "local" && !isLocalStorageAllowedInProduction()) {
     addIssue(
       issues,
       "error",
       "STORAGE_DRIVER",
-      "Local upload storage is not persistent enough for production. Configure persistent storage or set an explicit override for temporary homologation.",
+      "STORAGE_DRIVER=local nao persiste uploads na Vercel. Use STORAGE_DRIVER=r2 com Cloudflare R2 em producao.",
     );
   } else if (!production && storageDriver === "local") {
-    addIssue(issues, "warning", "STORAGE_DRIVER", "Local upload storage is suitable for dev only.");
+    addIssue(issues, "warning", "STORAGE_DRIVER", "Storage local serve apenas para desenvolvimento.");
   }
 
   if (storageDriver === "r2") {
@@ -317,10 +317,10 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
       issues,
       "R2_PUBLIC_BASE_URL",
       publicBaseUrl,
-      "R2_PUBLIC_BASE_URL or STORAGE_PUBLIC_BASE_URL is required for R2 upload storage.",
+      "R2_PUBLIC_BASE_URL ou STORAGE_PUBLIC_BASE_URL e obrigatoria para publicar uploads do Cloudflare R2.",
     );
     if (publicBaseUrl && !hasPlaceholderValue(publicBaseUrl) && !isHttpUrl(publicBaseUrl)) {
-      addIssue(issues, "error", "R2_PUBLIC_BASE_URL", "R2 public base URL must be an absolute http(s) URL.");
+      addIssue(issues, "error", "R2_PUBLIC_BASE_URL", "A URL publica do R2 deve ser absoluta e iniciar com http(s).");
     }
   }
 

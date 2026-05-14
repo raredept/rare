@@ -156,4 +156,19 @@ describe("environment validation", () => {
     expect(config.endpoint).toBe("https://abc123.r2.cloudflarestorage.com");
     expect(config.publicBaseUrl).toBe("https://media.rare.example");
   });
+
+  it("accepts STORAGE_PUBLIC_BASE_URL as the R2 public URL fallback", () => {
+    process.env = {
+      ...process.env,
+      STORAGE_DRIVER: "r2",
+      R2_ACCOUNT_ID: "abc123",
+      R2_BUCKET: "rare-media",
+      R2_ACCESS_KEY_ID: "configured-access-key",
+      R2_SECRET_ACCESS_KEY: "configured-secret-key",
+      R2_PUBLIC_BASE_URL: "",
+      STORAGE_PUBLIC_BASE_URL: "https://cdn.rare.example/",
+    };
+
+    expect(getR2StorageConfig().publicBaseUrl).toBe("https://cdn.rare.example");
+  });
 });

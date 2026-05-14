@@ -1,19 +1,15 @@
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import {
+  accessoryCatalogSubcategories,
+  legacyAccessoryCategorySlugs,
+  primaryCatalogCategories,
+} from "../src/lib/catalog-categories";
 import { getDatabaseUrl, isProductionEnv } from "../src/lib/env";
 import { slugify } from "../src/lib/slug";
 
 let prisma: PrismaClient;
-
-const categories = [
-  { name: "Camisetas", slug: "camisetas", sortOrder: 1 },
-  { name: "Jaquetas", slug: "jaquetas", sortOrder: 2 },
-  { name: "Conjuntos", slug: "conjuntos", sortOrder: 3 },
-  { name: "Bermudas", slug: "bermudas", sortOrder: 4 },
-  { name: "Calças", slug: "calcas", sortOrder: 5 },
-  { name: "Acessórios", slug: "acessorios", sortOrder: 6 },
-];
 
 const products = [
   {
@@ -79,7 +75,7 @@ const products = [
     title: "Bolsa/Bag - SUPREME",
     brand: "SUPREME",
     category: "acessorios",
-    subcategory: "bolsas-bag",
+    subcategory: "bags",
     priceInCents: 39990,
     shortDescription: "Bolsa shoulder bag SUPREME para uso diario.",
     description: "Bolsa/Bag SUPREME compacta, importada e funcional para carregar itens essenciais no dia a dia.",
@@ -108,7 +104,7 @@ async function main() {
   });
 
   const createdCategories = new Map<string, { id: string }>();
-  for (const category of categories) {
+  for (const category of primaryCatalogCategories) {
     const created = await upsertCategory(category.name, category.slug, category.sortOrder);
     createdCategories.set(category.slug, created);
   }
@@ -116,8 +112,15 @@ async function main() {
   const accessories = createdCategories.get("acessorios");
   if (!accessories) throw new Error("Accessories category missing.");
 
-  await upsertCategory("Bolsas/Bag", "bolsas-bag", 1, accessories.id);
-  await upsertCategory("Bonés", "bones", 2, accessories.id);
+  for (const subcategory of accessoryCatalogSubcategories) {
+    const created = await upsertCategory(subcategory.name, subcategory.slug, subcategory.sortOrder, accessories.id);
+    createdCategories.set(subcategory.slug, created);
+  }
+
+  await prisma.category.updateMany({
+    where: { slug: { in: [...legacyAccessoryCategorySlugs] } },
+    data: { active: false, sortOrder: 90 },
+  });
 
   for (const product of products) {
     const category = await prisma.category.findUniqueOrThrow({ where: { slug: product.category } });

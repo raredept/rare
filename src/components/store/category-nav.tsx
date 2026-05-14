@@ -3,7 +3,8 @@
 import { ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { categoryNavReducer, initialCategoryNavState } from "@/components/store/category-nav-state";
 
 type NavigationCategory = {
   id: string;
@@ -27,6 +28,10 @@ const preferredCategoryOrder = new Map([
   ["acessorios", 90],
 ]);
 
+function isPointerStillInside(currentTarget: EventTarget & HTMLElement, relatedTarget: EventTarget | null) {
+  return relatedTarget instanceof Node && currentTarget.contains(relatedTarget);
+}
+
 function normalizeCategoryKey(value: string) {
   return value
     .normalize("NFD")
@@ -46,16 +51,29 @@ function getPreferredOrder(category: NavigationCategory) {
 
 export function CategoryNav({ categories }: { categories: NavigationCategory[] }) {
   const pathname = usePathname();
-  const [openCategoryId, setOpenCategoryId] = useState<string | null>(null);
-  const [pinnedCategoryId, setPinnedCategoryId] = useState<string | null>(null);
+  const [navState, dispatchNav] = useReducer(categoryNavReducer, initialCategoryNavState);
   const [menuTop, setMenuTop] = useState(0);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const buttonRefs = useRef(new Map<string, HTMLButtonElement>());
+  const hoverCloseTimeoutRef = useRef<number | null>(null);
+  const openCategoryId = navState.openCategoryId;
+  const pinnedCategoryId = navState.pinnedCategoryId;
+
+  const clearHoverCloseTimer = useCallback(() => {
+    if (hoverCloseTimeoutRef.current === null) return;
+    window.clearTimeout(hoverCloseTimeoutRef.current);
+    hoverCloseTimeoutRef.current = null;
+  }, []);
 
   const closeMenu = useCallback(() => {
-    setOpenCategoryId(null);
-    setPinnedCategoryId(null);
-  }, []);
+    clearHoverCloseTimer();
+    dispatchNav({ type: "close" });
+  }, [clearHoverCloseTimer]);
+
+  const selectMenuItem = useCallback(() => {
+    clearHoverCloseTimer();
+    dispatchNav({ type: "select" });
+  }, [clearHoverCloseTimer]);
 
   const orderedCategories = useMemo(
     () =>
@@ -71,11 +89,12 @@ export function CategoryNav({ categories }: { categories: NavigationCategory[] }
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
-      setOpenCategoryId(null);
-      setPinnedCategoryId(null);
+      closeMenu();
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [pathname]);
+  }, [pathname, closeMenu]);
+
+  useEffect(() => () => clearHoverCloseTimer(), [clearHoverCloseTimer]);
 
   useEffect(() => {
     if (!openCategoryId) return;
@@ -113,15 +132,47 @@ export function CategoryNav({ categories }: { categories: NavigationCategory[] }
     };
   }, [openCategoryId, closeMenu]);
 
-  function openMenu(categoryId: string, options?: { pinned?: boolean }) {
+  function updateMenuPosition(categoryId: string) {
     const button = buttonRefs.current.get(categoryId);
     if (button) {
       setMenuTop(Math.round(button.getBoundingClientRect().bottom + 8));
     }
-    setOpenCategoryId(categoryId);
-    if (options?.pinned) {
-      setPinnedCategoryId(categoryId);
-    }
+  }
+
+  function openMenuByHover(categoryId: string) {
+    clearHoverCloseTimer();
+    updateMenuPosition(categoryId);
+    dispatchNav({ type: "hover-open", categoryId });
+  }
+
+  function toggleMenuByClick(categoryId: string) {
+    clearHoverCloseTimer();
+    updateMenuPosition(categoryId);
+    dispatchNav({ type: "click-toggle", categoryId });
+  }
+
+  function openMenuByKeyboard(categoryId: string, menuId: string, placement: "first" | "last") {
+    clearHoverCloseTimer();
+    updateMenuPosition(categoryId);
+    dispatchNav({ type: "keyboard-open", categoryId });
+    window.requestAnimationFrame(() => focusMenuItem(menuId, placement));
+  }
+
+  function scheduleHoverClose(categoryId: string) {
+    if (pinnedCategoryId === categoryId) return;
+    clearHoverCloseTimer();
+    dispatchNav({ type: "schedule-hover-close", categoryId });
+    hoverCloseTimeoutRef.current = window.setTimeout(() => {
+      dispatchNav({ type: "close" });
+      hoverCloseTimeoutRef.current = null;
+    }, 320);
+  }
+
+  function focusMenuItem(menuId: string, placement: "first" | "last") {
+    const menu = document.getElementById(menuId);
+    const links = menu ? Array.from(menu.querySelectorAll<HTMLAnchorElement>("a[href]")) : [];
+    const target = placement === "last" ? links.at(-1) : links[0];
+    target?.focus();
   }
 
   function onMenuKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -129,6 +180,44 @@ export function CategoryNav({ categories }: { categories: NavigationCategory[] }
       event.preventDefault();
       closeMenu();
       buttonRefs.current.get(openCategoryId ?? "")?.focus();
+      return;
+    }
+
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+      return;
+    }
+
+    const links = Array.from(event.currentTarget.querySelectorAll<HTMLAnchorElement>("a[href]"));
+    if (!links.length) return;
+
+    event.preventDefault();
+    const activeIndex = links.findIndex((link) => link === document.activeElement);
+    const nextIndex =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? links.length - 1
+          : event.key === "ArrowUp"
+            ? activeIndex <= 0
+              ? links.length - 1
+              : activeIndex - 1
+            : activeIndex >= links.length - 1
+              ? 0
+              : activeIndex + 1;
+
+    links[nextIndex]?.focus();
+  }
+
+  function onButtonKeyDown(event: KeyboardEvent<HTMLButtonElement>, categoryId: string, menuId: string, isOpen: boolean) {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      openMenuByKeyboard(categoryId, menuId, event.key === "ArrowUp" ? "last" : "first");
+      return;
+    }
+
+    if (event.key === "Escape" && isOpen) {
+      event.preventDefault();
+      closeMenu();
     }
   }
 
@@ -164,10 +253,16 @@ export function CategoryNav({ categories }: { categories: NavigationCategory[] }
             key={category.id}
             className="relative shrink-0"
             onPointerEnter={(event) => {
-              if (event.pointerType === "mouse" && !pinnedCategoryId) openMenu(category.id);
+              if (event.pointerType === "mouse" && !pinnedCategoryId) openMenuByHover(category.id);
             }}
             onPointerLeave={(event) => {
-              if (event.pointerType === "mouse" && pinnedCategoryId !== category.id) closeMenu();
+              if (
+                event.pointerType === "mouse" &&
+                pinnedCategoryId !== category.id &&
+                !isPointerStillInside(event.currentTarget, event.relatedTarget)
+              ) {
+                scheduleHoverClose(category.id);
+              }
             }}
             onBlur={(event) => {
               if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) {
@@ -189,12 +284,9 @@ export function CategoryNav({ categories }: { categories: NavigationCategory[] }
               aria-controls={menuId}
               aria-haspopup="true"
               onClick={() => {
-                if (isOpen && pinnedCategoryId === category.id) {
-                  closeMenu();
-                } else {
-                  openMenu(category.id, { pinned: true });
-                }
+                toggleMenuByClick(category.id);
               }}
+              onKeyDown={(event) => onButtonKeyDown(event, category.id, menuId, isOpen)}
             >
               {category.name}
               <ChevronDown
@@ -205,18 +297,30 @@ export function CategoryNav({ categories }: { categories: NavigationCategory[] }
 
             <div
               id={menuId}
+              data-category-menu
               className={`top-[var(--accessory-menu-top)] fixed left-4 right-4 z-50 overflow-y-auto rounded-lg border border-neutral-200 bg-white p-2 text-neutral-900 shadow-2xl transition-[opacity,transform,visibility] duration-150 ease-out lg:absolute lg:left-0 lg:right-auto lg:top-full lg:mt-2 lg:min-w-56 ${
                 isOpen ? "visible translate-y-0 opacity-100" : "invisible pointer-events-none -translate-y-1 opacity-0"
               }`}
               style={menuStyle}
               aria-hidden={!isOpen}
+              onPointerEnter={(event) => {
+                if (event.pointerType === "mouse") {
+                  clearHoverCloseTimer();
+                  dispatchNav({ type: "cancel-hover-close" });
+                }
+              }}
+              onPointerLeave={(event) => {
+                if (event.pointerType === "mouse" && !isPointerStillInside(event.currentTarget, event.relatedTarget)) {
+                  scheduleHoverClose(category.id);
+                }
+              }}
               onKeyDown={onMenuKeyDown}
             >
-              <Link href={`/categoria/${category.slug}`} className={categoryMenuLinkClass} onClick={closeMenu}>
+              <Link href={`/categoria/${category.slug}`} className={categoryMenuLinkClass} onClick={selectMenuItem}>
                 Ver todos
               </Link>
               {category.children.map((child) => (
-                <Link key={child.id} href={`/categoria/${child.slug}`} className={categoryMenuLinkClass} onClick={closeMenu}>
+                <Link key={child.id} href={`/categoria/${child.slug}`} className={categoryMenuLinkClass} onClick={selectMenuItem}>
                   {child.name}
                 </Link>
               ))}
