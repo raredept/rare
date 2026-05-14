@@ -23,16 +23,16 @@ function getSafeLogMessage(error: unknown) {
 }
 
 export async function POST(request: NextRequest) {
+  const signature = request.headers.get("stripe-signature");
+  if (!signature) {
+    return NextResponse.json({ error: "Missing signature" }, { status: 400 });
+  }
+
   let webhookSecret: string;
   try {
     webhookSecret = getStripeWebhookSecret();
   } catch {
     return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
-  }
-
-  const signature = request.headers.get("stripe-signature");
-  if (!signature) {
-    return NextResponse.json({ error: "Missing signature" }, { status: 400 });
   }
 
   const rawBody = await request.text();
