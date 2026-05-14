@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# RARE
 
-## Getting Started
+Plataforma e-commerce para catalogo, carrinho, checkout, conta de cliente e admin.
 
-First, run the development server:
+## Stack
+
+- Next.js
+- TypeScript
+- Prisma
+- PostgreSQL
+- Stripe-ready
+- Storage-ready
+
+## Setup local
 
 ```bash
+npm install
+cp .env.example .env
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Use `.env.example` como referencia para as variaveis locais. Nao versionar `.env`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Comandos principais
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm install
+npm run dev
+npm run lint
+npm run typecheck
+npm test
+npm run build
+```
 
-## Learn More
+## Banco e Prisma
 
-To learn more about Next.js, take a look at the following resources:
+Configure `DATABASE_URL` em `.env` para desenvolvimento local. Para trabalhar com migrations, configure tambem `SHADOW_DATABASE_URL` apontando para um banco shadow separado e limpo.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Comandos uteis:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run db:check
+npx prisma validate
+npx prisma migrate status
+npx prisma migrate deploy
+```
 
-## Deploy on Vercel
+## Producao
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Producao requer variaveis de ambiente configuradas no provedor, banco PostgreSQL externo, Stripe, webhook assinado e storage persistente. Secrets reais devem ficar somente no ambiente privado ou no painel do provedor.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Documentacao tecnica
+
+- [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)
+- [LOCAL_DATABASE_GUIDE.md](./LOCAL_DATABASE_GUIDE.md)
+- [ADMIN_MEDIA_STORAGE_GUIDE.md](./ADMIN_MEDIA_STORAGE_GUIDE.md)
+- [DOMAIN_EMAIL_SETUP_GUIDE.md](./DOMAIN_EMAIL_SETUP_GUIDE.md)
+- [PRIVACY_NOTES.md](./PRIVACY_NOTES.md)

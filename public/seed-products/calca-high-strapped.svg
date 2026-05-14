@@ -1,0 +1,8 @@
+<svg width="900" height="1100" viewBox="0 0 900 1100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="900" height="1100" fill="#F6F6F6"/>
+  <path d="M325 175H575L610 965H500L450 385L400 965H290L325 175Z" fill="#111111"/>
+  <path d="M305 315L595 240" stroke="#F8F8F8" stroke-width="26" stroke-linecap="round"/>
+  <path d="M315 385L595 310" stroke="#F8F8F8" stroke-width="18" stroke-linecap="round"/>
+  <path d="M360 215H540" stroke="#F8F8F8" stroke-width="18" stroke-linecap="round"/>
+  <text x="450" y="1030" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="700" fill="#111111">Calça - HIGH STRAPPED</text>
+</svg>

@@ -1,0 +1,277 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+}
+
+enum OrderStatus {
+  pending
+  awaiting_payment
+  paid
+  processing
+  shipped
+  delivered
+  canceled
+  refunded
+  failed
+}
+
+enum PaymentProvider {
+  stripe
+}
+
+enum InventoryMovementType {
+  reserve
+  release
+  sale
+  adjustment
+  manual
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         UserRole @default(ADMIN)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Customer {
+  id              String            @id @default(cuid())
+  name            String
+  email           String            @unique
+  phone           String?
+  cpf             String?
+  passwordHash    String
+  emailVerifiedAt DateTime?
+  active          Boolean           @default(true)
+  addresses       CustomerAddress[]
+  orders          Order[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([active, createdAt])
+}
+
+model CustomerAddress {
+  id            String   @id @default(cuid())
+  customerId    String
+  customer      Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  label         String?
+  recipientName String?
+  phone         String?
+  cep           String
+  street        String
+  number        String
+  complement    String?
+  neighborhood  String
+  city          String
+  state         String
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([customerId, isDefault])
+}
+
+model Category {
+  id                  String     @id @default(cuid())
+  name                String
+  slug                String     @unique
+  parentId            String?
+  parent              Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children            Category[] @relation("CategoryHierarchy")
+  sortOrder           Int        @default(0)
+  active              Boolean    @default(true)
+  products            Product[]  @relation("ProductCategory")
+  subcategoryProducts Product[]  @relation("ProductSubcategory")
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  @@index([parentId, sortOrder])
+  @@index([active, sortOrder])
+}
+
+model Product {
+  id                    String              @id @default(cuid())
+  title                 String
+  slug                  String              @unique
+  description           String
+  shortDescription      String
+  brand                 String?
+  categoryId            String?
+  category              Category?           @relation("ProductCategory", fields: [categoryId], references: [id], onDelete: SetNull)
+  subcategoryId         String?
+  subcategory           Category?           @relation("ProductSubcategory", fields: [subcategoryId], references: [id], onDelete: SetNull)
+  priceInCents          Int
+  compareAtPriceInCents Int?
+  weightGrams           Int?
+  lengthCm              Int?
+  widthCm               Int?
+  heightCm              Int?
+  active                Boolean             @default(true)
+  featured              Boolean             @default(false)
+  sortOrder             Int                 @default(0)
+  images                ProductImage[]
+  variants              ProductVariant[]
+  orderItems            OrderItem[]
+  inventoryMovements    InventoryMovement[]
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  @@index([active, featured, sortOrder])
+  @@index([categoryId, active])
+  @@index([subcategoryId, active])
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  alt       String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId, sortOrder])
+}
+
+model ProductVariant {
+  id                 String              @id @default(cuid())
+  productId          String
+  product            Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  size               String
+  sku                String?
+  stock              Int                 @default(0)
+  reservedStock      Int                 @default(0)
+  active             Boolean             @default(true)
+  orderItems         OrderItem[]
+  inventoryMovements InventoryMovement[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@unique([productId, size])
+  @@index([active])
+}
+
+model Order {
+  id                      String              @id @default(cuid())
+  orderNumber             String              @unique
+  customerId              String?
+  customer                Customer?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customerName            String?
+  customerEmail           String?
+  customerPhone           String?
+  customerDocument        String?
+  customerEmailSnapshot   String?
+  customerNameSnapshot    String?
+  customerPhoneSnapshot   String?
+  customerCpfSnapshot     String?
+  shippingAddressSnapshot Json?
+  billingAddressSnapshot  Json?
+  shippingMethodSnapshot  String?
+  shippingCepSnapshot     String?
+  cep                     String?
+  addressLine1            String?
+  addressLine2            String?
+  neighborhood            String?
+  city                    String?
+  state                   String?
+  subtotalInCents         Int
+  shippingInCents         Int                 @default(0)
+  totalInCents            Int
+  status                  OrderStatus         @default(pending)
+  paymentProvider         PaymentProvider     @default(stripe)
+  stripeCheckoutSessionId String?             @unique
+  stripePaymentIntentId   String?
+  paymentMethod           String?
+  reservationExpiresAt    DateTime?
+  paidAt                  DateTime?
+  items                   OrderItem[]
+  inventoryMovements      InventoryMovement[]
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+
+  @@index([status, createdAt])
+  @@index([createdAt])
+  @@index([customerId, createdAt])
+  @@index([customerEmailSnapshot])
+  @@index([stripePaymentIntentId])
+}
+
+model OrderItem {
+  id                   String              @id @default(cuid())
+  orderId              String
+  order                Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId            String?
+  product              Product?            @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productTitleSnapshot String
+  variantId            String?
+  variant              ProductVariant?     @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  sizeSnapshot         String
+  quantity             Int
+  unitPriceInCents     Int
+  totalInCents         Int
+  inventoryMovements   InventoryMovement[]
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([variantId])
+}
+
+model InventoryMovement {
+  id            String                @id @default(cuid())
+  type          InventoryMovementType
+  productId     String?
+  product       Product?              @relation(fields: [productId], references: [id], onDelete: SetNull)
+  variantId     String?
+  variant       ProductVariant?       @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  orderId       String?
+  order         Order?                @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  orderItemId   String?
+  orderItem     OrderItem?            @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+  stockDelta    Int                   @default(0)
+  reservedDelta Int                   @default(0)
+  reason        String?
+  createdAt     DateTime              @default(now())
+
+  @@index([variantId, createdAt])
+  @@index([orderId])
+}
+
+model StoreSettings {
+  id                           String   @id @default("store")
+  storeName                    String   @default("RARE STORE")
+  whatsappNumber               String?
+  whatsappDefaultMessage       String   @default("Ola, tenho interesse nesse produto da RARE STORE.")
+  manualShippingInCents        Int      @default(0)
+  freeShippingMinInCents       Int?
+  originCep                    String?
+  shippingMode                 String   @default("fixed")
+  fixedShippingInCents         Int      @default(0)
+  freeShippingThresholdInCents Int?
+  shippingInstructions         String?
+  checkoutRequiresAddress      Boolean  @default(true)
+  checkoutReservationMinutes   Int      @default(30)
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+}
+
+model StripeEvent {
+  id          String   @id
+  type        String
+  processedAt DateTime @default(now())
+  orderId     String?
+}

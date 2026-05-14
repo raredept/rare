@@ -1,0 +1,9 @@
+<svg width="900" height="1100" viewBox="0 0 900 1100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="900" height="1100" fill="#F4F4F4"/>
+  <rect x="130" y="285" width="470" height="250" rx="120" fill="#111111"/>
+  <path d="M535 410C650 390 735 415 790 485C725 525 635 535 545 520L535 410Z" fill="#1F1F1F"/>
+  <rect x="275" y="372" width="220" height="72" rx="10" fill="#E31B23"/>
+  <text x="385" y="420" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="800" fill="white">SUPREME</text>
+  <text x="450" y="820" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="700" fill="#111111">Boné - SUPREME</text>
+  <text x="450" y="875" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24" fill="#666666">RARE</text>
+</svg>

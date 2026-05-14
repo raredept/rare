@@ -1,0 +1,9 @@
+<svg width="900" height="1100" viewBox="0 0 900 1100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="900" height="1100" fill="#F5F5F5"/>
+  <path d="M330 165H570L640 410L575 445V735H325V445L260 410L330 165Z" fill="#141414"/>
+  <path d="M330 755H440L415 955H300L330 755Z" fill="#1B1B1B"/>
+  <path d="M460 755H570L600 955H485L460 755Z" fill="#1B1B1B"/>
+  <path d="M360 245C405 285 490 285 540 245" stroke="#F8F8F8" stroke-width="16" stroke-linecap="round"/>
+  <path d="M560 345C595 345 615 360 630 385" stroke="#F8F8F8" stroke-width="14" stroke-linecap="round"/>
+  <text x="450" y="1010" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="700" fill="#111111">Conjunto - NIKE TECH</text>
+</svg>

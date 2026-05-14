@@ -1,0 +1,41 @@
+import { NextResponse, type NextRequest } from "next/server";
+import { requireAdmin } from "@/lib/auth";
+import { getMaxUploadBytes, saveUploadedImage } from "@/lib/storage";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const maxFilesPerRequest = 8;
+
+export async function POST(request: NextRequest) {
+  await requireAdmin();
+
+  try {
+    const contentLength = Number(request.headers.get("content-length") ?? 0);
+    const maxRequestBytes = getMaxUploadBytes() * maxFilesPerRequest;
+    if (Number.isFinite(contentLength) && contentLength > maxRequestBytes) {
+      return NextResponse.json({ error: "Upload maior que o limite permitido." }, { status: 413 });
+    }
+
+    const formData = await request.formData();
+    const files = formData.getAll("files").filter((value): value is File => value instanceof File);
+
+    if (!files.length) {
+      return NextResponse.json({ error: "Nenhum arquivo enviado." }, { status: 400 });
+    }
+
+    if (files.length > maxFilesPerRequest) {
+      return NextResponse.json({ error: `Envie no maximo ${maxFilesPerRequest} arquivos por vez.` }, { status: 400 });
+    }
+
+    const uploads = [];
+    for (const file of files) {
+      uploads.push(await saveUploadedImage(file));
+    }
+
+    return NextResponse.json({ uploads });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Falha no upload.";
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
+}

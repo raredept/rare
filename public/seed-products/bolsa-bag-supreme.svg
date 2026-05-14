@@ -1,0 +1,8 @@
+<svg width="900" height="1100" viewBox="0 0 900 1100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="900" height="1100" fill="#F4F4F4"/>
+  <path d="M255 360H645C690 360 725 395 725 440V720C725 765 690 800 645 800H255C210 800 175 765 175 720V440C175 395 210 360 255 360Z" fill="#111111"/>
+  <path d="M305 360C330 235 570 235 595 360" stroke="#111111" stroke-width="42" stroke-linecap="round"/>
+  <rect x="295" y="520" width="310" height="90" rx="10" fill="#E31B23"/>
+  <text x="450" y="578" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="44" font-weight="800" fill="white">SUPREME</text>
+  <text x="450" y="915" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="700" fill="#111111">Bolsa/Bag - SUPREME</text>
+</svg>
