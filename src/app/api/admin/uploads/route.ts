@@ -1,18 +1,18 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/auth";
-import { getMaxUploadBytes, saveUploadedImage } from "@/lib/storage";
+import { getMaxAcceptedUploadBytes, saveUploadedImage } from "@/lib/storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const maxFilesPerRequest = 8;
+const maxFilesPerRequest = 10;
 
 export async function POST(request: NextRequest) {
   await requireAdmin();
 
   try {
     const contentLength = Number(request.headers.get("content-length") ?? 0);
-    const maxRequestBytes = getMaxUploadBytes() * maxFilesPerRequest;
+    const maxRequestBytes = getMaxAcceptedUploadBytes() * maxFilesPerRequest;
     if (Number.isFinite(contentLength) && contentLength > maxRequestBytes) {
       return NextResponse.json({ error: "Upload maior que o limite permitido." }, { status: 413 });
     }

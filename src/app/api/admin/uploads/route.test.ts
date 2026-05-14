@@ -3,7 +3,7 @@ import { POST } from "@/app/api/admin/uploads/route";
 
 const routeMocks = vi.hoisted(() => ({
   requireAdmin: vi.fn(),
-  getMaxUploadBytes: vi.fn(() => 5 * 1024 * 1024),
+  getMaxAcceptedUploadBytes: vi.fn(() => 30 * 1024 * 1024),
   saveUploadedImage: vi.fn(),
 }));
 
@@ -12,7 +12,7 @@ vi.mock("@/lib/auth", () => ({
 }));
 
 vi.mock("@/lib/storage", () => ({
-  getMaxUploadBytes: routeMocks.getMaxUploadBytes,
+  getMaxAcceptedUploadBytes: routeMocks.getMaxAcceptedUploadBytes,
   saveUploadedImage: routeMocks.saveUploadedImage,
 }));
 

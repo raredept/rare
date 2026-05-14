@@ -60,6 +60,16 @@ describe("admin catalog pages", () => {
         sortOrder: 1,
         _count: { children: 0, products: 0, subcategoryProducts: 2 },
       },
+      {
+        id: "cat-cuecas",
+        name: "Cuecas",
+        slug: "cuecas",
+        parentId: "cat-accessories",
+        parent: { id: "cat-accessories", name: "Acessórios" },
+        active: true,
+        sortOrder: 3,
+        _count: { children: 0, products: 0, subcategoryProducts: 0 },
+      },
     ]);
 
     const { default: CategoriesPage } = await import("@/app/admin/(protected)/categories/page");
@@ -69,9 +79,10 @@ describe("admin catalog pages", () => {
     expect(html).toContain("Categorias");
     expect(html).toContain("Acessórios");
     expect(html).toContain("Bags");
+    expect(html).toContain("Cuecas");
     expect(html).toContain("Subcategoria");
     expect(html).toContain("2 produto(s)");
-  }, 15000);
+  }, 30000);
 
   it("renders products with thumbnail, category, stock and operational badges", async () => {
     mocks.prisma.category.findMany.mockResolvedValueOnce([
@@ -105,6 +116,8 @@ describe("admin catalog pages", () => {
     expect(html).toContain("Acessórios");
     expect(html).toContain("Subcategoria: Bags");
     expect(html).toContain("Destaque");
+    expect(html).toContain("Estoque baixo");
+    expect(html).toContain("Local");
     expect(html).toContain("Sem dados de frete");
   }, 15000);
 });

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { ProductDetailClient } from "@/components/store/product-detail-client";
 import { getAppUrl } from "@/lib/env";
+import { isProductVideoUrl } from "@/lib/product-media";
 import { getStoreSettings } from "@/lib/settings";
 import { getProductBySlug } from "@/lib/storefront";
 
@@ -23,7 +24,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
     "@type": "Product",
     name: product.title,
     description: product.shortDescription,
-    image: product.images.map((image) => (image.url.startsWith("http") ? image.url : `${appUrl}${image.url}`)),
+    image: product.images
+      .filter((image) => !isProductVideoUrl(image.url))
+      .map((image) => (image.url.startsWith("http") ? image.url : `${appUrl}${image.url}`)),
     offers: {
       "@type": "Offer",
       priceCurrency: "BRL",

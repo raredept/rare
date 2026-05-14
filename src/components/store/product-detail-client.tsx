@@ -3,8 +3,10 @@
 import { ChevronLeft, ChevronRight, ShieldCheck, Truck } from "lucide-react";
 import { useState } from "react";
 import { useCart } from "@/components/store/cart-context";
+import { ProductMedia } from "@/components/store/product-media";
 import { ProductMediaPlaceholder } from "@/components/store/product-media-placeholder";
 import { formatMoney } from "@/lib/money";
+import { getPreferredProductCardMedia, getProductMediaLabel, getProductMediaTypeFromUrl } from "@/lib/product-media";
 import { getAvailableStock } from "@/lib/stock";
 
 type ProductDetailClientProps = {
@@ -36,6 +38,7 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
   const [quantity, setQuantity] = useState(1);
   const [feedback, setFeedback] = useState<string | null>(null);
   const image = product.images[imageIndex];
+  const cartImage = getPreferredProductCardMedia(product.images);
   const soldOut = purchasableVariants.every((variant) => getAvailableStock(variant.stock, variant.reservedStock) <= 0);
 
   const selectedSize = selectedVariant?.size;
@@ -55,7 +58,7 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
       title: product.title,
       slug: product.slug,
       size: selectedVariant.size,
-      image: product.images[0]?.url,
+      image: cartImage?.url,
       priceInCents: product.priceInCents,
       quantity: safeQuantity,
       maxQuantity: availableStock,
@@ -68,7 +71,14 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
       <section className="min-w-0">
         <div className="relative aspect-[4/5] overflow-hidden rounded-lg border border-neutral-200 bg-white p-2 shadow-[0_18px_55px_rgba(15,23,42,0.08)]">
           {image ? (
-            <img src={image.url} alt={image.alt} className="store-product-image h-full w-full rounded-lg object-cover" />
+            <ProductMedia
+              url={image.url}
+              alt={image.alt}
+              controls={getProductMediaTypeFromUrl(image.url) === "video"}
+              loading="eager"
+              placeholderLabel="Mídia indisponível"
+              className="store-product-image h-full w-full rounded-lg object-cover"
+            />
           ) : (
             <ProductMediaPlaceholder label="Produto sem imagem" className="rounded-lg" />
           )}
@@ -93,6 +103,36 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
             </>
           ) : null}
         </div>
+        {product.images.length > 1 ? (
+          <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-5 lg:grid-cols-6">
+            {product.images.map((media, index) => {
+              const mediaType = getProductMediaTypeFromUrl(media.url);
+              return (
+                <button
+                  key={media.url}
+                  type="button"
+                  className={`relative aspect-square overflow-hidden rounded-lg border bg-white p-1 transition-[border-color,box-shadow,transform] duration-150 hover:border-neutral-950/40 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 ${
+                    index === imageIndex ? "border-neutral-950 shadow-[0_10px_30px_rgba(15,23,42,0.12)]" : "border-neutral-200"
+                  }`}
+                  onClick={() => setImageIndex(index)}
+                  aria-label={`Selecionar ${getProductMediaLabel(mediaType).toLowerCase()} ${index + 1}`}
+                >
+                  <ProductMedia
+                    url={media.url}
+                    alt=""
+                    placeholderLabel="Mídia indisponível"
+                    className="h-full w-full rounded-md object-cover"
+                  />
+                  {mediaType === "video" ? (
+                    <span className="absolute bottom-1 left-1 rounded bg-black px-1.5 py-0.5 text-[9px] font-black uppercase text-white">
+                      Vídeo
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
       </section>
 
       <aside className="lg:sticky lg:top-36 lg:self-start">

@@ -1,0 +1,23 @@
+import { describe, expect, it } from "vitest";
+import { getPreferredProductCardMedia, getProductMediaTypeFromUrl, isProductVideoUrl } from "@/lib/product-media";
+
+describe("product media helpers", () => {
+  it("infers media type from public URLs", () => {
+    expect(getProductMediaTypeFromUrl("/uploads/products/a.jpg")).toBe("image");
+    expect(getProductMediaTypeFromUrl("/uploads/products/a.webp")).toBe("image");
+    expect(getProductMediaTypeFromUrl("/uploads/products/a.gif")).toBe("gif");
+    expect(getProductMediaTypeFromUrl("https://media.rare.example/products/a.mp4?cache=1")).toBe("video");
+    expect(getProductMediaTypeFromUrl("/uploads/products/a.bin")).toBe("unknown");
+  });
+
+  it("prefers image or GIF media for product cards", () => {
+    const media = [
+      { url: "/uploads/products/a.mp4" },
+      { url: "/uploads/products/a.gif" },
+      { url: "/uploads/products/a.webp" },
+    ];
+
+    expect(getPreferredProductCardMedia(media)?.url).toBe("/uploads/products/a.gif");
+    expect(isProductVideoUrl(media[0].url)).toBe(true);
+  });
+});

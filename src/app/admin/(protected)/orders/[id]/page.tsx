@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { updateOrderStatusAction } from "@/app/admin/(protected)/orders/actions";
+import { AdminSubmitButton } from "@/components/admin/admin-submit-button";
 import { formatCep } from "@/lib/cep";
 import { formatAddressSnapshotLines } from "@/lib/customer-order";
 import { formatMoney } from "@/lib/money";
@@ -122,7 +123,11 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
               <option value="canceled">Cancelado</option>
               <option value="refunded">Reembolsado</option>
             </select>
-            <button className="mt-4 h-11 w-full rounded-lg bg-black text-sm font-black text-white">Salvar status</button>
+            <AdminSubmitButton
+              idleLabel="Salvar status"
+              pendingLabel="Salvando..."
+              className="mt-4 h-11 w-full rounded-lg bg-black text-sm font-black text-white"
+            />
           </form>
 
           <section className="rounded-lg border border-neutral-200 bg-white p-5">

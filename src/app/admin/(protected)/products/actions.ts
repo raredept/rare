@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { normalizeProductImageUrls, resolveProductImageSubmission } from "@/lib/admin-product-images";
 import { parseMoneyToCents } from "@/lib/money";
 import { requireAdmin } from "@/lib/auth";
 import { saveUploadedImage } from "@/lib/storage";
@@ -30,10 +31,34 @@ function parseOptionalPositiveInt(formData: FormData, key: string) {
 }
 
 function parseImageUrls(formData: FormData) {
-  return getString(formData, "imageUrls")
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+  return normalizeProductImageUrls(getString(formData, "imageUrls").split(/\r?\n/));
+}
+
+type ProductRevalidationData = {
+  id: string;
+  slug: string;
+  category: { slug: string } | null;
+  subcategory: { slug: string } | null;
+};
+
+function revalidateProductPaths(product: ProductRevalidationData, previousProduct?: ProductRevalidationData | null) {
+  revalidatePath("/");
+  revalidatePath("/admin/products");
+  revalidatePath(`/admin/products/${product.id}/edit`);
+  revalidatePath(`/produto/${product.slug}`);
+
+  if (previousProduct?.slug && previousProduct.slug !== product.slug) {
+    revalidatePath(`/produto/${previousProduct.slug}`);
+  }
+
+  const categorySlugs = new Set(
+    [product.category?.slug, product.subcategory?.slug, previousProduct?.category?.slug, previousProduct?.subcategory?.slug].filter(
+      Boolean,
+    ) as string[],
+  );
+  for (const slug of categorySlugs) {
+    revalidatePath(`/categoria/${slug}`);
+  }
 }
 
 type ParsedVariant = {
@@ -120,6 +145,17 @@ export async function saveProductAction(productId: string | null, formData: Form
 
   const parsed = parsedResult.data;
   const slug = parsed.slug ? slugify(parsed.slug) : slugify(title);
+  const previousProduct = productId
+    ? await prisma.product.findUnique({
+        where: { id: productId },
+        select: {
+          id: true,
+          slug: true,
+          category: { select: { slug: true } },
+          subcategory: { select: { slug: true } },
+        },
+      })
+    : null;
   const existingImageUrls = parseImageUrls(formData);
   let uploadedUrls: string[];
   try {
@@ -128,9 +164,13 @@ export async function saveProductAction(productId: string | null, formData: Form
     const message = error instanceof Error ? error.message : "Falha ao processar imagem enviada.";
     redirectWithProductFormError(productId, message);
   }
-  const imageUrls = [...existingImageUrls, ...uploadedUrls];
+  const imageUrls = resolveProductImageSubmission({
+    existingImageUrls,
+    uploadedUrls,
+    replaceImages: formData.get("replaceImages") === "on",
+  });
 
-  await prisma.$transaction(async (tx) => {
+  const savedProduct = await prisma.$transaction(async (tx) => {
     const product = productId
       ? await tx.product.update({
           where: { id: productId },
@@ -152,6 +192,10 @@ export async function saveProductAction(productId: string | null, formData: Form
             featured: parsed.featured,
             sortOrder: parsed.sortOrder,
           },
+          include: {
+            category: { select: { slug: true } },
+            subcategory: { select: { slug: true } },
+          },
         })
       : await tx.product.create({
           data: {
@@ -171,6 +215,10 @@ export async function saveProductAction(productId: string | null, formData: Form
             active: parsed.active,
             featured: parsed.featured,
             sortOrder: parsed.sortOrder,
+          },
+          include: {
+            category: { select: { slug: true } },
+            subcategory: { select: { slug: true } },
           },
         });
 
@@ -221,26 +269,48 @@ export async function saveProductAction(productId: string | null, formData: Form
       },
       data: { active: false },
     });
+
+    return product;
   });
 
-  revalidatePath("/");
-  revalidatePath("/admin/products");
-  redirect("/admin/products");
+  revalidateProductPaths(savedProduct, previousProduct);
+  redirect(`/admin/products/${savedProduct.id}/edit?success=${productId ? "product-saved" : "product-created"}`);
 }
 
 export async function toggleProductActiveAction(formData: FormData) {
   await requireAdmin();
   const id = getString(formData, "id");
   const active = getString(formData, "active") === "true";
-  await prisma.product.update({ where: { id }, data: { active: !active } });
-  revalidatePath("/");
-  revalidatePath("/admin/products");
+  const product = await prisma.product.update({
+    where: { id },
+    data: { active: !active },
+    include: {
+      category: { select: { slug: true } },
+      subcategory: { select: { slug: true } },
+    },
+  });
+  revalidateProductPaths(product);
+  redirect(`/admin/products?success=${product.active ? "product-visible" : "product-hidden"}`);
 }
 
 export async function deleteProductAction(formData: FormData) {
   await requireAdmin();
   const id = getString(formData, "id");
+  const product = await prisma.product.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      slug: true,
+      category: { select: { slug: true } },
+      subcategory: { select: { slug: true } },
+    },
+  });
   await prisma.product.delete({ where: { id } });
-  revalidatePath("/");
-  revalidatePath("/admin/products");
+  if (product) {
+    revalidateProductPaths(product);
+  } else {
+    revalidatePath("/");
+    revalidatePath("/admin/products");
+  }
+  redirect("/admin/products?success=product-deleted");
 }

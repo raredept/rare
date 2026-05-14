@@ -11,29 +11,54 @@ import {
 } from "@/lib/env";
 
 const DEFAULT_MAX_UPLOAD_SIZE_MB = 5;
+const DEFAULT_MAX_GIF_UPLOAD_SIZE_MB = 10;
+const DEFAULT_MAX_VIDEO_UPLOAD_SIZE_MB = 30;
 const UPLOAD_CACHE_CONTROL = "public, max-age=31536000, immutable";
 
 const allowedMimeTypes = new Map([
   ["image/jpeg", ["jpg", "jpeg"]],
   ["image/png", ["png"]],
   ["image/webp", ["webp"]],
+  ["image/gif", ["gif"]],
+  ["video/mp4", ["mp4"]],
 ]);
 
 const publicExtensionByMimeType = new Map([
   ["image/jpeg", "jpg"],
   ["image/png", "png"],
   ["image/webp", "webp"],
+  ["image/gif", "gif"],
+  ["video/mp4", "mp4"],
 ]);
 
-export function getMaxUploadBytes() {
-  const maxMb = Number(process.env.MAX_UPLOAD_SIZE_MB ?? 5);
-  const safeMaxMb = Number.isFinite(maxMb) && maxMb > 0 ? maxMb : DEFAULT_MAX_UPLOAD_SIZE_MB;
+function getConfiguredMaxMb(variable: string, fallback: number) {
+  const maxMb = Number(process.env[variable] ?? fallback);
+  return Number.isFinite(maxMb) && maxMb > 0 ? Math.max(1, maxMb) : fallback;
+}
+
+export function getMaxUploadSizeMb(mimeType?: string) {
+  if (mimeType === "image/gif") {
+    return getConfiguredMaxMb("MAX_GIF_UPLOAD_SIZE_MB", DEFAULT_MAX_GIF_UPLOAD_SIZE_MB);
+  }
+
+  if (mimeType === "video/mp4") {
+    return getConfiguredMaxMb("MAX_VIDEO_UPLOAD_SIZE_MB", DEFAULT_MAX_VIDEO_UPLOAD_SIZE_MB);
+  }
+
+  return getConfiguredMaxMb("MAX_UPLOAD_SIZE_MB", DEFAULT_MAX_UPLOAD_SIZE_MB);
+}
+
+export function getMaxUploadBytes(mimeType?: string) {
+  const safeMaxMb = getMaxUploadSizeMb(mimeType);
   return Math.max(1, safeMaxMb) * 1024 * 1024;
 }
 
-export function getMaxUploadSizeMb() {
-  const maxMb = Number(process.env.MAX_UPLOAD_SIZE_MB ?? DEFAULT_MAX_UPLOAD_SIZE_MB);
-  return Number.isFinite(maxMb) && maxMb > 0 ? Math.max(1, maxMb) : DEFAULT_MAX_UPLOAD_SIZE_MB;
+export function getMaxAcceptedUploadBytes() {
+  return Math.max(
+    getMaxUploadBytes("image/jpeg"),
+    getMaxUploadBytes("image/gif"),
+    getMaxUploadBytes("video/mp4"),
+  );
 }
 
 function getFileExtension(fileName: string) {
@@ -59,21 +84,21 @@ export function sanitizeUploadFilenameStem(fileName: string) {
 export function validateUploadedImageMetadata(file: Pick<File, "name" | "type" | "size">) {
   const allowedExtensions = allowedMimeTypes.get(file.type);
   if (!allowedExtensions) {
-    throw new Error("Formato invalido. Envie JPG, PNG ou WEBP.");
+    throw new Error("Formato invalido. Envie JPG, PNG, WEBP, GIF ou MP4.");
   }
 
   const extension = getFileExtension(file.name);
   if (!allowedExtensions.includes(extension)) {
-    throw new Error("Extensao do arquivo nao corresponde ao formato da imagem.");
+    throw new Error("Extensao do arquivo nao corresponde ao formato da midia.");
   }
 
-  if (file.size > getMaxUploadBytes()) {
-    throw new Error(`Arquivo maior que ${getMaxUploadSizeMb()}MB.`);
+  if (file.size > getMaxUploadBytes(file.type)) {
+    throw new Error(`Arquivo maior que ${getMaxUploadSizeMb(file.type)}MB.`);
   }
 
   const publicExtension = publicExtensionByMimeType.get(file.type);
   if (!publicExtension) {
-    throw new Error("Formato invalido. Envie JPG, PNG ou WEBP.");
+    throw new Error("Formato invalido. Envie JPG, PNG, WEBP, GIF ou MP4.");
   }
 
   return publicExtension;
@@ -102,6 +127,15 @@ export function hasValidImageSignature(bytes: Buffer, extension: string) {
     return bytes.length >= 12 && bytes.subarray(0, 4).toString("ascii") === "RIFF" && bytes.subarray(8, 12).toString("ascii") === "WEBP";
   }
 
+  if (extension === "gif") {
+    const signature = bytes.subarray(0, 6).toString("ascii");
+    return signature === "GIF87a" || signature === "GIF89a";
+  }
+
+  if (extension === "mp4") {
+    return bytes.length >= 12 && bytes.subarray(4, 8).toString("ascii") === "ftyp";
+  }
+
   return false;
 }
 
@@ -118,7 +152,7 @@ export async function saveUploadedImage(file: File) {
   const bytes = Buffer.from(await file.arrayBuffer());
 
   if (!hasValidImageSignature(bytes, extension)) {
-    throw new Error("Arquivo de imagem invalido.");
+    throw new Error("Arquivo de midia invalido.");
   }
 
   assertUploadStorageReady();

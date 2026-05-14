@@ -55,6 +55,133 @@ textarea {
   }
 }
 
+.admin-dark {
+  color-scheme: dark;
+  background:
+    radial-gradient(circle at 24px 24px, rgb(255 255 255 / 0.035) 1px, transparent 0) 0 0 / 36px 36px,
+    #050505;
+}
+
+.admin-dark .admin-input {
+  border-color: #343434;
+  background: #0b0b0b;
+  color: #f5f5f5;
+}
+
+.admin-dark .admin-input::placeholder {
+  color: #6b7280;
+}
+
+.admin-dark .admin-input:focus {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 2px rgb(255 255 255 / 0.18);
+}
+
+.admin-dark .bg-white {
+  background-color: #101010;
+}
+
+.admin-dark .bg-neutral-50 {
+  background-color: #151515;
+}
+
+.admin-dark .bg-neutral-100 {
+  background-color: #1b1b1b;
+}
+
+.admin-dark .border-neutral-200 {
+  border-color: #272727;
+}
+
+.admin-dark .border-neutral-300 {
+  border-color: #3a3a3a;
+}
+
+.admin-dark .divide-neutral-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #272727;
+}
+
+.admin-dark .text-neutral-950,
+.admin-dark .text-neutral-900,
+.admin-dark .text-neutral-800 {
+  color: #f5f5f5;
+}
+
+.admin-dark .text-neutral-700,
+.admin-dark .text-neutral-600 {
+  color: #d4d4d4;
+}
+
+.admin-dark .text-neutral-500 {
+  color: #8b8b8b;
+}
+
+.admin-dark .text-neutral-400 {
+  color: #737373;
+}
+
+.admin-dark .bg-emerald-50 {
+  background-color: rgb(16 185 129 / 0.1);
+}
+
+.admin-dark .border-emerald-200 {
+  border-color: rgb(16 185 129 / 0.32);
+}
+
+.admin-dark .text-emerald-700 {
+  color: #a7f3d0;
+}
+
+.admin-dark .bg-red-50 {
+  background-color: rgb(239 68 68 / 0.1);
+}
+
+.admin-dark .border-red-200 {
+  border-color: rgb(239 68 68 / 0.32);
+}
+
+.admin-dark .text-red-700 {
+  color: #fecaca;
+}
+
+.admin-dark button.bg-black,
+.admin-dark a.bg-black {
+  background-color: #f5f5f5;
+  color: #050505;
+}
+
+.admin-dark button.bg-black:hover,
+.admin-dark a.bg-black:hover {
+  background-color: #ffffff;
+}
+
+.admin-dark input[type="checkbox"] {
+  accent-color: #ffffff;
+}
+
+.admin-page-transition {
+  animation: rare-admin-page-enter 180ms ease-out both;
+}
+
+.admin-loading-shell {
+  animation: rare-admin-loading-pulse 950ms ease-in-out infinite alternate;
+}
+
+.admin-media-card {
+  animation: rare-admin-media-enter 160ms ease-out both;
+}
+
+.admin-toast {
+  animation: rare-admin-toast-enter 180ms ease-out both;
+}
+
+.admin-dark button:disabled,
+.admin-dark input:disabled,
+.admin-dark select:disabled,
+.admin-dark textarea:disabled {
+  cursor: not-allowed;
+}
+
 .store-route-progress {
   pointer-events: none;
   position: fixed;
@@ -144,13 +271,60 @@ textarea {
   }
 }
 
+@keyframes rare-admin-page-enter {
+  from {
+    opacity: 0.94;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes rare-admin-media-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes rare-admin-toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes rare-admin-loading-pulse {
+  from {
+    opacity: 0.58;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .storefront-motion-root *,
   .store-route-progress,
   .store-route-progress span,
   .store-page-transition,
   .store-loading-shell,
-  .store-product-image {
+  .store-product-image,
+  .admin-page-transition,
+  .admin-loading-shell,
+  .admin-media-card,
+  .admin-toast,
+  .admin-dark * {
     animation-duration: 1ms !important;
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
@@ -163,7 +337,10 @@ textarea {
   .storefront-motion-root [data-category-menu],
   .store-product-image,
   .storefront-motion-root a,
-  .storefront-motion-root button {
+  .storefront-motion-root button,
+  .admin-page-transition,
+  .admin-media-card,
+  .admin-toast {
     transform: none !important;
   }
 }

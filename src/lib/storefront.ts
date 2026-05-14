@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { accessoryCatalogSubcategories } from "@/lib/catalog-categories";
 import { prisma } from "@/lib/prisma";
 
 export const productInclude = {
@@ -8,8 +9,10 @@ export const productInclude = {
   variants: { orderBy: { size: "asc" } },
 } satisfies Prisma.ProductInclude;
 
+const accessorySubcategoryOrder = new Map(accessoryCatalogSubcategories.map((category, index) => [category.slug, index]));
+
 export async function getNavigationCategories() {
-  return prisma.category.findMany({
+  const categories = await prisma.category.findMany({
     where: { active: true, parentId: null },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     include: {
@@ -18,6 +21,19 @@ export async function getNavigationCategories() {
         orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
       },
     },
+  });
+
+  return categories.map((category) => {
+    if (category.slug !== "acessorios") return category;
+
+    return {
+      ...category,
+      children: [...category.children].sort((first, second) => {
+        const firstOrder = accessorySubcategoryOrder.get(first.slug) ?? Number.MAX_SAFE_INTEGER;
+        const secondOrder = accessorySubcategoryOrder.get(second.slug) ?? Number.MAX_SAFE_INTEGER;
+        return firstOrder - secondOrder || first.sortOrder - second.sortOrder || first.name.localeCompare(second.name);
+      }),
+    };
   });
 }
 

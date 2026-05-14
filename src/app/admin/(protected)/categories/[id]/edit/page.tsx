@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { saveCategoryAction } from "@/app/admin/(protected)/categories/actions";
+import { AdminSubmitButton } from "@/components/admin/admin-submit-button";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +38,11 @@ export default async function EditCategoryPage({ params }: EditCategoryPageProps
           <input name="active" type="checkbox" defaultChecked={category.active} className="h-4 w-4" />
           Ativa
         </label>
-        <button className="h-11 rounded-lg bg-black px-6 text-sm font-black text-white">Salvar categoria</button>
+        <AdminSubmitButton
+          idleLabel="Salvar categoria"
+          pendingLabel="Salvando..."
+          className="h-11 rounded-lg bg-black px-6 text-sm font-black text-white"
+        />
       </form>
     </div>
   );

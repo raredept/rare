@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { formatMoney } from "@/lib/money";
+import { getPreferredProductCardMedia } from "@/lib/product-media";
 import { getAvailableStock } from "@/lib/stock";
+import { ProductMedia } from "@/components/store/product-media";
 import { ProductMediaPlaceholder } from "@/components/store/product-media-placeholder";
 
 type ProductCardProps = {
@@ -17,7 +19,7 @@ type ProductCardProps = {
 };
 
 export function ProductCard({ product }: ProductCardProps) {
-  const image = product.images[0];
+  const image = getPreferredProductCardMedia(product.images);
   const availableStock = product.variants
     .filter((variant) => variant.active)
     .reduce((sum, variant) => sum + getAvailableStock(variant.stock, variant.reservedStock), 0);
@@ -32,10 +34,11 @@ export function ProductCard({ product }: ProductCardProps) {
       >
         <div className="relative aspect-[4/5] overflow-hidden rounded-lg bg-neutral-100">
           {image ? (
-            <img
-              src={image.url}
+            <ProductMedia
+              url={image.url}
               alt={image.alt}
               loading="lazy"
+              placeholderLabel="Mídia indisponível"
               className="store-product-image h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.035] group-active:scale-[1.015]"
             />
           ) : (

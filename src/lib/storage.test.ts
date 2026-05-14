@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildObjectKey,
+  getMaxAcceptedUploadBytes,
   getMaxUploadBytes,
   hasValidImageSignature,
   saveUploadedImage,
@@ -32,6 +33,8 @@ const testStorageDir = path.join(process.cwd(), "output", "test-storage");
 const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const jpgBytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0]);
 const webpBytes = new Uint8Array(Buffer.from("RIFFxxxxWEBP", "ascii"));
+const gifBytes = new Uint8Array(Buffer.from("GIF89a", "ascii"));
+const mp4Bytes = new Uint8Array(Buffer.from([0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d]));
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -55,28 +58,27 @@ describe("storage helpers", () => {
   it("falls back to the safe upload limit when env is invalid", () => {
     process.env.MAX_UPLOAD_SIZE_MB = "not-a-number";
     expect(getMaxUploadBytes()).toBe(5 * 1024 * 1024);
+    expect(getMaxAcceptedUploadBytes()).toBe(30 * 1024 * 1024);
   });
 
-  it("validates image signatures against their declared extension", () => {
+  it("validates media signatures against their declared extension", () => {
     expect(hasValidImageSignature(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), "png")).toBe(true);
     expect(hasValidImageSignature(Buffer.from("<svg></svg>"), "png")).toBe(false);
     expect(hasValidImageSignature(Buffer.from("RIFFxxxxWEBP"), "webp")).toBe(true);
+    expect(hasValidImageSignature(Buffer.from("GIF89a"), "gif")).toBe(true);
+    expect(hasValidImageSignature(Buffer.from(mp4Bytes), "mp4")).toBe(true);
   });
 
-  it("accepts JPG, PNG and WEBP metadata", () => {
+  it("accepts JPG, PNG, WEBP, GIF and MP4 metadata", () => {
     expect(validateUploadedImageMetadata(new File([jpgBytes], "produto.jpeg", { type: "image/jpeg" }))).toBe("jpg");
     expect(validateUploadedImageMetadata(new File([pngBytes], "produto.png", { type: "image/png" }))).toBe("png");
     expect(validateUploadedImageMetadata(new File([webpBytes], "produto.webp", { type: "image/webp" }))).toBe("webp");
+    expect(validateUploadedImageMetadata(new File([gifBytes], "animado.gif", { type: "image/gif" }))).toBe("gif");
+    expect(validateUploadedImageMetadata(new File([mp4Bytes], "video.mp4", { type: "video/mp4" }))).toBe("mp4");
   });
 
-  it("rejects SVG, GIF and MP4 metadata", () => {
+  it("rejects SVG metadata", () => {
     expect(() => validateUploadedImageMetadata(new File([Buffer.from("<svg></svg>")], "icone.svg", { type: "image/svg+xml" }))).toThrow(
-      "Formato invalido",
-    );
-    expect(() => validateUploadedImageMetadata(new File([Buffer.from("GIF89a")], "animado.gif", { type: "image/gif" }))).toThrow(
-      "Formato invalido",
-    );
-    expect(() => validateUploadedImageMetadata(new File([Buffer.from("mp4")], "video.mp4", { type: "video/mp4" }))).toThrow(
       "Formato invalido",
     );
   });
@@ -86,6 +88,17 @@ describe("storage helpers", () => {
     const oversized = new File([new Uint8Array(1024 * 1024 + 1)], "grande.png", { type: "image/png" });
 
     expect(() => validateUploadedImageMetadata(oversized)).toThrow("Arquivo maior que 1MB.");
+  });
+
+  it("uses larger safe limits for GIF and MP4", () => {
+    process.env.MAX_GIF_UPLOAD_SIZE_MB = "2";
+    process.env.MAX_VIDEO_UPLOAD_SIZE_MB = "3";
+
+    const largeGif = new File([new Uint8Array(2 * 1024 * 1024 + 1)], "animado.gif", { type: "image/gif" });
+    const largeVideo = new File([new Uint8Array(3 * 1024 * 1024 + 1)], "video.mp4", { type: "video/mp4" });
+
+    expect(() => validateUploadedImageMetadata(largeGif)).toThrow("Arquivo maior que 2MB.");
+    expect(() => validateUploadedImageMetadata(largeVideo)).toThrow("Arquivo maior que 3MB.");
   });
 
   it("rejects extension and MIME mismatches", () => {
@@ -143,7 +156,7 @@ describe("storage helpers", () => {
     expect(s3Mocks.S3Client).not.toHaveBeenCalled();
   });
 
-  it("stores valid R2 uploads with the configured public URL and image metadata", async () => {
+  it("stores valid R2 uploads with the configured public URL and media metadata", async () => {
     process.env.STORAGE_DRIVER = "r2";
     process.env.R2_ACCOUNT_ID = "abc123";
     process.env.R2_BUCKET = "rare-media";

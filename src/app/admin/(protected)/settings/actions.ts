@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { parseMoneyToCents } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
@@ -36,4 +37,5 @@ export async function saveSettingsAction(formData: FormData) {
 
   revalidatePath("/");
   revalidatePath("/admin/settings");
+  redirect("/admin/settings?success=settings-saved");
 }

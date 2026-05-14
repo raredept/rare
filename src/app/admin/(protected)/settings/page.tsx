@@ -1,4 +1,5 @@
 import { saveSettingsAction } from "@/app/admin/(protected)/settings/actions";
+import { AdminSubmitButton } from "@/components/admin/admin-submit-button";
 import { formatCep } from "@/lib/cep";
 import { formatMoney } from "@/lib/money";
 import { getStoreSettings } from "@/lib/settings";
@@ -89,9 +90,11 @@ export default async function SettingsPage() {
             className="admin-input"
           />
         </label>
-        <button className="h-12 rounded-lg bg-black px-6 text-sm font-black uppercase tracking-wide text-white">
-          Salvar configurações
-        </button>
+        <AdminSubmitButton
+          idleLabel="Salvar configurações"
+          pendingLabel="Salvando..."
+          className="h-12 rounded-lg bg-black px-6 text-sm font-black uppercase tracking-wide text-white"
+        />
       </form>
     </div>
   );
