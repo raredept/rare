@@ -1,17 +1,9 @@
 import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 import { logoutAction } from "@/app/admin/(protected)/actions";
+import { AdminNav } from "@/components/admin/admin-nav";
 import { AdminToast } from "@/components/admin/admin-toast";
 import { requireAdmin } from "@/lib/auth";
-
-const navItems = [
-  { href: "/admin", label: "Visão geral" },
-  { href: "/admin/products", label: "Produtos" },
-  { href: "/admin/categories", label: "Categorias" },
-  { href: "/admin/orders", label: "Pedidos" },
-  { href: "/admin/customers", label: "Clientes" },
-  { href: "/admin/settings", label: "Configurações" },
-];
 
 export const dynamic = "force-dynamic";
 
@@ -29,15 +21,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           <span className="mt-1 block text-[10px] font-black uppercase tracking-[0.22em] text-neutral-500">Admin</span>
         </Link>
         <nav className="mt-8 grid gap-2">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="rounded-lg border border-transparent px-3 py-2 text-sm font-black text-neutral-400 transition hover:border-neutral-800 hover:bg-neutral-950 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-            >
-              {item.label}
-            </Link>
-          ))}
+          <AdminNav />
         </nav>
         <form action={logoutAction} className="absolute bottom-5 left-5 right-5">
           <button
@@ -57,15 +41,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
               <p className="text-sm font-semibold text-neutral-300">{admin.email}</p>
             </div>
             <div className="scrollbar-none flex gap-2 overflow-x-auto lg:hidden">
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="whitespace-nowrap rounded-full border border-neutral-800 bg-neutral-950 px-3 py-2 text-xs font-black text-neutral-300"
-                >
-                  {item.label}
-                </Link>
-              ))}
+              <AdminNav compact />
             </div>
           </div>
         </header>

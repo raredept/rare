@@ -15,6 +15,8 @@ const DEFAULT_MAX_GIF_UPLOAD_SIZE_MB = 10;
 const DEFAULT_MAX_VIDEO_UPLOAD_SIZE_MB = 30;
 const UPLOAD_CACHE_CONTROL = "public, max-age=31536000, immutable";
 
+export type UploadContext = "products" | "banners";
+
 const allowedMimeTypes = new Map([
   ["image/jpeg", ["jpg", "jpeg"]],
   ["image/png", ["png"]],
@@ -22,6 +24,8 @@ const allowedMimeTypes = new Map([
   ["image/gif", ["gif"]],
   ["video/mp4", ["mp4"]],
 ]);
+
+const bannerAllowedMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 const publicExtensionByMimeType = new Map([
   ["image/jpeg", "jpg"],
@@ -61,6 +65,13 @@ export function getMaxAcceptedUploadBytes() {
   );
 }
 
+export function normalizeUploadContext(value: FormDataEntryValue | string | null | undefined): UploadContext {
+  const context = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (!context || context === "products") return "products";
+  if (context === "banners") return "banners";
+  throw new Error("Contexto de upload invalido.");
+}
+
 function getFileExtension(fileName: string) {
   const safeName = fileName.split(/[\\/]/).pop() ?? "";
   const extension = safeName.includes(".") ? safeName.split(".").pop() : "";
@@ -81,7 +92,11 @@ export function sanitizeUploadFilenameStem(fileName: string) {
   return normalized || "imagem";
 }
 
-export function validateUploadedImageMetadata(file: Pick<File, "name" | "type" | "size">) {
+export function validateUploadedImageMetadata(file: Pick<File, "name" | "type" | "size">, context: UploadContext = "products") {
+  if (context === "banners" && !bannerAllowedMimeTypes.has(file.type)) {
+    throw new Error("Formato invalido para banner. Envie JPG, PNG ou WEBP.");
+  }
+
   const allowedExtensions = allowedMimeTypes.get(file.type);
   if (!allowedExtensions) {
     throw new Error("Formato invalido. Envie JPG, PNG, WEBP, GIF ou MP4.");
@@ -139,16 +154,17 @@ export function hasValidImageSignature(bytes: Buffer, extension: string) {
   return false;
 }
 
-export function buildObjectKey(fileName: string, extension: string, now = new Date()) {
+export function buildObjectKey(fileName: string, extension: string, now = new Date(), context: UploadContext = "products") {
   const year = String(now.getUTCFullYear());
   const month = String(now.getUTCMonth() + 1).padStart(2, "0");
   const stem = sanitizeUploadFilenameStem(fileName);
-  return `products/${year}/${month}/${randomUUID()}-${stem}.${extension}`;
+  return `${context}/${year}/${month}/${randomUUID()}-${stem}.${extension}`;
 }
 
-export async function saveUploadedImage(file: File) {
-  const extension = validateUploadedImageMetadata(file);
-  const objectKey = buildObjectKey(file.name, extension);
+export async function saveUploadedImage(file: File, options: { context?: UploadContext } = {}) {
+  const context = options.context ?? "products";
+  const extension = validateUploadedImageMetadata(file, context);
+  const objectKey = buildObjectKey(file.name, extension, new Date(), context);
   const bytes = Buffer.from(await file.arrayBuffer());
 
   if (!hasValidImageSignature(bytes, extension)) {

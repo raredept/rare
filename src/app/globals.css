@@ -171,6 +171,10 @@ textarea {
   animation: rare-admin-media-enter 160ms ease-out both;
 }
 
+.admin-banner-card {
+  animation: rare-admin-media-enter 160ms ease-out both;
+}
+
 .admin-toast {
   animation: rare-admin-toast-enter 180ms ease-out both;
 }
@@ -226,6 +230,21 @@ textarea {
   animation: rare-image-enter 220ms ease-out both;
 }
 
+.store-home-hero {
+  isolation: isolate;
+  touch-action: pan-y;
+}
+
+.store-home-hero-slide {
+  animation: rare-home-hero-enter 260ms ease-out both;
+}
+
+.store-home-hero-placeholder {
+  background:
+    linear-gradient(90deg, rgb(255 255 255 / 0.055) 0 1px, transparent 1px 100%) 0 0 / 54px 54px,
+    linear-gradient(135deg, #050505 0%, #111111 44%, #030303 100%);
+}
+
 .storefront-motion-root a[data-route-pending="true"] {
   opacity: 0.72;
 }
@@ -259,6 +278,17 @@ textarea {
   }
   to {
     opacity: 1;
+  }
+}
+
+@keyframes rare-home-hero-enter {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 
@@ -319,10 +349,12 @@ textarea {
   .store-route-progress span,
   .store-page-transition,
   .store-loading-shell,
+  .store-home-hero-slide,
   .store-product-image,
   .admin-page-transition,
   .admin-loading-shell,
   .admin-media-card,
+  .admin-banner-card,
   .admin-toast,
   .admin-dark * {
     animation-duration: 1ms !important;
@@ -335,11 +367,13 @@ textarea {
   .store-product-card,
   .store-category-pill,
   .storefront-motion-root [data-category-menu],
+  .store-home-hero-slide,
   .store-product-image,
   .storefront-motion-root a,
   .storefront-motion-root button,
   .admin-page-transition,
   .admin-media-card,
+  .admin-banner-card,
   .admin-toast {
     transform: none !important;
   }

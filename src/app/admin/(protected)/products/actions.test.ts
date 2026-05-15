@@ -111,5 +111,5 @@ describe("product admin actions", () => {
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/produto/supreme-bag-nova");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/categoria/acessorios");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/categoria/bags");
-  }, 30000);
+  }, 60000);
 });

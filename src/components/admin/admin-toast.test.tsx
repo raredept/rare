@@ -33,4 +33,13 @@ describe("AdminToast", () => {
     expect(html).toContain("Não foi possível salvar a categoria.");
     expect(html).toContain("role=\"alert\"");
   });
+
+  it("renders banner success feedback from query params", () => {
+    mocks.params = new URLSearchParams("success=banner-reordered");
+
+    const html = renderToStaticMarkup(createElement(AdminToast) as ReactElement);
+
+    expect(html).toContain("Ordem dos banners atualizada.");
+    expect(html).toContain("aria-live=\"polite\"");
+  });
 });

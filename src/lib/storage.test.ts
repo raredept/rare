@@ -7,6 +7,7 @@ import {
   getMaxAcceptedUploadBytes,
   getMaxUploadBytes,
   hasValidImageSignature,
+  normalizeUploadContext,
   saveUploadedImage,
   sanitizeUploadFilenameStem,
   validateUploadedImageMetadata,
@@ -77,6 +78,17 @@ describe("storage helpers", () => {
     expect(validateUploadedImageMetadata(new File([mp4Bytes], "video.mp4", { type: "video/mp4" }))).toBe("mp4");
   });
 
+  it("limits banner uploads to static JPG, PNG and WEBP images", () => {
+    expect(normalizeUploadContext("banners")).toBe("banners");
+    expect(validateUploadedImageMetadata(new File([webpBytes], "banner.webp", { type: "image/webp" }), "banners")).toBe("webp");
+    expect(() => validateUploadedImageMetadata(new File([gifBytes], "banner.gif", { type: "image/gif" }), "banners")).toThrow(
+      "Formato invalido para banner",
+    );
+    expect(() => validateUploadedImageMetadata(new File([mp4Bytes], "banner.mp4", { type: "video/mp4" }), "banners")).toThrow(
+      "Formato invalido para banner",
+    );
+  });
+
   it("rejects SVG metadata", () => {
     expect(() => validateUploadedImageMetadata(new File([Buffer.from("<svg></svg>")], "icone.svg", { type: "image/svg+xml" }))).toThrow(
       "Formato invalido",
@@ -111,6 +123,9 @@ describe("storage helpers", () => {
     expect(sanitizeUploadFilenameStem("..\\Camiseta Ágil 01.png")).toBe("camiseta-agil-01");
     expect(buildObjectKey("../Camiseta Ágil 01.png", "png", new Date("2026-05-14T12:00:00Z"))).toMatch(
       /^products\/2026\/05\/[a-f0-9-]+-camiseta-agil-01\.png$/,
+    );
+    expect(buildObjectKey("../Campanha Home.webp", "webp", new Date("2026-05-14T12:00:00Z"), "banners")).toMatch(
+      /^banners\/2026\/05\/[a-f0-9-]+-campanha-home\.webp$/,
     );
   });
 

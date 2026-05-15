@@ -1,4 +1,6 @@
+import { HomeHeroCarousel } from "@/components/store/home-hero-carousel";
 import { ProductCard } from "@/components/store/product-card";
+import { getHomeBannerSlidesForStore } from "@/lib/home-banners";
 import { getProducts } from "@/lib/storefront";
 
 export const dynamic = "force-dynamic";
@@ -9,17 +11,27 @@ type HomePageProps = {
 
 export default async function HomePage({ searchParams }: HomePageProps) {
   const { q } = await searchParams;
-  const products = await getProducts({ query: q });
+  const isSearch = Boolean(q?.trim());
+  const [products, heroSlides] = await Promise.all([
+    getProducts({ query: q }),
+    isSearch ? Promise.resolve([]) : getHomeBannerSlidesForStore(),
+  ]);
 
   return (
-    <div className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6 lg:px-8 lg:py-14 xl:px-10">
-      <section className="mb-10 flex flex-col gap-4 border-b border-neutral-200 pb-8 lg:mb-12 lg:flex-row lg:items-end lg:justify-between">
+    <div className="mx-auto max-w-[1440px] px-4 pb-10 pt-6 sm:px-6 lg:px-8 lg:pb-14 lg:pt-8 xl:px-10">
+      {!isSearch ? <HomeHeroCarousel slides={heroSlides} /> : null}
+
+      <section
+        className={`mb-10 flex flex-col gap-4 border-b border-neutral-200 pb-8 lg:mb-12 lg:flex-row lg:items-end lg:justify-between ${
+          !isSearch ? "mt-10 lg:mt-12" : ""
+        }`}
+      >
         <div className="max-w-3xl">
           <p className="text-xs font-black uppercase tracking-[0.24em] text-neutral-500">
             {q ? "Busca" : "Curadoria RARE"}
           </p>
           <h1 className="mt-3 text-3xl font-black tracking-tight text-neutral-950 lg:text-5xl">
-          {q ? `Resultado para "${q}"` : "Produtos em destaque"}
+            {q ? `Resultado para "${q}"` : "Produtos em destaque"}
           </h1>
           <p className="mt-4 max-w-2xl text-sm font-semibold leading-6 text-neutral-500 lg:text-base">
             Importados selecionados, estoque controlado e pagamento seguro via Pix ou cartão.

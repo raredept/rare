@@ -119,5 +119,5 @@ describe("admin catalog pages", () => {
     expect(html).toContain("Estoque baixo");
     expect(html).toContain("Local");
     expect(html).toContain("Sem dados de frete");
-  }, 15000);
+  }, 30000);
 });

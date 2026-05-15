@@ -23,6 +23,12 @@ const successMessages = new Map([
   ["category-hidden", "Categoria ocultada."],
   ["category-visible", "Categoria ativada."],
   ["category-deleted", "Categoria removida."],
+  ["banner-created", "Banner criado com sucesso."],
+  ["banner-saved", "Banner salvo com sucesso."],
+  ["banner-hidden", "Banner ocultado."],
+  ["banner-visible", "Banner ativado."],
+  ["banner-removed", "Banner removido."],
+  ["banner-reordered", "Ordem dos banners atualizada."],
   ["settings-saved", "Configurações salvas."],
   ["order-status-saved", "Status do pedido atualizado."],
 ]);
@@ -30,6 +36,7 @@ const successMessages = new Map([
 const errorMessages = new Map([
   ["product-save-failed", "Não foi possível salvar o produto."],
   ["category-save-failed", "Não foi possível salvar a categoria."],
+  ["banner-save-failed", "Não foi possível salvar o banner."],
   ["settings-save-failed", "Não foi possível salvar as configurações."],
   ["order-status-failed", "Não foi possível atualizar o pedido."],
 ]);

@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/auth";
-import { getMaxAcceptedUploadBytes, saveUploadedImage } from "@/lib/storage";
+import { getMaxAcceptedUploadBytes, normalizeUploadContext, saveUploadedImage } from "@/lib/storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,6 +18,7 @@ export async function POST(request: NextRequest) {
     }
 
     const formData = await request.formData();
+    const uploadContext = normalizeUploadContext(formData.get("uploadContext"));
     const files = formData.getAll("files").filter((value): value is File => value instanceof File);
 
     if (!files.length) {
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
 
     const uploads = [];
     for (const file of files) {
-      uploads.push(await saveUploadedImage(file));
+      uploads.push(await saveUploadedImage(file, { context: uploadContext }));
     }
 
     return NextResponse.json({ uploads });

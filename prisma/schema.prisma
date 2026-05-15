@@ -269,6 +269,25 @@ model StoreSettings {
   updatedAt                    DateTime @updatedAt
 }
 
+model HomeBannerSlide {
+  id             String   @id @default(cuid())
+  eyebrow        String?
+  title          String?
+  description    String?
+  ctaLabel       String?
+  href           String?
+  imageUrl       String   @default("")
+  mobileImageUrl String?
+  alt            String
+  active         Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([active, sortOrder])
+  @@index([sortOrder])
+}
+
 model StripeEvent {
   id          String   @id
   type        String
