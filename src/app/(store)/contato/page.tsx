@@ -34,7 +34,7 @@ export default function ContactPage() {
           <p className="text-xs font-black uppercase tracking-[0.22em] text-neutral-500">Pedidos</p>
           <h2 className="mt-4 text-xl font-black text-neutral-950">Acompanhe pela sua conta</h2>
           <p className="mt-4 text-sm font-semibold leading-6 text-neutral-500">
-            Pedidos feitos com conta ficam disponíveis na área do cliente quando o fluxo estiver concluído.
+            Pedidos feitos com conta aparecem na área do cliente assim que a compra for concluída.
           </p>
           <Link href="/minha-conta/pedidos" className="mt-5 inline-flex text-sm font-black text-neutral-950 underline underline-offset-4">
             Ver meus pedidos

@@ -48,25 +48,45 @@ function ProductGrid({ products }: { products: StorefrontProduct[] }) {
   );
 }
 
-function EmptyState({ title, description, showActions = true }: { title: string; description: string; showActions?: boolean }) {
+type EmptyStateAction = {
+  href: string;
+  label: string;
+  variant?: "primary" | "secondary";
+};
+
+const defaultEmptyActions: EmptyStateAction[] = [
+  { href: "/categoria/tudo", label: "Ver catálogo completo", variant: "primary" },
+  { href: "/categoria/destaques", label: "Ver destaques da loja", variant: "secondary" },
+];
+
+function EmptyState({
+  title,
+  description,
+  actions = defaultEmptyActions,
+}: {
+  title: string;
+  description: string;
+  actions?: EmptyStateAction[];
+}) {
   return (
     <div className="rounded-lg border border-dashed border-neutral-300 px-6 py-16 text-center">
       <h2 className="text-lg font-black text-neutral-950">{title}</h2>
       <p className="mt-2 text-sm font-semibold text-neutral-500">{description}</p>
-      {showActions ? (
+      {actions.length ? (
         <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <Link
-            href="/categoria/tudo"
-            className="inline-flex min-h-11 items-center justify-center rounded-full bg-black px-5 text-xs font-black uppercase tracking-[0.16em] text-white transition hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
-          >
-            Ver catálogo completo
-          </Link>
-          <Link
-            href="/categoria/destaques"
-            className="inline-flex min-h-11 items-center justify-center rounded-full border border-neutral-300 px-5 text-xs font-black uppercase tracking-[0.16em] text-neutral-800 transition hover:border-neutral-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
-          >
-            Ver destaques
-          </Link>
+          {actions.map((action) => (
+            <Link
+              key={action.href}
+              href={action.href}
+              className={
+                action.variant === "secondary"
+                  ? "inline-flex min-h-11 items-center justify-center rounded-full border border-neutral-300 px-5 text-xs font-black uppercase tracking-[0.16em] text-neutral-800 transition hover:border-neutral-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
+                  : "inline-flex min-h-11 items-center justify-center rounded-full bg-black px-5 text-xs font-black uppercase tracking-[0.16em] text-white transition hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
+              }
+            >
+              {action.label}
+            </Link>
+          ))}
         </div>
       ) : null}
     </div>
@@ -112,20 +132,24 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
           </div>
         ) : (
           <EmptyState
-            title="Nenhum produto ativo no catálogo no momento."
-            description="Novas categorias podem entrar na curadoria em breve."
-            showActions={false}
+            title="Nada por aqui no momento."
+            description="O catálogo ainda não tem peças ativas, mas novos drops podem aparecer a qualquer hora."
+            actions={[]}
           />
         )
       ) : pageData.products.length ? (
         <ProductGrid products={pageData.products} />
       ) : pageData.kind === "featured" ? (
         <EmptyState
-          title="Nenhum produto em destaque no momento."
-          description="Novos drops podem aparecer em breve."
+          title="Nenhum destaque ativo no momento."
+          description="Volte em breve ou explore o catálogo completo."
+          actions={[{ href: "/categoria/tudo", label: "Ver catálogo completo", variant: "primary" }]}
         />
       ) : (
-        <EmptyState title="Nenhum produto nessa categoria no momento." description="Novos drops podem aparecer em breve." />
+        <EmptyState
+          title="Nada por aqui no momento."
+          description="Essa categoria ainda não tem peças disponíveis, mas novos drops podem aparecer a qualquer hora."
+        />
       )}
     </div>
   );

@@ -13,23 +13,23 @@ const baseSlides = [
   {
     id: "slide-1",
     eyebrow: "RARE",
-    title: "Curadoria streetwear",
-    description: "Produtos selecionados.",
-    ctaLabel: "Ver curadoria",
+    title: "Streetwear importado",
+    description: "Peças escolhidas a dedo.",
+    ctaLabel: "Ver catálogo",
     href: "/",
     imageUrl: "",
-    alt: "Banner de curadoria streetwear",
+    alt: "Banner de streetwear importado",
     active: true,
   },
   {
     id: "slide-2",
     eyebrow: "Drops",
-    title: "Drops selecionados",
+    title: "Drops limitados",
     description: "Novas entradas.",
     ctaLabel: "Explorar",
     href: "/categoria/camisetas",
     imageUrl: "",
-    alt: "Banner de drops selecionados",
+    alt: "Banner de drops limitados",
     active: true,
   },
   {
@@ -47,7 +47,7 @@ describe("HomeHeroCarousel", () => {
 
     expect(html).toContain('aria-label="Destaques da home RARE"');
     expect(html).toContain('aria-roledescription="carousel"');
-    expect(html).toContain("Curadoria streetwear");
+    expect(html).toContain("Streetwear importado");
     expect(html).toContain("Editorial streetwear");
     expect(html).toContain('aria-label="Slide anterior"');
     expect(html).toContain('aria-label="Próximo slide"');
@@ -59,7 +59,7 @@ describe("HomeHeroCarousel", () => {
   it("does not render arrow or dot controls for one active slide", () => {
     const html = renderToStaticMarkup(createElement(HomeHeroCarousel, { slides: [baseSlides[0]] }));
 
-    expect(html).toContain("Curadoria streetwear");
+    expect(html).toContain("Streetwear importado");
     expect(html).not.toContain('aria-label="Slide anterior"');
     expect(html).not.toContain('aria-label="Próximo slide"');
     expect(html).not.toContain('aria-label="Ir para slide 1"');

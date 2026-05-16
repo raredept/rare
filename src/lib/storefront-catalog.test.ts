@@ -173,7 +173,7 @@ describe("storefront catalog helpers", () => {
     const pageData = await getCategoryPageData("destaques");
 
     expect(pageData?.kind).toBe("featured");
-    expect(pageData?.title).toBe("Produtos em destaque");
+    expect(pageData?.title).toBe("Destaques da loja");
     expect(mocks.prisma.category.findUnique).not.toHaveBeenCalled();
     expect(mocks.prisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -189,7 +189,7 @@ describe("storefront catalog helpers", () => {
     const pageData = await getCategoryPageData("tudo");
 
     expect(pageData?.kind).toBe("grouped");
-    expect(pageData?.title).toBe("Todos os produtos");
+    expect(pageData?.title).toBe("Catálogo completo");
     if (!pageData || pageData.kind !== "grouped") {
       throw new Error("Expected grouped page data");
     }

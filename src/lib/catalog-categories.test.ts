@@ -10,7 +10,7 @@ import {
 
 describe("catalog category seeds", () => {
   it("keeps virtual public categories before database-backed categories", () => {
-    expect(virtualCatalogCategories.map((category) => category.name)).toEqual(["Destaque", "Tudo"]);
+    expect(virtualCatalogCategories.map((category) => category.name)).toEqual(["Destaques", "Tudo"]);
     expect(isVirtualCatalogCategorySlug("destaques")).toBe(true);
     expect(isVirtualCatalogCategorySlug("tudo")).toBe(true);
     expect(isVirtualCatalogCategorySlug("camisetas")).toBe(false);

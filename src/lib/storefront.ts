@@ -45,11 +45,11 @@ const homeCategoryDescriptions = new Map([
   ["conjuntos", "Combinações prontas para sair."],
   ["bermudas", "Peças leves para rotação casual."],
   ["calcas", "Modelagens para compor a base."],
-  ["acessorios", "Detalhes que fecham a curadoria."],
+  ["acessorios", "Detalhes para fechar o visual."],
   ["bags", "Bags para completar o visual."],
-  ["bones", "Bonés selecionados para o drop."],
-  ["cuecas", "Essenciais em seleção controlada."],
-  ["meias", "Complementos para chegar em breve."],
+  ["bones", "Bonés para completar o corre."],
+  ["cuecas", "Essenciais com estoque limitado."],
+  ["meias", "Complementos para entrar na rotação."],
   ["oculos", "Óculos para finalizar a composição."],
   ["relogios", "Relógios e detalhes de impacto."],
 ]);
@@ -138,7 +138,7 @@ function buildHomeCategoryTile(category: { name: string; slug: string }, total: 
     name: category.name,
     slug: category.slug,
     href: `/categoria/${category.slug}`,
-    description: homeCategoryDescriptions.get(category.slug) ?? "Curadoria selecionada RARE.",
+    description: homeCategoryDescriptions.get(category.slug) ?? "Peças escolhidas pela RARE.",
     total,
     status: total > 0 ? "available" : "soon",
   };
@@ -251,9 +251,9 @@ export async function getCategoryPageData(slug: string, params?: { query?: strin
     return {
       kind: "featured" as const,
       slug,
-      eyebrow: "SELEÇÃO RARE",
-      title: "Produtos em destaque",
-      description: "Peças selecionadas em evidência na curadoria da loja.",
+      eyebrow: "Destaques RARE",
+      title: "Destaques da loja",
+      description: "Peças em evidência na RARE — selecionadas por estilo, procura e presença.",
       products: await getFeaturedProducts({ query: params?.query }),
     };
   }
@@ -262,9 +262,9 @@ export async function getCategoryPageData(slug: string, params?: { query?: strin
     return {
       kind: "grouped" as const,
       slug,
-      eyebrow: "CATÁLOGO RARE",
-      title: "Todos os produtos",
-      description: "Explore a curadoria completa por categoria.",
+      eyebrow: "Catálogo RARE",
+      title: "Catálogo completo",
+      description: "Explore todas as peças da RARE por categoria.",
       sections: await getProductsGroupedByCategory({ query: params?.query }),
     };
   }
@@ -279,7 +279,7 @@ export async function getCategoryPageData(slug: string, params?: { query?: strin
     slug,
     eyebrow: "Categoria",
     title: category.name,
-    description: "Seleção atualizada de produtos ativos nesta categoria.",
+    description: "Peças disponíveis agora nesta categoria.",
     products: await getProducts({ categorySlug: slug, query: params?.query }),
   };
 }

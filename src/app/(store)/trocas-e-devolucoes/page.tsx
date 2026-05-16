@@ -7,10 +7,10 @@ export const metadata = {
 };
 
 const policyParagraphs = [
-  "A Rare aceita devoluções em até 7 dias corridos após o recebimento do produto, conforme o Código de Defesa do Consumidor.",
+  "A RARE aceita devoluções em até 7 dias após o recebimento, conforme o Código de Defesa do Consumidor.",
   "Para aprovação da troca ou devolução, o produto deve estar sem sinais de uso, com etiquetas e embalagem original.",
   "Trocas por tamanho poderão ser realizadas mediante disponibilidade em estoque.",
-  "Produtos com defeito poderão ser trocados ou reembolsados após análise.",
+  "Produto com defeito passa por análise antes da troca ou reembolso.",
   "Para solicitar uma troca ou devolução, entre em contato pelo WhatsApp ou e-mail de suporte.",
 ];
 
@@ -46,7 +46,7 @@ export default function ExchangesAndReturnsPage() {
           Trocas e devoluções
         </h1>
         <p className="mt-6 max-w-2xl text-base font-semibold leading-8 text-neutral-600 sm:text-lg">
-          Regras claras para análise de devolução, troca por tamanho e atendimento em caso de defeito.
+          A RARE aceita devoluções em até 7 dias após o recebimento, conforme o Código de Defesa do Consumidor.
         </p>
       </section>
 

@@ -46,9 +46,9 @@ describe("store category page", () => {
     mocks.getCategoryPageData.mockResolvedValueOnce({
       kind: "featured",
       slug: "destaques",
-      eyebrow: "SELEÇÃO RARE",
-      title: "Produtos em destaque",
-      description: "Peças selecionadas em evidência na curadoria da loja.",
+      eyebrow: "Destaques RARE",
+      title: "Destaques da loja",
+      description: "Peças em evidência na RARE — selecionadas por estilo, procura e presença.",
       products: [product],
     });
 
@@ -59,8 +59,8 @@ describe("store category page", () => {
     const html = renderToStaticMarkup(element as ReactElement);
 
     expect(mocks.getCategoryPageData).toHaveBeenCalledWith("destaques", { query: undefined });
-    expect(html).toContain("Produtos em destaque");
-    expect(html).toContain("Peças selecionadas em evidência na curadoria da loja.");
+    expect(html).toContain("Destaques da loja");
+    expect(html).toContain("Peças em evidência na RARE — selecionadas por estilo, procura e presença.");
     expect(html).toContain("Camiseta RARE");
   });
 
@@ -68,9 +68,9 @@ describe("store category page", () => {
     mocks.getCategoryPageData.mockResolvedValueOnce({
       kind: "grouped",
       slug: "tudo",
-      eyebrow: "CATÁLOGO RARE",
-      title: "Todos os produtos",
-      description: "Explore a curadoria completa por categoria.",
+      eyebrow: "Catálogo RARE",
+      title: "Catálogo completo",
+      description: "Explore todas as peças da RARE por categoria.",
       sections: [
         {
           name: "Camisetas",
@@ -90,8 +90,8 @@ describe("store category page", () => {
     const html = renderToStaticMarkup(element as ReactElement);
 
     expect(mocks.getCategoryPageData).toHaveBeenCalledWith("tudo", { query: undefined });
-    expect(html).toContain("Todos os produtos");
-    expect(html).toContain("Explore a curadoria completa por categoria.");
+    expect(html).toContain("Catálogo completo");
+    expect(html).toContain("Explore todas as peças da RARE por categoria.");
     expect(html).toContain("Camisetas");
     expect(html).toContain('href="/categoria/camisetas"');
     expect(html).toContain("Camiseta RARE");
@@ -101,16 +101,16 @@ describe("store category page", () => {
     mocks.getCategoryPageData.mockResolvedValueOnce({
       kind: "featured",
       slug: "destaques",
-      eyebrow: "SELEÇÃO RARE",
-      title: "Produtos em destaque",
-      description: "Peças selecionadas em evidência na curadoria da loja.",
+      eyebrow: "Destaques RARE",
+      title: "Destaques da loja",
+      description: "Peças em evidência na RARE — selecionadas por estilo, procura e presença.",
       products: [product],
     });
 
     const result = await generateMetadata({ params: Promise.resolve({ slug: "destaques" }) });
 
-    expect(result.title).toBe("Produtos em destaque");
-    expect(result.description).toBe("Peças selecionadas em evidência na curadoria da loja.");
+    expect(result.title).toBe("Destaques da loja");
+    expect(result.description).toBe("Peças em evidência na RARE — selecionadas por estilo, procura e presença.");
     expect(result.alternates).toEqual({ canonical: "/categoria/destaques" });
   });
 
@@ -118,9 +118,9 @@ describe("store category page", () => {
     mocks.getCategoryPageData.mockResolvedValueOnce({
       kind: "featured",
       slug: "destaques",
-      eyebrow: "SELEÇÃO RARE",
-      title: "Produtos em destaque",
-      description: "Peças selecionadas em evidência na curadoria da loja.",
+      eyebrow: "Destaques RARE",
+      title: "Destaques da loja",
+      description: "Peças em evidência na RARE — selecionadas por estilo, procura e presença.",
       products: [],
     });
 
@@ -130,10 +130,10 @@ describe("store category page", () => {
     });
     const html = renderToStaticMarkup(element as ReactElement);
 
-    expect(html).toContain("Nenhum produto em destaque no momento.");
-    expect(html).toContain("Novos drops podem aparecer em breve.");
+    expect(html).toContain("Nenhum destaque ativo no momento.");
+    expect(html).toContain("Volte em breve ou explore o catálogo completo.");
     expect(html).toContain('href="/categoria/tudo"');
-    expect(html).toContain('href="/categoria/destaques"');
+    expect(html).not.toContain("admin");
   });
 
   it("renders a useful empty state for empty real categories", async () => {
@@ -142,7 +142,7 @@ describe("store category page", () => {
       slug: "cuecas",
       eyebrow: "Categoria",
       title: "Cuecas",
-      description: "Seleção atualizada de produtos ativos nesta categoria.",
+      description: "Peças disponíveis agora nesta categoria.",
       products: [],
     });
 
@@ -152,11 +152,12 @@ describe("store category page", () => {
     });
     const html = renderToStaticMarkup(element as ReactElement);
 
-    expect(html).toContain("Nenhum produto nessa categoria no momento.");
-    expect(html).toContain("Novos drops podem aparecer em breve.");
+    expect(html).toContain("Nada por aqui no momento.");
+    expect(html).toContain("Essa categoria ainda não tem peças disponíveis, mas novos drops podem aparecer a qualquer hora.");
     expect(html).toContain('href="/categoria/tudo"');
     expect(html).toContain("Ver catálogo completo");
     expect(html).toContain('href="/categoria/destaques"');
-    expect(html).toContain("Ver destaques");
+    expect(html).toContain("Ver destaques da loja");
+    expect(html).not.toContain("admin");
   });
 });

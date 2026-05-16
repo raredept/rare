@@ -32,10 +32,10 @@ describe("CartPageClient", () => {
       }) as ReactElement,
     );
 
-    expect(html).toContain("Seu carrinho está vazio");
-    expect(html).toContain("Ver catálogo completo");
-    expect(html).toContain('href="/categoria/tudo"');
+    expect(html).toContain("Sua seleção ainda está vazia.");
     expect(html).toContain("Ver destaques");
     expect(html).toContain('href="/categoria/destaques"');
+    expect(html).toContain("Explorar catálogo");
+    expect(html).toContain('href="/categoria/tudo"');
   });
 });

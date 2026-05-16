@@ -101,18 +101,20 @@ describe("store home page", () => {
 
     expect(html.indexOf('data-testid="home-hero-carousel"')).toBeGreaterThanOrEqual(0);
     expect(html).toContain('data-slide-count="1"');
-    expect(html).toContain("Explore por categoria");
+    expect(html).toContain("Escolha por categoria");
     expect(html).toContain("Camisetas");
     expect(html).toContain("Jaquetas");
     expect(html).toContain("Em breve");
-    expect(html).toContain("Destaques da curadoria");
+    expect(html).toContain("Destaques do mês");
     expect(html).toContain('href="/categoria/destaques"');
     expect(html).toContain("Destaque 1");
     expect(html).toContain("Destaque 5");
     expect(html).not.toContain("Destaque 6");
     expect(html).toContain("Compra segura");
-    expect(html).toContain("Novos na curadoria");
-    expect(html).toContain("Drops selecionados, estoque controlado");
+    expect(html).toContain("Chegou agora");
+    expect(html).toContain("Estoque limitado. Escolha sem pressa, mas não deixa passar.");
+    expect(html).not.toContain("A home aponta");
+    expect(html).not.toContain("experiência de compra limpa");
     expect(html).toContain('href="/categoria/tudo"');
     expect(mocks.getFeaturedProducts).toHaveBeenCalledWith({ limit: 5 });
     expect(mocks.getRecentProducts).toHaveBeenCalledWith({ limit: 4 });
@@ -120,9 +122,9 @@ describe("store home page", () => {
 
   it("exports basic SEO metadata for the storefront home", () => {
     expect(metadata.title).toEqual({
-      absolute: "RARE — Curadoria streetwear e importados selecionados",
+      absolute: "RARE — Streetwear importado e drops selecionados",
     });
-    expect(metadata.description).toBe("Streetwear, peças importadas e drops selecionados em uma experiência de compra direta, segura e premium.");
+    expect(metadata.description).toBe("Peças importadas, streetwear e acessórios selecionados para quem busca sair do comum.");
     expect(metadata.alternates).toEqual({ canonical: "/" });
   });
 

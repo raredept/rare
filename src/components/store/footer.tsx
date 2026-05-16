@@ -19,7 +19,7 @@ const serviceLinks = [
 ];
 
 const institutionalLinks = [
-  { href: "/sobre", label: "Curadoria RARE" },
+  { href: "/sobre", label: "Sobre a RARE" },
   { href: "/contato", label: "Contato" },
   { href: "/politica-de-envio", label: "Política de envio" },
   { href: "/privacidade-e-termos", label: "Privacidade e termos" },
@@ -72,7 +72,7 @@ export function StoreFooter({ categories }: StoreFooterProps) {
             RARE
           </Link>
           <p className="mt-4 max-w-sm text-sm font-semibold leading-6 text-white/60">
-            Curadoria streetwear e importados selecionados em uma experiência de compra direta, segura e premium.
+            A RARE reúne peças importadas, drops limitados e uma seleção feita para quem não quer se vestir igual a todo mundo.
           </p>
           <div className="mt-6 grid gap-2 text-sm font-bold text-white/70">
             <a href="mailto:suporte@raredept.com.br" className={footerLinkClass}>
@@ -90,7 +90,7 @@ export function StoreFooter({ categories }: StoreFooterProps) {
       <div className="border-t border-white/10">
         <div className="mx-auto flex max-w-[1440px] flex-col gap-3 px-4 py-5 text-xs font-bold uppercase tracking-[0.16em] text-white/45 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8 xl:px-10">
           <p>© {year} RARE</p>
-          <p>Pix e cartão no checkout oficial. Envio para todo o Brasil.</p>
+          <p>Pagamento via Pix ou cartão disponível no checkout. Envio para todo o Brasil.</p>
         </div>
       </div>
     </footer>

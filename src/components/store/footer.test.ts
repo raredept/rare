@@ -24,10 +24,10 @@ describe("StoreFooter", () => {
     expect(html).toContain('href="/categoria/camisetas"');
     expect(html).toContain("Trocas e devoluções");
     expect(html).toContain('href="/minha-conta/pedidos"');
-    expect(html).toContain("Curadoria RARE");
+    expect(html).toContain("Sobre a RARE");
     expect(html).toContain("Política de envio");
     expect(html).toContain("Privacidade e termos");
     expect(html).toContain("suporte@raredept.com.br");
-    expect(html).toContain("Pix e cartão no checkout oficial");
+    expect(html).toContain("Pagamento via Pix ou cartão disponível no checkout");
   });
 });

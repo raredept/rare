@@ -176,6 +176,48 @@ export function getFallbackHomeBannerSlides(): HomeHeroSlide[] {
   }));
 }
 
+const legacyPhrase = (...parts: string[]) => parts.join("");
+
+const legacyStoreHeroCopy: Partial<Record<keyof Pick<HomeHeroSlide, "eyebrow" | "title" | "description" | "ctaLabel" | "alt">, Record<string, string>>> = {
+  eyebrow: {
+    [legacyPhrase("Drops ", "selecionados")]: "Drops limitados",
+    [legacyPhrase("Importados ", "premium")]: "Streetwear importado",
+  },
+  title: {
+    [legacyPhrase("Curadoria streetwear", " em drops ", "selecionados")]: "Streetwear importado, escolhido a dedo.",
+    [legacyPhrase("Novas entradas com visual ", "limpo e raro")]: "Peças raras para sair do básico.",
+    [legacyPhrase("Peças internacionais", " para elevar o outfit")]: "Drops para quem veste presença.",
+  },
+  description: {
+    [legacyPhrase("Importados ", "premium, peças de presença e estoque controlado para quem acompanha cultura de rua.")]:
+      "Peças raras para sair do básico, com estoque limitado e atendimento direto.",
+    [legacyPhrase("Camisetas, jaquetas, conjuntos e acessórios ", "escolhidos para composições de impacto.")]:
+      "Camisetas, jaquetas, conjuntos e acessórios para compor o corre.",
+    [legacyPhrase("Uma seleção direta, sem excesso, ", "pensada para compra rápida e segura.")]:
+      "Streetwear importado, peças escolhidas a dedo e compra sem enrolação.",
+  },
+  ctaLabel: {
+    [legacyPhrase("Ver ", "curadoria")]: "Ver catálogo",
+    [legacyPhrase("Explorar ", "destaques")]: "Ver destaques",
+  },
+  alt: {
+    [legacyPhrase("Banner editorial RARE com ", "curadoria streetwear")]: "Banner editorial RARE com streetwear importado",
+    [legacyPhrase("Banner RARE para drops ", "selecionados")]: "Banner RARE para drops limitados",
+    [legacyPhrase("Banner RARE de importados ", "premium")]: "Banner RARE de streetwear importado",
+  },
+};
+
+function humanizeLegacyStoreHeroCopy(slide: HomeHeroSlide): HomeHeroSlide {
+  return {
+    ...slide,
+    eyebrow: slide.eyebrow ? (legacyStoreHeroCopy.eyebrow?.[slide.eyebrow] ?? slide.eyebrow) : undefined,
+    title: slide.title ? (legacyStoreHeroCopy.title?.[slide.title] ?? slide.title) : undefined,
+    description: slide.description ? (legacyStoreHeroCopy.description?.[slide.description] ?? slide.description) : undefined,
+    ctaLabel: slide.ctaLabel ? (legacyStoreHeroCopy.ctaLabel?.[slide.ctaLabel] ?? slide.ctaLabel) : undefined,
+    alt: legacyStoreHeroCopy.alt?.[slide.alt] ?? slide.alt,
+  };
+}
+
 export async function getHomeBannerSlidesForStore(): Promise<HomeHeroSlide[]> {
   try {
     const { prisma } = await import("@/lib/prisma");
@@ -184,7 +226,7 @@ export async function getHomeBannerSlidesForStore(): Promise<HomeHeroSlide[]> {
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     });
     const slides = banners.map(normalizeHomeBannerSlide).filter((slide): slide is HomeBannerSlide => Boolean(slide));
-    return slides.length ? slides : getFallbackHomeBannerSlides();
+    return slides.length ? slides.map(humanizeLegacyStoreHeroCopy) : getFallbackHomeBannerSlides();
   } catch {
     return getFallbackHomeBannerSlides();
   }

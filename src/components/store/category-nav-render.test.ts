@@ -49,7 +49,7 @@ describe("CategoryNav render", () => {
   it("renders the requested public navigation order with virtual category links first", async () => {
     const html = await renderNav();
 
-    expect(html.indexOf(">Destaque<")).toBeLessThan(html.indexOf(">Tudo<"));
+    expect(html.indexOf(">Destaques<")).toBeLessThan(html.indexOf(">Tudo<"));
     expect(html.indexOf(">Tudo<")).toBeLessThan(html.indexOf(">Camisetas<"));
     expect(html.indexOf(">Camisetas<")).toBeLessThan(html.indexOf(">Jaquetas<"));
     expect(html.indexOf(">Jaquetas<")).toBeLessThan(html.indexOf(">Conjuntos<"));

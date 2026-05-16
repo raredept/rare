@@ -9,7 +9,7 @@ export const virtualCatalogCategorySlugs = ["destaques", "tudo"] as const;
 export type VirtualCatalogCategorySlug = (typeof virtualCatalogCategorySlugs)[number];
 
 export const virtualCatalogCategories = [
-  { name: "Destaque", slug: "destaques", sortOrder: -2 },
+  { name: "Destaques", slug: "destaques", sortOrder: -2 },
   { name: "Tudo", slug: "tudo", sortOrder: -1 },
 ] satisfies CatalogCategorySeed[];
 

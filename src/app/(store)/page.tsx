@@ -10,15 +10,15 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: {
-    absolute: "RARE — Curadoria streetwear e importados selecionados",
+    absolute: "RARE — Streetwear importado e drops selecionados",
   },
-  description: "Streetwear, peças importadas e drops selecionados em uma experiência de compra direta, segura e premium.",
+  description: "Peças importadas, streetwear e acessórios selecionados para quem busca sair do comum.",
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "RARE — Curadoria streetwear e importados selecionados",
-    description: "Streetwear, peças importadas e drops selecionados em uma experiência de compra direta, segura e premium.",
+    title: "RARE — Streetwear importado e drops selecionados",
+    description: "Peças importadas, streetwear e acessórios selecionados para quem busca sair do comum.",
     type: "website",
   },
 };
@@ -44,8 +44,8 @@ const trustItems = [
     icon: Truck,
   },
   {
-    title: "Curadoria selecionada",
-    text: "Drops com estoque controlado e peças escolhidas pela RARE.",
+    title: "Peças escolhidas a dedo",
+    text: "Drops limitados para quem quer sair do comum.",
     icon: Sparkles,
   },
   {
@@ -138,7 +138,7 @@ function SearchResults({ products, query }: { products: StorefrontProduct[]; que
           <p className="text-xs font-black uppercase tracking-[0.24em] text-neutral-500">Busca</p>
           <h1 className="mt-3 text-3xl font-black tracking-tight text-neutral-950 lg:text-5xl">{`Resultado para "${query}"`}</h1>
           <p className="mt-4 max-w-2xl text-sm font-semibold leading-6 text-neutral-500 lg:text-base">
-            Resultado filtrado por nome, marca ou categoria.
+            Peças encontradas pelo que você buscou.
           </p>
         </div>
       </section>
@@ -147,8 +147,8 @@ function SearchResults({ products, query }: { products: StorefrontProduct[]; que
         <ProductGrid products={products} />
       ) : (
         <div className="rounded-lg border border-dashed border-neutral-300 px-6 py-16 text-center">
-          <h2 className="text-lg font-black text-neutral-950">Nenhum produto encontrado</h2>
-          <p className="mt-2 text-sm text-neutral-500">Tente buscar por outro nome, marca ou categoria.</p>
+          <h2 className="text-lg font-black text-neutral-950">Nada encontrado por aqui.</h2>
+          <p className="mt-2 text-sm text-neutral-500">Tente outro nome, marca ou categoria.</p>
           <Link
             href="/categoria/tudo"
             className="mt-6 inline-flex min-h-11 items-center justify-center rounded-full bg-black px-5 text-xs font-black uppercase tracking-[0.16em] text-white"
@@ -186,9 +186,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       <section className="store-home-section mt-10 lg:mt-12" aria-labelledby="home-category-title">
         <SectionHeading
           id="home-category-title"
-          eyebrow="Shop by category"
-          title="Explore por categoria"
-          description="Encontre peças por tipo, drop ou curadoria."
+          eyebrow="Categorias"
+          title="Escolha por categoria"
+          description="Encontre camisetas, jaquetas, acessórios e peças para completar o visual."
         />
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           {categoryTiles.primary.map((tile) => (
@@ -201,7 +201,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <h3 className="text-lg font-black tracking-tight text-neutral-950">Acessórios por tipo</h3>
-                <p className="mt-1 text-sm font-semibold text-neutral-500">Subcategorias com produtos primeiro; o restante fica como em breve.</p>
+                <p className="mt-1 text-sm font-semibold text-neutral-500">Bags, bonés, cuecas, meias, óculos e relógios para fechar o visual.</p>
               </div>
               <Link href="/categoria/acessorios" className="text-xs font-black uppercase tracking-[0.16em] text-neutral-700 hover:text-neutral-950">
                 Ver acessórios
@@ -228,9 +228,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       <section className="store-home-section mt-12 lg:mt-16" aria-labelledby="home-featured-title">
         <SectionHeading
           id="home-featured-title"
-          eyebrow="Curadoria"
-          title="Destaques da curadoria"
-          description="Peças selecionadas para entrar primeiro no radar."
+          eyebrow="Favoritos"
+          title="Destaques do mês"
+          description="Os favoritos da RARE agora."
           action={{ href: "/categoria/destaques", label: "Ver todos os destaques" }}
         />
         {selectedFeaturedProducts.length ? (
@@ -238,7 +238,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         ) : (
           <div className="rounded-lg border border-dashed border-neutral-300 px-6 py-12 text-center">
             <h3 className="text-lg font-black text-neutral-950">Nenhum destaque ativo no momento.</h3>
-            <p className="mt-2 text-sm font-semibold text-neutral-500">A curadoria pode ser atualizada pelo admin quando o próximo drop entrar.</p>
+            <p className="mt-2 text-sm font-semibold text-neutral-500">Volte em breve ou explore o catálogo completo.</p>
             <Link href="/categoria/tudo" className="mt-6 inline-flex min-h-11 items-center rounded-full bg-black px-5 text-xs font-black uppercase tracking-[0.16em] text-white">
               Ver catálogo completo
             </Link>
@@ -263,9 +263,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         <section className="store-home-section mt-12 lg:mt-16" aria-labelledby="home-recent-title">
           <SectionHeading
             id="home-recent-title"
-            eyebrow="Novos na loja"
-            title="Novos na curadoria"
-            description="Últimas peças ativas adicionadas ao catálogo."
+            eyebrow="Novidades"
+            title="Chegou agora"
+            description="Peças recém adicionadas ao catálogo."
             action={{ href: "/categoria/tudo", label: "Ver catálogo completo" }}
           />
           <ProductGrid products={recentProducts} columns="recent" />
@@ -273,12 +273,12 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       ) : null}
 
       <section className="store-home-section mt-12 overflow-hidden rounded-lg bg-black px-6 py-10 text-white sm:px-8 lg:mt-16 lg:px-10 lg:py-12">
-        <p className="text-xs font-black uppercase tracking-[0.26em] text-white/45">Editorial RARE</p>
+        <p className="text-xs font-black uppercase tracking-[0.26em] text-white/45">Drop RARE</p>
         <div className="mt-5 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl">
-            <h2 className="text-3xl font-black tracking-tight sm:text-4xl lg:text-5xl">Drops selecionados, estoque controlado</h2>
+            <h2 className="text-3xl font-black tracking-tight sm:text-4xl lg:text-5xl">Estoque limitado. Escolha sem pressa, mas não deixa passar.</h2>
             <p className="mt-4 max-w-2xl text-sm font-semibold leading-6 text-white/62 sm:text-base">
-              A home aponta caminhos de compra; o catálogo completo continua organizado para navegar por categoria.
+              Quando uma peça sai, pode não voltar tão cedo.
             </p>
           </div>
           <Link

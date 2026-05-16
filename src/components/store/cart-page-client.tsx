@@ -56,6 +56,10 @@ const emptyGuestAddress = {
 };
 
 function formatCheckoutMessage(message: string) {
+  if (message === "Checkout temporariamente indisponível." || message.includes("Checkout temporariamente indisponível")) {
+    return "Estamos finalizando o checkout da loja. Chame a RARE no WhatsApp para concluir seu pedido por enquanto.";
+  }
+
   return message;
 }
 
@@ -182,22 +186,22 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
       <div className="mx-auto max-w-7xl px-4 py-16 text-center lg:px-8">
         <div className="mx-auto max-w-xl rounded-lg border border-dashed border-neutral-300 bg-white px-6 py-12">
           <p className="text-xs font-black uppercase tracking-[0.24em] text-neutral-500">Carrinho</p>
-          <h1 className="mt-3 text-3xl font-black tracking-tight text-neutral-950">Seu carrinho está vazio</h1>
+          <h1 className="mt-3 text-3xl font-black tracking-tight text-neutral-950">Sua seleção ainda está vazia.</h1>
           <p className="mt-3 text-sm font-semibold leading-6 text-neutral-500">
-            Explore a curadoria, adicione uma peça ao carrinho e volte para revisar entrega, frete e pagamento.
+            Adicione uma peça ao carrinho para continuar.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
-              href="/categoria/tudo"
+              href="/categoria/destaques"
               className="inline-flex min-h-12 items-center justify-center rounded-lg bg-black px-6 text-sm font-black uppercase tracking-wide text-white transition hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
             >
-              Ver catálogo completo
+              Ver destaques
             </Link>
             <Link
-              href="/categoria/destaques"
+              href="/categoria/tudo"
               className="inline-flex min-h-12 items-center justify-center rounded-lg border border-neutral-300 px-6 text-sm font-black uppercase tracking-wide text-neutral-950 transition hover:border-neutral-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
             >
-              Ver destaques
+              Explorar catálogo
             </Link>
           </div>
         </div>
@@ -289,7 +293,7 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
               <span className="whitespace-nowrap">{formatMoney(subtotalInCents)}</span>
             </div>
             <div className="flex justify-between gap-4">
-              <span>Frete</span>
+              <span>Frete calculado no checkout</span>
               <span className="whitespace-nowrap text-right">
                 {shippingPreview.result ? (shippingInCents ? formatMoney(shippingInCents) : shippingPreview.result.shippingMethod) : "A calcular"}
               </span>

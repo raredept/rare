@@ -64,7 +64,7 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
       quantity: safeQuantity,
       maxQuantity: availableStock,
     });
-    setFeedback("Produto adicionado ao carrinho.");
+    setFeedback("Peça adicionada ao carrinho.");
   }
 
   return (
@@ -204,14 +204,14 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
             rel="noreferrer"
             className="flex h-12 w-full items-center justify-center rounded-lg border border-success px-6 text-sm font-black uppercase tracking-[0.14em] text-success transition-[background-color,box-shadow,transform] duration-150 hover:bg-green-50 hover:shadow-[0_10px_30px_rgba(22,128,60,0.1)] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success"
           >
-            Tirar dúvida no WhatsApp
+            Fale com a RARE pelo WhatsApp
           </a>
         </div>
 
         <div className="mt-6 rounded-lg border border-neutral-200 bg-white p-5">
           <p className="text-sm font-black text-neutral-950">Frete e prazo</p>
           <p className="mt-2 text-sm font-semibold leading-6 text-neutral-600">
-            O frete é validado no checkout com CEP e endereço de entrega antes da finalização.
+            Frete e prazo são calculados no checkout com o CEP.
           </p>
           <Link href="/politica-de-envio" className="mt-3 inline-flex text-sm font-black text-neutral-950 underline underline-offset-4">
             Ver política de envio
@@ -222,29 +222,29 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
           <div className="flex items-start gap-3">
             <ShieldCheck className="mt-0.5 h-5 w-5 text-success" />
             <span>
-              <span className="block font-black text-neutral-950">Compra segura</span>
-              <span className="mt-1 block font-semibold leading-6 text-neutral-600">Pagamento por Pix ou cartão no checkout oficial.</span>
+              <span className="block font-black text-neutral-950">Pagamento seguro no checkout</span>
+              <span className="mt-1 block font-semibold leading-6 text-neutral-600">Pix ou cartão disponíveis no checkout da loja.</span>
             </span>
           </div>
           <div className="flex items-start gap-3">
             <Truck className="mt-0.5 h-5 w-5 text-success" />
             <span>
               <span className="block font-black text-neutral-950">Envio para todo o Brasil</span>
-              <span className="mt-1 block font-semibold leading-6 text-neutral-600">Frete e prazo conferidos com o CEP antes de finalizar.</span>
+              <span className="mt-1 block font-semibold leading-6 text-neutral-600">Frete e prazo são calculados no checkout com o CEP.</span>
             </span>
           </div>
           <div className="flex items-start gap-3">
             <PackageCheck className="mt-0.5 h-5 w-5 text-success" />
             <span>
               <span className="block font-black text-neutral-950">Estoque limitado</span>
-              <span className="mt-1 block font-semibold leading-6 text-neutral-600">A disponibilidade acompanha o tamanho selecionado.</span>
+              <span className="mt-1 block font-semibold leading-6 text-neutral-600">Disponibilidade conforme o tamanho escolhido.</span>
             </span>
           </div>
           <div className="flex items-start gap-3">
             <RotateCcw className="mt-0.5 h-5 w-5 text-success" />
             <span>
               <Link href="/trocas-e-devolucoes" className="block font-black text-neutral-950 underline underline-offset-4">
-                Trocas e devoluções
+                Troca e devolução em até 7 dias
               </Link>
               <span className="mt-1 block font-semibold leading-6 text-neutral-600">Consulte as regras antes da compra.</span>
             </span>
@@ -252,8 +252,8 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
           <div className="flex items-start gap-3">
             <CircleHelp className="mt-0.5 h-5 w-5 text-success" />
             <span>
-              <span className="block font-black text-neutral-950">Dúvidas sobre a peça</span>
-              <span className="mt-1 block font-semibold leading-6 text-neutral-600">Use o WhatsApp para confirmar tamanho, mídia ou disponibilidade.</span>
+              <span className="block font-black text-neutral-950">Atendimento direto</span>
+              <span className="mt-1 block font-semibold leading-6 text-neutral-600">Fale com a RARE pelo WhatsApp para tirar dúvidas sobre tamanho ou disponibilidade.</span>
             </span>
           </div>
         </div>

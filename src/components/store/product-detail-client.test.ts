@@ -40,9 +40,11 @@ describe("ProductDetailClient", () => {
     expect(html).toContain("2 unidades disponíveis");
     expect(html).toContain("Frete e prazo");
     expect(html).toContain('href="/politica-de-envio"');
-    expect(html).toContain("Compra segura");
+    expect(html).toContain("Pagamento seguro no checkout");
     expect(html).toContain("Estoque limitado");
     expect(html).toContain('href="/trocas-e-devolucoes"');
-    expect(html).toContain("Tirar dúvida no WhatsApp");
+    expect(html).toContain("Troca e devolução em até 7 dias");
+    expect(html).toContain("Atendimento direto");
+    expect(html).toContain("Fale com a RARE pelo WhatsApp");
   });
 });

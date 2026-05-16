@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     default: "RARE",
     template: "%s | RARE",
   },
-  description: "Curadoria streetwear, peças importadas e drops selecionados em uma experiência de compra direta, segura e premium.",
+  description: "Peças importadas, streetwear e acessórios selecionados para quem busca sair do comum.",
   openGraph: {
     siteName: "RARE",
     type: "website",
