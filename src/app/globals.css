@@ -245,6 +245,10 @@ textarea {
     linear-gradient(135deg, #050505 0%, #111111 44%, #030303 100%);
 }
 
+.store-catalog-section {
+  animation: rare-catalog-section-enter 180ms ease-out both;
+}
+
 .storefront-motion-root a[data-route-pending="true"] {
   opacity: 0.72;
 }
@@ -289,6 +293,17 @@ textarea {
   to {
     opacity: 1;
     transform: translateX(0);
+  }
+}
+
+@keyframes rare-catalog-section-enter {
+  from {
+    opacity: 0.96;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -349,6 +364,7 @@ textarea {
   .store-route-progress span,
   .store-page-transition,
   .store-loading-shell,
+  .store-catalog-section,
   .store-home-hero-slide,
   .store-product-image,
   .admin-page-transition,
@@ -366,6 +382,7 @@ textarea {
   .store-page-transition,
   .store-product-card,
   .store-category-pill,
+  .store-catalog-section,
   .storefront-motion-root [data-category-menu],
   .store-home-hero-slide,
   .store-product-image,

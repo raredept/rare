@@ -4,6 +4,15 @@ export type CatalogCategorySeed = {
   sortOrder: number;
 };
 
+export const virtualCatalogCategorySlugs = ["destaques", "tudo"] as const;
+
+export type VirtualCatalogCategorySlug = (typeof virtualCatalogCategorySlugs)[number];
+
+export const virtualCatalogCategories = [
+  { name: "Destaque", slug: "destaques", sortOrder: -2 },
+  { name: "Tudo", slug: "tudo", sortOrder: -1 },
+] satisfies CatalogCategorySeed[];
+
 export const primaryCatalogCategories = [
   { name: "Camisetas", slug: "camisetas", sortOrder: 1 },
   { name: "Jaquetas", slug: "jaquetas", sortOrder: 2 },
@@ -24,6 +33,15 @@ export const accessoryCatalogSubcategories = [
 
 export const legacyAccessoryCategorySlugs = ["bolsas-bag"] as const;
 
+export const groupedCatalogCategories = [
+  ...primaryCatalogCategories.filter((category) => category.slug !== "acessorios"),
+  ...accessoryCatalogSubcategories,
+] satisfies CatalogCategorySeed[];
+
 export function getCatalogCategorySeedSlugs() {
   return [...primaryCatalogCategories, ...accessoryCatalogSubcategories].map((category) => category.slug);
+}
+
+export function isVirtualCatalogCategorySlug(slug: string): slug is VirtualCatalogCategorySlug {
+  return virtualCatalogCategorySlugs.includes(slug as VirtualCatalogCategorySlug);
 }

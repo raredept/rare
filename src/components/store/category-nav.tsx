@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { categoryNavReducer, initialCategoryNavState } from "@/components/store/category-nav-state";
+import { virtualCatalogCategories } from "@/lib/catalog-categories";
 
 type NavigationCategory = {
   id: string;
@@ -13,11 +14,17 @@ type NavigationCategory = {
   children: { id: string; name: string; slug: string }[];
 };
 
-const categoryPillClass =
-  "store-category-pill flex h-11 shrink-0 items-center whitespace-nowrap rounded-full border border-white/15 bg-white/[0.03] px-4 text-sm font-bold text-white/85 transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out hover:-translate-y-px hover:border-white hover:bg-white hover:text-black active:translate-y-0 active:scale-[0.98] focus-visible:bg-white focus-visible:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70";
+const categoryPillBaseClass =
+  "store-category-pill flex h-11 shrink-0 items-center whitespace-nowrap rounded-full border px-4 text-sm font-bold transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out hover:-translate-y-px hover:border-white hover:bg-white hover:text-black active:translate-y-0 active:scale-[0.98] focus-visible:bg-white focus-visible:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70";
 
-const categoryMenuLinkClass =
-  "block rounded-md px-3 py-2 text-sm font-bold text-neutral-900 transition-[background-color,color] duration-150 hover:bg-neutral-100 focus-visible:bg-neutral-100 focus-visible:outline-none";
+const activeCategoryPillClass = "border-white bg-white text-black shadow-[0_10px_30px_rgba(255,255,255,0.12)]";
+const inactiveCategoryPillClass = "border-white/15 bg-white/[0.03] text-white/85";
+
+const categoryMenuLinkBaseClass =
+  "block rounded-md px-3 py-2 text-sm font-bold transition-[background-color,color] duration-150 focus-visible:outline-none";
+
+const activeCategoryMenuLinkClass = "bg-neutral-950 text-white hover:bg-neutral-900 focus-visible:bg-neutral-900";
+const inactiveCategoryMenuLinkClass = "text-neutral-900 hover:bg-neutral-100 focus-visible:bg-neutral-100";
 
 const preferredCategoryOrder = new Map([
   ["camisetas", 10],
@@ -40,6 +47,11 @@ function normalizeCategoryKey(value: string) {
     .trim();
 }
 
+function getActiveCategorySlug(pathname: string) {
+  const match = /^\/categoria\/([^/?#]+)/.exec(pathname);
+  return match?.[1] ?? null;
+}
+
 function getPreferredOrder(category: NavigationCategory) {
   for (const value of [category.slug, category.name]) {
     const order = preferredCategoryOrder.get(normalizeCategoryKey(value));
@@ -47,6 +59,14 @@ function getPreferredOrder(category: NavigationCategory) {
   }
 
   return 70;
+}
+
+function getCategoryPillClass(isActive: boolean) {
+  return `${categoryPillBaseClass} ${isActive ? activeCategoryPillClass : inactiveCategoryPillClass}`;
+}
+
+function getCategoryMenuLinkClass(isActive: boolean) {
+  return `${categoryMenuLinkBaseClass} ${isActive ? activeCategoryMenuLinkClass : inactiveCategoryMenuLinkClass}`;
 }
 
 export function CategoryNav({ categories }: { categories: NavigationCategory[] }) {
@@ -58,6 +78,7 @@ export function CategoryNav({ categories }: { categories: NavigationCategory[] }
   const hoverCloseTimeoutRef = useRef<number | null>(null);
   const openCategoryId = navState.openCategoryId;
   const pinnedCategoryId = navState.pinnedCategoryId;
+  const activeCategorySlug = getActiveCategorySlug(pathname);
 
   const clearHoverCloseTimer = useCallback(() => {
     if (hoverCloseTimeoutRef.current === null) return;
@@ -231,18 +252,37 @@ export function CategoryNav({ categories }: { categories: NavigationCategory[] }
       ref={rootRef}
       className="scrollbar-none mx-auto flex max-w-[1440px] gap-2 overflow-x-auto py-3 pl-4 pr-8 sm:pl-6 sm:pr-10 lg:overflow-visible lg:px-8 xl:px-10"
     >
-      <Link href="/" className={categoryPillClass}>
-        Tudo
-      </Link>
+      {virtualCatalogCategories.map((category) => {
+        const isActive = activeCategorySlug === category.slug;
+
+        return (
+          <Link
+            key={category.slug}
+            href={`/categoria/${category.slug}`}
+            className={getCategoryPillClass(isActive)}
+            aria-current={isActive ? "page" : undefined}
+          >
+            {category.name}
+          </Link>
+        );
+      })}
 
       {orderedCategories.map((category) => {
         const isOpen = openCategoryId === category.id;
         const hasChildren = category.children.length > 0;
         const menuId = `category-menu-${category.id}`;
+        const isDirectlyActive = activeCategorySlug === category.slug;
+        const activeChildSlug = category.children.find((child) => child.slug === activeCategorySlug)?.slug;
+        const isCategoryActive = isDirectlyActive || Boolean(activeChildSlug);
 
         if (!hasChildren) {
           return (
-            <Link key={category.id} href={`/categoria/${category.slug}`} className={categoryPillClass}>
+            <Link
+              key={category.id}
+              href={`/categoria/${category.slug}`}
+              className={getCategoryPillClass(isCategoryActive)}
+              aria-current={isCategoryActive ? "page" : undefined}
+            >
               {category.name}
             </Link>
           );
@@ -279,10 +319,11 @@ export function CategoryNav({ categories }: { categories: NavigationCategory[] }
                 }
               }}
               type="button"
-              className={`${categoryPillClass} cursor-pointer`}
+              className={`${getCategoryPillClass(isCategoryActive)} cursor-pointer`}
               aria-expanded={isOpen}
               aria-controls={menuId}
               aria-haspopup="true"
+              aria-current={isCategoryActive ? "page" : undefined}
               onClick={() => {
                 toggleMenuByClick(category.id);
               }}
@@ -316,11 +357,22 @@ export function CategoryNav({ categories }: { categories: NavigationCategory[] }
               }}
               onKeyDown={onMenuKeyDown}
             >
-              <Link href={`/categoria/${category.slug}`} className={categoryMenuLinkClass} onClick={selectMenuItem}>
+              <Link
+                href={`/categoria/${category.slug}`}
+                className={getCategoryMenuLinkClass(isDirectlyActive)}
+                aria-current={isDirectlyActive ? "page" : undefined}
+                onClick={selectMenuItem}
+              >
                 Ver todos
               </Link>
               {category.children.map((child) => (
-                <Link key={child.id} href={`/categoria/${child.slug}`} className={categoryMenuLinkClass} onClick={selectMenuItem}>
+                <Link
+                  key={child.id}
+                  href={`/categoria/${child.slug}`}
+                  className={getCategoryMenuLinkClass(activeChildSlug === child.slug)}
+                  aria-current={activeChildSlug === child.slug ? "page" : undefined}
+                  onClick={selectMenuItem}
+                >
                   {child.name}
                 </Link>
               ))}

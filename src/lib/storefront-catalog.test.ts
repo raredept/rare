@@ -1,0 +1,153 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  prisma: {
+    category: {
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
+    },
+    product: {
+      findMany: vi.fn(),
+    },
+  },
+}));
+
+vi.mock("@/lib/prisma", () => ({
+  prisma: mocks.prisma,
+}));
+
+function product(overrides: Record<string, unknown>) {
+  return {
+    id: "prod-1",
+    title: "Produto mock",
+    slug: "produto-mock",
+    priceInCents: 10000,
+    category: null,
+    subcategory: null,
+    images: [],
+    variants: [],
+    ...overrides,
+  };
+}
+
+describe("storefront catalog helpers", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("gets active featured products through the existing featured flag", async () => {
+    const featuredProduct = product({ id: "featured-1", featured: true });
+    mocks.prisma.product.findMany.mockResolvedValueOnce([featuredProduct]);
+
+    const { getFeaturedProducts } = await import("@/lib/storefront");
+    const products = await getFeaturedProducts();
+
+    expect(products).toEqual([featuredProduct]);
+    expect(mocks.prisma.product.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ active: true, featured: true }),
+      }),
+    );
+  });
+
+  it("groups active products by category and accessory subcategory in the public catalog order", async () => {
+    mocks.prisma.product.findMany.mockResolvedValueOnce([
+      product({
+        id: "calca-1",
+        category: { name: "Calças", slug: "calcas" },
+        subcategory: null,
+      }),
+      product({
+        id: "bag-1",
+        category: { name: "Acessórios", slug: "acessorios" },
+        subcategory: { name: "Bags", slug: "bags" },
+      }),
+      product({
+        id: "camiseta-1",
+        category: { name: "Camisetas", slug: "camisetas" },
+        subcategory: null,
+      }),
+    ]);
+
+    const { getProductsGroupedByCategory } = await import("@/lib/storefront");
+    const sections = await getProductsGroupedByCategory();
+
+    expect(mocks.prisma.product.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ active: true }),
+      }),
+    );
+    expect(sections.map((section) => section.name)).toEqual(["Camisetas", "Calças", "Bags"]);
+    expect(sections.map((section) => section.products.map((item) => item.id))).toEqual([["camiseta-1"], ["calca-1"], ["bag-1"]]);
+  });
+
+  it("hides empty grouped categories and handles an empty catalog", async () => {
+    mocks.prisma.product.findMany.mockResolvedValueOnce([]);
+
+    const { getProductsGroupedByCategory } = await import("@/lib/storefront");
+    const sections = await getProductsGroupedByCategory();
+
+    expect(sections).toEqual([]);
+  });
+
+  it("limits grouped sections and exposes when a category has more products", async () => {
+    mocks.prisma.product.findMany.mockResolvedValueOnce(
+      Array.from({ length: 9 }, (_, index) =>
+        product({
+          id: `camiseta-${index + 1}`,
+          category: { name: "Camisetas", slug: "camisetas" },
+          subcategory: null,
+        }),
+      ),
+    );
+
+    const { getProductsGroupedByCategory } = await import("@/lib/storefront");
+    const [section] = await getProductsGroupedByCategory({ limitPerCategory: 8 });
+
+    expect(section?.name).toBe("Camisetas");
+    expect(section?.total).toBe(9);
+    expect(section?.products).toHaveLength(8);
+    expect(section?.hasMore).toBe(true);
+  });
+
+  it("returns virtual featured page data without looking up a database category", async () => {
+    mocks.prisma.product.findMany.mockResolvedValueOnce([product({ id: "featured-1", featured: true })]);
+
+    const { getCategoryPageData } = await import("@/lib/storefront");
+    const pageData = await getCategoryPageData("destaques");
+
+    expect(pageData?.kind).toBe("featured");
+    expect(pageData?.title).toBe("Produtos em destaque");
+    expect(mocks.prisma.category.findUnique).not.toHaveBeenCalled();
+    expect(mocks.prisma.product.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ active: true, featured: true }),
+      }),
+    );
+  });
+
+  it("returns virtual grouped catalog page data without looking up a database category", async () => {
+    mocks.prisma.product.findMany.mockResolvedValueOnce([]);
+
+    const { getCategoryPageData } = await import("@/lib/storefront");
+    const pageData = await getCategoryPageData("tudo");
+
+    expect(pageData?.kind).toBe("grouped");
+    expect(pageData?.title).toBe("Todos os produtos");
+    if (!pageData || pageData.kind !== "grouped") {
+      throw new Error("Expected grouped page data");
+    }
+    expect(pageData.sections).toEqual([]);
+    expect(mocks.prisma.category.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("keeps unknown real category slugs as not-found page data", async () => {
+    mocks.prisma.category.findUnique.mockResolvedValueOnce(null);
+
+    const { getCategoryPageData } = await import("@/lib/storefront");
+    const pageData = await getCategoryPageData("categoria-inexistente");
+
+    expect(pageData).toBeNull();
+    expect(mocks.prisma.category.findUnique).toHaveBeenCalledWith({ where: { slug: "categoria-inexistente" } });
+  });
+});
