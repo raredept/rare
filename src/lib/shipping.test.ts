@@ -14,7 +14,7 @@ describe("provisional shipping", () => {
     });
 
     expect(shipping.shippingInCents).toBe(2500);
-    expect(shipping.shippingMethod).toBe("Frete fixo provisorio");
+    expect(shipping.shippingMethod).toBe("Frete fixo provisório");
     expect(shipping.shippingCep).toBe("01001000");
   });
 
@@ -30,7 +30,7 @@ describe("provisional shipping", () => {
     });
 
     expect(shipping.shippingInCents).toBe(1900);
-    expect(shipping.shippingMethod).toBe("Frete manual provisorio");
+    expect(shipping.shippingMethod).toBe("Frete manual provisório");
   });
 
   it("applies free shipping threshold", () => {
@@ -45,7 +45,7 @@ describe("provisional shipping", () => {
     });
 
     expect(shipping.shippingInCents).toBe(0);
-    expect(shipping.shippingMethod).toBe("Frete gratis");
+    expect(shipping.shippingMethod).toBe("Frete grátis");
     expect(shipping.metadata.freeShippingApplied).toBe(true);
   });
 
@@ -60,7 +60,7 @@ describe("provisional shipping", () => {
 
     expect(shipping.shippingInCents).toBe(0);
     expect(shipping.shippingMethod).toBe("Entrega a combinar");
-    expect(shipping.warnings).toContain("Frete automatico desativado; entrega combinada manualmente.");
+    expect(shipping.warnings).toContain("Frete automático desativado; entrega combinada manualmente.");
   });
 
   it("blocks required checkout address with invalid CEP", () => {
@@ -73,6 +73,6 @@ describe("provisional shipping", () => {
           checkoutRequiresAddress: true,
         },
       }),
-    ).toThrow("Informe um CEP valido");
+    ).toThrow("Informe um CEP válido");
   });
 });

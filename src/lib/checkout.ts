@@ -101,7 +101,7 @@ export async function updateOrderStatusWithReservationRelease(orderId: string, s
     });
 
     if (!order) {
-      throw new Error("Pedido nao encontrado.");
+      throw new Error("Pedido não encontrado.");
     }
 
     if (shouldReleaseReservationOnStatusChange(order.status, status)) {
@@ -219,11 +219,11 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
     : null;
 
   if (checkoutCustomer && parsed.customerAddressId && !selectedCustomerAddress) {
-    throw new Error("Endereco de entrega invalido.");
+    throw new Error("Endereço de entrega inválido.");
   }
 
   if (checkoutCustomer && settings.checkoutRequiresAddress && !selectedCustomerAddress) {
-    throw new Error("Selecione um endereco de entrega.");
+    throw new Error("Selecione um endereço de entrega.");
   }
 
   if (!checkoutCustomer && !parsed.guestCustomerData) {
@@ -231,7 +231,7 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
   }
 
   if (!checkoutCustomer && settings.checkoutRequiresAddress && !parsed.guestAddress) {
-    throw new Error("Informe o endereco de entrega.");
+    throw new Error("Informe o endereço de entrega.");
   }
 
   const guestCustomerData: CheckoutGuestCustomerSource | null = parsed.guestCustomerData
@@ -269,7 +269,7 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
     const orderItems = items.map((item) => {
       const variant = variantsById.get(item.variantId);
       if (!variant || variant.productId !== item.productId || !variant.active || !variant.product.active) {
-        throw new Error("Produto indisponivel.");
+        throw new Error("Produto indisponível.");
       }
 
       const totalInCents = variant.product.priceInCents * item.quantity;
@@ -312,7 +312,7 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
     });
 
     for (const item of createdOrder.items) {
-      if (!item.variantId) throw new Error("Variacao invalida.");
+      if (!item.variantId) throw new Error("Variação inválida.");
 
       const updated = await tx.$executeRaw`
         UPDATE "ProductVariant"
@@ -334,7 +334,7 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
           orderId: createdOrder.id,
           orderItemId: item.id,
           reservedDelta: item.quantity,
-          reason: "Reserva temporaria criada no checkout",
+          reason: "Reserva temporária criada no checkout",
         },
       });
     }
@@ -436,7 +436,7 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
         include: { items: true },
       });
       if (freshOrder) {
-        await releaseOrderReservation(tx, freshOrder.id, freshOrder.items, "failed", "Falha ao criar sessao Stripe");
+        await releaseOrderReservation(tx, freshOrder.id, freshOrder.items, "failed", "Falha ao criar sessão Stripe");
       }
     });
 

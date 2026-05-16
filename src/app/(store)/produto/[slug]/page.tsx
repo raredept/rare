@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ProductDetailClient } from "@/components/store/product-detail-client";
 import { getAppUrl } from "@/lib/env";
@@ -10,6 +11,37 @@ export const dynamic = "force-dynamic";
 type ProductPageProps = {
   params: Promise<{ slug: string }>;
 };
+
+export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const product = await getProductBySlug(slug);
+
+  if (!product) {
+    return {
+      title: "Produto não encontrado",
+      robots: {
+        index: false,
+      },
+    };
+  }
+
+  const description = product.shortDescription || product.description;
+  const openGraphImage = product.images.find((image) => !isProductVideoUrl(image.url) && image.url.startsWith("http"));
+
+  return {
+    title: product.title,
+    description,
+    alternates: {
+      canonical: `/produto/${product.slug}`,
+    },
+    openGraph: {
+      title: `${product.title} | RARE`,
+      description,
+      type: "website",
+      images: openGraphImage ? [{ url: openGraphImage.url, alt: openGraphImage.alt || product.title }] : undefined,
+    },
+  };
+}
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { slug } = await params;

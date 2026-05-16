@@ -17,7 +17,12 @@ export const metadata: Metadata = {
     default: "RARE",
     template: "%s | RARE",
   },
-  description: "Loja online de produtos importados, roupas e acessórios.",
+  description: "Curadoria streetwear, peças importadas e drops selecionados em uma experiência de compra direta, segura e premium.",
+  openGraph: {
+    siteName: "RARE",
+    type: "website",
+    locale: "pt_BR",
+  },
   icons: {
     icon: "/brand/favicon.ico",
     shortcut: "/brand/favicon.ico",

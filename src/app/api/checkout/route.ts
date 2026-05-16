@@ -9,15 +9,15 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const publicCheckoutErrors = new Set([
-  "Produto indisponivel.",
+  "Produto indisponível.",
   "Estoque insuficiente para finalizar este carrinho.",
-  "Variacao invalida.",
-  "Informe um CEP valido para entrega.",
-  "Endereco de entrega invalido.",
-  "Selecione um endereco de entrega.",
+  "Variação inválida.",
+  "Informe um CEP válido para entrega.",
+  "Endereço de entrega inválido.",
+  "Selecione um endereço de entrega.",
   "Informe seus dados de contato para finalizar.",
-  "Informe o endereco de entrega.",
-  "Frete real ainda nao esta integrado. Use frete manual, fixo ou desativado nas configuracoes.",
+  "Informe o endereço de entrega.",
+  "Frete real ainda não está integrado. Use frete manual, fixo ou desativado nas configurações.",
 ]);
 
 function getPublicCheckoutError(error: unknown) {
@@ -30,7 +30,7 @@ function getPublicCheckoutError(error: unknown) {
   }
 
   return {
-    message: "Checkout temporariamente indisponivel. Tente novamente em alguns minutos.",
+    message: "Checkout temporariamente indisponível. Tente novamente em alguns minutos.",
     status: 503,
   };
 }
@@ -45,7 +45,7 @@ function getSafeLogMessage(error: unknown) {
 
 export async function POST(request: NextRequest) {
   if (!isCheckoutEnabled()) {
-    return NextResponse.json({ error: "Checkout temporariamente indisponivel." }, { status: 503 });
+    return NextResponse.json({ error: "Checkout temporariamente indisponível." }, { status: 503 });
   }
 
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";

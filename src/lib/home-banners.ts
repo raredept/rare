@@ -96,7 +96,7 @@ export const homeBannerInputSchema = z
       context.addIssue({
         code: "custom",
         path: ["alt"],
-        message: "Alt text e obrigatorio quando houver imagem.",
+        message: "Alt text é obrigatório quando houver imagem.",
       });
     }
 
@@ -104,7 +104,7 @@ export const homeBannerInputSchema = z
       context.addIssue({
         code: "custom",
         path: ["imageUrl"],
-        message: "URL da imagem desktop invalida.",
+        message: "URL da imagem desktop inválida.",
       });
     }
 
@@ -112,7 +112,7 @@ export const homeBannerInputSchema = z
       context.addIssue({
         code: "custom",
         path: ["mobileImageUrl"],
-        message: "URL da imagem mobile invalida.",
+        message: "URL da imagem mobile inválida.",
       });
     }
 

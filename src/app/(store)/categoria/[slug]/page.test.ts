@@ -1,7 +1,7 @@
 import { createElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import CategoryPage from "@/app/(store)/categoria/[slug]/page";
+import CategoryPage, { generateMetadata } from "@/app/(store)/categoria/[slug]/page";
 
 const mocks = vi.hoisted(() => ({
   getCategoryPageData: vi.fn(),
@@ -97,6 +97,23 @@ describe("store category page", () => {
     expect(html).toContain("Camiseta RARE");
   });
 
+  it("generates basic metadata for virtual categories", async () => {
+    mocks.getCategoryPageData.mockResolvedValueOnce({
+      kind: "featured",
+      slug: "destaques",
+      eyebrow: "SELEÇÃO RARE",
+      title: "Produtos em destaque",
+      description: "Peças selecionadas em evidência na curadoria da loja.",
+      products: [product],
+    });
+
+    const result = await generateMetadata({ params: Promise.resolve({ slug: "destaques" }) });
+
+    expect(result.title).toBe("Produtos em destaque");
+    expect(result.description).toBe("Peças selecionadas em evidência na curadoria da loja.");
+    expect(result.alternates).toEqual({ canonical: "/categoria/destaques" });
+  });
+
   it("renders the featured empty state when no featured products are active", async () => {
     mocks.getCategoryPageData.mockResolvedValueOnce({
       kind: "featured",
@@ -114,6 +131,32 @@ describe("store category page", () => {
     const html = renderToStaticMarkup(element as ReactElement);
 
     expect(html).toContain("Nenhum produto em destaque no momento.");
-    expect(html).toContain("Novos drops podem ser ativados pelo admin.");
+    expect(html).toContain("Novos drops podem aparecer em breve.");
+    expect(html).toContain('href="/categoria/tudo"');
+    expect(html).toContain('href="/categoria/destaques"');
+  });
+
+  it("renders a useful empty state for empty real categories", async () => {
+    mocks.getCategoryPageData.mockResolvedValueOnce({
+      kind: "category",
+      slug: "cuecas",
+      eyebrow: "Categoria",
+      title: "Cuecas",
+      description: "Seleção atualizada de produtos ativos nesta categoria.",
+      products: [],
+    });
+
+    const element = await CategoryPage({
+      params: Promise.resolve({ slug: "cuecas" }),
+      searchParams: Promise.resolve({}),
+    });
+    const html = renderToStaticMarkup(element as ReactElement);
+
+    expect(html).toContain("Nenhum produto nessa categoria no momento.");
+    expect(html).toContain("Novos drops podem aparecer em breve.");
+    expect(html).toContain('href="/categoria/tudo"');
+    expect(html).toContain("Ver catálogo completo");
+    expect(html).toContain('href="/categoria/destaques"');
+    expect(html).toContain("Ver destaques");
   });
 });

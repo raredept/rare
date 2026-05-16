@@ -112,7 +112,7 @@ export function HomeHeroCarousel({ slides }: HomeHeroCarouselProps) {
   if (!activeSlides.length) {
     return (
       <section className="store-home-hero relative overflow-hidden rounded-lg bg-black text-white" aria-label="Destaque RARE">
-        <HomeHeroPlaceholder label="Destaque RARE indisponivel" />
+        <HomeHeroPlaceholder label="Destaque RARE indisponível" />
       </section>
     );
   }

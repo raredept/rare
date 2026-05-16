@@ -55,22 +55,8 @@ const emptyGuestAddress = {
   state: "",
 };
 
-const checkoutMessageCopy: Record<string, string> = {
-  "Informe um CEP valido para entrega.": "Informe um CEP válido para entrega.",
-  "Frete real ainda nao esta integrado. Use frete manual, fixo ou desativado nas configuracoes.":
-    "Frete real ainda não está integrado. Use frete manual, fixo ou desativado nas configurações.",
-  "Checkout temporariamente indisponivel. Tente novamente em alguns minutos.":
-    "Checkout temporariamente indisponível. Tente novamente em alguns minutos.",
-  "Checkout temporariamente indisponivel.": "Checkout temporariamente indisponível.",
-  "Produto indisponivel.": "Produto indisponível.",
-  "Variacao invalida.": "Variação inválida.",
-  "Endereco de entrega invalido.": "Endereço de entrega inválido.",
-  "Selecione um endereco de entrega.": "Selecione um endereço de entrega.",
-  "Informe o endereco de entrega.": "Informe o endereço de entrega.",
-};
-
 function formatCheckoutMessage(message: string) {
-  return checkoutMessageCopy[message] ?? message;
+  return message;
 }
 
 export function CartPageClient({ customer, addresses, initialSelectedAddressId, shippingSettings }: CartPageClientProps) {
@@ -194,14 +180,27 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
   if (!items.length) {
     return (
       <div className="mx-auto max-w-7xl px-4 py-16 text-center lg:px-8">
-        <h1 className="text-2xl font-black text-neutral-950">Seu carrinho</h1>
-        <p className="mt-3 text-neutral-500">Seu carrinho está vazio.</p>
-        <Link
-          href="/"
-          className="mt-8 inline-flex h-12 items-center justify-center rounded-lg bg-black px-6 text-sm font-black uppercase tracking-wide text-white"
-        >
-          Continuar comprando
-        </Link>
+        <div className="mx-auto max-w-xl rounded-lg border border-dashed border-neutral-300 bg-white px-6 py-12">
+          <p className="text-xs font-black uppercase tracking-[0.24em] text-neutral-500">Carrinho</p>
+          <h1 className="mt-3 text-3xl font-black tracking-tight text-neutral-950">Seu carrinho está vazio</h1>
+          <p className="mt-3 text-sm font-semibold leading-6 text-neutral-500">
+            Explore a curadoria, adicione uma peça ao carrinho e volte para revisar entrega, frete e pagamento.
+          </p>
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <Link
+              href="/categoria/tudo"
+              className="inline-flex min-h-12 items-center justify-center rounded-lg bg-black px-6 text-sm font-black uppercase tracking-wide text-white transition hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
+            >
+              Ver catálogo completo
+            </Link>
+            <Link
+              href="/categoria/destaques"
+              className="inline-flex min-h-12 items-center justify-center rounded-lg border border-neutral-300 px-6 text-sm font-black uppercase tracking-wide text-neutral-950 transition hover:border-neutral-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
+            >
+              Ver destaques
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }
@@ -324,8 +323,16 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
             Finalizar compra
           </button>
           <p className="mt-3 text-center text-xs font-bold text-neutral-500">Pagamento seguro via Pix ou cartão</p>
+          <div className="mt-4 grid gap-2 border-t border-neutral-200 pt-4 text-center text-xs font-bold text-neutral-500 sm:grid-cols-2">
+            <Link href="/politica-de-envio" className="underline underline-offset-4 hover:text-neutral-950">
+              Política de envio
+            </Link>
+            <Link href="/trocas-e-devolucoes" className="underline underline-offset-4 hover:text-neutral-950">
+              Trocas e devoluções
+            </Link>
+          </div>
           <Link
-            href="/"
+            href="/categoria/tudo"
             className="mt-5 flex h-11 items-center justify-center rounded-lg border border-neutral-300 px-4 text-sm font-black uppercase tracking-wide text-neutral-950"
           >
             Continuar comprando

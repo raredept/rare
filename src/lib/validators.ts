@@ -30,13 +30,13 @@ const optionalCpf = z
   .refine((value) => {
     const cpf = normalizeCpf(value);
     return !cpf || isValidCpf(cpf);
-  }, "CPF invalido.")
+  }, "CPF inválido.")
   .transform((value) => normalizeCpf(value) ?? undefined);
 
 const cepSchema = z
   .string()
   .trim()
-  .refine((value) => isValidCep(value), "CEP invalido.")
+  .refine((value) => isValidCep(value), "CEP inválido.")
   .transform((value) => parseCep(value) ?? value);
 
 const stateSchema = z
@@ -44,7 +44,7 @@ const stateSchema = z
   .trim()
   .length(2, "Use a sigla do estado com 2 letras.")
   .transform((value) => value.toUpperCase())
-  .refine((value) => /^[A-Z]{2}$/.test(value), "Estado invalido.");
+  .refine((value) => /^[A-Z]{2}$/.test(value), "Estado inválido.");
 
 const optionalPositiveInt = (max: number) =>
   z
@@ -92,7 +92,7 @@ export const customerRegisterSchema = z
     passwordConfirmation: z.string().min(8).max(128),
   })
   .refine((data) => data.password === data.passwordConfirmation, {
-    message: "As senhas nao conferem.",
+    message: "As senhas não conferem.",
     path: ["passwordConfirmation"],
   });
 

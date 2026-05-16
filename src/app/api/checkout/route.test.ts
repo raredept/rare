@@ -39,7 +39,7 @@ describe("checkout route readiness", () => {
     const body = await response.json();
 
     expect(response.status).toBe(503);
-    expect(body).toEqual({ error: "Checkout temporariamente indisponivel." });
+    expect(body).toEqual({ error: "Checkout temporariamente indisponível." });
     expect(routeMocks.createCheckoutSession).not.toHaveBeenCalled();
     expect(routeMocks.getCurrentCustomer).not.toHaveBeenCalled();
   });

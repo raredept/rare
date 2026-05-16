@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { CartPageClient } from "@/components/store/cart-page-client";
 import { getCurrentCustomer } from "@/lib/customer-auth";
 import { prisma } from "@/lib/prisma";
@@ -5,6 +6,14 @@ import { getStoreSettings } from "@/lib/settings";
 import { getEffectiveFixedShippingInCents, getEffectiveFreeShippingThresholdInCents } from "@/lib/shipping";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Carrinho",
+  description: "Revise seus produtos, dados de contato, entrega e resumo do pedido na RARE.",
+  alternates: {
+    canonical: "/cart",
+  },
+};
 
 type CartPageProps = {
   searchParams: Promise<{ address?: string }>;

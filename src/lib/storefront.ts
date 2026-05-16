@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { accessoryCatalogSubcategories, groupedCatalogCategories } from "@/lib/catalog-categories";
+import { accessoryCatalogSubcategories, groupedCatalogCategories, primaryCatalogCategories } from "@/lib/catalog-categories";
 import { prisma } from "@/lib/prisma";
 
 export const productInclude = {
@@ -23,6 +23,36 @@ export type GroupedCatalogSection = {
 const accessorySubcategoryOrder = new Map(accessoryCatalogSubcategories.map((category, index) => [category.slug, index]));
 const groupedCatalogCategorySlugs = new Set(groupedCatalogCategories.map((category) => category.slug));
 const productOrderBy = [{ featured: "desc" }, { sortOrder: "asc" }, { createdAt: "desc" }] satisfies Prisma.ProductOrderByWithRelationInput[];
+const recentProductOrderBy = [{ createdAt: "desc" }, { sortOrder: "asc" }] satisfies Prisma.ProductOrderByWithRelationInput[];
+
+export type HomeCategoryTile = {
+  name: string;
+  slug: string;
+  href: string;
+  description: string;
+  total: number;
+  status: "available" | "soon";
+};
+
+export type HomeCategoryTiles = {
+  primary: HomeCategoryTile[];
+  accessories: HomeCategoryTile[];
+};
+
+const homeCategoryDescriptions = new Map([
+  ["camisetas", "Bases fortes para o dia a dia."],
+  ["jaquetas", "Camadas com presença no outfit."],
+  ["conjuntos", "Combinações prontas para sair."],
+  ["bermudas", "Peças leves para rotação casual."],
+  ["calcas", "Modelagens para compor a base."],
+  ["acessorios", "Detalhes que fecham a curadoria."],
+  ["bags", "Bags para completar o visual."],
+  ["bones", "Bonés selecionados para o drop."],
+  ["cuecas", "Essenciais em seleção controlada."],
+  ["meias", "Complementos para chegar em breve."],
+  ["oculos", "Óculos para finalizar a composição."],
+  ["relogios", "Relógios e detalhes de impacto."],
+]);
 
 function buildActiveProductWhere(params?: { query?: string; categorySlug?: string; featuredOnly?: boolean }) {
   const query = params?.query?.trim();
@@ -97,16 +127,81 @@ export async function getNavigationCategories() {
   });
 }
 
-export async function getProducts(params?: { query?: string; categorySlug?: string; featuredOnly?: boolean }) {
+function sortHomeCategoryTiles(first: HomeCategoryTile, second: HomeCategoryTile) {
+  const availabilityDiff = Number(second.status === "available") - Number(first.status === "available");
+  if (availabilityDiff) return availabilityDiff;
+  return 0;
+}
+
+function buildHomeCategoryTile(category: { name: string; slug: string }, total: number): HomeCategoryTile {
+  return {
+    name: category.name,
+    slug: category.slug,
+    href: `/categoria/${category.slug}`,
+    description: homeCategoryDescriptions.get(category.slug) ?? "Curadoria selecionada RARE.",
+    total,
+    status: total > 0 ? "available" : "soon",
+  };
+}
+
+export async function getProducts(params?: {
+  query?: string;
+  categorySlug?: string;
+  featuredOnly?: boolean;
+  limit?: number;
+  orderBy?: Prisma.ProductOrderByWithRelationInput[];
+}) {
   return prisma.product.findMany({
     where: buildActiveProductWhere(params),
     include: productInclude,
-    orderBy: productOrderBy,
+    orderBy: params?.orderBy ?? productOrderBy,
+    ...(params?.limit && params.limit > 0 ? { take: params.limit } : {}),
   });
 }
 
-export async function getFeaturedProducts(params?: { query?: string }) {
-  return getProducts({ query: params?.query, featuredOnly: true });
+export async function getFeaturedProducts(params?: { query?: string; limit?: number }) {
+  return getProducts({ query: params?.query, featuredOnly: true, limit: params?.limit });
+}
+
+export async function getRecentProducts(params?: { query?: string; limit?: number }) {
+  return getProducts({ query: params?.query, limit: params?.limit, orderBy: recentProductOrderBy });
+}
+
+export async function getHomeCategoryTiles(): Promise<HomeCategoryTiles> {
+  const products = await prisma.product.findMany({
+    where: buildActiveProductWhere(),
+    select: {
+      category: { select: { slug: true } },
+      subcategory: { select: { slug: true } },
+    },
+  });
+
+  const primaryCounts = new Map(primaryCatalogCategories.map((category) => [category.slug, 0]));
+  const accessoryCounts = new Map(accessoryCatalogSubcategories.map((category) => [category.slug, 0]));
+
+  for (const product of products) {
+    const categorySlug = product.category?.slug ?? null;
+    const subcategorySlug = product.subcategory?.slug ?? null;
+
+    if (categorySlug === "acessorios" || (subcategorySlug && accessoryCounts.has(subcategorySlug))) {
+      primaryCounts.set("acessorios", (primaryCounts.get("acessorios") ?? 0) + 1);
+      if (subcategorySlug && accessoryCounts.has(subcategorySlug)) {
+        accessoryCounts.set(subcategorySlug, (accessoryCounts.get(subcategorySlug) ?? 0) + 1);
+      }
+      continue;
+    }
+
+    if (categorySlug && primaryCounts.has(categorySlug)) {
+      primaryCounts.set(categorySlug, (primaryCounts.get(categorySlug) ?? 0) + 1);
+    }
+  }
+
+  return {
+    primary: primaryCatalogCategories.map((category) => buildHomeCategoryTile(category, primaryCounts.get(category.slug) ?? 0)).sort(sortHomeCategoryTiles),
+    accessories: accessoryCatalogSubcategories
+      .map((category) => buildHomeCategoryTile(category, accessoryCounts.get(category.slug) ?? 0))
+      .sort(sortHomeCategoryTiles),
+  };
 }
 
 export async function getProductsGroupedByCategory(params?: { query?: string; limitPerCategory?: number; includeEmpty?: boolean }) {

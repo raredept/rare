@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ProductCard } from "@/components/store/product-card";
@@ -10,6 +11,33 @@ type CategoryPageProps = {
   searchParams: Promise<{ q?: string }>;
 };
 
+export async function generateMetadata({ params }: Pick<CategoryPageProps, "params">): Promise<Metadata> {
+  const { slug } = await params;
+  const pageData = await getCategoryPageData(slug);
+
+  if (!pageData) {
+    return {
+      title: "Categoria não encontrada",
+      robots: {
+        index: false,
+      },
+    };
+  }
+
+  return {
+    title: pageData.title,
+    description: pageData.description,
+    alternates: {
+      canonical: `/categoria/${slug}`,
+    },
+    openGraph: {
+      title: `${pageData.title} | RARE`,
+      description: pageData.description,
+      type: "website",
+    },
+  };
+}
+
 function ProductGrid({ products }: { products: StorefrontProduct[] }) {
   return (
     <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:gap-x-5 md:grid-cols-3 lg:grid-cols-4 lg:gap-x-6 lg:gap-y-10 xl:grid-cols-5 xl:gap-x-8">
@@ -20,11 +48,27 @@ function ProductGrid({ products }: { products: StorefrontProduct[] }) {
   );
 }
 
-function EmptyState({ title, description }: { title: string; description: string }) {
+function EmptyState({ title, description, showActions = true }: { title: string; description: string; showActions?: boolean }) {
   return (
     <div className="rounded-lg border border-dashed border-neutral-300 px-6 py-16 text-center">
       <h2 className="text-lg font-black text-neutral-950">{title}</h2>
       <p className="mt-2 text-sm font-semibold text-neutral-500">{description}</p>
+      {showActions ? (
+        <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <Link
+            href="/categoria/tudo"
+            className="inline-flex min-h-11 items-center justify-center rounded-full bg-black px-5 text-xs font-black uppercase tracking-[0.16em] text-white transition hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
+          >
+            Ver catálogo completo
+          </Link>
+          <Link
+            href="/categoria/destaques"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-neutral-300 px-5 text-xs font-black uppercase tracking-[0.16em] text-neutral-800 transition hover:border-neutral-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
+          >
+            Ver destaques
+          </Link>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -69,7 +113,8 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
         ) : (
           <EmptyState
             title="Nenhum produto ativo no catálogo no momento."
-            description="Novas categorias podem ser abastecidas pelo admin."
+            description="Novas categorias podem entrar na curadoria em breve."
+            showActions={false}
           />
         )
       ) : pageData.products.length ? (
@@ -77,10 +122,10 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
       ) : pageData.kind === "featured" ? (
         <EmptyState
           title="Nenhum produto em destaque no momento."
-          description="Novos drops podem ser ativados pelo admin."
+          description="Novos drops podem aparecer em breve."
         />
       ) : (
-        <EmptyState title="Nenhum produto nessa categoria" description="Novos importados podem ser cadastrados pelo admin." />
+        <EmptyState title="Nenhum produto nessa categoria no momento." description="Novos drops podem aparecer em breve." />
       )}
     </div>
   );

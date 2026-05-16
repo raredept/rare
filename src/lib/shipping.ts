@@ -51,15 +51,15 @@ export function calculateProvisionalShipping(input: ProvisionalShippingInput): P
   const warnings: string[] = [];
 
   if (addressRequired && !isValidCep(input.cep)) {
-    throw new Error("Informe um CEP valido para entrega.");
+    throw new Error("Informe um CEP válido para entrega.");
   }
 
   if (mode === "future_provider") {
-    throw new Error("Frete real ainda nao esta integrado. Use frete manual, fixo ou desativado nas configuracoes.");
+    throw new Error("Frete real ainda não está integrado. Use frete manual, fixo ou desativado nas configurações.");
   }
 
   if (mode === "disabled") {
-    warnings.push("Frete automatico desativado; entrega combinada manualmente.");
+    warnings.push("Frete automático desativado; entrega combinada manualmente.");
     return {
       shippingInCents: 0,
       shippingMethod: "Entrega a combinar",
@@ -76,7 +76,7 @@ export function calculateProvisionalShipping(input: ProvisionalShippingInput): P
   if (threshold && input.subtotalInCents >= threshold) {
     return {
       shippingInCents: 0,
-      shippingMethod: "Frete gratis",
+      shippingMethod: "Frete grátis",
       shippingCep,
       warnings,
       metadata: {
@@ -88,7 +88,7 @@ export function calculateProvisionalShipping(input: ProvisionalShippingInput): P
 
   return {
     shippingInCents: getEffectiveFixedShippingInCents(input.settings),
-    shippingMethod: mode === "manual" ? "Frete manual provisorio" : "Frete fixo provisorio",
+    shippingMethod: mode === "manual" ? "Frete manual provisório" : "Frete fixo provisório",
     shippingCep,
     warnings,
     metadata: {

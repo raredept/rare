@@ -50,6 +50,62 @@ describe("storefront catalog helpers", () => {
     );
   });
 
+  it("gets recent products without prioritizing the featured flag", async () => {
+    const recentProduct = product({ id: "recent-1", featured: false });
+    mocks.prisma.product.findMany.mockResolvedValueOnce([recentProduct]);
+
+    const { getRecentProducts } = await import("@/lib/storefront");
+    const products = await getRecentProducts({ limit: 4 });
+
+    expect(products).toEqual([recentProduct]);
+    expect(mocks.prisma.product.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ active: true }),
+        orderBy: [{ createdAt: "desc" }, { sortOrder: "asc" }],
+        take: 4,
+      }),
+    );
+  });
+
+  it("builds home category tiles with products first and empty categories marked as soon", async () => {
+    mocks.prisma.product.findMany.mockResolvedValueOnce([
+      {
+        category: { slug: "camisetas" },
+        subcategory: null,
+      },
+      {
+        category: { slug: "acessorios" },
+        subcategory: { slug: "bags" },
+      },
+    ]);
+
+    const { getHomeCategoryTiles } = await import("@/lib/storefront");
+    const tiles = await getHomeCategoryTiles();
+
+    expect(tiles.primary[0]).toMatchObject({
+      name: "Camisetas",
+      href: "/categoria/camisetas",
+      total: 1,
+      status: "available",
+    });
+    expect(tiles.primary[1]).toMatchObject({
+      name: "Acessórios",
+      href: "/categoria/acessorios",
+      total: 1,
+      status: "available",
+    });
+    expect(tiles.primary.at(-1)).toMatchObject({
+      total: 0,
+      status: "soon",
+    });
+    expect(tiles.accessories[0]).toMatchObject({
+      name: "Bags",
+      total: 1,
+      status: "available",
+    });
+    expect(tiles.accessories.some((tile) => tile.name === "Relógios" && tile.status === "soon")).toBe(true);
+  });
+
   it("groups active products by category and accessory subcategory in the public catalog order", async () => {
     mocks.prisma.product.findMany.mockResolvedValueOnce([
       product({

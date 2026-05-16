@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, ShieldCheck, Truck } from "lucide-react";
+import { ChevronLeft, ChevronRight, CircleHelp, PackageCheck, RotateCcw, ShieldCheck, Truck } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { useCart } from "@/components/store/cart-context";
 import { ProductMedia } from "@/components/store/product-media";
@@ -212,16 +213,48 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
           <p className="mt-2 text-sm font-semibold leading-6 text-neutral-600">
             O frete é validado no checkout com CEP e endereço de entrega antes da finalização.
           </p>
+          <Link href="/politica-de-envio" className="mt-3 inline-flex text-sm font-black text-neutral-950 underline underline-offset-4">
+            Ver política de envio
+          </Link>
         </div>
 
-        <div className="mt-5 grid gap-3 rounded-lg border border-neutral-200 bg-white p-5 text-sm font-bold text-neutral-700">
-          <div className="flex items-center gap-3">
-            <ShieldCheck className="h-5 w-5 text-success" />
-            Compra 100% segura
+        <div className="mt-5 grid gap-4 rounded-lg border border-neutral-200 bg-white p-5 text-sm font-bold text-neutral-700">
+          <div className="flex items-start gap-3">
+            <ShieldCheck className="mt-0.5 h-5 w-5 text-success" />
+            <span>
+              <span className="block font-black text-neutral-950">Compra segura</span>
+              <span className="mt-1 block font-semibold leading-6 text-neutral-600">Pagamento por Pix ou cartão no checkout oficial.</span>
+            </span>
           </div>
-          <div className="flex items-center gap-3">
-            <Truck className="h-5 w-5 text-success" />
-            Envio para todo o Brasil
+          <div className="flex items-start gap-3">
+            <Truck className="mt-0.5 h-5 w-5 text-success" />
+            <span>
+              <span className="block font-black text-neutral-950">Envio para todo o Brasil</span>
+              <span className="mt-1 block font-semibold leading-6 text-neutral-600">Frete e prazo conferidos com o CEP antes de finalizar.</span>
+            </span>
+          </div>
+          <div className="flex items-start gap-3">
+            <PackageCheck className="mt-0.5 h-5 w-5 text-success" />
+            <span>
+              <span className="block font-black text-neutral-950">Estoque limitado</span>
+              <span className="mt-1 block font-semibold leading-6 text-neutral-600">A disponibilidade acompanha o tamanho selecionado.</span>
+            </span>
+          </div>
+          <div className="flex items-start gap-3">
+            <RotateCcw className="mt-0.5 h-5 w-5 text-success" />
+            <span>
+              <Link href="/trocas-e-devolucoes" className="block font-black text-neutral-950 underline underline-offset-4">
+                Trocas e devoluções
+              </Link>
+              <span className="mt-1 block font-semibold leading-6 text-neutral-600">Consulte as regras antes da compra.</span>
+            </span>
+          </div>
+          <div className="flex items-start gap-3">
+            <CircleHelp className="mt-0.5 h-5 w-5 text-success" />
+            <span>
+              <span className="block font-black text-neutral-950">Dúvidas sobre a peça</span>
+              <span className="mt-1 block font-semibold leading-6 text-neutral-600">Use o WhatsApp para confirmar tamanho, mídia ou disponibilidade.</span>
+            </span>
           </div>
         </div>
       </aside>

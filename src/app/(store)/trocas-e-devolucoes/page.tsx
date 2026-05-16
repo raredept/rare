@@ -1,6 +1,9 @@
 export const metadata = {
   title: "Trocas e Devoluções",
   description: "Política de trocas e devoluções da RARE.",
+  alternates: {
+    canonical: "/trocas-e-devolucoes",
+  },
 };
 
 const policyParagraphs = [
