@@ -1,9 +1,20 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET } from "@/app/api/health/route";
+
+const healthMocks = vi.hoisted(() => ({
+  prisma: {
+    $queryRaw: vi.fn(),
+  },
+}));
+
+vi.mock("@/lib/prisma", () => ({
+  prisma: healthMocks.prisma,
+}));
 
 const originalEnv = process.env;
 
 beforeEach(() => {
+  vi.resetAllMocks();
   process.env = {
     ...originalEnv,
     NODE_ENV: "production",
@@ -41,5 +52,28 @@ describe("health route readiness", () => {
     expect(serialized).not.toContain("storage-account-id-that-must-not-be-returned");
     expect(serialized).not.toContain("storage-access-key-that-must-not-be-returned");
     expect(serialized).not.toContain("storage-secret-that-must-not-be-returned");
+  });
+
+  it("stays degraded when checkout is enabled but Stripe secrets are absent", async () => {
+    process.env.DATABASE_URL = "postgresql://rare:password@localhost:5432/rare_test";
+    process.env.STRIPE_SECRET_KEY = "";
+    process.env.STRIPE_WEBHOOK_SECRET = "";
+    healthMocks.prisma.$queryRaw.mockResolvedValue([{ ok: 1 }]);
+
+    const response = await GET();
+    const body = await response.json();
+    const serialized = JSON.stringify(body);
+
+    expect(response.status).toBe(503);
+    expect(body.status).toBe("degraded");
+    expect(body.database.ok).toBe(true);
+    expect(body.configuration.ok).toBe(false);
+    expect(body.configuration.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ variable: "STRIPE_SECRET_KEY" }),
+        expect.objectContaining({ variable: "STRIPE_WEBHOOK_SECRET" }),
+      ]),
+    );
+    expect(serialized).not.toContain("postgresql://rare:password@localhost:5432/rare_test");
   });
 });

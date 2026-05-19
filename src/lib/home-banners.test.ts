@@ -4,6 +4,7 @@ import {
   getHomeBannerSlidesForStore,
   homeBannerInputSchema,
   isSafeBannerHref,
+  normalizeBannerHref,
   normalizeHomeBannerSlide,
 } from "@/lib/home-banners";
 
@@ -96,8 +97,13 @@ describe("home banner helpers", () => {
     expect(isSafeBannerHref("/")).toBe(true);
     expect(isSafeBannerHref("/categoria/acessorios")).toBe(true);
     expect(isSafeBannerHref("/produto/camiseta-rare")).toBe(true);
-    expect(isSafeBannerHref("https://raredept.com.br/categoria/acessorios")).toBe(false);
+    expect(isSafeBannerHref("https://raredept.com.br/categoria/acessorios")).toBe(true);
+    expect(normalizeBannerHref("http://localhost:3000/categoria/acessorios")).toBe("/categoria/acessorios");
+    expect(normalizeBannerHref("https://raredept.com.br/categoria/acessorios?ordem=novo#topo")).toBe(
+      "/categoria/acessorios?ordem=novo#topo",
+    );
     expect(isSafeBannerHref("javascript:alert(1)")).toBe(false);
+    expect(isSafeBannerHref("https://evil.example/categoria/acessorios")).toBe(false);
 
     expect(
       homeBannerInputSchema.safeParse({
@@ -107,5 +113,18 @@ describe("home banner helpers", () => {
         sortOrder: 0,
       }).success,
     ).toBe(false);
+  });
+
+  it("stores same-origin absolute URLs as internal paths", () => {
+    const parsed = homeBannerInputSchema.parse({
+      ctaLabel: "Comprar",
+      href: "https://raredept.com.br/categoria/camisetas",
+      imageUrl: "",
+      alt: "",
+      active: true,
+      sortOrder: 0,
+    });
+
+    expect(parsed.href).toBe("/categoria/camisetas");
   });
 });

@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { ZodError } from "zod";
 import { createCheckoutSession } from "@/lib/checkout";
 import { getCurrentCustomer } from "@/lib/customer-auth";
-import { isCheckoutEnabled } from "@/lib/env";
+import { getStripeSecretKey, isCheckoutEnabled } from "@/lib/env";
 import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -19,6 +19,9 @@ const publicCheckoutErrors = new Set([
   "Informe o endereço de entrega.",
   "Frete real ainda não está integrado. Use frete manual, fixo ou desativado nas configurações.",
 ]);
+
+const checkoutUnavailableMessage =
+  "Checkout temporariamente indisponível. Fale com a RARE para concluir seu pedido por enquanto.";
 
 function getPublicCheckoutError(error: unknown) {
   if (error instanceof SyntaxError || error instanceof ZodError) {
@@ -45,7 +48,13 @@ function getSafeLogMessage(error: unknown) {
 
 export async function POST(request: NextRequest) {
   if (!isCheckoutEnabled()) {
-    return NextResponse.json({ error: "Checkout temporariamente indisponível." }, { status: 503 });
+    return NextResponse.json({ error: checkoutUnavailableMessage }, { status: 503 });
+  }
+
+  try {
+    getStripeSecretKey();
+  } catch {
+    return NextResponse.json({ error: checkoutUnavailableMessage }, { status: 503 });
   }
 
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";

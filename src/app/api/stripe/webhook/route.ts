@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type Stripe from "stripe";
-import { processStripeCheckoutEvent } from "@/lib/checkout";
+import { processStripeCheckoutEvent, processStripePaymentIntentEvent } from "@/lib/checkout";
 import { getStripeWebhookSecret } from "@/lib/env";
 import { getStripe } from "@/lib/stripe";
 
@@ -8,6 +8,15 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const handledEvents = new Set([
+  "checkout.session.completed",
+  "checkout.session.async_payment_succeeded",
+  "checkout.session.async_payment_failed",
+  "checkout.session.expired",
+  "payment_intent.succeeded",
+  "payment_intent.payment_failed",
+]);
+
+const checkoutSessionEvents = new Set([
   "checkout.session.completed",
   "checkout.session.async_payment_succeeded",
   "checkout.session.async_payment_failed",
@@ -48,10 +57,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true, ignored: true });
   }
 
-  const session = event.data.object as Stripe.Checkout.Session;
   let result;
   try {
-    result = await processStripeCheckoutEvent(event.id, event.type, session);
+    if (checkoutSessionEvents.has(event.type)) {
+      result = await processStripeCheckoutEvent(event.id, event.type, event.data.object as Stripe.Checkout.Session);
+    } else {
+      result = await processStripePaymentIntentEvent(event.id, event.type, event.data.object as Stripe.PaymentIntent);
+    }
   } catch (error) {
     console.error("[stripe-webhook] event processing failed", {
       eventId: event.id,

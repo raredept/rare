@@ -34,6 +34,35 @@ type CustomerAddressForCheckout = CheckoutAddressSource & {
   customerId: string;
 };
 
+type OrderWithItems = Prisma.OrderGetPayload<{ include: { items: true } }>;
+
+type StripeAddressDetails =
+  | {
+      address?: Stripe.Address | null;
+      name?: string | null;
+      phone?: string | null;
+    }
+  | null
+  | undefined;
+
+type StripeCustomerDetails =
+  | {
+      address?: Stripe.Address | null;
+      email?: string | null;
+      name?: string | null;
+      phone?: string | null;
+    }
+  | null
+  | undefined;
+
+type PaidOrderSource = {
+  customerDetails?: StripeCustomerDetails;
+  shippingDetails?: StripeAddressDetails;
+  paymentIntentId?: string | null;
+  paymentMethod?: string | null;
+  movementReason: string;
+};
+
 function toAbsoluteUrl(url?: string | null) {
   if (!url) return undefined;
   if (url.startsWith("http://") || url.startsWith("https://")) return url;
@@ -71,6 +100,97 @@ function stripeAddressSnapshot(
     state: address.state,
     country: address.country,
   };
+}
+
+function getPaymentIntentIdFromSession(session: Stripe.Checkout.Session) {
+  if (typeof session.payment_intent === "string") return session.payment_intent;
+  return session.payment_intent?.id ?? null;
+}
+
+function getPaymentMethodFromIntent(paymentIntent: Stripe.PaymentIntent) {
+  return paymentIntent.payment_method_types?.join(",") || null;
+}
+
+function getPaymentIntentOrderId(paymentIntent: Stripe.PaymentIntent) {
+  return paymentIntent.metadata?.orderId || null;
+}
+
+async function findOrderForPaymentIntent(tx: Prisma.TransactionClient, paymentIntent: Stripe.PaymentIntent) {
+  const orderId = getPaymentIntentOrderId(paymentIntent);
+  return tx.order.findFirst({
+    where: {
+      OR: [
+        { stripePaymentIntentId: paymentIntent.id },
+        orderId ? { id: orderId } : undefined,
+      ].filter(Boolean) as Prisma.OrderWhereInput[],
+    },
+    include: {
+      items: true,
+    },
+  });
+}
+
+async function finalizePaidOrder(
+  tx: Prisma.TransactionClient,
+  order: OrderWithItems,
+  source: PaidOrderSource,
+) {
+  if (["paid", "processing", "shipped", "delivered"].includes(order.status)) {
+    return { status: "already_paid" as const };
+  }
+
+  for (const item of order.items) {
+    if (!item.variantId) throw new Error(`Order item ${item.id} has no variant.`);
+
+    const updated = await tx.productVariant.updateMany({
+      where: {
+        id: item.variantId,
+        stock: { gte: item.quantity },
+        reservedStock: { gte: item.quantity },
+      },
+      data: {
+        stock: { decrement: item.quantity },
+        reservedStock: { decrement: item.quantity },
+      },
+    });
+
+    if (updated.count !== 1) {
+      throw new Error(`Reserved stock is not available for order ${order.orderNumber}.`);
+    }
+
+    await tx.inventoryMovement.create({
+      data: {
+        type: "sale",
+        productId: item.productId,
+        variantId: item.variantId,
+        orderId: order.id,
+        orderItemId: item.id,
+        stockDelta: -item.quantity,
+        reservedDelta: -item.quantity,
+        reason: source.movementReason,
+      },
+    });
+  }
+
+  await tx.order.update({
+    where: { id: order.id },
+    data: {
+      status: "paid",
+      customerName: source.customerDetails?.name ?? order.customerName,
+      customerEmail: source.customerDetails?.email ?? order.customerEmail,
+      customerPhone: source.customerDetails?.phone ?? order.customerPhone,
+      customerNameSnapshot: order.customerNameSnapshot ?? source.customerDetails?.name ?? order.customerName,
+      customerEmailSnapshot: order.customerEmailSnapshot ?? source.customerDetails?.email ?? order.customerEmail,
+      customerPhoneSnapshot: order.customerPhoneSnapshot ?? source.customerDetails?.phone ?? order.customerPhone,
+      shippingAddressSnapshot: order.shippingAddressSnapshot ?? stripeAddressSnapshot(source.shippingDetails),
+      billingAddressSnapshot: order.billingAddressSnapshot ?? stripeAddressSnapshot(source.customerDetails),
+      stripePaymentIntentId: source.paymentIntentId ?? order.stripePaymentIntentId,
+      paymentMethod: source.paymentMethod ?? order.paymentMethod,
+      paidAt: new Date(),
+    },
+  });
+
+  return { status: "paid" as const, orderId: order.id };
 }
 
 export async function releaseExpiredReservations(tx: Prisma.TransactionClient = prisma) {
@@ -268,7 +388,11 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
     const variantsById = new Map(variants.map((variant) => [variant.id, variant]));
     const orderItems = items.map((item) => {
       const variant = variantsById.get(item.variantId);
-      if (!variant || variant.productId !== item.productId || !variant.active || !variant.product.active) {
+      if (!variant) {
+        throw new Error("Variação inválida.");
+      }
+
+      if (variant.productId !== item.productId || !variant.active || !variant.product.active) {
         throw new Error("Produto indisponível.");
       }
 
@@ -392,6 +516,13 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
         ...(checkoutCustomer ? { customerId: checkoutCustomer.id } : {}),
         ...(order.shippingMethodSnapshot ? { shippingMethod: order.shippingMethodSnapshot } : {}),
       },
+      payment_intent_data: {
+        metadata: {
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          ...(checkoutCustomer ? { customerId: checkoutCustomer.id } : {}),
+        },
+      },
       expires_at: Math.floor(reservationExpiresAt.getTime() / 1000),
       phone_number_collection: {
         enabled: true,
@@ -493,68 +624,67 @@ export async function processStripeCheckoutEvent(eventId: string, eventType: str
       return { status: "ignored" as const };
     }
 
-    if (["paid", "processing", "shipped", "delivered"].includes(order.status)) {
-      return { status: "already_paid" as const };
-    }
-
     const sessionWithShipping = session as Stripe.Checkout.Session & {
       shipping_details?: { address?: Stripe.Address | null; name?: string | null; phone?: string | null } | null;
     };
 
-    for (const item of order.items) {
-      if (!item.variantId) throw new Error(`Order item ${item.id} has no variant.`);
+    return finalizePaidOrder(tx, order, {
+      customerDetails: session.customer_details,
+      shippingDetails: sessionWithShipping.shipping_details,
+      paymentIntentId: getPaymentIntentIdFromSession(session),
+      paymentMethod: session.payment_method_types?.join(",") ?? null,
+      movementReason: "Pagamento confirmado pela Stripe",
+    });
+  });
+}
 
-      const updated = await tx.productVariant.updateMany({
-        where: {
-          id: item.variantId,
-          stock: { gte: item.quantity },
-          reservedStock: { gte: item.quantity },
-        },
-        data: {
-          stock: { decrement: item.quantity },
-          reservedStock: { decrement: item.quantity },
-        },
-      });
-
-      if (updated.count !== 1) {
-        throw new Error(`Reserved stock is not available for order ${order.orderNumber}.`);
-      }
-
-      await tx.inventoryMovement.create({
-        data: {
-          type: "sale",
-          productId: item.productId,
-          variantId: item.variantId,
-          orderId: order.id,
-          orderItemId: item.id,
-          stockDelta: -item.quantity,
-          reservedDelta: -item.quantity,
-          reason: "Pagamento confirmado pela Stripe",
-        },
-      });
+export async function processStripePaymentIntentEvent(
+  eventId: string,
+  eventType: string,
+  paymentIntent: Stripe.PaymentIntent,
+) {
+  return prisma.$transaction(async (tx) => {
+    const alreadyProcessed = await tx.stripeEvent.findUnique({ where: { id: eventId } });
+    if (alreadyProcessed) {
+      return { status: "already_processed" as const };
     }
 
-    await tx.order.update({
-      where: { id: order.id },
+    const order = await findOrderForPaymentIntent(tx, paymentIntent);
+
+    await tx.stripeEvent.create({
       data: {
-        status: "paid",
-        customerName: session.customer_details?.name ?? order.customerName,
-        customerEmail: session.customer_details?.email ?? order.customerEmail,
-        customerPhone: session.customer_details?.phone ?? order.customerPhone,
-        customerNameSnapshot: order.customerNameSnapshot ?? session.customer_details?.name ?? order.customerName,
-        customerEmailSnapshot: order.customerEmailSnapshot ?? session.customer_details?.email ?? order.customerEmail,
-        customerPhoneSnapshot: order.customerPhoneSnapshot ?? session.customer_details?.phone ?? order.customerPhone,
-        shippingAddressSnapshot: order.shippingAddressSnapshot ?? stripeAddressSnapshot(sessionWithShipping.shipping_details),
-        billingAddressSnapshot: order.billingAddressSnapshot ?? stripeAddressSnapshot(session.customer_details),
-        stripePaymentIntentId:
-          typeof session.payment_intent === "string"
-            ? session.payment_intent
-            : session.payment_intent?.id ?? order.stripePaymentIntentId,
-        paymentMethod: session.payment_method_types?.join(",") ?? order.paymentMethod,
-        paidAt: new Date(),
+        id: eventId,
+        type: eventType,
+        orderId: order?.id,
       },
     });
 
-    return { status: "paid" as const, orderId: order.id };
+    if (!order) {
+      return { status: "order_not_found" as const };
+    }
+
+    const paymentMethod = getPaymentMethodFromIntent(paymentIntent);
+
+    if (eventType === "payment_intent.payment_failed") {
+      await tx.order.update({
+        where: { id: order.id },
+        data: {
+          stripePaymentIntentId: paymentIntent.id,
+          paymentMethod: paymentMethod ?? order.paymentMethod,
+        },
+      });
+      await releaseOrderReservation(tx, order.id, order.items, "failed", "Pagamento recusado pela Stripe");
+      return { status: "failed" as const };
+    }
+
+    if (eventType === "payment_intent.succeeded" && paymentIntent.status === "succeeded") {
+      return finalizePaidOrder(tx, order, {
+        paymentIntentId: paymentIntent.id,
+        paymentMethod,
+        movementReason: "Pagamento confirmado pela Stripe",
+      });
+    }
+
+    return { status: "ignored" as const };
   });
 }

@@ -37,6 +37,7 @@ type PersistedHomeBannerSlide = {
 };
 
 const internalHrefPrefixes = ["/categoria/", "/produto/"];
+const defaultAllowedHrefOrigins = ["https://raredept.com.br", "https://www.raredept.com.br"];
 
 const optionalText = (max: number) =>
   z
@@ -53,17 +54,60 @@ const optionalUrlText = z
   .optional()
   .transform((value) => value || undefined);
 
-export function isSafeBannerHref(value: string | undefined) {
-  if (!value) return true;
-  if (!value.startsWith("/") || value.startsWith("//") || value.includes("\\")) return false;
+function getAllowedHrefOrigins() {
+  const configuredOrigins = [process.env.APP_URL, process.env.NEXT_PUBLIC_APP_URL, process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined]
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value))
+    .flatMap((value) => {
+      try {
+        return [new URL(value).origin];
+      } catch {
+        return [];
+      }
+    });
+
+  return new Set([...defaultAllowedHrefOrigins, ...configuredOrigins]);
+}
+
+function normalizeSafeInternalPath(value: string) {
+  if (!value.startsWith("/") || value.startsWith("//") || value.includes("\\")) return null;
 
   try {
     const url = new URL(value, "https://rare.local");
-    if (url.origin !== "https://rare.local") return false;
-    return url.pathname === "/" || url.pathname === "/cart" || internalHrefPrefixes.some((prefix) => url.pathname.startsWith(prefix));
+    if (url.origin !== "https://rare.local") return null;
+    const decodedPathname = decodeURIComponent(url.pathname);
+    const pathAllowed = url.pathname === "/" || url.pathname === "/cart" || internalHrefPrefixes.some((prefix) => url.pathname.startsWith(prefix));
+    if (!pathAllowed || decodedPathname.includes("\\")) return null;
+    return `${url.pathname}${url.search}${url.hash}`;
   } catch {
-    return false;
+    return null;
   }
+}
+
+function isLocalDevelopmentOrigin(url: URL) {
+  return ["localhost", "127.0.0.1", "::1", "[::1]"].includes(url.hostname);
+}
+
+export function normalizeBannerHref(value: string | undefined) {
+  const trimmed = value?.trim();
+  if (!trimmed) return undefined;
+
+  const internalPath = normalizeSafeInternalPath(trimmed);
+  if (internalPath) return internalPath;
+
+  try {
+    const url = new URL(trimmed);
+    if (!["http:", "https:"].includes(url.protocol) || (!getAllowedHrefOrigins().has(url.origin) && !isLocalDevelopmentOrigin(url))) {
+      return null;
+    }
+    return normalizeSafeInternalPath(`${url.pathname}${url.search}${url.hash}`);
+  } catch {
+    return null;
+  }
+}
+
+export function isSafeBannerHref(value: string | undefined) {
+  return normalizeBannerHref(value) !== null;
 }
 
 export function isSafeBannerImageUrl(value: string | undefined) {
@@ -84,7 +128,7 @@ export const homeBannerInputSchema = z
     title: optionalText(140),
     description: optionalText(320),
     ctaLabel: optionalText(60),
-    href: optionalUrlText,
+    href: optionalUrlText.transform((value) => normalizeBannerHref(value) ?? value),
     imageUrl: z.string().trim().max(2048).default(""),
     mobileImageUrl: optionalUrlText,
     alt: z.string().trim().max(180).default(""),

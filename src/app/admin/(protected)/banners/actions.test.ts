@@ -102,6 +102,20 @@ describe("home banner admin actions", () => {
     expect(mocks.prisma.homeBannerSlide.create).not.toHaveBeenCalled();
   }, 30000);
 
+  it("normalizes same-store absolute hrefs before persisting", async () => {
+    const { createBannerAction } = await import("@/app/admin/(protected)/banners/actions");
+
+    await expect(createBannerAction(buildBannerFormData({ href: "https://raredept.com.br/categoria/camisetas" }))).rejects.toThrow(
+      "NEXT_REDIRECT:/admin/banners?edit=banner-1&success=banner-created",
+    );
+
+    expect(mocks.prisma.homeBannerSlide.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        href: "/categoria/camisetas",
+      }),
+    });
+  }, 30000);
+
   it("updates and toggles banners with revalidation", async () => {
     const { toggleBannerActiveAction, updateBannerAction } = await import("@/app/admin/(protected)/banners/actions");
     const formData = buildBannerFormData();

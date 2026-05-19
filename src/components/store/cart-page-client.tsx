@@ -326,7 +326,7 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Finalizar compra
           </button>
-          <p className="mt-3 text-center text-xs font-bold text-neutral-500">Pagamento seguro via Pix ou cartão</p>
+          <p className="mt-3 text-center text-xs font-bold text-neutral-500">Pagamento seguro pelos métodos habilitados na Stripe</p>
           <div className="mt-4 grid gap-2 border-t border-neutral-200 pt-4 text-center text-xs font-bold text-neutral-500 sm:grid-cols-2">
             <Link href="/politica-de-envio" className="underline underline-offset-4 hover:text-neutral-950">
               Política de envio

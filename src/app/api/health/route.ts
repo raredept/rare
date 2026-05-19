@@ -32,7 +32,7 @@ export async function GET() {
     }
   }
 
-  const status: HealthStatus = env.ok && database.ok ? "ok" : database.ok ? "degraded" : "error";
+  const status: HealthStatus = env.ok && env.warnings.length === 0 && database.ok ? "ok" : database.ok ? "degraded" : "error";
   const httpStatus = status === "ok" ? 200 : 503;
 
   return response(

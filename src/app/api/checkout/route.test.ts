@@ -39,7 +39,29 @@ describe("checkout route readiness", () => {
     const body = await response.json();
 
     expect(response.status).toBe(503);
-    expect(body).toEqual({ error: "Checkout temporariamente indisponível." });
+    expect(body).toEqual({
+      error: "Checkout temporariamente indisponível. Fale com a RARE para concluir seu pedido por enquanto.",
+    });
+    expect(routeMocks.createCheckoutSession).not.toHaveBeenCalled();
+    expect(routeMocks.getCurrentCustomer).not.toHaveBeenCalled();
+  });
+
+  it("requires a Stripe secret before touching checkout state when checkout is enabled", async () => {
+    process.env.CHECKOUT_ENABLED = "true";
+    process.env.STRIPE_SECRET_KEY = "";
+
+    const request = new Request("http://localhost/api/checkout", {
+      method: "POST",
+      body: JSON.stringify({ items: [{ productId: "prod_1", variantId: "var_1", quantity: 1 }] }),
+    });
+
+    const response = await POST(request as never);
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body).toEqual({
+      error: "Checkout temporariamente indisponível. Fale com a RARE para concluir seu pedido por enquanto.",
+    });
     expect(routeMocks.createCheckoutSession).not.toHaveBeenCalled();
     expect(routeMocks.getCurrentCustomer).not.toHaveBeenCalled();
   });
