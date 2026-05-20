@@ -8,6 +8,9 @@ const mocks = vi.hoisted(() => ({
   }),
   saveUploadedImage: vi.fn(),
   prisma: {
+    category: {
+      findMany: vi.fn(),
+    },
     product: {
       findUnique: vi.fn(),
     },
@@ -77,6 +80,10 @@ beforeEach(() => {
     category: { slug: "acessorios" },
     subcategory: { slug: "bags" },
   });
+  mocks.prisma.category.findMany.mockResolvedValue([
+    { id: "cat-accessories", parentId: null },
+    { id: "cat-bags", parentId: "cat-accessories" },
+  ]);
   mocks.prisma.$transaction.mockImplementation(async (callback: (tx: typeof mocks.tx) => Promise<unknown>) => callback(mocks.tx));
   mocks.tx.product.update.mockResolvedValue({
     id: "prod-1",
@@ -178,5 +185,16 @@ describe("product admin actions", () => {
         },
       ],
     });
+  }, 60000);
+
+  it("rejects inactive or invalid subcategories submitted manually", async () => {
+    mocks.prisma.category.findMany.mockResolvedValueOnce([{ id: "cat-accessories", parentId: null }]);
+    const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
+
+    await expect(saveProductAction(null, buildProductFormData())).rejects.toThrow(
+      /^NEXT_REDIRECT:\/admin\/products\/new\?error=Selecione%20uma%20subcategoria%20ativa\.&refresh=\d+$/,
+    );
+
+    expect(mocks.tx.product.create).not.toHaveBeenCalled();
   }, 60000);
 });

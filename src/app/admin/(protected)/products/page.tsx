@@ -17,6 +17,7 @@ type ProductsPageProps = {
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
   const filters = await searchParams;
   const categories = await prisma.category.findMany({
+    where: { active: true },
     include: { parent: true },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
   });

@@ -27,14 +27,15 @@ type ProductFormProps = {
     images: { url: string }[];
     variants: { size: string; stock: number; sku: string | null }[];
   };
-  categories: { id: string; name: string; parentId: string | null }[];
+  categories: { id: string; name: string; parentId: string | null; active?: boolean }[];
   error?: string;
 };
 
 export function ProductForm({ product, categories, error }: ProductFormProps) {
   const action = saveProductAction.bind(null, product?.id ?? null);
-  const topCategories = sortProductFormCategoryOptions(categories.filter((category) => !category.parentId));
-  const subcategories = sortProductFormCategoryOptions(categories.filter((category) => category.parentId));
+  const activeCategories = categories.filter((category) => category.active !== false);
+  const topCategories = sortProductFormCategoryOptions(activeCategories.filter((category) => !category.parentId));
+  const subcategories = sortProductFormCategoryOptions(activeCategories.filter((category) => category.parentId));
 
   return (
     <form action={action} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]" encType="multipart/form-data">

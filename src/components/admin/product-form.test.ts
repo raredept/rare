@@ -17,6 +17,7 @@ describe("ProductForm", () => {
           { id: "cat-bermudas", name: "Bermudas", parentId: null },
           { id: "cat-relogios", name: "Relógios", parentId: "cat-acessorios" },
           { id: "cat-bags", name: "Bags", parentId: "cat-acessorios" },
+          { id: "cat-bolsas-bag", name: "Bolsas/Bag", parentId: "cat-acessorios", active: false },
           { id: "cat-oculos", name: "Óculos", parentId: "cat-acessorios" },
         ],
       }) as ReactElement,
@@ -34,5 +35,7 @@ describe("ProductForm", () => {
     expect(html.indexOf('<option value="cat-oculos">Óculos</option>')).toBeLessThan(
       html.indexOf('<option value="cat-relogios">Relógios</option>'),
     );
+    expect(html).not.toContain("Bolsas/Bag");
+    expect(html).toContain('<option value="cat-bags">Bags</option>');
   });
 });

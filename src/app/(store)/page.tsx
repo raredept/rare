@@ -183,7 +183,60 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     <div className="mx-auto max-w-[1440px] px-4 pb-10 pt-6 sm:px-6 lg:px-8 lg:pb-14 lg:pt-8 xl:px-10">
       <HomeHeroCarousel slides={heroSlides} />
 
-      <section className="store-home-section mt-10 lg:mt-12" aria-labelledby="home-category-title">
+      <section className="store-home-section mt-12 lg:mt-16" aria-labelledby="home-featured-title">
+        <SectionHeading
+          id="home-featured-title"
+          eyebrow="Favoritos"
+          title="Destaques do mês"
+          description="Os favoritos da RARE agora."
+          action={{ href: "/categoria/destaques", label: "Ver todos os destaques" }}
+        />
+        {selectedFeaturedProducts.length ? (
+          <ProductGrid products={selectedFeaturedProducts} />
+        ) : (
+          <div className="rounded-lg border border-dashed border-neutral-300 px-6 py-12 text-center">
+            <h3 className="text-lg font-black text-neutral-950">Nenhum destaque ativo no momento.</h3>
+            <p className="mt-2 text-sm font-semibold text-neutral-500">Volte em breve ou explore o catálogo completo.</p>
+            <Link href="/categoria/tudo" className="mt-6 inline-flex min-h-11 items-center rounded-full bg-black px-5 text-xs font-black uppercase tracking-[0.16em] text-white">
+              Ver catálogo completo
+            </Link>
+          </div>
+        )}
+      </section>
+
+      {recentProducts.length ? (
+        <section className="store-home-section mt-12 lg:mt-16" aria-labelledby="home-recent-title">
+          <SectionHeading
+            id="home-recent-title"
+            eyebrow="Novidades"
+            title="Chegou agora"
+            description="Peças recém adicionadas ao catálogo."
+            action={{ href: "/categoria/tudo", label: "Ver catálogo completo" }}
+          />
+          <ProductGrid products={recentProducts} columns="recent" />
+        </section>
+      ) : null}
+
+      <section className="store-home-section mt-12 overflow-hidden rounded-lg bg-black px-6 py-10 text-white sm:px-8 lg:mt-16 lg:px-10 lg:py-12">
+        <p className="text-xs font-black uppercase tracking-[0.26em] text-white/45">Drop RARE</p>
+        <div className="mt-5 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl">
+            <h2 className="text-3xl font-black tracking-tight sm:text-4xl lg:text-5xl">Estoque limitado. Escolha sem pressa, mas não deixa passar.</h2>
+            <p className="mt-4 max-w-2xl text-sm font-semibold leading-6 text-white/62 sm:text-base">
+              Quando uma peça sai, pode não voltar tão cedo.
+            </p>
+          </div>
+          <Link
+            href="/categoria/tudo"
+            className="inline-flex min-h-12 w-fit items-center justify-center gap-2 rounded-full border border-white/30 bg-white px-5 text-xs font-black uppercase tracking-[0.16em] text-black transition-[background-color,border-color,color,transform] duration-150 hover:-translate-y-px hover:bg-transparent hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 active:translate-y-0"
+          >
+            Ver catálogo completo
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        </div>
+      </section>
+
+      <section className="store-home-section mt-12 lg:mt-16" aria-labelledby="home-category-title">
         <SectionHeading
           id="home-category-title"
           eyebrow="Categorias"
@@ -225,27 +278,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         ) : null}
       </section>
 
-      <section className="store-home-section mt-12 lg:mt-16" aria-labelledby="home-featured-title">
-        <SectionHeading
-          id="home-featured-title"
-          eyebrow="Favoritos"
-          title="Destaques do mês"
-          description="Os favoritos da RARE agora."
-          action={{ href: "/categoria/destaques", label: "Ver todos os destaques" }}
-        />
-        {selectedFeaturedProducts.length ? (
-          <ProductGrid products={selectedFeaturedProducts} />
-        ) : (
-          <div className="rounded-lg border border-dashed border-neutral-300 px-6 py-12 text-center">
-            <h3 className="text-lg font-black text-neutral-950">Nenhum destaque ativo no momento.</h3>
-            <p className="mt-2 text-sm font-semibold text-neutral-500">Volte em breve ou explore o catálogo completo.</p>
-            <Link href="/categoria/tudo" className="mt-6 inline-flex min-h-11 items-center rounded-full bg-black px-5 text-xs font-black uppercase tracking-[0.16em] text-white">
-              Ver catálogo completo
-            </Link>
-          </div>
-        )}
-      </section>
-
       <section className="store-home-section mt-12 grid gap-3 sm:grid-cols-2 lg:mt-16 lg:grid-cols-3" aria-label="Benefícios da loja">
         {trustItems.map((item) => {
           const Icon = item.icon;
@@ -257,38 +289,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             </article>
           );
         })}
-      </section>
-
-      {recentProducts.length ? (
-        <section className="store-home-section mt-12 lg:mt-16" aria-labelledby="home-recent-title">
-          <SectionHeading
-            id="home-recent-title"
-            eyebrow="Novidades"
-            title="Chegou agora"
-            description="Peças recém adicionadas ao catálogo."
-            action={{ href: "/categoria/tudo", label: "Ver catálogo completo" }}
-          />
-          <ProductGrid products={recentProducts} columns="recent" />
-        </section>
-      ) : null}
-
-      <section className="store-home-section mt-12 overflow-hidden rounded-lg bg-black px-6 py-10 text-white sm:px-8 lg:mt-16 lg:px-10 lg:py-12">
-        <p className="text-xs font-black uppercase tracking-[0.26em] text-white/45">Drop RARE</p>
-        <div className="mt-5 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl">
-            <h2 className="text-3xl font-black tracking-tight sm:text-4xl lg:text-5xl">Estoque limitado. Escolha sem pressa, mas não deixa passar.</h2>
-            <p className="mt-4 max-w-2xl text-sm font-semibold leading-6 text-white/62 sm:text-base">
-              Quando uma peça sai, pode não voltar tão cedo.
-            </p>
-          </div>
-          <Link
-            href="/categoria/tudo"
-            className="inline-flex min-h-12 w-fit items-center justify-center gap-2 rounded-full border border-white/30 bg-white px-5 text-xs font-black uppercase tracking-[0.16em] text-black transition-[background-color,border-color,color,transform] duration-150 hover:-translate-y-px hover:bg-transparent hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 active:translate-y-0"
-          >
-            Ver catálogo completo
-            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </Link>
-        </div>
       </section>
     </div>
   );

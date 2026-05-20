@@ -4,8 +4,9 @@ import { AlertTriangle, ImageIcon, Monitor, Smartphone, Upload } from "lucide-re
 import { useState, type ChangeEvent, type ReactNode } from "react";
 import { createBannerAction, updateBannerAction } from "@/app/admin/(protected)/banners/actions";
 import { AdminSubmitButton } from "@/components/admin/admin-submit-button";
+import { uploadAdminMediaFile } from "@/lib/admin-upload-client";
 import type { HomeBannerSlide } from "@/lib/home-banners";
-import { BANNER_UPLOAD_HELP_TEXT, isOverServerRoutedUploadLimit, serverRoutedUploadLimitMessage } from "@/lib/upload-limits";
+import { BANNER_UPLOAD_HELP_TEXT, directR2UploadLimitMessage, isOverDirectR2UploadLimit } from "@/lib/upload-limits";
 
 type HomeBannerFormProps = {
   banner?: HomeBannerSlide;
@@ -14,11 +15,6 @@ type HomeBannerFormProps = {
 };
 
 type UploadTarget = "desktop" | "mobile";
-
-type UploadResponse = {
-  uploads?: { url: string; key?: string; contentType?: string; size?: number }[];
-  error?: string;
-};
 
 type FormState = {
   active: boolean;
@@ -48,32 +44,10 @@ function initialState(banner: HomeBannerSlide | undefined, nextSortOrder: number
   };
 }
 
-async function uploadBannerFile(file: File) {
-  const formData = new FormData();
-  formData.set("uploadContext", "banners");
-  formData.append("files", file);
-
-  const response = await fetch("/api/admin/uploads", {
-    method: "POST",
-    body: formData,
-  });
-  const body = (await response.json().catch(() => ({}))) as UploadResponse;
-
-  if (!response.ok || body.error) {
-    throw new Error(body.error || "Falha ao enviar imagem.");
-  }
-
-  const upload = body.uploads?.[0];
-  if (!upload?.url) {
-    throw new Error("Upload concluido sem URL publica.");
-  }
-
-  return upload.url;
-}
-
 export function HomeBannerForm({ banner, error, nextSortOrder }: HomeBannerFormProps) {
   const [state, setState] = useState(() => initialState(banner, nextSortOrder));
   const [uploading, setUploading] = useState<UploadTarget | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const action = banner ? updateBannerAction : createBannerAction;
   const hasImage = Boolean(state.imageUrl.trim());
@@ -87,15 +61,19 @@ export function HomeBannerForm({ banner, error, nextSortOrder }: HomeBannerFormP
     event.currentTarget.value = "";
     if (!file) return;
 
-    if (isOverServerRoutedUploadLimit(file)) {
-      setUploadError(serverRoutedUploadLimitMessage("Imagem"));
+    if (isOverDirectR2UploadLimit(file)) {
+      setUploadError(directR2UploadLimitMessage("Imagem"));
       return;
     }
 
     setUploading(target);
+    setUploadProgress(0);
     setUploadError(null);
     try {
-      const url = await uploadBannerFile(file);
+      const url = await uploadAdminMediaFile(file, {
+        context: "banners",
+        onProgress: (progress) => setUploadProgress(progress),
+      });
       updateField(target === "desktop" ? "imageUrl" : "mobileImageUrl", url);
       if (target === "desktop" && !state.alt.trim()) {
         updateField("alt", state.title.trim() || "Banner RARE");
@@ -104,6 +82,7 @@ export function HomeBannerForm({ banner, error, nextSortOrder }: HomeBannerFormP
       setUploadError(uploadFailure instanceof Error ? uploadFailure.message : "Falha ao enviar imagem.");
     } finally {
       setUploading(null);
+      setUploadProgress(null);
     }
   }
 
@@ -126,7 +105,7 @@ export function HomeBannerForm({ banner, error, nextSortOrder }: HomeBannerFormP
               {banner ? "Editar banner" : "Novo banner"}
             </h2>
             <p className="mt-1 text-xs font-semibold leading-5 text-neutral-500">
-              Use JPG, PNG ou WEBP. Desktop recomendado: 1920x720. Mobile recomendado: 1080x1350.
+              Use JPG, PNG ou WEBP. Desktop recomendado: 1920x650. Mobile recomendado: 1080x1350.
             </p>
           </div>
           <label className="flex w-fit items-center gap-3 rounded-lg border border-neutral-800 bg-black px-3 py-2 text-sm font-black text-neutral-200">
@@ -225,11 +204,13 @@ export function HomeBannerForm({ banner, error, nextSortOrder }: HomeBannerFormP
           <UploadField
             label="Imagem desktop"
             uploading={uploading === "desktop"}
+            progress={uploading === "desktop" ? uploadProgress : null}
             onChange={(event) => onUploadChange("desktop", event)}
           />
           <UploadField
             label="Imagem mobile opcional"
             uploading={uploading === "mobile"}
+            progress={uploading === "mobile" ? uploadProgress : null}
             onChange={(event) => onUploadChange("mobile", event)}
           />
         </div>
@@ -282,10 +263,12 @@ function Field({ children, label }: { children: ReactNode; label: string }) {
 function UploadField({
   label,
   onChange,
+  progress,
   uploading,
 }: {
   label: string;
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  progress: number | null;
   uploading: boolean;
 }) {
   return (
@@ -301,7 +284,9 @@ function UploadField({
         className="block w-full cursor-pointer rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm font-semibold text-neutral-300 file:mr-3 file:rounded-md file:border-0 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-black file:text-black hover:border-neutral-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-not-allowed disabled:opacity-50"
         onChange={onChange}
       />
-      <span className="mt-2 block text-xs font-semibold text-neutral-500">{uploading ? "Enviando..." : BANNER_UPLOAD_HELP_TEXT}</span>
+      <span className="mt-2 block text-xs font-semibold text-neutral-500">
+        {uploading ? (typeof progress === "number" && progress > 0 ? `Enviando... ${progress}%` : "Enviando...") : BANNER_UPLOAD_HELP_TEXT}
+      </span>
     </label>
   );
 }

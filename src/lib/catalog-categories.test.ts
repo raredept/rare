@@ -4,6 +4,7 @@ import {
   getCatalogCategorySeedSlugs,
   groupedCatalogCategories,
   isVirtualCatalogCategorySlug,
+  legacyAccessoryCategorySlugs,
   primaryCatalogCategories,
   virtualCatalogCategories,
 } from "@/lib/catalog-categories";
@@ -39,6 +40,9 @@ describe("catalog category seeds", () => {
 
     const slugs = getCatalogCategorySeedSlugs();
     expect(new Set(slugs).size).toBe(slugs.length);
+    expect(slugs).toContain("bags");
+    expect(slugs).not.toContain("bolsas-bag");
+    expect(legacyAccessoryCategorySlugs).toEqual(["bolsas-bag"]);
   });
 
   it("keeps the grouped catalog order stable without the accessories parent", () => {

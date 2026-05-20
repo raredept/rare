@@ -4,12 +4,14 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildObjectKey,
+  createPresignedR2Upload,
   getMaxAcceptedUploadBytes,
   getMaxUploadBytes,
   hasValidImageSignature,
   normalizeUploadContext,
   saveUploadedImage,
   sanitizeUploadFilenameStem,
+  validateDirectR2UploadMetadata,
   validateUploadedImageMetadata,
 } from "@/lib/storage";
 
@@ -23,9 +25,17 @@ const s3Mocks = vi.hoisted(() => ({
   }),
 }));
 
+const presignerMocks = vi.hoisted(() => ({
+  getSignedUrl: vi.fn(),
+}));
+
 vi.mock("@aws-sdk/client-s3", () => ({
   S3Client: s3Mocks.S3Client,
   PutObjectCommand: s3Mocks.PutObjectCommand,
+}));
+
+vi.mock("@aws-sdk/s3-request-presigner", () => ({
+  getSignedUrl: presignerMocks.getSignedUrl,
 }));
 
 const originalEnv = process.env;
@@ -40,6 +50,7 @@ const mp4Bytes = new Uint8Array(Buffer.from([0x00, 0x00, 0x00, 0x18, 0x66, 0x74,
 beforeEach(() => {
   vi.clearAllMocks();
   s3Mocks.send.mockResolvedValue({});
+  presignerMocks.getSignedUrl.mockResolvedValue("https://r2.example/presigned-upload");
   process.env = {
     ...originalEnv,
     NODE_ENV: "development",
@@ -110,6 +121,14 @@ describe("storage helpers", () => {
     const oversized = new File([new Uint8Array(1024 * 1024 + 1)], "grande.png", { type: "image/png" });
 
     expect(() => validateUploadedImageMetadata(oversized)).toThrow("Arquivo maior que 1MB.");
+  });
+
+  it("validates direct R2 uploads with the 100 MB hard limit", () => {
+    const accepted = { name: "catalogo.mp4", type: "video/mp4", size: 100 * 1024 * 1024 };
+    const oversized = { name: "grande.mp4", type: "video/mp4", size: 100 * 1024 * 1024 + 1 };
+
+    expect(validateDirectR2UploadMetadata(accepted)).toBe("mp4");
+    expect(() => validateDirectR2UploadMetadata(oversized)).toThrow("Arquivo maior que 100MB.");
   });
 
   it("uses larger safe limits for GIF and MP4", () => {
@@ -205,5 +224,32 @@ describe("storage helpers", () => {
       IfNoneMatch: "*",
     });
     expect(s3Mocks.send).toHaveBeenCalledTimes(1);
+  });
+
+  it("creates short-lived presigned R2 PUT uploads without reading file bytes", async () => {
+    process.env.STORAGE_DRIVER = "r2";
+    process.env.R2_ACCOUNT_ID = "abc123";
+    process.env.R2_BUCKET = "rare-media";
+    process.env.R2_ACCESS_KEY_ID = "configured-access-key";
+    process.env.R2_SECRET_ACCESS_KEY = "configured-secret-key";
+    process.env.R2_PUBLIC_BASE_URL = "https://media.rare.example/";
+
+    const upload = await createPresignedR2Upload(
+      { name: "Banner Home.webp", type: "image/webp", size: 42 },
+      { context: "banners", now: new Date("2026-05-14T12:00:00Z") },
+    );
+    const command = s3Mocks.PutObjectCommand.mock.calls[0]?.[0] as { Bucket: string; Key: string; ContentType: string; IfNoneMatch: string };
+
+    expect(upload.uploadUrl).toBe("https://r2.example/presigned-upload");
+    expect(upload.publicUrl).toBe(`https://media.rare.example/${upload.key}`);
+    expect(upload.key).toMatch(/^banners\/2026\/05\/[a-f0-9-]+-banner-home\.webp$/);
+    expect(upload.expiresInSeconds).toBe(300);
+    expect(command).toMatchObject({
+      Bucket: "rare-media",
+      Key: upload.key,
+      ContentType: "image/webp",
+      IfNoneMatch: "*",
+    });
+    expect(presignerMocks.getSignedUrl).toHaveBeenCalledWith(expect.anything(), expect.anything(), { expiresIn: 300 });
   });
 });

@@ -95,7 +95,7 @@ describe("store home page", () => {
     });
   });
 
-  it("renders the editorial home with hero, category paths, limited featured products, trust block, and catalog CTA", async () => {
+  it("renders the editorial home with hero, featured products, recent products, categories, final trust block, and catalog CTA", async () => {
     const element = await HomePage({ searchParams: Promise.resolve({}) });
     const html = renderToStaticMarkup(element as ReactElement);
 
@@ -111,11 +111,19 @@ describe("store home page", () => {
     expect(html).toContain("Destaque 5");
     expect(html).not.toContain("Destaque 6");
     expect(html).toContain("Compra segura");
+    expect(html).toContain("Pix e cartão");
+    expect(html).toContain("Envio para todo o Brasil");
+    expect(html).toContain("Peças escolhidas a dedo");
+    expect(html).toContain("Atendimento direto");
+    expect(html).toContain("Trocas e devoluções");
     expect(html).toContain("Chegou agora");
     expect(html).toContain("Estoque limitado. Escolha sem pressa, mas não deixa passar.");
     expect(html).not.toContain("A home aponta");
     expect(html).not.toContain("experiência de compra limpa");
     expect(html).toContain('href="/categoria/tudo"');
+    expect(html.indexOf("Destaques do mês")).toBeLessThan(html.indexOf("Chegou agora"));
+    expect(html.indexOf("Chegou agora")).toBeLessThan(html.indexOf("Escolha por categoria"));
+    expect(html.indexOf("Escolha por categoria")).toBeLessThan(html.indexOf("Compra segura"));
     expect(mocks.getFeaturedProducts).toHaveBeenCalledWith({ limit: 5 });
     expect(mocks.getRecentProducts).toHaveBeenCalledWith({ limit: 4 });
   });

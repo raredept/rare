@@ -24,7 +24,8 @@ describe("ProductImageManager", () => {
     expect(html).toContain("Limpar mídias antigas");
     expect(html).toContain("Avançado: URLs manuais");
     expect(html).not.toContain("open=\"\"");
-    expect(html).toContain("JPG, PNG, WEBP, GIF ou MP4 até 4 MB por arquivo.");
+    expect(html).toContain("JPG, PNG, WEBP, GIF ou MP4 até 100 MB por arquivo.");
+    expect(html).toContain("Para melhor performance, use imagens otimizadas em WEBP sempre que possível.");
     expect(html).toContain("Seed");
     expect(html).toContain("GIF");
     expect(html).toContain("Vídeo");

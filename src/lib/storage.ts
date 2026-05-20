@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import {
   assertUploadStorageReady,
   getR2StorageConfig,
@@ -9,12 +10,17 @@ import {
   getStorageLocalDir,
   getStoragePublicBaseUrl,
 } from "@/lib/env";
-import { SERVER_ROUTED_UPLOAD_LIMIT_MB } from "@/lib/upload-limits";
+import {
+  DIRECT_R2_UPLOAD_LIMIT_BYTES,
+  DIRECT_R2_UPLOAD_LIMIT_MB,
+  SERVER_ROUTED_UPLOAD_LIMIT_MB,
+} from "@/lib/upload-limits";
 
 const DEFAULT_MAX_UPLOAD_SIZE_MB = SERVER_ROUTED_UPLOAD_LIMIT_MB;
 const DEFAULT_MAX_GIF_UPLOAD_SIZE_MB = SERVER_ROUTED_UPLOAD_LIMIT_MB;
 const DEFAULT_MAX_VIDEO_UPLOAD_SIZE_MB = SERVER_ROUTED_UPLOAD_LIMIT_MB;
 const UPLOAD_CACHE_CONTROL = "public, max-age=31536000, immutable";
+export const PRESIGNED_R2_UPLOAD_EXPIRES_SECONDS = 300;
 
 export type UploadContext = "products" | "banners";
 
@@ -99,7 +105,11 @@ export function sanitizeUploadFilenameStem(fileName: string) {
   return normalized || "imagem";
 }
 
-export function validateUploadedImageMetadata(file: Pick<File, "name" | "type" | "size">, context: UploadContext = "products") {
+export function validateUploadedImageMetadata(
+  file: Pick<File, "name" | "type" | "size">,
+  context: UploadContext = "products",
+  options: { maxBytes?: number; maxMb?: number } = {},
+) {
   if (context === "banners" && !bannerAllowedMimeTypes.has(file.type)) {
     throw new Error("Formato invalido para banner. Envie JPG, PNG ou WEBP.");
   }
@@ -114,8 +124,10 @@ export function validateUploadedImageMetadata(file: Pick<File, "name" | "type" |
     throw new Error("Extensao do arquivo nao corresponde ao formato da midia.");
   }
 
-  if (file.size > getMaxUploadBytes(file.type)) {
-    throw new Error(`Arquivo maior que ${getMaxUploadSizeMb(file.type)}MB.`);
+  const maxBytes = options.maxBytes ?? getMaxUploadBytes(file.type);
+  const maxMb = options.maxMb ?? getMaxUploadSizeMb(file.type);
+  if (file.size > maxBytes) {
+    throw new Error(`Arquivo maior que ${maxMb}MB.`);
   }
 
   const publicExtension = publicExtensionByMimeType.get(file.type);
@@ -124,6 +136,13 @@ export function validateUploadedImageMetadata(file: Pick<File, "name" | "type" |
   }
 
   return publicExtension;
+}
+
+export function validateDirectR2UploadMetadata(file: Pick<File, "name" | "type" | "size">, context: UploadContext = "products") {
+  return validateUploadedImageMetadata(file, context, {
+    maxBytes: DIRECT_R2_UPLOAD_LIMIT_BYTES,
+    maxMb: DIRECT_R2_UPLOAD_LIMIT_MB,
+  });
 }
 
 export function hasValidImageSignature(bytes: Buffer, extension: string) {
@@ -168,6 +187,50 @@ export function buildObjectKey(fileName: string, extension: string, now = new Da
   return `${context}/${year}/${month}/${randomUUID()}-${stem}.${extension}`;
 }
 
+function createR2Client(r2: ReturnType<typeof getR2StorageConfig>) {
+  return new S3Client({
+    region: "auto",
+    endpoint: r2.endpoint,
+    credentials: {
+      accessKeyId: r2.accessKeyId,
+      secretAccessKey: r2.secretAccessKey,
+    },
+  });
+}
+
+export async function createPresignedR2Upload(
+  file: Pick<File, "name" | "type" | "size">,
+  options: { context?: UploadContext; now?: Date } = {},
+) {
+  const context = options.context ?? "products";
+  const extension = validateDirectR2UploadMetadata(file, context);
+
+  if (getStorageDriver() !== "r2") {
+    throw new Error("Upload direto para R2 indisponivel neste ambiente. Configure STORAGE_DRIVER=r2 para uploads de ate 100 MB.");
+  }
+
+  const r2 = getR2StorageConfig();
+  const key = buildObjectKey(file.name, extension, options.now ?? new Date(), context);
+  const client = createR2Client(r2);
+  const command = new PutObjectCommand({
+    Bucket: r2.bucket,
+    Key: key,
+    ContentType: file.type,
+    CacheControl: UPLOAD_CACHE_CONTROL,
+    IfNoneMatch: "*",
+  });
+  const uploadUrl = await getSignedUrl(client, command, { expiresIn: PRESIGNED_R2_UPLOAD_EXPIRES_SECONDS });
+
+  return {
+    uploadUrl,
+    publicUrl: `${r2.publicBaseUrl}/${key}`,
+    key,
+    contentType: file.type,
+    size: file.size,
+    expiresInSeconds: PRESIGNED_R2_UPLOAD_EXPIRES_SECONDS,
+  };
+}
+
 export async function saveUploadedImage(file: File, options: { context?: UploadContext } = {}) {
   const context = options.context ?? "products";
   const extension = validateUploadedImageMetadata(file, context);
@@ -182,15 +245,7 @@ export async function saveUploadedImage(file: File, options: { context?: UploadC
 
   if (getStorageDriver() === "r2") {
     const r2 = getR2StorageConfig();
-
-    const client = new S3Client({
-      region: "auto",
-      endpoint: r2.endpoint,
-      credentials: {
-        accessKeyId: r2.accessKeyId,
-        secretAccessKey: r2.secretAccessKey,
-      },
-    });
+    const client = createR2Client(r2);
 
     await client.send(
       new PutObjectCommand({

@@ -26,10 +26,11 @@ import {
   resolveProductImageUploadBatch,
   shouldReplaceProductImagesByDefault,
 } from "@/lib/admin-product-images";
+import { uploadAdminMediaFile } from "@/lib/admin-upload-client";
 import {
   PRODUCT_UPLOAD_HELP_TEXT,
-  isOverServerRoutedUploadLimit,
-  serverRoutedUploadLimitMessage,
+  directR2UploadLimitMessage,
+  isOverDirectR2UploadLimit,
 } from "@/lib/upload-limits";
 
 type ProductImageManagerProps = {
@@ -44,40 +45,12 @@ type UploadItem = {
   previewUrl: string | null;
   status: UploadStatus;
   error?: string;
+  progress?: number;
   uploadedUrl?: string;
-};
-
-type UploadResponse = {
-  uploads?: { url: string; key?: string; contentType?: string; size?: number }[];
-  error?: string;
 };
 
 function createUploadId(file: File, index: number) {
   return `${Date.now()}-${index}-${file.name}`;
-}
-
-async function uploadMediaFile(file: File) {
-  const formData = new FormData();
-  formData.append("files", file);
-
-  const response = await fetch("/api/admin/uploads", {
-    method: "POST",
-    body: formData,
-  });
-  const body = (await response.json().catch(() => ({}))) as UploadResponse;
-
-  if (!response.ok || body.error) {
-    const fallbackMessage =
-      response.status === 413 ? serverRoutedUploadLimitMessage("Arquivo") : "Falha ao enviar mídia.";
-    throw new Error(body.error || fallbackMessage);
-  }
-
-  const uploaded = body.uploads?.[0];
-  if (!uploaded?.url) {
-    throw new Error("Upload concluído sem URL pública.");
-  }
-
-  return uploaded.url;
 }
 
 export function ProductImageManager({ images }: ProductImageManagerProps) {
@@ -117,8 +90,8 @@ export function ProductImageManager({ images }: ProductImageManagerProps) {
     event.currentTarget.value = "";
     if (!selectedFiles.length) return;
 
-    const uploadableFiles = selectedFiles.filter((file) => !isOverServerRoutedUploadLimit(file));
-    const oversizedFiles = selectedFiles.filter((file) => isOverServerRoutedUploadLimit(file));
+    const uploadableFiles = selectedFiles.filter((file) => !isOverDirectR2UploadLimit(file));
+    const oversizedFiles = selectedFiles.filter((file) => isOverDirectR2UploadLimit(file));
     const replaceCurrentBatch = replaceMedia;
     const availableSlots = replaceCurrentBatch ? PRODUCT_MEDIA_LIMIT : Math.max(0, PRODUCT_MEDIA_LIMIT - mediaUrls.length);
     const filesToUpload = uploadableFiles.slice(0, availableSlots);
@@ -132,6 +105,7 @@ export function ProductImageManager({ images }: ProductImageManagerProps) {
           name: file.name,
           previewUrl,
           status: "uploading" as const,
+          progress: 0,
         };
       }),
       ...oversizedFiles.map((file, index) => ({
@@ -139,7 +113,7 @@ export function ProductImageManager({ images }: ProductImageManagerProps) {
         name: file.name,
         previewUrl: null,
         status: "error" as const,
-        error: serverRoutedUploadLimitMessage("Arquivo"),
+        error: directR2UploadLimitMessage("Arquivo"),
       })),
       ...refusedFiles.map((file, index) => ({
         id: createUploadId(file, index + filesToUpload.length + oversizedFiles.length),
@@ -158,10 +132,15 @@ export function ProductImageManager({ images }: ProductImageManagerProps) {
       if (!itemId) continue;
 
       try {
-        const uploadedUrl = await uploadMediaFile(file);
+        const uploadedUrl = await uploadAdminMediaFile(file, {
+          context: "products",
+          onProgress: (progress) => {
+            setUploadItems((current) => current.map((item) => (item.id === itemId ? { ...item, progress } : item)));
+          },
+        });
         uploadedUrls.push(uploadedUrl);
         setUploadItems((current) =>
-          current.map((item) => (item.id === itemId ? { ...item, status: "uploaded", uploadedUrl } : item)),
+          current.map((item) => (item.id === itemId ? { ...item, status: "uploaded", progress: 100, uploadedUrl } : item)),
         );
         setMediaUrls((current) => {
           return resolveProductImageUploadBatch({
@@ -276,7 +255,7 @@ export function ProductImageManager({ images }: ProductImageManagerProps) {
                   {item.status === "uploading" ? (
                     <p className="mt-1 flex items-center gap-1 text-xs font-bold text-neutral-500">
                       <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-                      Enviando...
+                      {typeof item.progress === "number" && item.progress > 0 ? `Enviando... ${item.progress}%` : "Enviando..."}
                     </p>
                   ) : null}
                   {item.status === "uploaded" ? <p className="mt-1 text-xs font-bold text-emerald-200">Upload concluído.</p> : null}

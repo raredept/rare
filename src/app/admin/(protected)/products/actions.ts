@@ -35,6 +35,31 @@ function parseImageUrls(formData: FormData) {
   return normalizeProductImageUrls(getString(formData, "imageUrls").split(/\r?\n/));
 }
 
+async function validateActiveCategorySelection(productId: string | null, categoryId?: string, subcategoryId?: string) {
+  const selectedIds = [categoryId, subcategoryId].filter(Boolean) as string[];
+  if (!selectedIds.length) return;
+
+  const categories = await prisma.category.findMany({
+    where: { id: { in: selectedIds }, active: true },
+    select: { id: true, parentId: true },
+  });
+  const categoryById = new Map(categories.map((category) => [category.id, category]));
+
+  if (categoryId) {
+    const category = categoryById.get(categoryId);
+    if (!category || category.parentId) {
+      redirectWithProductFormError(productId, "Selecione uma categoria ativa.");
+    }
+  }
+
+  if (subcategoryId) {
+    const subcategory = categoryById.get(subcategoryId);
+    if (!subcategory || !subcategory.parentId) {
+      redirectWithProductFormError(productId, "Selecione uma subcategoria ativa.");
+    }
+  }
+}
+
 type ProductRevalidationData = {
   id: string;
   slug: string;
@@ -145,6 +170,8 @@ export async function saveProductAction(productId: string | null, formData: Form
   }
 
   const parsed = parsedResult.data;
+  await validateActiveCategorySelection(productId, parsed.categoryId, parsed.subcategoryId);
+
   const slug = parsed.slug ? slugify(parsed.slug) : slugify(title);
   const previousProduct = productId
     ? await prisma.product.findUnique({
