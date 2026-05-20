@@ -8,6 +8,21 @@ vi.mock("@/app/admin/(protected)/products/actions", () => ({
 }));
 
 describe("ProductForm", () => {
+  it("renders the manual featured order field with clear help text", () => {
+    const html = renderToStaticMarkup(
+      createElement(ProductForm, {
+        categories: [],
+      }) as ReactElement,
+    );
+
+    expect(html).toContain("Produto em destaque");
+    expect(html).toContain("Ordem nos destaques");
+    expect(html).toContain('name="featuredSortOrder"');
+    expect(html).toContain('min="1"');
+    expect(html).toContain("Produtos com número menor aparecem primeiro em Destaques do mês.");
+    expect(html).toContain("Ative o destaque para usar essa ordem.");
+  });
+
   it("renders category and subcategory selects from A to Z", () => {
     const html = renderToStaticMarkup(
       createElement(ProductForm, {

@@ -23,6 +23,7 @@ const products = [
     image: "/seed-products/bone-supreme.svg",
     variants: [{ size: "Unico", stock: 0 }],
     featured: true,
+    featuredSortOrder: 4,
     sortOrder: 4,
   },
   {
@@ -38,6 +39,7 @@ const products = [
       { size: "G", stock: 5 },
     ],
     featured: true,
+    featuredSortOrder: 2,
     sortOrder: 2,
   },
   {
@@ -54,6 +56,7 @@ const products = [
       { size: "G", stock: 2 },
     ],
     featured: true,
+    featuredSortOrder: 3,
     sortOrder: 3,
   },
   {
@@ -69,6 +72,7 @@ const products = [
       { size: "G", stock: 3 },
     ],
     featured: true,
+    featuredSortOrder: 1,
     sortOrder: 1,
   },
   {
@@ -82,6 +86,7 @@ const products = [
     image: "/seed-products/bolsa-bag-supreme.svg",
     variants: [{ size: "Unico", stock: 4 }],
     featured: true,
+    featuredSortOrder: 5,
     sortOrder: 5,
   },
 ];
@@ -141,6 +146,7 @@ async function main() {
         description: product.description,
         active: true,
         featured: product.featured,
+        featuredSortOrder: product.featuredSortOrder,
         sortOrder: product.sortOrder,
       },
       create: {
@@ -154,6 +160,7 @@ async function main() {
         description: product.description,
         active: true,
         featured: product.featured,
+        featuredSortOrder: product.featuredSortOrder,
         sortOrder: product.sortOrder,
       },
     });

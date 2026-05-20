@@ -52,10 +52,26 @@ describe("validators", () => {
       heightCm: 10,
       active: true,
       featured: false,
+      featuredSortOrder: null,
       sortOrder: 0,
     });
 
     expect(parsed.weightGrams).toBe(500);
+  });
+
+  it("accepts nullable or positive manual featured order", () => {
+    expect(
+      productFormSchema.parse({
+        title: "Produto Teste",
+        shortDescription: "Descricao curta",
+        description: "Descricao completa do produto",
+        priceInCents: 10000,
+        active: true,
+        featured: true,
+        featuredSortOrder: 1,
+        sortOrder: 0,
+      }).featuredSortOrder,
+    ).toBe(1);
   });
 
   it("rejects invalid product shipping dimensions", () => {
@@ -67,6 +83,22 @@ describe("validators", () => {
       weightGrams: -1,
       active: true,
       featured: false,
+      featuredSortOrder: null,
+      sortOrder: 0,
+    });
+
+    expect(parsed.success).toBe(false);
+  });
+
+  it("rejects zero or negative manual featured order", () => {
+    const parsed = productFormSchema.safeParse({
+      title: "Produto Teste",
+      shortDescription: "Descricao curta",
+      description: "Descricao completa do produto",
+      priceInCents: 10000,
+      active: true,
+      featured: true,
+      featuredSortOrder: 0,
       sortOrder: 0,
     });
 

@@ -23,6 +23,11 @@ export type GroupedCatalogSection = {
 const accessorySubcategoryOrder = new Map(accessoryCatalogSubcategories.map((category, index) => [category.slug, index]));
 const groupedCatalogCategorySlugs = new Set(groupedCatalogCategories.map((category) => category.slug));
 const productOrderBy = [{ featured: "desc" }, { sortOrder: "asc" }, { createdAt: "desc" }] satisfies Prisma.ProductOrderByWithRelationInput[];
+const featuredProductOrderBy = [
+  { featuredSortOrder: { sort: "asc", nulls: "last" } },
+  { updatedAt: "desc" },
+  { title: "asc" },
+] satisfies Prisma.ProductOrderByWithRelationInput[];
 const recentProductOrderBy = [{ createdAt: "desc" }, { sortOrder: "asc" }] satisfies Prisma.ProductOrderByWithRelationInput[];
 
 export type HomeCategoryTile = {
@@ -165,7 +170,7 @@ export async function getProducts(params?: {
 }
 
 export async function getFeaturedProducts(params?: { query?: string; limit?: number }) {
-  return getProducts({ query: params?.query, featuredOnly: true, limit: params?.limit });
+  return getProducts({ query: params?.query, featuredOnly: true, limit: params?.limit, orderBy: featuredProductOrderBy });
 }
 
 export async function getRecentProducts(params?: { query?: string; limit?: number }) {

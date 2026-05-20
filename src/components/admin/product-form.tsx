@@ -23,6 +23,7 @@ type ProductFormProps = {
     heightCm: number | null;
     active: boolean;
     featured: boolean;
+    featuredSortOrder: number | null;
     sortOrder: number;
     images: { url: string }[];
     variants: { size: string; stock: number; sku: string | null }[];
@@ -105,7 +106,7 @@ export function ProductForm({ product, categories, error }: ProductFormProps) {
               ))}
             </select>
           </Field>
-          <Field label="Ordem na home">
+          <Field label="Ordem no catálogo">
             <input name="sortOrder" type="number" min={0} defaultValue={product?.sortOrder ?? 0} className="admin-input" />
           </Field>
           <label className="flex items-center gap-3 text-sm font-black text-neutral-800">
@@ -114,8 +115,20 @@ export function ProductForm({ product, categories, error }: ProductFormProps) {
           </label>
           <label className="flex items-center gap-3 text-sm font-black text-neutral-800">
             <input name="featured" type="checkbox" defaultChecked={product?.featured ?? false} className="h-4 w-4" />
-            Destaque na home
+            Produto em destaque
           </label>
+          <Field label="Ordem nos destaques" help="Produtos com número menor aparecem primeiro em Destaques do mês. Ative o destaque para usar essa ordem.">
+            <input
+              name="featuredSortOrder"
+              type="number"
+              min={1}
+              step={1}
+              inputMode="numeric"
+              defaultValue={product?.featuredSortOrder ?? ""}
+              placeholder="Ex.: 1"
+              className="admin-input"
+            />
+          </Field>
         </section>
 
         <section className="space-y-4 rounded-lg border border-neutral-800 bg-neutral-950/70 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
@@ -165,11 +178,12 @@ export function ProductForm({ product, categories, error }: ProductFormProps) {
   );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({ label, help, children }: { label: string; help?: string; children: ReactNode }) {
   return (
     <label className="block">
       <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">{label}</span>
       {children}
+      {help ? <span className="mt-2 block text-xs font-semibold leading-5 text-neutral-500">{help}</span> : null}
     </label>
   );
 }

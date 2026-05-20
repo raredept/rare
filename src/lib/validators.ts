@@ -122,6 +122,7 @@ export const productFormSchema = z.object({
   heightCm: optionalPositiveInt(1000),
   active: z.boolean(),
   featured: z.boolean(),
+  featuredSortOrder: z.number().int().min(1).max(999999).nullable(),
   sortOrder: z.number().int().min(0).max(999999),
 });
 

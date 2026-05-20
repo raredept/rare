@@ -120,6 +120,7 @@ model Product {
   heightCm              Int?
   active                Boolean             @default(true)
   featured              Boolean             @default(false)
+  featuredSortOrder     Int?
   sortOrder             Int                 @default(0)
   images                ProductImage[]
   variants              ProductVariant[]
@@ -129,6 +130,7 @@ model Product {
   updatedAt             DateTime            @updatedAt
 
   @@index([active, featured, sortOrder])
+  @@index([active, featured, featuredSortOrder])
   @@index([categoryId, active])
   @@index([subcategoryId, active])
 }

@@ -97,6 +97,7 @@ describe("admin catalog pages", () => {
         brand: "Supreme",
         active: true,
         featured: true,
+        featuredSortOrder: 1,
         priceInCents: 52999,
         weightGrams: null,
         lengthCm: null,
@@ -117,6 +118,7 @@ describe("admin catalog pages", () => {
     expect(html).toContain("Acessórios");
     expect(html).toContain("Subcategoria: Bags");
     expect(html).toContain("Destaque");
+    expect(html).toContain("Ordem destaque: 1");
     expect(html).toContain("Estoque baixo");
     expect(html).toContain("Local");
     expect(html).toContain("Sem dados de frete");

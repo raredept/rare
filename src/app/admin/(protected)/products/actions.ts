@@ -31,6 +31,14 @@ function parseOptionalPositiveInt(formData: FormData, key: string) {
   return Number.isInteger(value) && value > 0 ? value : Number.NaN;
 }
 
+function parseOptionalFeaturedSortOrder(formData: FormData) {
+  const raw = getString(formData, "featuredSortOrder").trim();
+  if (!raw) return null;
+  if (!/^\d+$/.test(raw)) return Number.NaN;
+  const value = Number(raw);
+  return Number.isSafeInteger(value) && value >= 1 ? value : Number.NaN;
+}
+
 function parseImageUrls(formData: FormData) {
   return normalizeProductImageUrls(getString(formData, "imageUrls").split(/\r?\n/));
 }
@@ -69,6 +77,8 @@ type ProductRevalidationData = {
 
 function revalidateProductPaths(product: ProductRevalidationData, previousProduct?: ProductRevalidationData | null) {
   revalidatePath("/");
+  revalidatePath("/categoria/destaques");
+  revalidatePath("/categoria/tudo");
   revalidatePath("/admin/products");
   revalidatePath(`/admin/products/${product.id}/edit`);
   revalidatePath(`/produto/${product.slug}`);
@@ -146,6 +156,13 @@ export async function saveProductAction(productId: string | null, formData: Form
   }
 
   const title = getString(formData, "title");
+  const featured = formData.get("featured") === "on";
+  const featuredSortOrder = featured ? parseOptionalFeaturedSortOrder(formData) : null;
+
+  if (typeof featuredSortOrder === "number" && Number.isNaN(featuredSortOrder)) {
+    redirectWithProductFormError(productId, "Informe uma ordem de destaque inteira maior ou igual a 1, ou deixe em branco.");
+  }
+
   const parsedResult = productFormSchema.safeParse({
     title,
     slug: getString(formData, "slug"),
@@ -161,7 +178,8 @@ export async function saveProductAction(productId: string | null, formData: Form
     widthCm: parseOptionalPositiveInt(formData, "widthCm"),
     heightCm: parseOptionalPositiveInt(formData, "heightCm"),
     active: formData.get("active") === "on",
-    featured: formData.get("featured") === "on",
+    featured,
+    featuredSortOrder,
     sortOrder: Number(getString(formData, "sortOrder") || 0),
   });
 
@@ -218,6 +236,7 @@ export async function saveProductAction(productId: string | null, formData: Form
             heightCm: parsed.heightCm,
             active: parsed.active,
             featured: parsed.featured,
+            featuredSortOrder: parsed.featured ? parsed.featuredSortOrder : null,
             sortOrder: parsed.sortOrder,
           },
           include: {
@@ -242,6 +261,7 @@ export async function saveProductAction(productId: string | null, formData: Form
             heightCm: parsed.heightCm,
             active: parsed.active,
             featured: parsed.featured,
+            featuredSortOrder: parsed.featured ? parsed.featuredSortOrder : null,
             sortOrder: parsed.sortOrder,
           },
           include: {

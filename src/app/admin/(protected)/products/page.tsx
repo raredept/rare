@@ -145,7 +145,14 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                     <p className="mt-1 text-xs font-semibold text-neutral-500">{product.brand ?? "Marca não informada"}</p>
                     <div className="mt-2 flex flex-wrap gap-1">
                       <Badge tone={product.active ? "neutral" : "muted"}>{product.active ? "Ativo" : "Oculto"}</Badge>
-                      {product.featured ? <Badge tone="dark">Destaque</Badge> : null}
+                      {product.featured ? (
+                        <>
+                          <Badge tone="dark">Destaque</Badge>
+                          <Badge tone={product.featuredSortOrder ? "neutral" : "warning"}>
+                            {product.featuredSortOrder ? `Ordem destaque: ${product.featuredSortOrder}` : "Destaque sem ordem"}
+                          </Badge>
+                        </>
+                      ) : null}
                       {soldOut ? <Badge tone="danger">Esgotado</Badge> : null}
                       {lowStock ? <Badge tone="warning">Estoque baixo</Badge> : null}
                       {!product.images[0] ? <Badge tone="muted">Sem imagem</Badge> : null}

@@ -53,7 +53,7 @@ vi.mock("@/lib/storage", () => ({
   saveUploadedImage: mocks.saveUploadedImage,
 }));
 
-function buildProductFormData(options: { imageUrls?: string } = {}) {
+function buildProductFormData(options: { imageUrls?: string; featured?: boolean; featuredSortOrder?: string } = {}) {
   const formData = new FormData();
   formData.set("title", "Supreme Bag");
   formData.set("slug", "supreme-bag-nova");
@@ -65,7 +65,10 @@ function buildProductFormData(options: { imageUrls?: string } = {}) {
   formData.set("price", "R$ 529,99");
   formData.set("sortOrder", "0");
   formData.set("active", "on");
-  formData.set("featured", "on");
+  if (options.featured ?? true) {
+    formData.set("featured", "on");
+  }
+  formData.set("featuredSortOrder", options.featuredSortOrder ?? "1");
   formData.set("variants", "Único:2:SKU-1");
   formData.set("imageUrls", options.imageUrls ?? "https://media.rare.example/products/new.webp");
   return formData;
@@ -120,10 +123,21 @@ describe("product admin actions", () => {
       ],
     });
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin/products");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/categoria/destaques");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/categoria/tudo");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/produto/supreme-bag");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/produto/supreme-bag-nova");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/categoria/acessorios");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/categoria/bags");
+    expect(mocks.tx.product.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          featured: true,
+          featuredSortOrder: 1,
+        }),
+      }),
+    );
   }, 60000);
 
   it("creates a product and redirects back to a clean new-product form with success feedback", async () => {
@@ -142,6 +156,7 @@ describe("product admin actions", () => {
           priceInCents: 52999,
           active: true,
           featured: true,
+          featuredSortOrder: 1,
         }),
       }),
     );
@@ -185,6 +200,33 @@ describe("product admin actions", () => {
         },
       ],
     });
+  }, 60000);
+
+  it("clears manual featured order when the product is not featured", async () => {
+    const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
+
+    await expect(saveProductAction(null, buildProductFormData({ featured: false, featuredSortOrder: "2" }))).rejects.toThrow(
+      /^NEXT_REDIRECT:\/admin\/products\/new\?success=product-created&refresh=\d+$/,
+    );
+
+    expect(mocks.tx.product.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          featured: false,
+          featuredSortOrder: null,
+        }),
+      }),
+    );
+  }, 60000);
+
+  it("rejects invalid manual featured order submitted by hand", async () => {
+    const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
+
+    await expect(saveProductAction(null, buildProductFormData({ featuredSortOrder: "1.5" }))).rejects.toThrow(
+      /^NEXT_REDIRECT:\/admin\/products\/new\?error=Informe%20uma%20ordem%20de%20destaque/,
+    );
+
+    expect(mocks.tx.product.create).not.toHaveBeenCalled();
   }, 60000);
 
   it("rejects inactive or invalid subcategories submitted manually", async () => {

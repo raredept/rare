@@ -22,6 +22,9 @@ function product(overrides: Record<string, unknown>) {
     title: "Produto mock",
     slug: "produto-mock",
     priceInCents: 10000,
+    active: true,
+    featured: false,
+    featuredSortOrder: null,
     category: null,
     subcategory: null,
     images: [],
@@ -46,6 +49,34 @@ describe("storefront catalog helpers", () => {
     expect(mocks.prisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ active: true, featured: true }),
+        orderBy: [
+          { featuredSortOrder: { sort: "asc", nulls: "last" } },
+          { updatedAt: "desc" },
+          { title: "asc" },
+        ],
+      }),
+    );
+  });
+
+  it("asks Prisma to put manually ordered featured products before unordered featured products", async () => {
+    mocks.prisma.product.findMany.mockResolvedValueOnce([
+      product({ id: "featured-ordered", featured: true, featuredSortOrder: 1 }),
+      product({ id: "featured-unordered", featured: true, featuredSortOrder: null }),
+    ]);
+
+    const { getFeaturedProducts } = await import("@/lib/storefront");
+    const products = await getFeaturedProducts({ limit: 5 });
+
+    expect(products.map((item) => item.id)).toEqual(["featured-ordered", "featured-unordered"]);
+    expect(mocks.prisma.product.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ active: true, featured: true }),
+        orderBy: [
+          { featuredSortOrder: { sort: "asc", nulls: "last" } },
+          { updatedAt: "desc" },
+          { title: "asc" },
+        ],
+        take: 5,
       }),
     );
   });
