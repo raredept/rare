@@ -137,6 +137,56 @@ describe("storefront catalog helpers", () => {
     expect(sections.map((section) => section.products.map((item) => item.id))).toEqual([["camiseta-1"], ["calca-1"], ["bag-1"]]);
   });
 
+  it("groups a parent category page by active child categories and hides empty children", async () => {
+    mocks.prisma.category.findUnique.mockResolvedValueOnce({
+      id: "cat-accessories",
+      name: "Acessórios",
+      slug: "acessorios",
+      active: true,
+      children: [
+        { name: "Bags", slug: "bags" },
+        { name: "Bonés", slug: "bones" },
+        { name: "Relógios", slug: "relogios" },
+      ],
+    });
+    mocks.prisma.product.findMany.mockResolvedValueOnce([
+      product({
+        id: "bone-1",
+        category: { name: "Acessórios", slug: "acessorios" },
+        subcategory: { name: "Bonés", slug: "bones" },
+      }),
+      product({
+        id: "bag-1",
+        category: { name: "Acessórios", slug: "acessorios" },
+        subcategory: { name: "Bags", slug: "bags" },
+      }),
+    ]);
+
+    const { getCategoryPageData } = await import("@/lib/storefront");
+    const pageData = await getCategoryPageData("acessorios");
+
+    expect(pageData?.kind).toBe("grouped");
+    if (!pageData || pageData.kind !== "grouped") {
+      throw new Error("Expected grouped page data");
+    }
+    expect(pageData.title).toBe("Acessórios");
+    expect(pageData.sections.map((section) => section.name)).toEqual(["Bags", "Bonés"]);
+    expect(pageData.sections.map((section) => section.products.map((item) => item.id))).toEqual([["bag-1"], ["bone-1"]]);
+    expect(pageData.sections.some((section) => section.slug === "relogios")).toBe(false);
+    expect(mocks.prisma.product.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          active: true,
+          AND: [
+            {
+              OR: [{ category: { slug: "acessorios" } }, { subcategory: { slug: "acessorios" } }],
+            },
+          ],
+        }),
+      }),
+    );
+  });
+
   it("hides empty grouped categories and handles an empty catalog", async () => {
     mocks.prisma.product.findMany.mockResolvedValueOnce([]);
 
@@ -204,6 +254,8 @@ describe("storefront catalog helpers", () => {
     const pageData = await getCategoryPageData("categoria-inexistente");
 
     expect(pageData).toBeNull();
-    expect(mocks.prisma.category.findUnique).toHaveBeenCalledWith({ where: { slug: "categoria-inexistente" } });
+    expect(mocks.prisma.category.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { slug: "categoria-inexistente" } }),
+    );
   });
 });

@@ -97,6 +97,48 @@ describe("store category page", () => {
     expect(html).toContain("Camiseta RARE");
   });
 
+  it("renders grouped sections for a real parent category page", async () => {
+    mocks.getCategoryPageData.mockResolvedValueOnce({
+      kind: "grouped",
+      slug: "acessorios",
+      eyebrow: "Categoria",
+      title: "Acessórios",
+      description: "Peças disponíveis agora nesta categoria, separadas por seção.",
+      sections: [
+        {
+          name: "Bags",
+          slug: "bags",
+          href: "/categoria/bags",
+          products: [{ ...product, id: "bag-1", title: "Supreme Bag" }],
+          total: 1,
+          hasMore: false,
+        },
+        {
+          name: "Bonés",
+          slug: "bones",
+          href: "/categoria/bones",
+          products: [{ ...product, id: "bone-1", title: "Boné Supreme" }],
+          total: 1,
+          hasMore: false,
+        },
+      ],
+    });
+
+    const element = await CategoryPage({
+      params: Promise.resolve({ slug: "acessorios" }),
+      searchParams: Promise.resolve({}),
+    });
+    const html = renderToStaticMarkup(element as ReactElement);
+
+    expect(html).toContain("Acessórios");
+    expect(html).toContain("Bags");
+    expect(html).toContain("Bonés");
+    expect(html).toContain("Supreme Bag");
+    expect(html).toContain("Boné Supreme");
+    expect(html).toContain('href="/categoria/bags"');
+    expect(html).toContain('href="/categoria/bones"');
+  });
+
   it("generates basic metadata for virtual categories", async () => {
     mocks.getCategoryPageData.mockResolvedValueOnce({
       kind: "featured",

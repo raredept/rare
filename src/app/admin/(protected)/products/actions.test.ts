@@ -119,11 +119,11 @@ describe("product admin actions", () => {
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/categoria/bags");
   }, 60000);
 
-  it("creates a product and redirects to the edit screen with success feedback", async () => {
+  it("creates a product and redirects back to a clean new-product form with success feedback", async () => {
     const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
 
     await expect(saveProductAction(null, buildProductFormData())).rejects.toThrow(
-      /^NEXT_REDIRECT:\/admin\/products\/prod-new\/edit\?success=product-created&refresh=\d+$/,
+      /^NEXT_REDIRECT:\/admin\/products\/new\?success=product-created&refresh=\d+$/,
     );
 
     expect(mocks.prisma.product.findUnique).not.toHaveBeenCalled();
@@ -153,7 +153,7 @@ describe("product admin actions", () => {
     });
 
     await expect(saveProductAction(null, formData)).rejects.toThrow(
-      /^NEXT_REDIRECT:\/admin\/products\/prod-new\/edit\?success=product-created&refresh=\d+$/,
+      /^NEXT_REDIRECT:\/admin\/products\/new\?success=product-created&refresh=\d+$/,
     );
 
     expect(mocks.tx.productImage.createMany).toHaveBeenCalledWith({

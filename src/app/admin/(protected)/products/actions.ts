@@ -275,7 +275,11 @@ export async function saveProductAction(productId: string | null, formData: Form
   });
 
   revalidateProductPaths(savedProduct, previousProduct);
-  redirect(withAdminActionRefresh(`/admin/products/${savedProduct.id}/edit?success=${productId ? "product-saved" : "product-created"}`));
+  if (!productId) {
+    redirect(withAdminActionRefresh("/admin/products/new?success=product-created"));
+  }
+
+  redirect(withAdminActionRefresh(`/admin/products/${savedProduct.id}/edit?success=product-saved`));
 }
 
 export async function toggleProductActiveAction(formData: FormData) {

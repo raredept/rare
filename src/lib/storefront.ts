@@ -87,14 +87,19 @@ function buildActiveProductWhere(params?: { query?: string; categorySlug?: strin
   return where;
 }
 
-function getProductGroupingSlug(product: StorefrontProduct) {
+type GroupingCategory = {
+  name: string;
+  slug: string;
+};
+
+function getProductGroupingSlug(product: StorefrontProduct, groupedSlugs = groupedCatalogCategorySlugs) {
   const subcategorySlug = product.subcategory?.slug;
-  if (subcategorySlug && groupedCatalogCategorySlugs.has(subcategorySlug)) {
+  if (subcategorySlug && groupedSlugs.has(subcategorySlug)) {
     return subcategorySlug;
   }
 
   const categorySlug = product.category?.slug;
-  if (categorySlug && groupedCatalogCategorySlugs.has(categorySlug)) {
+  if (categorySlug && groupedSlugs.has(categorySlug)) {
     return categorySlug;
   }
 
@@ -204,9 +209,17 @@ export async function getHomeCategoryTiles(): Promise<HomeCategoryTiles> {
   };
 }
 
-export async function getProductsGroupedByCategory(params?: { query?: string; limitPerCategory?: number; includeEmpty?: boolean }) {
+export async function getProductsGroupedByCategory(params?: {
+  query?: string;
+  categorySlug?: string;
+  categories?: GroupingCategory[];
+  limitPerCategory?: number;
+  includeEmpty?: boolean;
+}) {
+  const groupingCategories = params?.categories ?? groupedCatalogCategories;
+  const groupingSlugs = new Set(groupingCategories.map((category) => category.slug));
   const products = await prisma.product.findMany({
-    where: buildActiveProductWhere({ query: params?.query }),
+    where: buildActiveProductWhere({ query: params?.query, categorySlug: params?.categorySlug }),
     include: productInclude,
     orderBy: productOrderBy,
   });
@@ -214,7 +227,7 @@ export async function getProductsGroupedByCategory(params?: { query?: string; li
   const groupedProducts = new Map<string, StorefrontProduct[]>();
 
   for (const product of products) {
-    const slug = getProductGroupingSlug(product);
+    const slug = getProductGroupingSlug(product, groupingSlugs);
     if (!slug) continue;
 
     const productsForCategory = groupedProducts.get(slug) ?? [];
@@ -224,7 +237,7 @@ export async function getProductsGroupedByCategory(params?: { query?: string; li
 
   const limitPerCategory = params?.limitPerCategory ?? 8;
 
-  return groupedCatalogCategories.flatMap<GroupedCatalogSection>((category) => {
+  return groupingCategories.flatMap<GroupedCatalogSection>((category) => {
     const productsForCategory = groupedProducts.get(category.slug) ?? [];
 
     if (!productsForCategory.length && !params?.includeEmpty) {
@@ -269,9 +282,32 @@ export async function getCategoryPageData(slug: string, params?: { query?: strin
     };
   }
 
-  const category = await prisma.category.findUnique({ where: { slug } });
+  const category = await prisma.category.findUnique({
+    where: { slug },
+    include: {
+      children: {
+        where: { active: true },
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      },
+    },
+  });
   if (!category || !category.active) {
     return null;
+  }
+
+  if (category.children.length) {
+    return {
+      kind: "grouped" as const,
+      slug,
+      eyebrow: "Categoria",
+      title: category.name,
+      description: "Peças disponíveis agora nesta categoria, separadas por seção.",
+      sections: await getProductsGroupedByCategory({
+        categorySlug: slug,
+        query: params?.query,
+        categories: category.children,
+      }),
+    };
   }
 
   return {
