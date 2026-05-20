@@ -1,20 +1,29 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { getMaxAcceptedUploadBytes, normalizeUploadContext, saveUploadedImage } from "@/lib/storage";
+import { VERCEL_FUNCTION_PAYLOAD_LIMIT_BYTES, serverRoutedUploadLimitMessage } from "@/lib/upload-limits";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const maxFilesPerRequest = 10;
 
+function getMaxRequestBytes() {
+  if (process.env.VERCEL === "1") {
+    return VERCEL_FUNCTION_PAYLOAD_LIMIT_BYTES;
+  }
+
+  return getMaxAcceptedUploadBytes() * maxFilesPerRequest;
+}
+
 export async function POST(request: NextRequest) {
   await requireAdmin();
 
   try {
     const contentLength = Number(request.headers.get("content-length") ?? 0);
-    const maxRequestBytes = getMaxAcceptedUploadBytes() * maxFilesPerRequest;
+    const maxRequestBytes = getMaxRequestBytes();
     if (Number.isFinite(contentLength) && contentLength > maxRequestBytes) {
-      return NextResponse.json({ error: "Upload maior que o limite permitido." }, { status: 413 });
+      return NextResponse.json({ error: serverRoutedUploadLimitMessage("Upload") }, { status: 413 });
     }
 
     const formData = await request.formData();

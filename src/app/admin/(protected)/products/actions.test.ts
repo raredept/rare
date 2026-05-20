@@ -50,7 +50,7 @@ vi.mock("@/lib/storage", () => ({
   saveUploadedImage: mocks.saveUploadedImage,
 }));
 
-function buildProductFormData() {
+function buildProductFormData(options: { imageUrls?: string } = {}) {
   const formData = new FormData();
   formData.set("title", "Supreme Bag");
   formData.set("slug", "supreme-bag-nova");
@@ -64,7 +64,7 @@ function buildProductFormData() {
   formData.set("active", "on");
   formData.set("featured", "on");
   formData.set("variants", "Único:2:SKU-1");
-  formData.set("imageUrls", "https://media.rare.example/products/new.webp");
+  formData.set("imageUrls", options.imageUrls ?? "https://media.rare.example/products/new.webp");
   return formData;
 }
 
@@ -80,6 +80,12 @@ beforeEach(() => {
   mocks.prisma.$transaction.mockImplementation(async (callback: (tx: typeof mocks.tx) => Promise<unknown>) => callback(mocks.tx));
   mocks.tx.product.update.mockResolvedValue({
     id: "prod-1",
+    slug: "supreme-bag-nova",
+    category: { slug: "acessorios" },
+    subcategory: { slug: "bags" },
+  });
+  mocks.tx.product.create.mockResolvedValue({
+    id: "prod-new",
     slug: "supreme-bag-nova",
     category: { slug: "acessorios" },
     subcategory: { slug: "bags" },
@@ -111,5 +117,66 @@ describe("product admin actions", () => {
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/produto/supreme-bag-nova");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/categoria/acessorios");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/categoria/bags");
+  }, 60000);
+
+  it("creates a product and redirects to the edit screen with success feedback", async () => {
+    const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
+
+    await expect(saveProductAction(null, buildProductFormData())).rejects.toThrow(
+      "NEXT_REDIRECT:/admin/products/prod-new/edit?success=product-created",
+    );
+
+    expect(mocks.prisma.product.findUnique).not.toHaveBeenCalled();
+    expect(mocks.tx.product.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          title: "Supreme Bag",
+          slug: "supreme-bag-nova",
+          priceInCents: 52999,
+          active: true,
+          featured: true,
+        }),
+      }),
+    );
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin/products/prod-new/edit");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/produto/supreme-bag-nova");
+  }, 60000);
+
+  it("persists every submitted media URL in order when creating a product", async () => {
+    const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
+    const formData = buildProductFormData({
+      imageUrls: [
+        "https://media.rare.example/products/cover.webp",
+        "https://media.rare.example/products/detail.webp",
+        "https://media.rare.example/products/back.webp",
+      ].join("\n"),
+    });
+
+    await expect(saveProductAction(null, formData)).rejects.toThrow(
+      "NEXT_REDIRECT:/admin/products/prod-new/edit?success=product-created",
+    );
+
+    expect(mocks.tx.productImage.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          productId: "prod-new",
+          url: "https://media.rare.example/products/cover.webp",
+          alt: "Supreme Bag",
+          sortOrder: 0,
+        },
+        {
+          productId: "prod-new",
+          url: "https://media.rare.example/products/detail.webp",
+          alt: "Supreme Bag",
+          sortOrder: 1,
+        },
+        {
+          productId: "prod-new",
+          url: "https://media.rare.example/products/back.webp",
+          alt: "Supreme Bag",
+          sortOrder: 2,
+        },
+      ],
+    });
   }, 60000);
 });

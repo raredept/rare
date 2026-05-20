@@ -58,8 +58,18 @@ afterEach(async () => {
 describe("storage helpers", () => {
   it("falls back to the safe upload limit when env is invalid", () => {
     process.env.MAX_UPLOAD_SIZE_MB = "not-a-number";
-    expect(getMaxUploadBytes()).toBe(5 * 1024 * 1024);
-    expect(getMaxAcceptedUploadBytes()).toBe(30 * 1024 * 1024);
+    expect(getMaxUploadBytes()).toBe(4 * 1024 * 1024);
+    expect(getMaxAcceptedUploadBytes()).toBe(4 * 1024 * 1024);
+  });
+
+  it("caps configured upload limits to the Vercel function payload-safe size", () => {
+    process.env.VERCEL = "1";
+    process.env.MAX_UPLOAD_SIZE_MB = "5";
+    process.env.MAX_GIF_UPLOAD_SIZE_MB = "10";
+    process.env.MAX_VIDEO_UPLOAD_SIZE_MB = "30";
+
+    expect(getMaxUploadBytes()).toBe(4 * 1024 * 1024);
+    expect(getMaxAcceptedUploadBytes()).toBe(4 * 1024 * 1024);
   });
 
   it("validates media signatures against their declared extension", () => {

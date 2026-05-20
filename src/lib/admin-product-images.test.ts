@@ -10,7 +10,9 @@ import {
   moveProductImageUrl,
   normalizeProductImageUrls,
   removeProductImageUrl,
+  resolveProductImageUploadBatch,
   resolveProductImageSubmission,
+  shouldReplaceProductImagesByDefault,
 } from "@/lib/admin-product-images";
 
 describe("admin product image helpers", () => {
@@ -43,6 +45,49 @@ describe("admin product image helpers", () => {
     });
 
     expect(urls).toEqual(["/uploads/products/current.png", "/uploads/products/extra.webp"]);
+  });
+
+  it("does not enable replacement by default for a new product without previous media", () => {
+    expect(shouldReplaceProductImagesByDefault([])).toBe(false);
+    expect(shouldReplaceProductImagesByDefault(["https://media.rare.example/products/current.webp"])).toBe(false);
+    expect(shouldReplaceProductImagesByDefault(["/seed-products/bolsa-bag-supreme.svg"])).toBe(true);
+    expect(shouldReplaceProductImagesByDefault(["/uploads/products/old-local.png"])).toBe(true);
+  });
+
+  it("keeps media from multiple upload batches unless replacement is explicitly active", () => {
+    const firstBatch = resolveProductImageUploadBatch({
+      currentImageUrls: [],
+      uploadedUrls: ["https://media.rare.example/products/first.webp"],
+      replaceImages: false,
+    });
+    const secondBatch = resolveProductImageUploadBatch({
+      currentImageUrls: firstBatch,
+      uploadedUrls: ["https://media.rare.example/products/second.webp"],
+      replaceImages: false,
+    });
+
+    expect(secondBatch).toEqual([
+      "https://media.rare.example/products/first.webp",
+      "https://media.rare.example/products/second.webp",
+    ]);
+  });
+
+  it("allows one replacement batch and then preserves later appended uploads", () => {
+    const replacementBatch = resolveProductImageUploadBatch({
+      currentImageUrls: ["/seed-products/bolsa-bag-supreme.svg"],
+      uploadedUrls: ["https://media.rare.example/products/new-cover.webp"],
+      replaceImages: true,
+    });
+    const laterBatch = resolveProductImageUploadBatch({
+      currentImageUrls: replacementBatch,
+      uploadedUrls: ["https://media.rare.example/products/new-detail.webp"],
+      replaceImages: false,
+    });
+
+    expect(laterBatch).toEqual([
+      "https://media.rare.example/products/new-cover.webp",
+      "https://media.rare.example/products/new-detail.webp",
+    ]);
   });
 
   it("clears, removes and promotes images without creating duplicates", () => {

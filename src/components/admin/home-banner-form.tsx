@@ -5,6 +5,7 @@ import { useState, type ChangeEvent, type ReactNode } from "react";
 import { createBannerAction, updateBannerAction } from "@/app/admin/(protected)/banners/actions";
 import { AdminSubmitButton } from "@/components/admin/admin-submit-button";
 import type { HomeBannerSlide } from "@/lib/home-banners";
+import { BANNER_UPLOAD_HELP_TEXT, isOverServerRoutedUploadLimit, serverRoutedUploadLimitMessage } from "@/lib/upload-limits";
 
 type HomeBannerFormProps = {
   banner?: HomeBannerSlide;
@@ -85,6 +86,11 @@ export function HomeBannerForm({ banner, error, nextSortOrder }: HomeBannerFormP
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = "";
     if (!file) return;
+
+    if (isOverServerRoutedUploadLimit(file)) {
+      setUploadError(serverRoutedUploadLimitMessage("Imagem"));
+      return;
+    }
 
     setUploading(target);
     setUploadError(null);
@@ -295,7 +301,7 @@ function UploadField({
         className="block w-full cursor-pointer rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm font-semibold text-neutral-300 file:mr-3 file:rounded-md file:border-0 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-black file:text-black hover:border-neutral-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-not-allowed disabled:opacity-50"
         onChange={onChange}
       />
-      <span className="mt-2 block text-xs font-semibold text-neutral-500">{uploading ? "Enviando..." : "JPG, PNG ou WEBP até 5 MB."}</span>
+      <span className="mt-2 block text-xs font-semibold text-neutral-500">{uploading ? "Enviando..." : BANNER_UPLOAD_HELP_TEXT}</span>
     </label>
   );
 }

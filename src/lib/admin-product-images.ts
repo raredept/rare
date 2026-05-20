@@ -15,6 +15,12 @@ export type ProductImageSubmissionInput = {
   replaceImages: boolean;
 };
 
+export type ProductImageUploadBatchInput = {
+  currentImageUrls: string[];
+  uploadedUrls: string[];
+  replaceImages: boolean;
+};
+
 export function normalizeProductImageUrls(urls: string[], limit = PRODUCT_MEDIA_LIMIT) {
   const seen = new Set<string>();
   const normalized: string[] = [];
@@ -43,6 +49,25 @@ export function resolveProductImageSubmission({
   }
 
   return normalizeProductImageUrls([...existing, ...uploaded]);
+}
+
+export function shouldReplaceProductImagesByDefault(urls: string[]) {
+  const normalized = normalizeProductImageUrls(urls);
+  return normalized.length > 0 && normalized.some((url) => classifyProductImageUrl(url) !== "R2");
+}
+
+export function resolveProductImageUploadBatch({
+  currentImageUrls,
+  uploadedUrls,
+  replaceImages,
+}: ProductImageUploadBatchInput) {
+  const uploaded = normalizeProductImageUrls(uploadedUrls);
+
+  if (replaceImages && uploaded.length) {
+    return uploaded;
+  }
+
+  return appendProductImageUrls(currentImageUrls, uploaded);
 }
 
 export function clearProductImageUrls() {

@@ -36,29 +36,40 @@ export function ProductForm({ product, categories, error }: ProductFormProps) {
   const subcategories = categories.filter((category) => category.parentId);
 
   return (
-    <form action={action} className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]" encType="multipart/form-data">
+    <form action={action} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]" encType="multipart/form-data">
       {error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 lg:col-span-2" role="alert">
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 xl:col-span-2" role="alert">
           {error}
         </div>
       ) : null}
-      <section className="space-y-5 rounded-lg border border-neutral-800 bg-neutral-950/70 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.22)]">
-        <Field label="Título">
-          <input name="title" defaultValue={product?.title} required className="admin-input" />
-        </Field>
-        <Field label="Slug">
-          <input name="slug" defaultValue={product?.slug} placeholder="gerado automaticamente se vazio" className="admin-input" />
-        </Field>
-        <Field label="Descrição curta">
-          <input name="shortDescription" defaultValue={product?.shortDescription} required className="admin-input" />
-        </Field>
-        <Field label="Descrição">
-          <textarea name="description" defaultValue={product?.description} required rows={6} className="admin-input min-h-40" />
-        </Field>
-        <Field label="Marca">
-          <input name="brand" defaultValue={product?.brand ?? ""} className="admin-input" />
-        </Field>
-      </section>
+
+      <div className="min-w-0 space-y-6">
+        <section className="space-y-5 rounded-lg border border-neutral-800 bg-neutral-950/70 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.22)]">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Título">
+              <input name="title" defaultValue={product?.title} required className="admin-input" />
+            </Field>
+            <Field label="Slug">
+              <input name="slug" defaultValue={product?.slug} placeholder="gerado automaticamente se vazio" className="admin-input" />
+            </Field>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
+            <Field label="Descrição curta">
+              <input name="shortDescription" defaultValue={product?.shortDescription} required className="admin-input" />
+            </Field>
+            <Field label="Marca">
+              <input name="brand" defaultValue={product?.brand ?? ""} className="admin-input" />
+            </Field>
+          </div>
+
+          <Field label="Descrição">
+            <textarea name="description" defaultValue={product?.description} required rows={5} className="admin-input min-h-32" />
+          </Field>
+        </section>
+
+        <ProductImageManager images={product?.images ?? []} />
+      </div>
 
       <aside className="space-y-5">
         <section className="space-y-4 rounded-lg border border-neutral-800 bg-neutral-950/70 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
@@ -127,8 +138,6 @@ export function ProductForm({ product, categories, error }: ProductFormProps) {
             </Field>
           </div>
         </section>
-
-        <ProductImageManager images={product?.images ?? []} />
 
         <section className="space-y-4 rounded-lg border border-neutral-800 bg-neutral-950/70 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
           <Field label="Variações / estoque">

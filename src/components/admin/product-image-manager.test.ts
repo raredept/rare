@@ -20,12 +20,25 @@ describe("ProductImageManager", () => {
     expect(html).toContain("Capa atual");
     expect(html).toContain("CAPA");
     expect(html).toContain("Substituir mídias antigas por este upload");
+    expect(html).toContain("checked=\"\"");
     expect(html).toContain("Limpar mídias antigas");
     expect(html).toContain("Avançado: URLs manuais");
     expect(html).not.toContain("open=\"\"");
-    expect(html).toContain("JPG, PNG e WEBP até 5 MB. GIF até 10 MB. MP4 até 30 MB.");
+    expect(html).toContain("JPG, PNG, WEBP, GIF ou MP4 até 4 MB por arquivo.");
     expect(html).toContain("Seed");
     expect(html).toContain("GIF");
     expect(html).toContain("Vídeo");
+  });
+
+  it("does not preselect replacement mode for a new product", () => {
+    const html = renderToStaticMarkup(
+      createElement(ProductImageManager, {
+        images: [],
+      }) as ReactElement,
+    );
+
+    expect(html).toContain("0/10 mídias adicionadas");
+    expect(html).toContain("Nenhuma mídia principal");
+    expect(html).not.toContain("checked=\"\"");
   });
 });

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/admin/uploads/route";
 
 const routeMocks = vi.hoisted(() => ({
@@ -7,6 +7,8 @@ const routeMocks = vi.hoisted(() => ({
   normalizeUploadContext: vi.fn((value: FormDataEntryValue | null) => (value === "banners" ? "banners" : "products")),
   saveUploadedImage: vi.fn(),
 }));
+
+const originalEnv = process.env;
 
 vi.mock("@/lib/auth", () => ({
   requireAdmin: routeMocks.requireAdmin,
@@ -27,11 +29,16 @@ function buildUploadRequest(formData: FormData) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  process.env = { ...originalEnv };
   routeMocks.requireAdmin.mockResolvedValue({ id: "admin-1" });
   routeMocks.saveUploadedImage.mockResolvedValue({
     url: "/uploads/products/2026/05/file.png",
     key: "products/2026/05/file.png",
   });
+});
+
+afterEach(() => {
+  process.env = originalEnv;
 });
 
 describe("admin uploads route", () => {
@@ -72,6 +79,22 @@ describe("admin uploads route", () => {
     formData.append("files", new File([new Uint8Array([1])], "produto.png", { type: "image/png" }));
 
     await expect(POST(buildUploadRequest(formData) as never)).rejects.toThrow("unauthorized");
+    expect(routeMocks.saveUploadedImage).not.toHaveBeenCalled();
+  });
+
+  it("returns a controlled 413 before parsing oversized Vercel function payloads", async () => {
+    process.env.VERCEL = "1";
+    const request = new Request("http://localhost/api/admin/uploads", {
+      method: "POST",
+      headers: { "content-length": String(5 * 1024 * 1024) },
+      body: "oversized",
+    });
+
+    const response = await POST(request as never);
+    const body = await response.json();
+
+    expect(response.status).toBe(413);
+    expect(body.error).toContain("Upload acima de 4 MB");
     expect(routeMocks.saveUploadedImage).not.toHaveBeenCalled();
   });
 });

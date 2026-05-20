@@ -37,7 +37,7 @@ describe("HomeBannerForm", () => {
     expect(html).toContain("Preview mobile");
     expect(html).toContain("Avançado: URLs manuais");
     expect(html).toContain("Salvar banner");
-    expect(html).toContain("JPG, PNG ou WEBP até 5 MB.");
+    expect(html).toContain("JPG, PNG ou WEBP até 4 MB.");
   });
 
   it("shows an active placeholder warning when a banner has no image", () => {

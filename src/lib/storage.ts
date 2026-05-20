@@ -9,10 +9,11 @@ import {
   getStorageLocalDir,
   getStoragePublicBaseUrl,
 } from "@/lib/env";
+import { SERVER_ROUTED_UPLOAD_LIMIT_MB } from "@/lib/upload-limits";
 
-const DEFAULT_MAX_UPLOAD_SIZE_MB = 5;
-const DEFAULT_MAX_GIF_UPLOAD_SIZE_MB = 10;
-const DEFAULT_MAX_VIDEO_UPLOAD_SIZE_MB = 30;
+const DEFAULT_MAX_UPLOAD_SIZE_MB = SERVER_ROUTED_UPLOAD_LIMIT_MB;
+const DEFAULT_MAX_GIF_UPLOAD_SIZE_MB = SERVER_ROUTED_UPLOAD_LIMIT_MB;
+const DEFAULT_MAX_VIDEO_UPLOAD_SIZE_MB = SERVER_ROUTED_UPLOAD_LIMIT_MB;
 const UPLOAD_CACHE_CONTROL = "public, max-age=31536000, immutable";
 
 export type UploadContext = "products" | "banners";
@@ -37,7 +38,13 @@ const publicExtensionByMimeType = new Map([
 
 function getConfiguredMaxMb(variable: string, fallback: number) {
   const maxMb = Number(process.env[variable] ?? fallback);
-  return Number.isFinite(maxMb) && maxMb > 0 ? Math.max(1, maxMb) : fallback;
+  const configuredMaxMb = Number.isFinite(maxMb) && maxMb > 0 ? Math.max(1, maxMb) : fallback;
+
+  if (process.env.VERCEL === "1") {
+    return Math.min(configuredMaxMb, SERVER_ROUTED_UPLOAD_LIMIT_MB);
+  }
+
+  return configuredMaxMb;
 }
 
 export function getMaxUploadSizeMb(mimeType?: string) {

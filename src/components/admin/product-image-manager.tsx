@@ -15,7 +15,6 @@ import {
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import {
   PRODUCT_MEDIA_LIMIT,
-  appendProductImageUrls,
   classifyProductImageUrl,
   clearProductImageUrls,
   getProductMediaLabel,
@@ -24,7 +23,14 @@ import {
   moveProductImageUrl,
   normalizeProductImageUrls,
   removeProductImageUrl,
+  resolveProductImageUploadBatch,
+  shouldReplaceProductImagesByDefault,
 } from "@/lib/admin-product-images";
+import {
+  PRODUCT_UPLOAD_HELP_TEXT,
+  isOverServerRoutedUploadLimit,
+  serverRoutedUploadLimitMessage,
+} from "@/lib/upload-limits";
 
 type ProductImageManagerProps = {
   images: { url: string }[];
@@ -50,10 +56,6 @@ function createUploadId(file: File, index: number) {
   return `${Date.now()}-${index}-${file.name}`;
 }
 
-function hasLegacySource(urls: string[]) {
-  return urls.some((url) => classifyProductImageUrl(url) !== "R2");
-}
-
 async function uploadMediaFile(file: File) {
   const formData = new FormData();
   formData.append("files", file);
@@ -65,7 +67,9 @@ async function uploadMediaFile(file: File) {
   const body = (await response.json().catch(() => ({}))) as UploadResponse;
 
   if (!response.ok || body.error) {
-    throw new Error(body.error || "Falha ao enviar mídia.");
+    const fallbackMessage =
+      response.status === 413 ? serverRoutedUploadLimitMessage("Arquivo") : "Falha ao enviar mídia.";
+    throw new Error(body.error || fallbackMessage);
   }
 
   const uploaded = body.uploads?.[0];
@@ -80,7 +84,7 @@ export function ProductImageManager({ images }: ProductImageManagerProps) {
   const initialUrls = useMemo(() => normalizeProductImageUrls(images.map((image) => image.url)), [images]);
   const [mediaUrls, setMediaUrls] = useState(() => initialUrls);
   const [brokenUrls, setBrokenUrls] = useState(() => new Set<string>());
-  const [replaceMedia, setReplaceMedia] = useState(() => initialUrls.length === 0 || hasLegacySource(initialUrls));
+  const [replaceMedia, setReplaceMedia] = useState(() => shouldReplaceProductImagesByDefault(initialUrls));
   const [manualOpen, setManualOpen] = useState(false);
   const [uploadItems, setUploadItems] = useState<UploadItem[]>([]);
   const objectUrlsRef = useRef<string[]>([]);
@@ -113,9 +117,12 @@ export function ProductImageManager({ images }: ProductImageManagerProps) {
     event.currentTarget.value = "";
     if (!selectedFiles.length) return;
 
-    const availableSlots = replaceMedia ? PRODUCT_MEDIA_LIMIT : Math.max(0, PRODUCT_MEDIA_LIMIT - mediaUrls.length);
-    const filesToUpload = selectedFiles.slice(0, availableSlots);
-    const refusedFiles = selectedFiles.slice(availableSlots);
+    const uploadableFiles = selectedFiles.filter((file) => !isOverServerRoutedUploadLimit(file));
+    const oversizedFiles = selectedFiles.filter((file) => isOverServerRoutedUploadLimit(file));
+    const replaceCurrentBatch = replaceMedia;
+    const availableSlots = replaceCurrentBatch ? PRODUCT_MEDIA_LIMIT : Math.max(0, PRODUCT_MEDIA_LIMIT - mediaUrls.length);
+    const filesToUpload = uploadableFiles.slice(0, availableSlots);
+    const refusedFiles = uploadableFiles.slice(availableSlots);
     const uploadBatch: UploadItem[] = [
       ...filesToUpload.map((file, index) => {
         const previewUrl = URL.createObjectURL(file);
@@ -127,8 +134,15 @@ export function ProductImageManager({ images }: ProductImageManagerProps) {
           status: "uploading" as const,
         };
       }),
-      ...refusedFiles.map((file, index) => ({
+      ...oversizedFiles.map((file, index) => ({
         id: createUploadId(file, index + filesToUpload.length),
+        name: file.name,
+        previewUrl: null,
+        status: "error" as const,
+        error: serverRoutedUploadLimitMessage("Arquivo"),
+      })),
+      ...refusedFiles.map((file, index) => ({
+        id: createUploadId(file, index + filesToUpload.length + oversizedFiles.length),
         name: file.name,
         previewUrl: null,
         status: "error" as const,
@@ -150,8 +164,11 @@ export function ProductImageManager({ images }: ProductImageManagerProps) {
           current.map((item) => (item.id === itemId ? { ...item, status: "uploaded", uploadedUrl } : item)),
         );
         setMediaUrls((current) => {
-          if (replaceMedia) return normalizeProductImageUrls(uploadedUrls);
-          return appendProductImageUrls(current, [uploadedUrl]);
+          return resolveProductImageUploadBatch({
+            currentImageUrls: current,
+            uploadedUrls: replaceCurrentBatch ? uploadedUrls : [uploadedUrl],
+            replaceImages: replaceCurrentBatch,
+          });
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : "Falha ao enviar mídia.";
@@ -159,6 +176,10 @@ export function ProductImageManager({ images }: ProductImageManagerProps) {
           current.map((item) => (item.id === itemId ? { ...item, status: "error", error: message } : item)),
         );
       }
+    }
+
+    if (replaceCurrentBatch && uploadedUrls.length) {
+      setReplaceMedia(false);
     }
   }
 
@@ -178,13 +199,13 @@ export function ProductImageManager({ images }: ProductImageManagerProps) {
         </span>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
         <div className="overflow-hidden rounded-lg border border-neutral-800 bg-black">
           <div className="flex items-center justify-between border-b border-neutral-800 px-3 py-2">
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500">Capa atual</span>
             {coverUrl ? <MediaBadge>CAPA</MediaBadge> : null}
           </div>
-          <div className="aspect-[4/3]">
+          <div className="aspect-[4/3] max-h-[380px]">
             {coverUrl ? (
               <MediaPreview
                 alt="Capa do produto"
@@ -217,7 +238,7 @@ export function ProductImageManager({ images }: ProductImageManagerProps) {
             />
           </label>
           <p id="product-media-help" className="text-xs font-semibold leading-5 text-neutral-500">
-            JPG, PNG e WEBP até 5 MB. GIF até 10 MB. MP4 até 30 MB.
+            {PRODUCT_UPLOAD_HELP_TEXT}
           </p>
           <label className="flex items-start gap-3 rounded-lg border border-neutral-800 bg-neutral-950 p-3 text-sm font-black text-neutral-200">
             <input
