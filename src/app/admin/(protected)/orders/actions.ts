@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { withAdminActionRefresh } from "@/lib/admin-action-refresh";
 import { requireAdmin } from "@/lib/auth";
 import { updateOrderStatusWithReservationRelease } from "@/lib/checkout";
 import type { OrderStatus } from "@prisma/client";
@@ -21,5 +22,5 @@ export async function updateOrderStatusAction(formData: FormData) {
 
   revalidatePath("/admin/orders");
   revalidatePath(`/admin/orders/${id}`);
-  redirect(`/admin/orders/${id}?success=order-status-saved`);
+  redirect(withAdminActionRefresh(`/admin/orders/${id}?success=order-status-saved`));
 }

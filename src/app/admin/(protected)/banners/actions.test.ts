@@ -74,7 +74,7 @@ describe("home banner admin actions", () => {
     const { createBannerAction } = await import("@/app/admin/(protected)/banners/actions");
 
     await expect(createBannerAction(buildBannerFormData())).rejects.toThrow(
-      "NEXT_REDIRECT:/admin/banners?edit=banner-1&success=banner-created",
+      /^NEXT_REDIRECT:\/admin\/banners\?edit=banner-1&success=banner-created&refresh=\d+$/,
     );
 
     expect(mocks.requireAdmin).toHaveBeenCalledTimes(1);
@@ -96,7 +96,7 @@ describe("home banner admin actions", () => {
     const { createBannerAction } = await import("@/app/admin/(protected)/banners/actions");
 
     await expect(createBannerAction(buildBannerFormData({ href: "https://evil.example/campaign" }))).rejects.toThrow(
-      "NEXT_REDIRECT:/admin/banners?error=Use+apenas+links+internos+seguros+da+loja.",
+      /^NEXT_REDIRECT:\/admin\/banners\?error=Use\+apenas\+links\+internos\+seguros\+da\+loja\.&refresh=\d+$/,
     );
 
     expect(mocks.prisma.homeBannerSlide.create).not.toHaveBeenCalled();
@@ -106,7 +106,7 @@ describe("home banner admin actions", () => {
     const { createBannerAction } = await import("@/app/admin/(protected)/banners/actions");
 
     await expect(createBannerAction(buildBannerFormData({ href: "https://raredept.com.br/categoria/camisetas" }))).rejects.toThrow(
-      "NEXT_REDIRECT:/admin/banners?edit=banner-1&success=banner-created",
+      /^NEXT_REDIRECT:\/admin\/banners\?edit=banner-1&success=banner-created&refresh=\d+$/,
     );
 
     expect(mocks.prisma.homeBannerSlide.create).toHaveBeenCalledWith({
@@ -121,7 +121,9 @@ describe("home banner admin actions", () => {
     const formData = buildBannerFormData();
     formData.set("id", "banner-1");
 
-    await expect(updateBannerAction(formData)).rejects.toThrow("NEXT_REDIRECT:/admin/banners?edit=banner-1&success=banner-saved");
+    await expect(updateBannerAction(formData)).rejects.toThrow(
+      /^NEXT_REDIRECT:\/admin\/banners\?edit=banner-1&success=banner-saved&refresh=\d+$/,
+    );
     expect(mocks.prisma.homeBannerSlide.update).toHaveBeenCalledWith({
       where: { id: "banner-1" },
       data: expect.objectContaining({ title: "Drop novo" }),
@@ -130,7 +132,9 @@ describe("home banner admin actions", () => {
     const toggleData = new FormData();
     toggleData.set("id", "banner-1");
     toggleData.set("active", "true");
-    await expect(toggleBannerActiveAction(toggleData)).rejects.toThrow("NEXT_REDIRECT:/admin/banners?success=banner-hidden");
+    await expect(toggleBannerActiveAction(toggleData)).rejects.toThrow(
+      /^NEXT_REDIRECT:\/admin\/banners\?success=banner-hidden&refresh=\d+$/,
+    );
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/");
   }, 30000);
 
@@ -140,7 +144,9 @@ describe("home banner admin actions", () => {
     const formData = new FormData();
     formData.set("id", "a");
 
-    await expect(moveBannerDownAction(formData)).rejects.toThrow("NEXT_REDIRECT:/admin/banners?success=banner-reordered");
+    await expect(moveBannerDownAction(formData)).rejects.toThrow(
+      /^NEXT_REDIRECT:\/admin\/banners\?success=banner-reordered&refresh=\d+$/,
+    );
 
     expect(mocks.prisma.homeBannerSlide.update).toHaveBeenCalledWith({ where: { id: "b" }, data: { sortOrder: 0 } });
     expect(mocks.prisma.homeBannerSlide.update).toHaveBeenCalledWith({ where: { id: "a" }, data: { sortOrder: 10 } });

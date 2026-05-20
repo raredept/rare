@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { withAdminActionRefresh } from "@/lib/admin-action-refresh";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slug";
@@ -17,7 +18,7 @@ function categoryFormPath(id: string) {
 }
 
 function redirectWithCategoryError(id: string): never {
-  redirect(`${categoryFormPath(id)}?error=category-save-failed`);
+  redirect(withAdminActionRefresh(`${categoryFormPath(id)}?error=category-save-failed`));
 }
 
 function revalidateCategoryPaths(currentSlug?: string, previousSlug?: string | null) {
@@ -68,7 +69,7 @@ export async function saveCategoryAction(formData: FormData) {
       });
 
   revalidateCategoryPaths(savedCategory.slug, previousCategory?.slug);
-  redirect(id ? `/admin/categories/${savedCategory.id}/edit?success=category-saved` : "/admin/categories?success=category-created");
+  redirect(withAdminActionRefresh(id ? `/admin/categories/${savedCategory.id}/edit?success=category-saved` : "/admin/categories?success=category-created"));
 }
 
 export async function deleteCategoryAction(formData: FormData) {
@@ -77,7 +78,7 @@ export async function deleteCategoryAction(formData: FormData) {
   const category = await prisma.category.findUnique({ where: { id }, select: { slug: true } });
   await prisma.category.delete({ where: { id } });
   revalidateCategoryPaths(undefined, category?.slug);
-  redirect("/admin/categories?success=category-deleted");
+  redirect(withAdminActionRefresh("/admin/categories?success=category-deleted"));
 }
 
 export async function toggleCategoryActiveAction(formData: FormData) {
@@ -86,5 +87,5 @@ export async function toggleCategoryActiveAction(formData: FormData) {
   const active = value(formData, "active") === "true";
   const category = await prisma.category.update({ where: { id }, data: { active: !active } });
   revalidateCategoryPaths(category.slug);
-  redirect(`/admin/categories?success=${category.active ? "category-visible" : "category-hidden"}`);
+  redirect(withAdminActionRefresh(`/admin/categories?success=${category.active ? "category-visible" : "category-hidden"}`));
 }

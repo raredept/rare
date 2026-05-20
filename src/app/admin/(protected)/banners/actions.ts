@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { withAdminActionRefresh } from "@/lib/admin-action-refresh";
 import { requireAdmin } from "@/lib/auth";
 import { homeBannerInputSchema } from "@/lib/home-banners";
 import { prisma } from "@/lib/prisma";
@@ -21,7 +22,7 @@ function bannerListPath(params?: { editId?: string; success?: string; error?: st
 }
 
 function redirectWithBannerError(message: string, editId?: string): never {
-  redirect(bannerListPath({ editId, error: message }));
+  redirect(withAdminActionRefresh(bannerListPath({ editId, error: message })));
 }
 
 function revalidateBannerPaths() {
@@ -84,7 +85,7 @@ export async function createBannerAction(formData: FormData) {
   });
 
   revalidateBannerPaths();
-  redirect(bannerListPath({ editId: banner.id, success: "banner-created" }));
+  redirect(withAdminActionRefresh(bannerListPath({ editId: banner.id, success: "banner-created" })));
 }
 
 export async function updateBannerAction(formData: FormData) {
@@ -100,7 +101,7 @@ export async function updateBannerAction(formData: FormData) {
   });
 
   revalidateBannerPaths();
-  redirect(bannerListPath({ editId: id, success: "banner-saved" }));
+  redirect(withAdminActionRefresh(bannerListPath({ editId: id, success: "banner-saved" })));
 }
 
 export async function toggleBannerActiveAction(formData: FormData) {
@@ -114,7 +115,7 @@ export async function toggleBannerActiveAction(formData: FormData) {
   });
 
   revalidateBannerPaths();
-  redirect(bannerListPath({ success: banner.active ? "banner-visible" : "banner-hidden" }));
+  redirect(withAdminActionRefresh(bannerListPath({ success: banner.active ? "banner-visible" : "banner-hidden" })));
 }
 
 export async function deleteBannerAction(formData: FormData) {
@@ -125,7 +126,7 @@ export async function deleteBannerAction(formData: FormData) {
   await prisma.$transaction([prisma.homeBannerSlide.delete({ where: { id } }), ...(await normalizeSortOrdersWithout(id))]);
 
   revalidateBannerPaths();
-  redirect(bannerListPath({ success: "banner-removed" }));
+  redirect(withAdminActionRefresh(bannerListPath({ success: "banner-removed" })));
 }
 
 async function moveBanner(id: string, direction: "up" | "down") {
@@ -159,12 +160,12 @@ export async function moveBannerUpAction(formData: FormData) {
   await requireAdmin();
   await moveBanner(text(formData, "id"), "up");
   revalidateBannerPaths();
-  redirect(bannerListPath({ success: "banner-reordered" }));
+  redirect(withAdminActionRefresh(bannerListPath({ success: "banner-reordered" })));
 }
 
 export async function moveBannerDownAction(formData: FormData) {
   await requireAdmin();
   await moveBanner(text(formData, "id"), "down");
   revalidateBannerPaths();
-  redirect(bannerListPath({ success: "banner-reordered" }));
+  redirect(withAdminActionRefresh(bannerListPath({ success: "banner-reordered" })));
 }

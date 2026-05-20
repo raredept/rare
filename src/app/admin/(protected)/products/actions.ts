@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { withAdminActionRefresh } from "@/lib/admin-action-refresh";
 import { prisma } from "@/lib/prisma";
 import { normalizeProductImageUrls, resolveProductImageSubmission } from "@/lib/admin-product-images";
 import { parseMoneyToCents } from "@/lib/money";
@@ -15,7 +16,7 @@ function productFormPath(productId: string | null) {
 }
 
 function redirectWithProductFormError(productId: string | null, message: string): never {
-  redirect(`${productFormPath(productId)}?error=${encodeURIComponent(message)}`);
+  redirect(withAdminActionRefresh(`${productFormPath(productId)}?error=${encodeURIComponent(message)}`));
 }
 
 function getString(formData: FormData, key: string) {
@@ -274,7 +275,7 @@ export async function saveProductAction(productId: string | null, formData: Form
   });
 
   revalidateProductPaths(savedProduct, previousProduct);
-  redirect(`/admin/products/${savedProduct.id}/edit?success=${productId ? "product-saved" : "product-created"}`);
+  redirect(withAdminActionRefresh(`/admin/products/${savedProduct.id}/edit?success=${productId ? "product-saved" : "product-created"}`));
 }
 
 export async function toggleProductActiveAction(formData: FormData) {
@@ -290,7 +291,7 @@ export async function toggleProductActiveAction(formData: FormData) {
     },
   });
   revalidateProductPaths(product);
-  redirect(`/admin/products?success=${product.active ? "product-visible" : "product-hidden"}`);
+  redirect(withAdminActionRefresh(`/admin/products?success=${product.active ? "product-visible" : "product-hidden"}`));
 }
 
 export async function deleteProductAction(formData: FormData) {
@@ -312,5 +313,5 @@ export async function deleteProductAction(formData: FormData) {
     revalidatePath("/");
     revalidatePath("/admin/products");
   }
-  redirect("/admin/products?success=product-deleted");
+  redirect(withAdminActionRefresh("/admin/products?success=product-deleted"));
 }

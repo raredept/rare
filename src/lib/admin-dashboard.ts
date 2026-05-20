@@ -13,6 +13,18 @@ export type DashboardVariantInput = {
   active: boolean;
 };
 
+const orderFlowStatusOrder: OrderStatus[] = [
+  "pending",
+  "awaiting_payment",
+  "paid",
+  "processing",
+  "shipped",
+  "delivered",
+  "canceled",
+  "refunded",
+  "failed",
+];
+
 export function getDateDaysAgo(days: number, now = new Date()) {
   const date = new Date(now);
   date.setDate(date.getDate() - days);
@@ -84,4 +96,12 @@ export function buildOrderFlowCounts(orders: DashboardOrderInput[]) {
   }
 
   return flow;
+}
+
+export function getSortedOrderFlowEntries(flow: Record<OrderStatus, number>) {
+  const fallbackOrder = new Map(orderFlowStatusOrder.map((status, index) => [status, index]));
+
+  return Object.entries(flow)
+    .map(([status, count]) => [status as OrderStatus, count] as const)
+    .sort((first, second) => second[1] - first[1] || (fallbackOrder.get(first[0]) ?? 999) - (fallbackOrder.get(second[0]) ?? 999));
 }

@@ -20,7 +20,7 @@ export default async function EditProductPage({ params, searchParams }: EditProd
         variants: { orderBy: { size: "asc" } },
       },
     }),
-    prisma.category.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
+    prisma.category.findMany({ orderBy: [{ name: "asc" }, { sortOrder: "asc" }] }),
   ]);
 
   if (!product) notFound();

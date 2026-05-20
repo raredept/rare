@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { AdminSubmitButton } from "@/components/admin/admin-submit-button";
 import { ConfirmButton } from "@/components/admin/confirm-button";
 import { deleteProductAction, toggleProductActiveAction } from "@/app/admin/(protected)/products/actions";
+import { getAdminCategoryFilterLabel, sortAdminCategoryFilterOptions } from "@/lib/admin-category-options";
 import { classifyProductImageUrl, getProductMediaLabel, getProductMediaTypeFromUrl } from "@/lib/admin-product-images";
 import { formatMoney } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
@@ -54,6 +55,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
     const availableStock = product.variants.reduce((sum, variant) => sum + variant.stock - variant.reservedStock, 0);
     return availableStock > 0 && availableStock <= 3;
   }).length;
+  const categoryFilterOptions = sortAdminCategoryFilterOptions(categories);
 
   return (
     <div className="space-y-6">
@@ -79,9 +81,9 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
         <input name="q" defaultValue={filters.q ?? ""} placeholder="Buscar produto ou marca" className="admin-input" />
         <select name="category" defaultValue={filters.category ?? ""} className="admin-input">
           <option value="">Todas categorias</option>
-          {categories.map((category) => (
+          {categoryFilterOptions.map((category) => (
             <option key={category.id} value={category.id}>
-              {category.parent ? `${category.parent.name} / ${category.name}` : category.name}
+              {getAdminCategoryFilterLabel(category)}
             </option>
           ))}
         </select>

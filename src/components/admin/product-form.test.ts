@@ -1,0 +1,38 @@
+import { createElement, type ReactElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it, vi } from "vitest";
+import { ProductForm } from "@/components/admin/product-form";
+
+vi.mock("@/app/admin/(protected)/products/actions", () => ({
+  saveProductAction: vi.fn(),
+}));
+
+describe("ProductForm", () => {
+  it("renders category and subcategory selects from A to Z", () => {
+    const html = renderToStaticMarkup(
+      createElement(ProductForm, {
+        categories: [
+          { id: "cat-camisetas", name: "Camisetas", parentId: null },
+          { id: "cat-acessorios", name: "Acessórios", parentId: null },
+          { id: "cat-bermudas", name: "Bermudas", parentId: null },
+          { id: "cat-relogios", name: "Relógios", parentId: "cat-acessorios" },
+          { id: "cat-bags", name: "Bags", parentId: "cat-acessorios" },
+          { id: "cat-oculos", name: "Óculos", parentId: "cat-acessorios" },
+        ],
+      }) as ReactElement,
+    );
+
+    expect(html.indexOf('<option value="cat-acessorios">Acessórios</option>')).toBeLessThan(
+      html.indexOf('<option value="cat-bermudas">Bermudas</option>'),
+    );
+    expect(html.indexOf('<option value="cat-bermudas">Bermudas</option>')).toBeLessThan(
+      html.indexOf('<option value="cat-camisetas">Camisetas</option>'),
+    );
+    expect(html.indexOf('<option value="cat-bags">Bags</option>')).toBeLessThan(
+      html.indexOf('<option value="cat-oculos">Óculos</option>'),
+    );
+    expect(html.indexOf('<option value="cat-oculos">Óculos</option>')).toBeLessThan(
+      html.indexOf('<option value="cat-relogios">Relógios</option>'),
+    );
+  });
+});

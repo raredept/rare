@@ -5,19 +5,25 @@ import { AdminToast } from "@/components/admin/admin-toast";
 
 const mocks = vi.hoisted(() => ({
   params: new URLSearchParams(),
+  router: {
+    refresh: vi.fn(),
+  },
 }));
 
 vi.mock("next/navigation", () => ({
+  usePathname: () => "/admin/products",
+  useRouter: () => mocks.router,
   useSearchParams: () => mocks.params,
 }));
 
 beforeEach(() => {
   mocks.params = new URLSearchParams();
+  mocks.router.refresh.mockClear();
 });
 
 describe("AdminToast", () => {
   it("renders success feedback from query params with aria-live", () => {
-    mocks.params = new URLSearchParams("success=product-saved");
+    mocks.params = new URLSearchParams("success=product-saved&refresh=123");
 
     const html = renderToStaticMarkup(createElement(AdminToast) as ReactElement);
 
@@ -26,7 +32,7 @@ describe("AdminToast", () => {
   });
 
   it("renders error feedback from query params", () => {
-    mocks.params = new URLSearchParams("error=category-save-failed");
+    mocks.params = new URLSearchParams("error=category-save-failed&refresh=123");
 
     const html = renderToStaticMarkup(createElement(AdminToast) as ReactElement);
 
@@ -35,7 +41,7 @@ describe("AdminToast", () => {
   });
 
   it("renders banner success feedback from query params", () => {
-    mocks.params = new URLSearchParams("success=banner-reordered");
+    mocks.params = new URLSearchParams("success=banner-reordered&refresh=123");
 
     const html = renderToStaticMarkup(createElement(AdminToast) as ReactElement);
 

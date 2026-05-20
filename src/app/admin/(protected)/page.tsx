@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { buildOrderFlowCounts, calculateDashboardKpis } from "@/lib/admin-dashboard";
+import { buildOrderFlowCounts, calculateDashboardKpis, getSortedOrderFlowEntries } from "@/lib/admin-dashboard";
 import { formatMoney } from "@/lib/money";
 import { formatOrderStatus, isPaidRevenueStatus } from "@/lib/order-display";
 import { prisma } from "@/lib/prisma";
@@ -76,6 +76,7 @@ export default async function AdminDashboardPage() {
     return available > 0 && available <= 3;
   });
   const flowCounts = buildOrderFlowCounts(orders);
+  const flowEntries = getSortedOrderFlowEntries(flowCounts);
   const maxFlowCount = Math.max(1, ...Object.values(flowCounts));
   const bestSellers = new Map<string, { product: string; quantity: number; revenue: number }>();
 
@@ -144,10 +145,10 @@ export default async function AdminDashboardPage() {
         <section className="rounded-lg border border-neutral-200 bg-white p-5">
           <h2 className="text-lg font-black text-neutral-950">Fluxo de pedidos</h2>
           <div className="mt-4 space-y-3">
-            {Object.entries(flowCounts).map(([status, count]) => (
+            {flowEntries.map(([status, count]) => (
               <div key={status}>
                 <div className="flex justify-between text-xs font-black uppercase tracking-wide text-neutral-500">
-                  <span>{formatOrderStatus(status as keyof typeof flowCounts)}</span>
+                  <span>{formatOrderStatus(status)}</span>
                   <span>{count}</span>
                 </div>
                 <div className="mt-1 h-2 rounded-full bg-neutral-100">

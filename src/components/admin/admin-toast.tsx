@@ -1,8 +1,9 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ADMIN_ACTION_REFRESH_PARAM } from "@/lib/admin-action-refresh";
 
 type ToastTone = "success" | "error" | "warning" | "info";
 
@@ -41,10 +42,12 @@ const errorMessages = new Map([
   ["order-status-failed", "Não foi possível atualizar o pedido."],
 ]);
 
-function resolveToast(success: string | null, error: string | null): ToastState | null {
+function resolveToast(success: string | null, error: string | null, refreshMarker: string | null): ToastState | null {
+  const keySuffix = refreshMarker ? `:${refreshMarker}` : "";
+
   if (error) {
     return {
-      key: `error:${error}`,
+      key: `error:${error}${keySuffix}`,
       tone: "error",
       message: errorMessages.get(error) ?? error,
     };
@@ -52,7 +55,7 @@ function resolveToast(success: string | null, error: string | null): ToastState 
 
   if (success) {
     return {
-      key: `success:${success}`,
+      key: `success:${success}${keySuffix}`,
       tone: "success",
       message: successMessages.get(success) ?? success,
     };
@@ -62,12 +65,26 @@ function resolveToast(success: string | null, error: string | null): ToastState 
 }
 
 export function AdminToast() {
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const success = searchParams.get("success");
   const error = searchParams.get("error");
-  const nextToast = useMemo(() => resolveToast(success, error), [success, error]);
+  const refreshMarker = searchParams.get(ADMIN_ACTION_REFRESH_PARAM);
+  const nextToast = useMemo(() => resolveToast(success, error, refreshMarker), [success, error, refreshMarker]);
   const [dismissedKey, setDismissedKey] = useState<string | null>(null);
+  const refreshedKeyRef = useRef<string | null>(null);
   const toast = nextToast && dismissedKey !== nextToast.key ? nextToast : null;
+
+  useEffect(() => {
+    if (!refreshMarker) return;
+
+    const refreshKey = `${pathname}:${success ?? ""}:${error ?? ""}:${refreshMarker}`;
+    if (refreshedKeyRef.current === refreshKey) return;
+
+    refreshedKeyRef.current = refreshKey;
+    router.refresh();
+  }, [error, pathname, refreshMarker, router, success]);
 
   useEffect(() => {
     if (!toast) return;

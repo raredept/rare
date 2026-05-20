@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildOrderFlowCounts, calculateDashboardKpis } from "@/lib/admin-dashboard";
+import { buildOrderFlowCounts, calculateDashboardKpis, getSortedOrderFlowEntries } from "@/lib/admin-dashboard";
 
 describe("admin dashboard helpers", () => {
   it("calculates operational KPIs from orders and inventory", () => {
@@ -61,5 +61,20 @@ describe("admin dashboard helpers", () => {
     expect(flow.paid).toBe(2);
     expect(flow.canceled).toBe(1);
     expect(flow.awaiting_payment).toBe(0);
+  });
+
+  it("sorts order flow entries from highest to lowest count", () => {
+    const flow = buildOrderFlowCounts([
+      { status: "delivered", totalInCents: 100, createdAt: new Date() },
+      { status: "paid", totalInCents: 100, createdAt: new Date() },
+      { status: "paid", totalInCents: 100, createdAt: new Date() },
+      { status: "canceled", totalInCents: 100, createdAt: new Date() },
+    ]);
+
+    expect(getSortedOrderFlowEntries(flow).slice(0, 3)).toEqual([
+      ["paid", 2],
+      ["delivered", 1],
+      ["canceled", 1],
+    ]);
   });
 });

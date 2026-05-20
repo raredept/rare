@@ -1,6 +1,7 @@
 import { saveProductAction } from "@/app/admin/(protected)/products/actions";
 import { AdminSubmitButton } from "@/components/admin/admin-submit-button";
 import { ProductImageManager } from "@/components/admin/product-image-manager";
+import { sortProductFormCategoryOptions } from "@/lib/admin-category-options";
 import { formatMoney } from "@/lib/money";
 import type { ReactNode } from "react";
 
@@ -32,8 +33,8 @@ type ProductFormProps = {
 
 export function ProductForm({ product, categories, error }: ProductFormProps) {
   const action = saveProductAction.bind(null, product?.id ?? null);
-  const topCategories = categories.filter((category) => !category.parentId);
-  const subcategories = categories.filter((category) => category.parentId);
+  const topCategories = sortProductFormCategoryOptions(categories.filter((category) => !category.parentId));
+  const subcategories = sortProductFormCategoryOptions(categories.filter((category) => category.parentId));
 
   return (
     <form action={action} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]" encType="multipart/form-data">

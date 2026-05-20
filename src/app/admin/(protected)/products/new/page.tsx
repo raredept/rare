@@ -9,7 +9,7 @@ type NewProductPageProps = {
 
 export default async function NewProductPage({ searchParams }: NewProductPageProps) {
   const { error } = await searchParams;
-  const categories = await prisma.category.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] });
+  const categories = await prisma.category.findMany({ orderBy: [{ name: "asc" }, { sortOrder: "asc" }] });
 
   return (
     <div>

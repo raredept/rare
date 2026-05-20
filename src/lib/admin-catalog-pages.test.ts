@@ -86,6 +86,7 @@ describe("admin catalog pages", () => {
 
   it("renders products with thumbnail, category, stock and operational badges", async () => {
     mocks.prisma.category.findMany.mockResolvedValueOnce([
+      { id: "cat-camisetas", name: "Camisetas", parent: null },
       { id: "cat-accessories", name: "Acessórios", parent: null },
       { id: "cat-bags", name: "Bags", parent: { id: "cat-accessories", name: "Acessórios" } },
     ]);
@@ -119,5 +120,11 @@ describe("admin catalog pages", () => {
     expect(html).toContain("Estoque baixo");
     expect(html).toContain("Local");
     expect(html).toContain("Sem dados de frete");
+    expect(html.indexOf('<option value="cat-accessories">Acessórios</option>')).toBeLessThan(
+      html.indexOf('<option value="cat-bags">Acessórios / Bags</option>'),
+    );
+    expect(html.indexOf('<option value="cat-bags">Acessórios / Bags</option>')).toBeLessThan(
+      html.indexOf('<option value="cat-camisetas">Camisetas</option>'),
+    );
   }, 30000);
 });

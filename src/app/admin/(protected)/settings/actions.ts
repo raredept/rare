@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { withAdminActionRefresh } from "@/lib/admin-action-refresh";
 import { requireAdmin } from "@/lib/auth";
 import { parseMoneyToCents } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
@@ -37,5 +38,5 @@ export async function saveSettingsAction(formData: FormData) {
 
   revalidatePath("/");
   revalidatePath("/admin/settings");
-  redirect("/admin/settings?success=settings-saved");
+  redirect(withAdminActionRefresh("/admin/settings?success=settings-saved"));
 }
