@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { formatMoney } from "@/lib/money";
-import { getPreferredProductCardMedia } from "@/lib/product-media";
+import { getProductCardMediaPair } from "@/lib/product-media";
 import { getAvailableStock } from "@/lib/stock";
+import { ProductCardHoverImage } from "@/components/store/product-card-hover-image";
 import { ProductMedia } from "@/components/store/product-media";
 import { ProductMediaPlaceholder } from "@/components/store/product-media-placeholder";
 
@@ -19,7 +20,7 @@ type ProductCardProps = {
 };
 
 export function ProductCard({ product }: ProductCardProps) {
-  const image = getPreferredProductCardMedia(product.images);
+  const { primary: image, hover: hoverImage } = getProductCardMediaPair(product.images);
   const availableStock = product.variants
     .filter((variant) => variant.active)
     .reduce((sum, variant) => sum + getAvailableStock(variant.stock, variant.reservedStock), 0);
@@ -44,6 +45,7 @@ export function ProductCard({ product }: ProductCardProps) {
           ) : (
             <ProductMediaPlaceholder />
           )}
+          {hoverImage ? <ProductCardHoverImage src={hoverImage.url} /> : null}
           {soldOut ? (
             <span className="absolute left-3 top-3 rounded-full bg-black px-3 py-1 text-xs font-black uppercase tracking-wide text-white">
               Esgotado

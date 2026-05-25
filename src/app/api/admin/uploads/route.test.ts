@@ -97,4 +97,16 @@ describe("admin uploads route", () => {
     expect(body.error).toContain("Upload acima de 4 MB");
     expect(routeMocks.saveUploadedImage).not.toHaveBeenCalled();
   });
+
+  it("rejects server-side upload files above 4 MB before storage writes", async () => {
+    const formData = new FormData();
+    formData.append("files", new File([new Uint8Array(4 * 1024 * 1024 + 1)], "grande.jpg", { type: "image/jpeg" }));
+
+    const response = await POST(buildUploadRequest(formData) as never);
+    const body = await response.json();
+
+    expect(response.status).toBe(413);
+    expect(body.error).toContain("Arquivo acima de 4 MB");
+    expect(routeMocks.saveUploadedImage).not.toHaveBeenCalled();
+  });
 });

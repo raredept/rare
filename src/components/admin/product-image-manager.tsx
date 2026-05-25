@@ -29,8 +29,8 @@ import {
 import { uploadAdminMediaFile } from "@/lib/admin-upload-client";
 import {
   PRODUCT_UPLOAD_HELP_TEXT,
-  directR2UploadLimitMessage,
-  isOverDirectR2UploadLimit,
+  isOverServerRoutedUploadLimit,
+  serverRoutedUploadLimitMessage,
 } from "@/lib/upload-limits";
 
 type ProductImageManagerProps = {
@@ -90,8 +90,8 @@ export function ProductImageManager({ images }: ProductImageManagerProps) {
     event.currentTarget.value = "";
     if (!selectedFiles.length) return;
 
-    const uploadableFiles = selectedFiles.filter((file) => !isOverDirectR2UploadLimit(file));
-    const oversizedFiles = selectedFiles.filter((file) => isOverDirectR2UploadLimit(file));
+    const uploadableFiles = selectedFiles.filter((file) => !isOverServerRoutedUploadLimit(file));
+    const oversizedFiles = selectedFiles.filter((file) => isOverServerRoutedUploadLimit(file));
     const replaceCurrentBatch = replaceMedia;
     const availableSlots = replaceCurrentBatch ? PRODUCT_MEDIA_LIMIT : Math.max(0, PRODUCT_MEDIA_LIMIT - mediaUrls.length);
     const filesToUpload = uploadableFiles.slice(0, availableSlots);
@@ -113,7 +113,7 @@ export function ProductImageManager({ images }: ProductImageManagerProps) {
         name: file.name,
         previewUrl: null,
         status: "error" as const,
-        error: directR2UploadLimitMessage("Arquivo"),
+        error: serverRoutedUploadLimitMessage("Arquivo"),
       })),
       ...refusedFiles.map((file, index) => ({
         id: createUploadId(file, index + filesToUpload.length + oversizedFiles.length),

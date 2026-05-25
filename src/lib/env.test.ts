@@ -118,6 +118,36 @@ describe("environment validation", () => {
     expect(result.errors.some((issue) => issue.variable === "STORAGE_DRIVER")).toBe(true);
   });
 
+  it("does not accept vercel_blob as a storage driver", () => {
+    process.env.STORAGE_DRIVER = "vercel_blob";
+
+    const result = validateEnvironment();
+
+    expect(result.ok).toBe(false);
+    expect(result.storageDriver).toBe("invalid");
+    expect(result.errors.some((issue) => issue.variable === "STORAGE_DRIVER")).toBe(true);
+  });
+
+  it("does not require non-R2 storage credentials when R2 storage is configured", () => {
+    process.env = {
+      ...process.env,
+      NODE_ENV: "production",
+      APP_URL: "https://staging.rare.example",
+      CHECKOUT_ENABLED: "false",
+      STORAGE_DRIVER: "r2",
+      R2_ACCOUNT_ID: "configured-account-id",
+      R2_BUCKET: "rare-staging",
+      R2_ACCESS_KEY_ID: "configured-access-key",
+      R2_SECRET_ACCESS_KEY: "configured-storage-secret",
+      R2_PUBLIC_BASE_URL: "https://media.rare.example",
+    };
+
+    const result = validateEnvironment();
+
+    expect(result.ok).toBe(true);
+    expect(result.storageDriver).toBe("r2");
+  });
+
   it("requires R2 configuration without exposing configured secret values", () => {
     process.env = {
       ...process.env,

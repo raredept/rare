@@ -69,6 +69,7 @@ const originalEnv = process.env;
 
 const validCheckoutInput = {
   items: [{ productId: "prod_1", variantId: "var_1", quantity: 2 }],
+  shippingOptionId: "manual:PAC",
   guestCustomerData: {
     name: "Cliente Teste",
     email: "cliente@example.com",
@@ -111,8 +112,14 @@ function buildOrder(status = "awaiting_payment") {
     stripePaymentIntentId: null,
     paymentMethod: null,
     subtotalInCents: 20000,
-    shippingInCents: 1500,
-    totalInCents: 21500,
+    shippingInCents: 1990,
+    totalInCents: 21990,
+    shippingQuoteSnapshot: {
+      provider: "manual",
+      service: "PAC",
+      amountCents: 1990,
+      destinationCep: "01001000",
+    },
     items: [orderItem],
   };
 }
@@ -130,6 +137,10 @@ function seedCheckoutCreationMocks() {
         title: "Camiseta RARE",
         active: true,
         priceInCents: 10000,
+        weightGrams: 400,
+        lengthCm: 30,
+        widthCm: 24,
+        heightCm: 4,
         images: [{ url: "/uploads/camiseta.jpg" }],
       },
     },
@@ -161,6 +172,9 @@ beforeEach(() => {
     ...originalEnv,
     APP_URL: "https://staging.rare.example",
     NEXT_PUBLIC_APP_URL: "https://public.rare.example",
+    SHIPPING_ENABLED: "true",
+    SHIPPING_PROVIDER: "manual",
+    SHIPPING_ORIGIN_CEP: "01001000",
   };
   vi.resetAllMocks();
   mocks.prisma.$transaction.mockImplementation(async (callback: (transaction: typeof mocks.tx) => unknown) =>
@@ -172,7 +186,8 @@ beforeEach(() => {
   mocks.getStoreSettings.mockResolvedValue({
     checkoutReservationMinutes: 30,
     checkoutRequiresAddress: true,
-    shippingMode: "fixed",
+    shippingMode: "manual",
+    originCep: "01001000",
     fixedShippingInCents: 1500,
     manualShippingInCents: 0,
     freeShippingMinInCents: null,
@@ -265,8 +280,17 @@ describe("createCheckoutSession", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           subtotalInCents: 20000,
-          shippingInCents: 1500,
-          totalInCents: 21500,
+          shippingInCents: 1990,
+          shippingMethodSnapshot: "PAC — Chega em 5 a 9 dias úteis",
+          shippingCepSnapshot: "01001000",
+          shippingQuoteSnapshot: expect.objectContaining({
+            provider: "manual",
+            service: "PAC",
+            amountCents: 1990,
+            originCep: "01001000",
+            destinationCep: "01001000",
+          }),
+          totalInCents: 21990,
           status: "awaiting_payment",
           items: {
             create: [
@@ -284,25 +308,38 @@ describe("createCheckoutSession", () => {
       expect.objectContaining({
         success_url: "https://staging.rare.example/pedido/sucesso?session_id={CHECKOUT_SESSION_ID}",
         cancel_url: "https://staging.rare.example/cart?checkout=cancelado",
-        line_items: expect.arrayContaining([
+        line_items: [
           expect.objectContaining({
             quantity: 2,
             price_data: expect.objectContaining({
               unit_amount: 10000,
             }),
           }),
+        ],
+        shipping_options: [
           expect.objectContaining({
-            quantity: 1,
-            price_data: expect.objectContaining({
-              unit_amount: 1500,
-              product_data: { name: "Frete" },
+            shipping_rate_data: expect.objectContaining({
+              type: "fixed_amount",
+              display_name: "PAC - cálculo manual",
+              fixed_amount: {
+                amount: 1990,
+                currency: "brl",
+              },
             }),
           }),
-        ]),
+        ],
+        shipping_address_collection: {
+          allowed_countries: ["BR"],
+        },
         payment_intent_data: {
           metadata: {
             orderId: "order_1",
             orderNumber: "RARE-TEST",
+            shippingProvider: "manual",
+            shippingService: "PAC",
+            shippingAmountCents: "1990",
+            shippingEstimatedDays: "Chega em 5 a 9 dias úteis",
+            destinationCep: "01001000",
           },
         },
       }),

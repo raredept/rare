@@ -9,7 +9,19 @@ import {
 } from "@/lib/customer-order";
 import { getAppUrl } from "@/lib/env";
 import { normalizePhone } from "@/lib/privacy";
-import { calculateProvisionalShipping } from "@/lib/shipping";
+import {
+  buildPackageFromCart,
+  buildShippingQuoteSnapshot,
+  calculateProvisionalShipping,
+  findShippingOption,
+  formatShippingLabel,
+  getConfiguredShippingOriginCep,
+  getConfiguredShippingProvider,
+  getEffectiveFreeShippingThresholdInCents,
+  getShippingQuotes,
+  isShippingEnabled,
+  type ShippingOption,
+} from "@/lib/shipping";
 import { getStoreSettings } from "@/lib/settings";
 import { getStripe, normalizePaymentMethodTypes } from "@/lib/stripe";
 import { checkoutRequestSchema } from "@/lib/validators";
@@ -18,6 +30,7 @@ import { releasableReservationStatuses, shouldReleaseReservationOnStatusChange }
 
 type CheckoutSessionCreateParams = NonNullable<Parameters<Stripe["checkout"]["sessions"]["create"]>[0]>;
 type CheckoutLineItem = NonNullable<CheckoutSessionCreateParams["line_items"]>[number];
+type CheckoutShippingOption = NonNullable<CheckoutSessionCreateParams["shipping_options"]>[number];
 
 type CheckoutItem = {
   productId: string;
@@ -113,6 +126,56 @@ function getPaymentMethodFromIntent(paymentIntent: Stripe.PaymentIntent) {
 
 function getPaymentIntentOrderId(paymentIntent: Stripe.PaymentIntent) {
   return paymentIntent.metadata?.orderId || null;
+}
+
+function getShippingMetadata(option: ShippingOption | null): Record<string, string> {
+  if (!option) return {};
+
+  return {
+    shippingProvider: option.provider,
+    shippingService: option.service,
+    shippingAmountCents: String(option.amountCents),
+    shippingEstimatedDays: option.deliveryEstimateText,
+    destinationCep: option.destinationCep,
+  };
+}
+
+function buildStripeDeliveryEstimate(option: ShippingOption) {
+  if (!option.estimatedDaysMin && !option.estimatedDaysMax) return undefined;
+
+  return {
+    ...(option.estimatedDaysMin
+      ? {
+          minimum: {
+            unit: "business_day" as const,
+            value: option.estimatedDaysMin,
+          },
+        }
+      : {}),
+    ...(option.estimatedDaysMax
+      ? {
+          maximum: {
+            unit: "business_day" as const,
+            value: option.estimatedDaysMax,
+          },
+        }
+      : {}),
+  };
+}
+
+function buildStripeShippingOption(option: ShippingOption): CheckoutShippingOption {
+  return {
+    shipping_rate_data: {
+      type: "fixed_amount",
+      display_name: option.label,
+      fixed_amount: {
+        amount: option.amountCents,
+        currency: "brl",
+      },
+      delivery_estimate: buildStripeDeliveryEstimate(option),
+      metadata: getShippingMetadata(option),
+    },
+  };
 }
 
 async function findOrderForPaymentIntent(tx: Prisma.TransactionClient, paymentIntent: Stripe.PaymentIntent) {
@@ -289,6 +352,7 @@ async function releaseOrderReservation(
 export async function createCheckoutSession(input: unknown, options: CheckoutOptions = {}) {
   const parsed = checkoutRequestSchema.parse(input);
   const items = consolidateItems(parsed.items);
+  let stripeShippingOption: ShippingOption | null = null;
 
   await prisma.$transaction(async (tx) => {
     await releaseExpiredReservations(tx);
@@ -409,11 +473,62 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
     });
 
     const subtotalInCents = orderItems.reduce((sum, item) => sum + item.totalInCents, 0);
-    const shipping = calculateProvisionalShipping({
-      subtotalInCents,
-      cep: selectedShippingAddress?.cep,
-      settings,
-    });
+    const quoteEnabled = isShippingEnabled(settings);
+    const shipping = quoteEnabled
+      ? await (async () => {
+          if (!parsed.shippingOptionId) {
+            throw new Error("Escolha uma opção de entrega para continuar.");
+          }
+
+          const destinationCep = selectedShippingAddress?.cep ?? parsed.shippingDestinationCep;
+          const pkg = buildPackageFromCart(
+            items.map((item) => {
+              const variant = variantsById.get(item.variantId);
+              if (!variant) {
+                throw new Error("Variação inválida.");
+              }
+              return {
+                productId: variant.productId,
+                title: variant.product.title,
+                quantity: item.quantity,
+                weightGrams: variant.product.weightGrams,
+                lengthCm: variant.product.lengthCm,
+                widthCm: variant.product.widthCm,
+                heightCm: variant.product.heightCm,
+              };
+            }),
+          );
+          const provider = getConfiguredShippingProvider(settings);
+          const originCep = getConfiguredShippingOriginCep(settings);
+          const quotes = await getShippingQuotes({
+            provider,
+            originCep,
+            destinationCep: destinationCep ?? "",
+            package: pkg,
+            subtotalInCents,
+            freeShippingThresholdInCents: getEffectiveFreeShippingThresholdInCents(settings),
+          });
+          const selectedOption = findShippingOption(quotes.options, parsed.shippingOptionId);
+          if (!selectedOption) {
+            throw new Error("Escolha uma opção de entrega válida para continuar.");
+          }
+
+          stripeShippingOption = selectedOption;
+          return {
+            shippingInCents: selectedOption.amountCents,
+            shippingMethod: formatShippingLabel(selectedOption),
+            shippingCep: selectedOption.destinationCep,
+            shippingQuoteSnapshot: buildShippingQuoteSnapshot(selectedOption, pkg),
+          };
+        })()
+      : {
+          ...calculateProvisionalShipping({
+            subtotalInCents,
+            cep: selectedShippingAddress?.cep,
+            settings,
+          }),
+          shippingQuoteSnapshot: undefined,
+        };
 
     const createdOrder = await tx.order.create({
       data: {
@@ -423,6 +538,7 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
         shippingInCents: shipping.shippingInCents,
         shippingMethodSnapshot: shipping.shippingMethod,
         shippingCepSnapshot: shipping.shippingCep,
+        shippingQuoteSnapshot: shipping.shippingQuoteSnapshot as Prisma.InputJsonObject | undefined,
         totalInCents: subtotalInCents + shipping.shippingInCents,
         status: "awaiting_payment",
         reservationExpiresAt,
@@ -489,21 +605,9 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
     },
   }));
 
-  if (order.shippingInCents > 0) {
-    lineItems.push({
-      quantity: 1,
-      price_data: {
-        currency: "brl",
-        unit_amount: order.shippingInCents,
-        product_data: {
-          name: "Frete",
-        },
-      },
-    });
-  }
-
   try {
     const stripe = getStripe();
+    const shippingMetadata = getShippingMetadata(stripeShippingOption);
     const sessionParams: CheckoutSessionCreateParams = {
       mode: "payment",
       line_items: lineItems,
@@ -515,12 +619,14 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
         orderNumber: order.orderNumber,
         ...(checkoutCustomer ? { customerId: checkoutCustomer.id } : {}),
         ...(order.shippingMethodSnapshot ? { shippingMethod: order.shippingMethodSnapshot } : {}),
+        ...shippingMetadata,
       },
       payment_intent_data: {
         metadata: {
           orderId: order.id,
           orderNumber: order.orderNumber,
           ...(checkoutCustomer ? { customerId: checkoutCustomer.id } : {}),
+          ...shippingMetadata,
         },
       },
       expires_at: Math.floor(reservationExpiresAt.getTime() / 1000),
@@ -529,6 +635,13 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
       },
       billing_address_collection: "auto",
     };
+
+    if (stripeShippingOption) {
+      sessionParams.shipping_options = [buildStripeShippingOption(stripeShippingOption)];
+      sessionParams.shipping_address_collection = {
+        allowed_countries: ["BR"],
+      };
+    }
 
     if (paymentMethodTypes?.length) {
       sessionParams.payment_method_types = paymentMethodTypes;

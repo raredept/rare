@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getPreferredProductCardMedia, getProductMediaTypeFromUrl, isProductVideoUrl } from "@/lib/product-media";
+import { getPreferredProductCardMedia, getProductCardMediaPair, getProductMediaTypeFromUrl, isProductVideoUrl } from "@/lib/product-media";
 
 describe("product media helpers", () => {
   it("infers media type from public URLs", () => {
@@ -19,5 +19,24 @@ describe("product media helpers", () => {
 
     expect(getPreferredProductCardMedia(media)?.url).toBe("/uploads/products/a.gif");
     expect(isProductVideoUrl(media[0].url)).toBe(true);
+  });
+
+  it("uses the second sorted image as hover media only when it is not a video", () => {
+    expect(
+      getProductCardMediaPair([
+        { url: "/uploads/products/front.webp" },
+        { url: "/uploads/products/back.webp" },
+      ]),
+    ).toEqual({
+      primary: { url: "/uploads/products/front.webp" },
+      hover: { url: "/uploads/products/back.webp" },
+    });
+
+    expect(
+      getProductCardMediaPair([
+        { url: "/uploads/products/front.webp" },
+        { url: "/uploads/products/spin.mp4" },
+      ]).hover,
+    ).toBeNull();
   });
 });

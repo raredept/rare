@@ -31,6 +31,9 @@ beforeEach(() => {
     R2_ACCESS_KEY_ID: "storage-access-key-that-must-not-be-returned",
     R2_SECRET_ACCESS_KEY: "storage-secret-that-must-not-be-returned",
     R2_PUBLIC_BASE_URL: "https://cdn.example",
+    SHIPPING_ENABLED: "true",
+    SHIPPING_PROVIDER: "manual",
+    SHIPPING_ORIGIN_CEP: "01001000",
   };
 });
 
@@ -47,6 +50,11 @@ describe("health route readiness", () => {
     expect(response.status).toBe(503);
     expect(body.app.ok).toBe(true);
     expect(body.database.ok).toBe(false);
+    expect(body.environment.shipping).toEqual({
+      enabled: true,
+      provider: "manual",
+      originCepConfigured: true,
+    });
     expect(serialized).not.toContain("stripe-secret-value-that-must-not-be-returned");
     expect(serialized).not.toContain("stripe-webhook-value-that-must-not-be-returned");
     expect(serialized).not.toContain("storage-account-id-that-must-not-be-returned");

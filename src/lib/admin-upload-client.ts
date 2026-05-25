@@ -1,6 +1,4 @@
 import {
-  directR2UploadLimitMessage,
-  isOverDirectR2UploadLimit,
   isOverServerRoutedUploadLimit,
   serverRoutedUploadLimitMessage,
 } from "@/lib/upload-limits";
@@ -12,24 +10,93 @@ type UploadResponse = {
   error?: string;
 };
 
-type PresignResponse = {
-  upload?: {
-    uploadUrl: string;
-    publicUrl: string;
-    key: string;
-    contentType: string;
-    size: number;
-    expiresInSeconds: number;
-  };
-  fallback?: "server-routed";
-  maxBytes?: number;
-  error?: string;
-};
-
 type UploadOptions = {
   context: AdminUploadContext;
   onProgress?: (progress: number) => void;
 };
+
+const OPTIMIZABLE_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const OPTIMIZED_IMAGE_MAX_DIMENSION = 2560;
+const OPTIMIZED_IMAGE_QUALITY = 0.86;
+const extensionByMimeType = new Map([
+  ["image/jpeg", ["jpg", "jpeg"]],
+  ["image/png", ["png"]],
+  ["image/webp", ["webp"]],
+]);
+
+function getFileExtension(fileName: string) {
+  const safeName = fileName.split(/[\\/]/).pop() ?? "";
+  const extension = safeName.includes(".") ? safeName.split(".").pop() : "";
+  return extension?.toLowerCase() ?? "";
+}
+
+function hasExtensionMatchingMime(file: File) {
+  const allowedExtensions = extensionByMimeType.get(file.type);
+  return Boolean(allowedExtensions?.includes(getFileExtension(file.name)));
+}
+
+function replaceFileExtension(fileName: string, extension: string) {
+  const safeName = fileName.split(/[\\/]/).pop() || "media";
+  const baseName = safeName.includes(".") ? safeName.replace(/\.[^.]*$/, "") : safeName;
+  return `${baseName || "media"}.${extension}`;
+}
+
+function loadImageFromObjectUrl(url: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Falha ao preparar imagem para upload."));
+    image.src = url;
+  });
+}
+
+async function canvasToBlob(canvas: HTMLCanvasElement) {
+  return new Promise<Blob | null>((resolve) => {
+    canvas.toBlob(resolve, "image/webp", OPTIMIZED_IMAGE_QUALITY);
+  });
+}
+
+async function optimizeImageBeforeUpload(file: File) {
+  if (
+    !OPTIMIZABLE_IMAGE_TYPES.has(file.type) ||
+    !hasExtensionMatchingMime(file) ||
+    typeof document === "undefined" ||
+    typeof URL === "undefined"
+  ) {
+    return file;
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = await loadImageFromObjectUrl(objectUrl);
+    const sourceWidth = image.naturalWidth || image.width;
+    const sourceHeight = image.naturalHeight || image.height;
+    if (!sourceWidth || !sourceHeight) return file;
+
+    const scale = Math.min(1, OPTIMIZED_IMAGE_MAX_DIMENSION / Math.max(sourceWidth, sourceHeight));
+    const width = Math.max(1, Math.round(sourceWidth * scale));
+    const height = Math.max(1, Math.round(sourceHeight * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const context = canvas.getContext("2d");
+    if (!context) return file;
+
+    context.drawImage(image, 0, 0, width, height);
+    const blob = await canvasToBlob(canvas);
+    if (!blob?.size || blob.size >= file.size) return file;
+
+    return new File([blob], replaceFileExtension(file.name, "webp"), {
+      type: "image/webp",
+      lastModified: file.lastModified,
+    });
+  } catch {
+    return file;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
 
 async function uploadViaServerRoute(file: File, context: AdminUploadContext) {
   const formData = new FormData();
@@ -55,81 +122,17 @@ async function uploadViaServerRoute(file: File, context: AdminUploadContext) {
   return uploaded.url;
 }
 
-async function putFileToPresignedUrl(file: File, uploadUrl: string, onProgress?: (progress: number) => void) {
-  if (typeof XMLHttpRequest === "undefined") {
-    const response = await fetch(uploadUrl, {
-      method: "PUT",
-      headers: { "Content-Type": file.type },
-      body: file,
-    });
-    if (!response.ok) {
-      throw new Error("Falha ao enviar mídia ao R2.");
-    }
-    onProgress?.(100);
-    return;
-  }
-
-  await new Promise<void>((resolve, reject) => {
-    const request = new XMLHttpRequest();
-    request.open("PUT", uploadUrl);
-    request.setRequestHeader("Content-Type", file.type);
-    request.upload.onprogress = (event) => {
-      if (!event.lengthComputable) return;
-      onProgress?.(Math.min(99, Math.round((event.loaded / event.total) * 100)));
-    };
-    request.onload = () => {
-      if (request.status >= 200 && request.status < 300) {
-        onProgress?.(100);
-        resolve();
-        return;
-      }
-      reject(new Error("Falha ao enviar mídia ao R2."));
-    };
-    request.onerror = () => reject(new Error("Falha de rede ao enviar mídia ao R2."));
-    request.send(file);
-  });
-}
-
-async function requestPresignedUpload(file: File, context: AdminUploadContext) {
-  const response = await fetch("/api/admin/uploads/presign", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      filename: file.name,
-      contentType: file.type,
-      sizeBytes: file.size,
-      uploadContext: context,
-    }),
-  });
-  const body = (await response.json().catch(() => ({}))) as PresignResponse;
-  return { response, body };
-}
-
 export async function uploadAdminMediaFile(file: File, { context, onProgress }: UploadOptions) {
-  if (isOverDirectR2UploadLimit(file)) {
-    throw new Error(directR2UploadLimitMessage(context === "banners" ? "Imagem" : "Arquivo"));
+  if (isOverServerRoutedUploadLimit(file)) {
+    throw new Error(serverRoutedUploadLimitMessage(context === "banners" ? "Imagem" : "Arquivo"));
   }
 
-  const { response, body } = await requestPresignedUpload(file, context);
-
-  if (body.fallback === "server-routed") {
-    if (isOverServerRoutedUploadLimit(file)) {
-      throw new Error(body.error || "Upload direto para R2 indisponível para arquivos acima de 4 MB neste ambiente.");
-    }
-
-    const url = await uploadViaServerRoute(file, context);
-    onProgress?.(100);
-    return url;
+  onProgress?.(5);
+  const preparedFile = await optimizeImageBeforeUpload(file);
+  if (isOverServerRoutedUploadLimit(preparedFile)) {
+    throw new Error(serverRoutedUploadLimitMessage(context === "banners" ? "Imagem" : "Arquivo"));
   }
-
-  if (!response.ok || body.error) {
-    throw new Error(body.error || "Falha ao preparar upload.");
-  }
-
-  if (!body.upload?.uploadUrl || !body.upload.publicUrl) {
-    throw new Error("Upload preparado sem URL assinada.");
-  }
-
-  await putFileToPresignedUrl(file, body.upload.uploadUrl, onProgress);
-  return body.upload.publicUrl;
+  const url = await uploadViaServerRoute(preparedFile, context);
+  onProgress?.(100);
+  return url;
 }

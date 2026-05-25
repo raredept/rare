@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, CircleHelp, PackageCheck, RotateCcw, ShieldCheck, Truck } from "lucide-react";
+import { ChevronLeft, ChevronRight, CircleHelp, Loader2, PackageCheck, RotateCcw, ShieldCheck, Truck } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useCart } from "@/components/store/cart-context";
@@ -26,6 +26,27 @@ type ProductDetailClientProps = {
   whatsappMessage: string;
 };
 
+type ShippingQuoteOption = {
+  id: string;
+  service: "PAC" | "SEDEX";
+  label: string;
+  amountCents: number;
+  deliveryEstimateText: string;
+};
+
+function formatCepInput(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 8);
+  if (digits.length <= 5) return digits;
+  return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+}
+
+function formatProductShippingError(message: string) {
+  if (message.includes("peso e medidas")) {
+    return "Frete indisponível para este produto. Fale com a RARE para calcular o envio.";
+  }
+  return message;
+}
+
 export function ProductDetailClient({ product, productUrl, whatsappNumber, whatsappMessage }: ProductDetailClientProps) {
   const { addItem } = useCart();
   const [imageIndex, setImageIndex] = useState(0);
@@ -38,6 +59,10 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
   const availableStock = selectedVariant ? getAvailableStock(selectedVariant.stock, selectedVariant.reservedStock) : 0;
   const [quantity, setQuantity] = useState(1);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [shippingCep, setShippingCep] = useState("");
+  const [shippingOptions, setShippingOptions] = useState<ShippingQuoteOption[]>([]);
+  const [shippingLoading, setShippingLoading] = useState(false);
+  const [shippingError, setShippingError] = useState<string | null>(null);
   const image = product.images[imageIndex];
   const cartImage = getPreferredProductCardMedia(product.images);
   const soldOut = purchasableVariants.every((variant) => getAvailableStock(variant.stock, variant.reservedStock) <= 0);
@@ -65,6 +90,45 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
       maxQuantity: availableStock,
     });
     setFeedback("Peça adicionada ao carrinho.");
+  }
+
+  async function calculateShipping() {
+    if (!selectedVariant) {
+      setShippingError("Escolha uma variação para calcular o frete.");
+      return;
+    }
+
+    setShippingLoading(true);
+    setShippingError(null);
+    setShippingOptions([]);
+
+    try {
+      const response = await fetch("/api/shipping/quote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cep: shippingCep,
+          items: [
+            {
+              productId: product.id,
+              variantId: selectedVariant.id,
+              quantity,
+            },
+          ],
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Frete indisponível.");
+      setShippingOptions(data.options ?? []);
+      if (data.disabled) {
+        setShippingError(data.message ?? "Frete automático desativado; entrega combinada manualmente.");
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Frete indisponível.";
+      setShippingError(formatProductShippingError(message));
+    } finally {
+      setShippingLoading(false);
+    }
   }
 
   return (
@@ -151,6 +215,8 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
                 setVariantId(event.target.value);
                 setQuantity(1);
                 setFeedback(null);
+                setShippingOptions([]);
+                setShippingError(null);
               }}
               className="h-12 w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm font-bold outline-none transition focus:border-black"
             >
@@ -177,6 +243,8 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
                 const nextQuantity = Number(event.target.value);
                 const maxQuantity = Math.max(1, availableStock);
                 setQuantity(Math.max(1, Math.min(maxQuantity, Number.isFinite(nextQuantity) ? nextQuantity : 1)));
+                setShippingOptions([]);
+                setShippingError(null);
               }}
               className="h-12 w-32 rounded-lg border border-neutral-300 px-3 text-sm font-bold outline-none transition focus:border-black disabled:bg-neutral-100 disabled:text-neutral-500"
             />
@@ -210,8 +278,45 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
 
         <div className="mt-6 rounded-lg border border-neutral-200 bg-white p-5">
           <p className="text-sm font-black text-neutral-950">Frete e prazo</p>
-          <p className="mt-2 text-sm font-semibold leading-6 text-neutral-600">
-            Frete e prazo são calculados no checkout com o CEP.
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+            <input
+              value={shippingCep}
+              onChange={(event) => {
+                setShippingCep(formatCepInput(event.target.value));
+                setShippingOptions([]);
+                setShippingError(null);
+              }}
+              placeholder="Digite seu CEP"
+              inputMode="numeric"
+              className="admin-input h-11"
+              aria-label="Digite seu CEP para calcular o frete"
+            />
+            <button
+              type="button"
+              onClick={calculateShipping}
+              disabled={shippingLoading || !selectedVariant}
+              className="inline-flex h-11 shrink-0 items-center justify-center rounded-lg bg-black px-5 text-xs font-black uppercase tracking-[0.14em] text-white transition hover:bg-neutral-800 disabled:cursor-wait disabled:bg-neutral-500"
+            >
+              {shippingLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Calcular frete
+            </button>
+          </div>
+          {shippingOptions.length ? (
+            <div className="mt-4 grid gap-2">
+              {shippingOptions.map((option) => (
+                <div key={option.id} className="rounded-lg border border-neutral-200 px-4 py-3 text-sm font-semibold text-neutral-600">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="font-black text-neutral-950">{option.service}</span>
+                    <span className="whitespace-nowrap font-black text-success">{formatMoney(option.amountCents)}</span>
+                  </div>
+                  <p className="mt-1">{option.deliveryEstimateText}</p>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {shippingError ? <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800">{shippingError}</p> : null}
+          <p className="mt-3 text-xs font-semibold leading-5 text-neutral-500">
+            Frete e prazo podem variar conforme endereço e disponibilidade.
           </p>
           <Link href="/politica-de-envio" className="mt-3 inline-flex text-sm font-black text-neutral-950 underline underline-offset-4">
             Ver política de envio

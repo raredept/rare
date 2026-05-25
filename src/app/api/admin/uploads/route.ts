@@ -1,7 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { getMaxAcceptedUploadBytes, normalizeUploadContext, saveUploadedImage } from "@/lib/storage";
-import { VERCEL_FUNCTION_PAYLOAD_LIMIT_BYTES, serverRoutedUploadLimitMessage } from "@/lib/upload-limits";
+import {
+  SERVER_ROUTED_UPLOAD_LIMIT_BYTES,
+  VERCEL_FUNCTION_PAYLOAD_LIMIT_BYTES,
+  serverRoutedUploadLimitMessage,
+} from "@/lib/upload-limits";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,6 +40,11 @@ export async function POST(request: NextRequest) {
 
     if (files.length > maxFilesPerRequest) {
       return NextResponse.json({ error: `Envie no maximo ${maxFilesPerRequest} arquivos por vez.` }, { status: 400 });
+    }
+
+    const oversizedFile = files.find((file) => file.size > SERVER_ROUTED_UPLOAD_LIMIT_BYTES);
+    if (oversizedFile) {
+      return NextResponse.json({ error: serverRoutedUploadLimitMessage("Arquivo") }, { status: 413 });
     }
 
     const uploads = [];

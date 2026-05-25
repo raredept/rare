@@ -42,5 +42,20 @@ export function isProductVideoUrl(url: string) {
 
 export function getPreferredProductCardMedia<T extends { url: string }>(media: T[]) {
   if (!media.length) return null;
-  return media.find((item) => !isProductVideoUrl(item.url)) ?? media[0] ?? null;
+  return media.find((item) => !isProductVideoUrl(item.url)) ?? null;
+}
+
+export function getProductCardMediaPair<T extends { url: string }>(media: T[]) {
+  const primary = getPreferredProductCardMedia(media);
+  if (!primary) {
+    return { primary: null, hover: null };
+  }
+
+  const secondSortedMedia = media[1] ?? null;
+  const hover =
+    secondSortedMedia && !isProductVideoUrl(secondSortedMedia.url) && secondSortedMedia.url !== primary.url
+      ? secondSortedMedia
+      : null;
+
+  return { primary, hover };
 }

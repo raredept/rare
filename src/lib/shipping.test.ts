@@ -1,8 +1,42 @@
-import { describe, expect, it } from "vitest";
-import { calculateProvisionalShipping } from "@/lib/shipping";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  buildPackageFromCart,
+  calculateProvisionalShipping,
+  getConfiguredShippingProvider,
+  getManualShippingQuotes,
+  getShippingQuotes,
+  normalizeCep,
+  validateCep,
+} from "@/lib/shipping";
 
-describe("provisional shipping", () => {
-  it("uses fixed shipping calculated on the backend settings", () => {
+const originalEnv = process.env;
+
+afterEach(() => {
+  process.env = originalEnv;
+  vi.unstubAllEnvs();
+});
+
+function packageItem(overrides: Record<string, unknown> = {}) {
+  return {
+    productId: "prod_1",
+    title: "Camiseta RARE",
+    quantity: 2,
+    weightGrams: 400,
+    lengthCm: 30,
+    widthCm: 24,
+    heightCm: 4,
+    ...overrides,
+  };
+}
+
+describe("shipping domain", () => {
+  it("normalizes and validates CEP values", () => {
+    expect(normalizeCep("01001-000")).toBe("01001000");
+    expect(validateCep("01001000", "CEP de destino")).toBe("01001000");
+    expect(() => validateCep("123", "CEP de destino")).toThrow("CEP de destino inválido.");
+  });
+
+  it("keeps legacy provisional fixed freight available when shipping quote mode is disabled", () => {
     const shipping = calculateProvisionalShipping({
       subtotalInCents: 20000,
       cep: "01001-000",
@@ -18,61 +52,47 @@ describe("provisional shipping", () => {
     expect(shipping.shippingCep).toBe("01001000");
   });
 
-  it("keeps compatibility with legacy manual shipping value", () => {
-    const shipping = calculateProvisionalShipping({
-      subtotalInCents: 20000,
-      cep: "01001000",
-      settings: {
-        shippingMode: "manual",
-        manualShippingInCents: 1900,
-        fixedShippingInCents: 0,
-      },
-    });
+  it("builds a package from trusted backend product data", () => {
+    const pkg = buildPackageFromCart([packageItem(), packageItem({ productId: "prod_2", quantity: 1, weightGrams: 900 })]);
 
-    expect(shipping.shippingInCents).toBe(1900);
-    expect(shipping.shippingMethod).toBe("Frete manual provisório");
+    expect(pkg.weightGrams).toBe(1700);
+    expect(pkg.lengthCm).toBe(30);
+    expect(pkg.widthCm).toBe(24);
+    expect(pkg.heightCm).toBe(12);
+    expect(pkg.items).toHaveLength(2);
   });
 
-  it("applies free shipping threshold", () => {
-    const shipping = calculateProvisionalShipping({
-      subtotalInCents: 50000,
-      cep: "01001000",
-      settings: {
-        shippingMode: "fixed",
-        fixedShippingInCents: 2500,
-        freeShippingThresholdInCents: 40000,
-      },
-    });
-
-    expect(shipping.shippingInCents).toBe(0);
-    expect(shipping.shippingMethod).toBe("Frete grátis");
-    expect(shipping.metadata.freeShippingApplied).toBe(true);
+  it("returns a friendly error when a product has no shipping dimensions", () => {
+    expect(() => buildPackageFromCart([packageItem({ weightGrams: null })])).toThrow(
+      "Esse produto ainda precisa de peso e medidas para calcular o frete.",
+    );
   });
 
-  it("uses disabled mode as manual delivery agreement", () => {
-    const shipping = calculateProvisionalShipping({
-      subtotalInCents: 20000,
-      cep: "01001000",
-      settings: {
-        shippingMode: "disabled",
-      },
+  it("manual provider returns PAC and SEDEX fallback quotes", async () => {
+    const pkg = buildPackageFromCart([packageItem()]);
+    const result = await getManualShippingQuotes({
+      originCep: "01001000",
+      destinationCep: "22041001",
+      package: pkg,
     });
 
-    expect(shipping.shippingInCents).toBe(0);
-    expect(shipping.shippingMethod).toBe("Entrega a combinar");
-    expect(shipping.warnings).toContain("Frete automático desativado; entrega combinada manualmente.");
+    expect(result.options.map((option) => option.service)).toEqual(["PAC", "SEDEX"]);
+    expect(result.options.every((option) => option.provider === "manual")).toBe(true);
+    expect(result.options[0].label).toContain("cálculo manual");
+    expect(result.warnings[0]).toContain("manual/fallback");
   });
 
-  it("blocks required checkout address with invalid CEP", () => {
-    expect(() =>
-      calculateProvisionalShipping({
-        subtotalInCents: 20000,
-        cep: "123",
-        settings: {
-          shippingMode: "fixed",
-          checkoutRequiresAddress: true,
-        },
+  it("uses SHIPPING_PROVIDER when configured and rejects missing real-provider credentials cleanly", async () => {
+    vi.stubEnv("SHIPPING_PROVIDER", "correios");
+
+    expect(getConfiguredShippingProvider({ shippingMode: "manual" })).toBe("correios");
+    await expect(
+      getShippingQuotes({
+        provider: "correios",
+        originCep: "01001000",
+        destinationCep: "22041001",
+        package: buildPackageFromCart([packageItem()]),
       }),
-    ).toThrow("Informe um CEP válido");
+    ).rejects.toThrow("Frete Correios precisa de CORREIOS_USER e CORREIOS_TOKEN configurados.");
   });
 });

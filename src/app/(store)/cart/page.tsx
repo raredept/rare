@@ -3,7 +3,7 @@ import { CartPageClient } from "@/components/store/cart-page-client";
 import { getCurrentCustomer } from "@/lib/customer-auth";
 import { prisma } from "@/lib/prisma";
 import { getStoreSettings } from "@/lib/settings";
-import { getEffectiveFixedShippingInCents, getEffectiveFreeShippingThresholdInCents } from "@/lib/shipping";
+import { getEffectiveFixedShippingInCents, getEffectiveFreeShippingThresholdInCents, getShippingPublicConfig } from "@/lib/shipping";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +57,7 @@ export default async function CartPage({ searchParams }: CartPageProps) {
         checkoutRequiresAddress: settings.checkoutRequiresAddress,
         shippingInstructions: settings.shippingInstructions,
       }}
+      shippingConfig={getShippingPublicConfig(settings)}
     />
   );
 }

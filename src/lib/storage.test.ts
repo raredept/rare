@@ -212,6 +212,7 @@ describe("storage helpers", () => {
     const command = s3Mocks.PutObjectCommand.mock.calls[0]?.[0] as { Bucket: string; Key: string; ContentType: string; IfNoneMatch: string };
 
     expect(saved.url).toBe(`https://media.rare.example/${saved.key}`);
+    expect(JSON.stringify(saved)).not.toContain("configured-secret-key");
     expect(s3Mocks.S3Client).toHaveBeenCalledWith(
       expect.objectContaining({
         endpoint: "https://abc123.r2.cloudflarestorage.com",

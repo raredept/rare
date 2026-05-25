@@ -183,6 +183,7 @@ model Order {
   billingAddressSnapshot  Json?
   shippingMethodSnapshot  String?
   shippingCepSnapshot     String?
+  shippingQuoteSnapshot   Json?
   cep                     String?
   addressLine1            String?
   addressLine2            String?

@@ -79,6 +79,8 @@ export const checkoutRequestSchema = z.object({
   customerAddressId: z.string().trim().min(1).max(120).optional(),
   guestCustomerData: guestCustomerDataSchema.optional(),
   guestAddress: checkoutAddressSchema.optional(),
+  shippingOptionId: z.string().trim().max(120).optional(),
+  shippingDestinationCep: cepSchema.optional(),
   selectedShippingMethod: z.string().trim().max(80).optional(),
 });
 

@@ -6,7 +6,7 @@ import { createBannerAction, updateBannerAction } from "@/app/admin/(protected)/
 import { AdminSubmitButton } from "@/components/admin/admin-submit-button";
 import { uploadAdminMediaFile } from "@/lib/admin-upload-client";
 import type { HomeBannerSlide } from "@/lib/home-banners";
-import { BANNER_UPLOAD_HELP_TEXT, directR2UploadLimitMessage, isOverDirectR2UploadLimit } from "@/lib/upload-limits";
+import { BANNER_UPLOAD_HELP_TEXT, isOverServerRoutedUploadLimit, serverRoutedUploadLimitMessage } from "@/lib/upload-limits";
 
 type HomeBannerFormProps = {
   banner?: HomeBannerSlide;
@@ -61,8 +61,8 @@ export function HomeBannerForm({ banner, error, nextSortOrder }: HomeBannerFormP
     event.currentTarget.value = "";
     if (!file) return;
 
-    if (isOverDirectR2UploadLimit(file)) {
-      setUploadError(directR2UploadLimitMessage("Imagem"));
+    if (isOverServerRoutedUploadLimit(file)) {
+      setUploadError(serverRoutedUploadLimitMessage("Imagem"));
       return;
     }
 

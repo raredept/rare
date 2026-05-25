@@ -6,6 +6,21 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type HealthStatus = "ok" | "degraded" | "error";
+const disabledValues = new Set(["0", "false", "off", "disabled", "no"]);
+
+function clean(value: string | undefined) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function getShippingEnvironmentSummary() {
+  const enabledValue = clean(process.env.SHIPPING_ENABLED);
+  return {
+    enabled: enabledValue ? !disabledValues.has(enabledValue.toLowerCase()) : null,
+    provider: clean(process.env.SHIPPING_PROVIDER) ?? null,
+    originCepConfigured: Boolean(clean(process.env.SHIPPING_ORIGIN_CEP)),
+  };
+}
 
 function response(body: unknown, status: number) {
   return NextResponse.json(body, {
@@ -48,6 +63,7 @@ export async function GET() {
         nodeEnv: env.nodeEnv,
         checkoutEnabled: env.checkoutEnabled,
         storageDriver: env.storageDriver,
+        shipping: getShippingEnvironmentSummary(),
       },
       configuration: {
         ok: env.ok,

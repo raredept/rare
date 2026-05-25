@@ -3,10 +3,10 @@
 import { Loader2, MapPin, Minus, Plus, Trash2, UserRound } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useCart, type CartItem } from "@/components/store/cart-context";
 import { ProductMediaPlaceholder } from "@/components/store/product-media-placeholder";
-import { formatCep } from "@/lib/cep";
+import { formatCep, parseCep } from "@/lib/cep";
 import { formatMoney } from "@/lib/money";
 import { calculateProvisionalShipping, type ProvisionalShippingSettings } from "@/lib/shipping";
 
@@ -36,6 +36,25 @@ type CartPageClientProps = {
   shippingSettings: ProvisionalShippingSettings & {
     shippingInstructions?: string | null;
   };
+  shippingConfig: {
+    enabled: boolean;
+    provider: string;
+    originCepConfigured: boolean;
+  };
+};
+
+type ShippingQuoteOption = {
+  id: string;
+  provider: string;
+  service: "PAC" | "SEDEX";
+  label: string;
+  amountCents: number;
+  estimatedDaysMin?: number;
+  estimatedDaysMax?: number;
+  deliveryEstimateText: string;
+  originCep: string;
+  destinationCep: string;
+  expiresAt?: string;
 };
 
 const emptyGuestCustomer = {
@@ -55,6 +74,25 @@ const emptyGuestAddress = {
   state: "",
 };
 
+const shippingSelectionStorageKey = "rare_store_shipping_selection";
+
+function getCartSignature(items: CartItem[]) {
+  return items
+    .map((item) => `${item.productId}:${item.variantId}:${item.quantity}`)
+    .sort()
+    .join("|");
+}
+
+function formatShippingError(message: string) {
+  if (message.includes("peso e medidas")) {
+    return "Esse produto ainda precisa de peso e medidas para calcular o frete.";
+  }
+  if (message.includes("CEP de origem")) {
+    return "Frete indisponível no momento. A RARE precisa configurar o CEP de origem da loja.";
+  }
+  return formatCheckoutMessage(message);
+}
+
 function formatCheckoutMessage(message: string) {
   if (message === "Checkout temporariamente indisponível." || message.includes("Checkout temporariamente indisponível")) {
     return "Estamos finalizando o checkout da loja. Chame a RARE no WhatsApp para concluir seu pedido por enquanto.";
@@ -63,16 +101,25 @@ function formatCheckoutMessage(message: string) {
   return message;
 }
 
-export function CartPageClient({ customer, addresses, initialSelectedAddressId, shippingSettings }: CartPageClientProps) {
+export function CartPageClient({ customer, addresses, initialSelectedAddressId, shippingSettings, shippingConfig }: CartPageClientProps) {
   const { items, subtotalInCents, updateQuantity, removeItem } = useCart();
   const [selectedAddressId, setSelectedAddressId] = useState(initialSelectedAddressId);
   const [guestCustomerData, setGuestCustomerData] = useState(emptyGuestCustomer);
   const [guestAddress, setGuestAddress] = useState(emptyGuestAddress);
+  const [shippingOptions, setShippingOptions] = useState<ShippingQuoteOption[]>([]);
+  const [selectedShippingOption, setSelectedShippingOption] = useState<ShippingQuoteOption | null>(null);
+  const [shippingLoading, setShippingLoading] = useState(false);
+  const [shippingError, setShippingError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const selectedAddress = addresses.find((address) => address.id === selectedAddressId) ?? null;
   const checkoutCep = customer ? selectedAddress?.cep : guestAddress.cep;
-  const shippingPreview = useMemo(() => {
+  const cartSignature = useMemo(() => getCartSignature(items), [items]);
+  const legacyShippingPreview = useMemo(() => {
+    if (shippingConfig.enabled) {
+      return { result: null, error: null };
+    }
+
     try {
       return {
         result: calculateProvisionalShipping({
@@ -88,8 +135,10 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
         error: previewError instanceof Error ? previewError.message : "Frete indisponível.",
       };
     }
-  }, [checkoutCep, shippingSettings, subtotalInCents]);
-  const shippingInCents = shippingPreview.result?.shippingInCents ?? 0;
+  }, [checkoutCep, shippingConfig.enabled, shippingSettings, subtotalInCents]);
+  const shippingInCents = shippingConfig.enabled
+    ? selectedShippingOption?.amountCents ?? 0
+    : legacyShippingPreview.result?.shippingInCents ?? 0;
   const totalInCents = subtotalInCents + shippingInCents;
 
   const checkoutPayload = useMemo(
@@ -110,18 +159,146 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
               guestCustomerData,
               guestAddress: hasGuestAddress || shippingSettings.checkoutRequiresAddress !== false ? guestAddress : undefined,
             }),
-        selectedShippingMethod: shippingPreview.result?.shippingMethod,
+        ...(shippingConfig.enabled
+          ? {
+              shippingOptionId: selectedShippingOption?.id,
+              shippingDestinationCep: checkoutCep,
+            }
+          : {
+              selectedShippingMethod: legacyShippingPreview.result?.shippingMethod,
+            }),
       };
     },
-    [customer, guestAddress, guestCustomerData, items, selectedAddressId, shippingPreview.result?.shippingMethod, shippingSettings.checkoutRequiresAddress],
+    [
+      checkoutCep,
+      customer,
+      guestAddress,
+      guestCustomerData,
+      items,
+      legacyShippingPreview.result?.shippingMethod,
+      selectedAddressId,
+      selectedShippingOption?.id,
+      shippingConfig.enabled,
+      shippingSettings.checkoutRequiresAddress,
+    ],
   );
+
+  useEffect(() => {
+    if (!shippingConfig.enabled || !cartSignature || !checkoutCep) return;
+
+    try {
+      const stored = window.localStorage.getItem(shippingSelectionStorageKey);
+      if (!stored) return;
+      const parsed = JSON.parse(stored) as {
+        cartSignature?: string;
+        cep?: string;
+        option?: ShippingQuoteOption;
+      };
+      const normalizedCep = parseCep(checkoutCep);
+      const expiresAt = parsed.option?.expiresAt ? Date.parse(parsed.option.expiresAt) : null;
+      const stillValid = !expiresAt || expiresAt > Date.now();
+      const storedOption = parsed.option;
+      if (parsed.cartSignature === cartSignature && parsed.cep === normalizedCep && storedOption && stillValid) {
+        queueMicrotask(() => {
+          setSelectedShippingOption(storedOption);
+          setShippingOptions((current) => (current.some((option) => option.id === storedOption.id) ? current : [storedOption]));
+        });
+      }
+    } catch {
+      window.localStorage.removeItem(shippingSelectionStorageKey);
+    }
+  }, [cartSignature, checkoutCep, shippingConfig.enabled]);
+
+  useEffect(() => {
+    if (!shippingConfig.enabled) return;
+    const normalizedCep = parseCep(checkoutCep);
+    if (!selectedShippingOption) return;
+    if (selectedShippingOption.destinationCep !== normalizedCep) {
+      queueMicrotask(() => {
+        setSelectedShippingOption(null);
+        setShippingOptions([]);
+      });
+      window.localStorage.removeItem(shippingSelectionStorageKey);
+    }
+  }, [checkoutCep, selectedShippingOption, shippingConfig.enabled]);
 
   function updateGuestCustomer(field: keyof typeof emptyGuestCustomer, value: string) {
     setGuestCustomerData((current) => ({ ...current, [field]: value }));
   }
 
+  function resetSelectedShipping() {
+    setShippingOptions([]);
+    setSelectedShippingOption(null);
+    setShippingError(null);
+    window.localStorage.removeItem(shippingSelectionStorageKey);
+  }
+
+  function selectAddress(id: string) {
+    setSelectedAddressId(id);
+    resetSelectedShipping();
+  }
+
   function updateGuestAddress(field: keyof typeof emptyGuestAddress, value: string) {
     setGuestAddress((current) => ({ ...current, [field]: value }));
+    if (field === "cep") {
+      resetSelectedShipping();
+    }
+  }
+
+  function selectShippingOption(option: ShippingQuoteOption) {
+    setSelectedShippingOption(option);
+    setShippingError(null);
+    const normalizedCep = parseCep(checkoutCep);
+    if (normalizedCep) {
+      window.localStorage.setItem(
+        shippingSelectionStorageKey,
+        JSON.stringify({
+          cartSignature,
+          cep: normalizedCep,
+          option,
+        }),
+      );
+    }
+  }
+
+  async function calculateShipping() {
+    const normalizedCep = parseCep(checkoutCep);
+    if (!normalizedCep) {
+      setShippingError("Digite um CEP válido para calcular o frete.");
+      return;
+    }
+
+    setShippingLoading(true);
+    setShippingError(null);
+    setSelectedShippingOption(null);
+    setShippingOptions([]);
+    window.localStorage.removeItem(shippingSelectionStorageKey);
+
+    try {
+      const response = await fetch("/api/shipping/quote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cep: normalizedCep,
+          items: items.map((item) => ({
+            productId: item.productId,
+            variantId: item.variantId,
+            quantity: item.quantity,
+          })),
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Frete indisponível.");
+      setShippingOptions(data.options ?? []);
+      if (data.disabled) {
+        setShippingError(data.message ?? "Frete automático desativado; entrega combinada manualmente.");
+      }
+    } catch (quoteError) {
+      const message = quoteError instanceof Error ? quoteError.message : "Frete indisponível.";
+      setShippingError(formatShippingError(message));
+    } finally {
+      setShippingLoading(false);
+    }
   }
 
   function validateBeforeCheckout() {
@@ -147,8 +324,16 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
       }
     }
 
-    if (shippingPreview.error) {
-      return formatCheckoutMessage(shippingPreview.error);
+    if (shippingConfig.enabled && !selectedShippingOption) {
+      return "Escolha uma opção de entrega para continuar.";
+    }
+
+    if (shippingError) {
+      return formatShippingError(shippingError);
+    }
+
+    if (legacyShippingPreview.error) {
+      return formatCheckoutMessage(legacyShippingPreview.error);
     }
 
     return null;
@@ -274,13 +459,70 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
             </div>
 
             {customer ? (
-              <LoggedAddressSelector addresses={addresses} selectedAddressId={selectedAddressId} onSelect={setSelectedAddressId} />
+              <LoggedAddressSelector addresses={addresses} selectedAddressId={selectedAddressId} onSelect={selectAddress} />
             ) : (
               <GuestAddressForm guestAddress={guestAddress} onChange={updateGuestAddress} />
             )}
 
             {shippingSettings.shippingInstructions ? (
               <p className="mt-4 rounded-lg bg-neutral-50 px-4 py-3 text-sm font-semibold text-neutral-600">{shippingSettings.shippingInstructions}</p>
+            ) : null}
+
+            {shippingConfig.enabled ? (
+              <div className="mt-5 rounded-lg border border-neutral-200 bg-neutral-50 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-sm font-black text-neutral-950">Opções de entrega</p>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-neutral-500">
+                      Calcule pelo CEP para escolher PAC ou SEDEX antes de finalizar.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={calculateShipping}
+                    disabled={shippingLoading}
+                    className="inline-flex h-11 items-center justify-center rounded-lg bg-black px-5 text-xs font-black uppercase tracking-wide text-white transition hover:bg-neutral-800 disabled:cursor-wait disabled:bg-neutral-500"
+                  >
+                    {shippingLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Calcular frete
+                  </button>
+                </div>
+                <p className="mt-3 text-xs font-bold text-neutral-500">
+                  {checkoutCep ? `CEP usado: ${formatCep(checkoutCep) || checkoutCep}` : "Digite seu CEP no endereço de entrega."}
+                </p>
+                {shippingOptions.length ? (
+                  <div className="mt-4 grid gap-2">
+                    {shippingOptions.map((option) => (
+                      <label
+                        key={option.id}
+                        className="flex cursor-pointer items-start gap-3 rounded-lg border border-neutral-200 bg-white p-4 text-sm font-semibold text-neutral-600 transition hover:border-neutral-950/40"
+                      >
+                        <input
+                          type="radio"
+                          name="shippingOption"
+                          checked={selectedShippingOption?.id === option.id}
+                          onChange={() => selectShippingOption(option)}
+                          className="mt-1 h-4 w-4"
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center justify-between gap-4">
+                            <span className="font-black text-neutral-950">{option.service}</span>
+                            <span className="whitespace-nowrap font-black text-success">{formatMoney(option.amountCents)}</span>
+                          </span>
+                          <span className="mt-1 block">{option.deliveryEstimateText}</span>
+                          {option.provider === "manual" ? (
+                            <span className="mt-2 block text-xs font-bold text-neutral-500">Cálculo manual/fallback para homologação.</span>
+                          ) : null}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                ) : null}
+                {shippingError ? <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800">{shippingError}</p> : null}
+                <p className="mt-3 text-xs font-semibold leading-5 text-neutral-500">
+                  Frete e prazo podem variar conforme endereço e disponibilidade.
+                </p>
+              </div>
             ) : null}
           </section>
         </div>
@@ -293,20 +535,33 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
               <span className="whitespace-nowrap">{formatMoney(subtotalInCents)}</span>
             </div>
             <div className="flex justify-between gap-4">
-              <span>Frete calculado no checkout</span>
+              <span>Frete</span>
               <span className="whitespace-nowrap text-right">
-                {shippingPreview.result ? (shippingInCents ? formatMoney(shippingInCents) : shippingPreview.result.shippingMethod) : "A calcular"}
+                {shippingConfig.enabled
+                  ? selectedShippingOption
+                    ? `${selectedShippingOption.service} · ${formatMoney(shippingInCents)}`
+                    : "Escolha uma opção"
+                  : legacyShippingPreview.result
+                    ? shippingInCents
+                      ? formatMoney(shippingInCents)
+                      : legacyShippingPreview.result.shippingMethod
+                    : "A calcular"}
               </span>
             </div>
-            {shippingPreview.result?.shippingCep ? (
+            {selectedShippingOption?.destinationCep || legacyShippingPreview.result?.shippingCep ? (
               <div className="flex justify-between gap-4 text-xs text-neutral-500">
                 <span>CEP</span>
-                <span>{formatCep(shippingPreview.result.shippingCep)}</span>
+                <span>{formatCep(selectedShippingOption?.destinationCep ?? legacyShippingPreview.result?.shippingCep)}</span>
               </div>
             ) : null}
-            {shippingPreview.error ? (
+            {shippingConfig.enabled && !selectedShippingOption ? (
               <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
-                {formatCheckoutMessage(shippingPreview.error)}
+                Escolha uma opção de entrega para continuar.
+              </p>
+            ) : null}
+            {legacyShippingPreview.error ? (
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+                {formatCheckoutMessage(legacyShippingPreview.error)}
               </p>
             ) : null}
             <div className="border-t border-neutral-200 pt-4">
@@ -320,7 +575,7 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
           <button
             type="button"
             onClick={checkout}
-            disabled={loading}
+            disabled={loading || (shippingConfig.enabled && !selectedShippingOption)}
             className="mt-6 flex h-12 w-full items-center justify-center rounded-lg bg-black px-6 text-sm font-black uppercase tracking-wide text-white transition hover:bg-neutral-800 disabled:cursor-wait disabled:bg-neutral-500"
           >
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
