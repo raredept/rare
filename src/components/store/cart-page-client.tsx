@@ -3,7 +3,7 @@
 import { Loader2, MapPin, Minus, Plus, Trash2, UserRound } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCart, type CartItem } from "@/components/store/cart-context";
 import { ProductMediaPlaceholder } from "@/components/store/product-media-placeholder";
 import { formatCep, parseCep } from "@/lib/cep";
@@ -57,6 +57,15 @@ type ShippingQuoteOption = {
   expiresAt?: string;
 };
 
+type ShippingQuoteContext = {
+  cartSignature: string;
+  cep: string;
+};
+
+type ShippingSelection = ShippingQuoteContext & {
+  option: ShippingQuoteOption;
+};
+
 const emptyGuestCustomer = {
   name: "",
   email: "",
@@ -83,6 +92,68 @@ function getCartSignature(items: CartItem[]) {
     .join("|");
 }
 
+function clearStoredShippingSelection() {
+  window.localStorage.removeItem(shippingSelectionStorageKey);
+}
+
+function persistShippingSelection(selection: ShippingSelection) {
+  window.localStorage.setItem(shippingSelectionStorageKey, JSON.stringify(selection));
+}
+
+function isShippingOptionFresh(option: ShippingQuoteOption, now = Date.now()) {
+  const expiresAt = option.expiresAt ? Date.parse(option.expiresAt) : null;
+  return !expiresAt || expiresAt > now;
+}
+
+function isShippingOptionValidForCep(option: ShippingQuoteOption, normalizedCep: string, now = Date.now()) {
+  return parseCep(option.destinationCep) === normalizedCep && isShippingOptionFresh(option, now);
+}
+
+export function resolveShippingOptionSelection(
+  options: ShippingQuoteOption[],
+  params: {
+    normalizedCep: string;
+    preferredOptionId?: string | null;
+    autoSelectSingle?: boolean;
+    now?: number;
+  },
+) {
+  const validOptions = options.filter((option) => isShippingOptionValidForCep(option, params.normalizedCep, params.now));
+  if (params.preferredOptionId) {
+    const preferred = validOptions.find((option) => option.id === params.preferredOptionId);
+    if (preferred) return preferred;
+  }
+
+  if (params.autoSelectSingle && validOptions.length === 1) {
+    return validOptions[0];
+  }
+
+  return null;
+}
+
+function readStoredShippingSelection(cartSignature: string, normalizedCep: string) {
+  try {
+    const stored = window.localStorage.getItem(shippingSelectionStorageKey);
+    if (!stored) return null;
+    const parsed = JSON.parse(stored) as Partial<ShippingSelection>;
+    const option = parsed.option;
+
+    if (
+      parsed.cartSignature === cartSignature &&
+      parsed.cep === normalizedCep &&
+      option &&
+      isShippingOptionValidForCep(option, normalizedCep)
+    ) {
+      return parsed as ShippingSelection;
+    }
+  } catch {
+    // Invalid persisted state should never influence the checkout total.
+  }
+
+  clearStoredShippingSelection();
+  return null;
+}
+
 function formatShippingError(message: string) {
   if (message.includes("peso e medidas")) {
     return "Esse produto ainda precisa de peso e medidas para calcular o frete.";
@@ -107,14 +178,25 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
   const [guestCustomerData, setGuestCustomerData] = useState(emptyGuestCustomer);
   const [guestAddress, setGuestAddress] = useState(emptyGuestAddress);
   const [shippingOptions, setShippingOptions] = useState<ShippingQuoteOption[]>([]);
-  const [selectedShippingOption, setSelectedShippingOption] = useState<ShippingQuoteOption | null>(null);
+  const [shippingQuoteContext, setShippingQuoteContext] = useState<ShippingQuoteContext | null>(null);
+  const [selectedShipping, setSelectedShipping] = useState<ShippingSelection | null>(null);
   const [shippingLoading, setShippingLoading] = useState(false);
   const [shippingError, setShippingError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const shippingRequestId = useRef(0);
   const selectedAddress = addresses.find((address) => address.id === selectedAddressId) ?? null;
   const checkoutCep = customer ? selectedAddress?.cep : guestAddress.cep;
+  const normalizedCheckoutCep = parseCep(checkoutCep);
   const cartSignature = useMemo(() => getCartSignature(items), [items]);
+  const currentShippingOptions =
+    shippingQuoteContext?.cartSignature === cartSignature && shippingQuoteContext.cep === normalizedCheckoutCep
+      ? shippingOptions
+      : [];
+  const selectedShippingOption =
+    selectedShipping?.cartSignature === cartSignature && selectedShipping.cep === normalizedCheckoutCep
+      ? selectedShipping.option
+      : null;
   const legacyShippingPreview = useMemo(() => {
     if (shippingConfig.enabled) {
       return { result: null, error: null };
@@ -183,44 +265,137 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
     ],
   );
 
-  useEffect(() => {
-    if (!shippingConfig.enabled || !cartSignature || !checkoutCep) return;
+  const selectShippingOption = useCallback(
+    (option: ShippingQuoteOption) => {
+      if (!normalizedCheckoutCep || !cartSignature || !isShippingOptionValidForCep(option, normalizedCheckoutCep)) return;
 
-    try {
-      const stored = window.localStorage.getItem(shippingSelectionStorageKey);
-      if (!stored) return;
-      const parsed = JSON.parse(stored) as {
-        cartSignature?: string;
-        cep?: string;
-        option?: ShippingQuoteOption;
+      const selection = {
+        cartSignature,
+        cep: normalizedCheckoutCep,
+        option,
       };
-      const normalizedCep = parseCep(checkoutCep);
-      const expiresAt = parsed.option?.expiresAt ? Date.parse(parsed.option.expiresAt) : null;
-      const stillValid = !expiresAt || expiresAt > Date.now();
-      const storedOption = parsed.option;
-      if (parsed.cartSignature === cartSignature && parsed.cep === normalizedCep && storedOption && stillValid) {
-        queueMicrotask(() => {
-          setSelectedShippingOption(storedOption);
-          setShippingOptions((current) => (current.some((option) => option.id === storedOption.id) ? current : [storedOption]));
-        });
+
+      setSelectedShipping(selection);
+      setShippingError(null);
+      persistShippingSelection(selection);
+    },
+    [cartSignature, normalizedCheckoutCep],
+  );
+
+  const requestShippingQuote = useCallback(
+    async ({
+      preferredOptionId,
+      autoSelectSingle = false,
+      signal,
+    }: {
+      preferredOptionId?: string | null;
+      autoSelectSingle?: boolean;
+      signal?: AbortSignal;
+    } = {}) => {
+      const normalizedCep = normalizedCheckoutCep;
+      if (!normalizedCep) {
+        setShippingError("Digite um CEP válido para calcular o frete.");
+        return;
       }
-    } catch {
-      window.localStorage.removeItem(shippingSelectionStorageKey);
-    }
-  }, [cartSignature, checkoutCep, shippingConfig.enabled]);
+
+      const requestId = shippingRequestId.current + 1;
+      shippingRequestId.current = requestId;
+      setShippingLoading(true);
+      setShippingError(null);
+      setSelectedShipping(null);
+      setShippingQuoteContext(null);
+      setShippingOptions([]);
+      clearStoredShippingSelection();
+
+      try {
+        const response = await fetch("/api/shipping/quote", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal,
+          body: JSON.stringify({
+            cep: normalizedCep,
+            items: items.map((item) => ({
+              productId: item.productId,
+              variantId: item.variantId,
+              quantity: item.quantity,
+            })),
+          }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error ?? "Frete indisponível.");
+
+        const nextOptions = (data.options ?? []) as ShippingQuoteOption[];
+        setShippingQuoteContext({ cartSignature, cep: normalizedCep });
+        setShippingOptions(nextOptions);
+
+        const resolvedOption = resolveShippingOptionSelection(nextOptions, {
+          normalizedCep,
+          preferredOptionId,
+          autoSelectSingle,
+        });
+
+        if (resolvedOption) {
+          const selection = {
+            cartSignature,
+            cep: normalizedCep,
+            option: resolvedOption,
+          };
+          setSelectedShipping(selection);
+          persistShippingSelection(selection);
+        } else if (nextOptions.length > 0) {
+          setShippingError(null);
+        }
+
+        if (data.disabled) {
+          setShippingError(data.message ?? "Frete automático desativado; entrega combinada manualmente.");
+        }
+      } catch (quoteError) {
+        if (signal?.aborted) return;
+        const message = quoteError instanceof Error ? quoteError.message : "Frete indisponível.";
+        setShippingError(formatShippingError(message));
+      } finally {
+        if (shippingRequestId.current === requestId) {
+          setShippingLoading(false);
+        }
+      }
+    },
+    [cartSignature, items, normalizedCheckoutCep],
+  );
 
   useEffect(() => {
     if (!shippingConfig.enabled) return;
-    const normalizedCep = parseCep(checkoutCep);
-    if (!selectedShippingOption) return;
-    if (selectedShippingOption.destinationCep !== normalizedCep) {
-      queueMicrotask(() => {
-        setSelectedShippingOption(null);
-        setShippingOptions([]);
-      });
-      window.localStorage.removeItem(shippingSelectionStorageKey);
+    if (!selectedShipping) return;
+    if (selectedShipping.cartSignature !== cartSignature || selectedShipping.cep !== normalizedCheckoutCep) {
+      queueMicrotask(() => setSelectedShipping(null));
+      clearStoredShippingSelection();
     }
-  }, [checkoutCep, selectedShippingOption, shippingConfig.enabled]);
+  }, [cartSignature, normalizedCheckoutCep, selectedShipping, shippingConfig.enabled]);
+
+  useEffect(() => {
+    if (!shippingConfig.enabled || !cartSignature || !normalizedCheckoutCep) return;
+    if (selectedShippingOption || currentShippingOptions.length || shippingError) return;
+
+    const storedSelection = readStoredShippingSelection(cartSignature, normalizedCheckoutCep);
+    const controller = new AbortController();
+    queueMicrotask(() => {
+      if (controller.signal.aborted) return;
+      void requestShippingQuote({
+        preferredOptionId: storedSelection?.option.id,
+        autoSelectSingle: true,
+        signal: controller.signal,
+      });
+    });
+
+    return () => controller.abort();
+  }, [
+    cartSignature,
+    currentShippingOptions.length,
+    normalizedCheckoutCep,
+    requestShippingQuote,
+    selectedShippingOption,
+    shippingConfig.enabled,
+    shippingError,
+  ]);
 
   function updateGuestCustomer(field: keyof typeof emptyGuestCustomer, value: string) {
     setGuestCustomerData((current) => ({ ...current, [field]: value }));
@@ -228,9 +403,14 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
 
   function resetSelectedShipping() {
     setShippingOptions([]);
-    setSelectedShippingOption(null);
+    setShippingQuoteContext(null);
+    setSelectedShipping(null);
     setShippingError(null);
-    window.localStorage.removeItem(shippingSelectionStorageKey);
+    clearStoredShippingSelection();
+  }
+
+  async function calculateShipping() {
+    await requestShippingQuote({ preferredOptionId: selectedShippingOption?.id, autoSelectSingle: true });
   }
 
   function selectAddress(id: string) {
@@ -242,62 +422,6 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
     setGuestAddress((current) => ({ ...current, [field]: value }));
     if (field === "cep") {
       resetSelectedShipping();
-    }
-  }
-
-  function selectShippingOption(option: ShippingQuoteOption) {
-    setSelectedShippingOption(option);
-    setShippingError(null);
-    const normalizedCep = parseCep(checkoutCep);
-    if (normalizedCep) {
-      window.localStorage.setItem(
-        shippingSelectionStorageKey,
-        JSON.stringify({
-          cartSignature,
-          cep: normalizedCep,
-          option,
-        }),
-      );
-    }
-  }
-
-  async function calculateShipping() {
-    const normalizedCep = parseCep(checkoutCep);
-    if (!normalizedCep) {
-      setShippingError("Digite um CEP válido para calcular o frete.");
-      return;
-    }
-
-    setShippingLoading(true);
-    setShippingError(null);
-    setSelectedShippingOption(null);
-    setShippingOptions([]);
-    window.localStorage.removeItem(shippingSelectionStorageKey);
-
-    try {
-      const response = await fetch("/api/shipping/quote", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          cep: normalizedCep,
-          items: items.map((item) => ({
-            productId: item.productId,
-            variantId: item.variantId,
-            quantity: item.quantity,
-          })),
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error ?? "Frete indisponível.");
-      setShippingOptions(data.options ?? []);
-      if (data.disabled) {
-        setShippingError(data.message ?? "Frete automático desativado; entrega combinada manualmente.");
-      }
-    } catch (quoteError) {
-      const message = quoteError instanceof Error ? quoteError.message : "Frete indisponível.";
-      setShippingError(formatShippingError(message));
-    } finally {
-      setShippingLoading(false);
     }
   }
 
@@ -490,12 +614,14 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
                 <p className="mt-3 text-xs font-bold text-neutral-500">
                   {checkoutCep ? `CEP usado: ${formatCep(checkoutCep) || checkoutCep}` : "Digite seu CEP no endereço de entrega."}
                 </p>
-                {shippingOptions.length ? (
+                {currentShippingOptions.length ? (
                   <div className="mt-4 grid gap-2">
-                    {shippingOptions.map((option) => (
+                    {currentShippingOptions.map((option) => (
                       <label
                         key={option.id}
-                        className="flex cursor-pointer items-start gap-3 rounded-lg border border-neutral-200 bg-white p-4 text-sm font-semibold text-neutral-600 transition hover:border-neutral-950/40"
+                        className={`flex cursor-pointer items-start gap-3 rounded-lg border bg-white p-4 text-sm font-semibold text-neutral-600 transition hover:border-neutral-950/40 ${
+                          selectedShippingOption?.id === option.id ? "border-neutral-950 shadow-[0_12px_30px_rgba(15,23,42,0.08)]" : "border-neutral-200"
+                        }`}
                       >
                         <input
                           type="radio"
@@ -519,6 +645,11 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
                   </div>
                 ) : null}
                 {shippingError ? <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800">{shippingError}</p> : null}
+                {currentShippingOptions.length && !selectedShippingOption ? (
+                  <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+                    Selecione PAC ou SEDEX para fechar o pedido.
+                  </p>
+                ) : null}
                 <p className="mt-3 text-xs font-semibold leading-5 text-neutral-500">
                   Frete e prazo podem variar conforme endereço e disponibilidade.
                 </p>
@@ -540,7 +671,11 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
                 {shippingConfig.enabled
                   ? selectedShippingOption
                     ? `${selectedShippingOption.service} · ${formatMoney(shippingInCents)}`
-                    : "Escolha uma opção"
+                    : shippingLoading
+                      ? "Calculando frete"
+                      : normalizedCheckoutCep
+                        ? "Escolha uma opção"
+                        : "Calcule o frete"
                   : legacyShippingPreview.result
                     ? shippingInCents
                       ? formatMoney(shippingInCents)
@@ -556,7 +691,13 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
             ) : null}
             {shippingConfig.enabled && !selectedShippingOption ? (
               <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
-                Escolha uma opção de entrega para continuar.
+                {shippingLoading
+                  ? "Calculando opções de entrega."
+                  : normalizedCheckoutCep
+                    ? currentShippingOptions.length
+                      ? "Selecione PAC ou SEDEX para fechar o pedido."
+                      : "Escolha uma entrega para continuar."
+                    : "Calcule o frete com seu CEP."}
               </p>
             ) : null}
             {legacyShippingPreview.error ? (

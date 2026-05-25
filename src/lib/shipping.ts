@@ -90,6 +90,13 @@ export type ProvisionalShippingResult = {
   };
 };
 
+export const DEFAULT_PRODUCT_PACKAGE = {
+  heightCm: 10,
+  widthCm: 35,
+  lengthCm: 35,
+} as const;
+export const DEFAULT_PRODUCT_PACKAGE_WEIGHT_GRAMS = 1000;
+
 const disabledValues = new Set(["0", "false", "off", "disabled", "no"]);
 
 function clean(value: string | null | undefined) {
@@ -251,6 +258,15 @@ function requirePositiveDimension(value: number | null | undefined) {
   return typeof value === "number" && Number.isInteger(value) && value > 0;
 }
 
+function getVolumetricWeightGrams(lengthCm: number, widthCm: number, heightCm: number) {
+  return Math.max(1, Math.ceil((lengthCm * widthCm * heightCm * 1000) / 6000));
+}
+
+function resolvePositiveInt(value: number | null | undefined, fallback: number) {
+  const numeric = Number(value);
+  return requirePositiveDimension(numeric) ? numeric : fallback;
+}
+
 export function buildPackageFromCart(items: ShippingPackageItem[]): ShippingPackage {
   if (!items.length) {
     throw new Error("Carrinho vazio.");
@@ -263,19 +279,10 @@ export function buildPackageFromCart(items: ShippingPackageItem[]): ShippingPack
   const normalizedItems: ShippingPackage["items"] = [];
 
   for (const item of items) {
-    const itemWeightGrams = Number(item.weightGrams);
-    const itemLengthCm = Number(item.lengthCm);
-    const itemWidthCm = Number(item.widthCm);
-    const itemHeightCm = Number(item.heightCm);
-
-    if (
-      !requirePositiveDimension(itemWeightGrams) ||
-      !requirePositiveDimension(itemLengthCm) ||
-      !requirePositiveDimension(itemWidthCm) ||
-      !requirePositiveDimension(itemHeightCm)
-    ) {
-      throw new Error("Esse produto ainda precisa de peso e medidas para calcular o frete.");
-    }
+    const itemLengthCm = resolvePositiveInt(item.lengthCm, DEFAULT_PRODUCT_PACKAGE.lengthCm);
+    const itemWidthCm = resolvePositiveInt(item.widthCm, DEFAULT_PRODUCT_PACKAGE.widthCm);
+    const itemHeightCm = resolvePositiveInt(item.heightCm, DEFAULT_PRODUCT_PACKAGE.heightCm);
+    const itemWeightGrams = resolvePositiveInt(item.weightGrams, DEFAULT_PRODUCT_PACKAGE_WEIGHT_GRAMS);
 
     const quantity = Math.max(1, item.quantity);
     const normalized = {
@@ -304,7 +311,7 @@ export function buildPackageFromCart(items: ShippingPackageItem[]): ShippingPack
 }
 
 function getBillableWeightKg(pkg: ShippingPackage) {
-  const volumetricWeightGrams = Math.ceil((pkg.lengthCm * pkg.widthCm * pkg.heightCm * 1000) / 6000);
+  const volumetricWeightGrams = getVolumetricWeightGrams(pkg.lengthCm, pkg.widthCm, pkg.heightCm);
   return Math.max(1, Math.ceil(Math.max(pkg.weightGrams, volumetricWeightGrams) / 1000));
 }
 

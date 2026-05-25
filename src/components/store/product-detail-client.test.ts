@@ -12,6 +12,9 @@ vi.mock("@/components/store/cart-context", () => ({
   useCart: () => ({
     addItem: vi.fn(),
   }),
+  useCartDrawer: () => ({
+    openCart: vi.fn(),
+  }),
 }));
 
 const product = {

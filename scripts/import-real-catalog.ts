@@ -9,6 +9,7 @@ import {
   primaryCatalogCategories,
 } from "../src/lib/catalog-categories";
 import { getDatabaseUrl, isProductionEnv } from "../src/lib/env";
+import { DEFAULT_PRODUCT_PACKAGE, DEFAULT_PRODUCT_PACKAGE_WEIGHT_GRAMS } from "../src/lib/shipping";
 
 type CatalogProduct = {
   title: string;
@@ -229,6 +230,10 @@ async function importCatalog() {
           priceInCents: product.priceInCents,
           shortDescription: product.shortDescription,
           description: product.description,
+          weightGrams: DEFAULT_PRODUCT_PACKAGE_WEIGHT_GRAMS,
+          lengthCm: DEFAULT_PRODUCT_PACKAGE.lengthCm,
+          widthCm: DEFAULT_PRODUCT_PACKAGE.widthCm,
+          heightCm: DEFAULT_PRODUCT_PACKAGE.heightCm,
           active: true,
           featured: product.featured,
           sortOrder: product.sortOrder,
@@ -242,6 +247,10 @@ async function importCatalog() {
           priceInCents: product.priceInCents,
           shortDescription: product.shortDescription,
           description: product.description,
+          weightGrams: DEFAULT_PRODUCT_PACKAGE_WEIGHT_GRAMS,
+          lengthCm: DEFAULT_PRODUCT_PACKAGE.lengthCm,
+          widthCm: DEFAULT_PRODUCT_PACKAGE.widthCm,
+          heightCm: DEFAULT_PRODUCT_PACKAGE.heightCm,
           active: true,
           featured: product.featured,
           sortOrder: product.sortOrder,

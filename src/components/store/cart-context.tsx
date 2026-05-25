@@ -18,10 +18,13 @@ type CartContextValue = {
   items: CartItem[];
   count: number;
   subtotalInCents: number;
+  isCartOpen: boolean;
   addItem: (item: CartItem) => void;
   updateQuantity: (variantId: string, quantity: number) => void;
   removeItem: (variantId: string) => void;
   clearCart: () => void;
+  openCart: () => void;
+  closeCart: () => void;
 };
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -51,6 +54,7 @@ function isCartItem(value: unknown): value is CartItem {
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [hydrated, setHydrated] = useState(false);
+  const [isCartOpen, setIsCartOpen] = useState(false);
 
   useEffect(() => {
     let storedItems: CartItem[] = [];
@@ -125,17 +129,28 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems((current) => (current.length ? [] : current));
   }, []);
 
+  const openCart = useCallback(() => {
+    setIsCartOpen(true);
+  }, []);
+
+  const closeCart = useCallback(() => {
+    setIsCartOpen(false);
+  }, []);
+
   const value = useMemo<CartContextValue>(
     () => ({
       items,
       count,
       subtotalInCents,
+      isCartOpen,
       addItem,
       updateQuantity,
       removeItem,
       clearCart,
+      openCart,
+      closeCart,
     }),
-    [addItem, clearCart, count, items, removeItem, subtotalInCents, updateQuantity],
+    [addItem, clearCart, closeCart, count, isCartOpen, items, openCart, removeItem, subtotalInCents, updateQuantity],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
@@ -145,4 +160,14 @@ export function useCart() {
   const context = useContext(CartContext);
   if (!context) throw new Error("useCart must be used inside CartProvider.");
   return context;
+}
+
+export function useCartDrawer() {
+  const context = useContext(CartContext);
+  if (!context) throw new Error("useCartDrawer must be used inside CartProvider.");
+  return {
+    isOpen: context.isCartOpen,
+    openCart: context.openCart,
+    closeCart: context.closeCart,
+  };
 }

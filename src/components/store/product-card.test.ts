@@ -55,6 +55,26 @@ describe("ProductCard", () => {
     expect(html).not.toContain("store-product-hover-image");
   });
 
+  it("renders hover media from the next usable image when the first sorted media is video", () => {
+    const html = renderToStaticMarkup(
+      createElement(ProductCard, {
+        product: {
+          ...baseProduct,
+          images: [
+            { url: "/uploads/products/spin.mp4", alt: "Vídeo" },
+            { url: "/uploads/products/front.webp", alt: "Frente" },
+            { url: "/uploads/products/back.webp", alt: "Verso" },
+          ],
+        },
+      }) as ReactElement,
+    );
+
+    expect(html).toContain("/uploads/products/front.webp");
+    expect(html).toContain("/uploads/products/back.webp");
+    expect(html).not.toContain("/uploads/products/spin.mp4");
+    expect(html).toContain("store-product-hover-image");
+  });
+
   it("keeps the no-image fallback when a product has no card image", () => {
     const html = renderToStaticMarkup(
       createElement(ProductCard, {

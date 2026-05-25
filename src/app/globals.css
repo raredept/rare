@@ -253,6 +253,14 @@ textarea {
   animation: rare-home-section-enter 200ms ease-out both;
 }
 
+.store-cart-drawer-overlay {
+  animation: rare-cart-overlay-enter 200ms ease-out both;
+}
+
+.store-cart-drawer {
+  animation: rare-cart-drawer-enter 220ms ease-out both;
+}
+
 .storefront-motion-root a[data-route-pending="true"] {
   opacity: 0.72;
 }
@@ -322,6 +330,24 @@ textarea {
   }
 }
 
+@keyframes rare-cart-overlay-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes rare-cart-drawer-enter {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
 @keyframes rare-loading-pulse {
   from {
     opacity: 0.62;
@@ -384,6 +410,8 @@ textarea {
   .store-home-hero-slide,
   .store-product-image,
   .store-product-hover-image,
+  .store-cart-drawer,
+  .store-cart-drawer-overlay,
   .admin-page-transition,
   .admin-loading-shell,
   .admin-media-card,
@@ -405,6 +433,7 @@ textarea {
   .store-home-hero-slide,
   .store-product-image,
   .store-product-hover-image,
+  .store-cart-drawer,
   .storefront-motion-root a,
   .storefront-motion-root button,
   .admin-page-transition,

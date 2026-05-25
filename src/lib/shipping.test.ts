@@ -34,6 +34,7 @@ describe("shipping domain", () => {
     expect(normalizeCep("01001-000")).toBe("01001000");
     expect(validateCep("01001000", "CEP de destino")).toBe("01001000");
     expect(() => validateCep("123", "CEP de destino")).toThrow("CEP de destino inválido.");
+    expect(() => validateCep("00000-000", "CEP de destino")).toThrow("CEP de destino inválido.");
   });
 
   it("keeps legacy provisional fixed freight available when shipping quote mode is disabled", () => {
@@ -62,10 +63,28 @@ describe("shipping domain", () => {
     expect(pkg.items).toHaveLength(2);
   });
 
-  it("returns a friendly error when a product has no shipping dimensions", () => {
-    expect(() => buildPackageFromCart([packageItem({ weightGrams: null })])).toThrow(
-      "Esse produto ainda precisa de peso e medidas para calcular o frete.",
-    );
+  it("uses the fixed package dimensions and approximate weight when a product has no shipping data", () => {
+    const pkg = buildPackageFromCart([
+      packageItem({
+        weightGrams: null,
+        lengthCm: null,
+        widthCm: null,
+        heightCm: null,
+      }),
+    ]);
+
+    expect(pkg).toMatchObject({
+      weightGrams: 1000 * 2,
+      lengthCm: 35,
+      widthCm: 35,
+      heightCm: 20,
+    });
+    expect(pkg.items[0]).toMatchObject({
+      weightGrams: 1000,
+      lengthCm: 35,
+      widthCm: 35,
+      heightCm: 10,
+    });
   });
 
   it("manual provider returns PAC and SEDEX fallback quotes", async () => {

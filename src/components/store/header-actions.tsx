@@ -4,7 +4,7 @@ import { Search, ShoppingBag, UserRound, PackageCheck } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useState } from "react";
-import { useCart } from "@/components/store/cart-context";
+import { useCart, useCartDrawer } from "@/components/store/cart-context";
 
 export function SearchBar() {
   const router = useRouter();
@@ -33,6 +33,7 @@ export function SearchBar() {
 
 export function HeaderUtilities() {
   const { count } = useCart();
+  const { isOpen, openCart } = useCartDrawer();
 
   return (
     <div className="flex items-center justify-end gap-2 text-white">
@@ -50,10 +51,13 @@ export function HeaderUtilities() {
         <PackageCheck className="h-4 w-4" />
         Pedidos
       </Link>
-      <Link
-        href="/cart"
+      <button
+        type="button"
+        onClick={openCart}
         className="relative flex h-11 w-11 items-center justify-center rounded-full text-white transition-[background-color,transform] duration-150 hover:bg-white/10 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
         aria-label={`Carrinho com ${count} item(s)`}
+        aria-haspopup="dialog"
+        aria-expanded={isOpen}
       >
         <ShoppingBag className="h-5 w-5" />
         <span aria-live="polite" className="sr-only">
@@ -64,7 +68,7 @@ export function HeaderUtilities() {
             {count > 99 ? "99+" : count}
           </span>
         ) : null}
-      </Link>
+      </button>
     </div>
   );
 }

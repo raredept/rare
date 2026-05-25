@@ -345,6 +345,24 @@ describe("createCheckoutSession", () => {
       }),
     );
   });
+
+  it("rejects checkout when automatic shipping has no selected option", async () => {
+    await expect(createCheckoutSession({ ...validCheckoutInput, shippingOptionId: undefined })).rejects.toThrow(
+      "Escolha uma opção de entrega para continuar.",
+    );
+
+    expect(mocks.tx.order.create).not.toHaveBeenCalled();
+    expect(mocks.stripeSessionsCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects checkout when the selected shipping option is not in fresh backend quotes", async () => {
+    await expect(createCheckoutSession({ ...validCheckoutInput, shippingOptionId: "manual:EXPRESS" })).rejects.toThrow(
+      "Escolha uma opção de entrega válida para continuar.",
+    );
+
+    expect(mocks.tx.order.create).not.toHaveBeenCalled();
+    expect(mocks.stripeSessionsCreate).not.toHaveBeenCalled();
+  });
 });
 
 describe("Stripe webhook reconciliation", () => {

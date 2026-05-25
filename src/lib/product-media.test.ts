@@ -39,4 +39,25 @@ describe("product media helpers", () => {
       ]).hover,
     ).toBeNull();
   });
+
+  it("uses the next useful card image when sorted media includes video or duplicate URLs", () => {
+    expect(
+      getProductCardMediaPair([
+        { url: "/uploads/products/spin.mp4" },
+        { url: "/uploads/products/front.webp" },
+        { url: "/uploads/products/back.webp" },
+      ]),
+    ).toEqual({
+      primary: { url: "/uploads/products/front.webp" },
+      hover: { url: "/uploads/products/back.webp" },
+    });
+
+    expect(
+      getProductCardMediaPair([
+        { url: "/uploads/products/front.webp" },
+        { url: "/uploads/products/front.webp" },
+        { url: "/uploads/products/back.webp" },
+      ]).hover,
+    ).toEqual({ url: "/uploads/products/back.webp" });
+  });
 });

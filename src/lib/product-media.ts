@@ -51,11 +51,8 @@ export function getProductCardMediaPair<T extends { url: string }>(media: T[]) {
     return { primary: null, hover: null };
   }
 
-  const secondSortedMedia = media[1] ?? null;
   const hover =
-    secondSortedMedia && !isProductVideoUrl(secondSortedMedia.url) && secondSortedMedia.url !== primary.url
-      ? secondSortedMedia
-      : null;
+    media.find((item) => item.url !== primary.url && !isProductVideoUrl(item.url)) ?? null;
 
   return { primary, hover };
 }

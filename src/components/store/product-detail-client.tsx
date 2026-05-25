@@ -3,7 +3,7 @@
 import { ChevronLeft, ChevronRight, CircleHelp, Loader2, PackageCheck, RotateCcw, ShieldCheck, Truck } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { useCart } from "@/components/store/cart-context";
+import { useCart, useCartDrawer } from "@/components/store/cart-context";
 import { ProductMedia } from "@/components/store/product-media";
 import { ProductMediaPlaceholder } from "@/components/store/product-media-placeholder";
 import { formatMoney } from "@/lib/money";
@@ -49,6 +49,7 @@ function formatProductShippingError(message: string) {
 
 export function ProductDetailClient({ product, productUrl, whatsappNumber, whatsappMessage }: ProductDetailClientProps) {
   const { addItem } = useCart();
+  const { openCart } = useCartDrawer();
   const [imageIndex, setImageIndex] = useState(0);
   const purchasableVariants = product.variants.filter((variant) => variant.active);
   const firstAvailableVariant =
@@ -90,6 +91,7 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
       maxQuantity: availableStock,
     });
     setFeedback("Peça adicionada ao carrinho.");
+    openCart();
   }
 
   async function calculateShipping() {

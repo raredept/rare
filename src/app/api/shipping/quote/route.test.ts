@@ -75,6 +75,15 @@ describe("shipping quote route", () => {
     expect(body.error).toBe("CEP de destino inválido.");
   });
 
+  it("rejects placeholder CEP values before returning quotes", async () => {
+    const response = await POST(request({ ...validBody, cep: "00000-000" }) as never);
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe("CEP de destino inválido.");
+    expect(quoteMocks.prisma.productVariant.findMany).not.toHaveBeenCalled();
+  });
+
   it("rejects an empty cart payload", async () => {
     const response = await POST(request({ cep: "22041001", items: [] }) as never);
     const body = await response.json();
@@ -98,7 +107,7 @@ describe("shipping quote route", () => {
     expect(JSON.stringify(body)).not.toContain("priceInCents");
   });
 
-  it("returns a friendly product-dimensions error", async () => {
+  it("uses fixed package dimensions when product shipping dimensions are missing", async () => {
     quoteMocks.prisma.productVariant.findMany.mockResolvedValueOnce([
       variant({
         product: {
@@ -117,8 +126,8 @@ describe("shipping quote route", () => {
     const response = await POST(request(validBody) as never);
     const body = await response.json();
 
-    expect(response.status).toBe(400);
-    expect(body.error).toBe("Esse produto ainda precisa de peso e medidas para calcular o frete.");
+    expect(response.status).toBe(200);
+    expect(body.options.map((option: { service: string }) => option.service)).toEqual(["PAC", "SEDEX"]);
   });
 
   it("fails real provider configuration without leaking credentials", async () => {
