@@ -20,7 +20,7 @@ export default async function OrderSuccessPage({ searchParams }: OrderSuccessPag
     return (
       <OrderSuccessShell eyebrow="Pagamento" title="Não encontramos uma sessão de pagamento nesta página.">
         <p className="mt-4 text-neutral-600">
-          Volte ao carrinho para iniciar o checkout pela Stripe. Se o pagamento já foi feito, fale com a RARE com o e-mail usado no pedido.
+          Volte para finalizar a compra pela Stripe. Se o pagamento já foi feito, fale com a RARE com o e-mail usado no pedido.
         </p>
       </OrderSuccessShell>
     );

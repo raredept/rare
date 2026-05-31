@@ -23,7 +23,15 @@ function getString(formData: FormData, key: string) {
 
 function getSafeCustomerNext(value: FormDataEntryValue | null) {
   if (typeof value !== "string") return "/minha-conta";
-  if (value.startsWith("/minha-conta") || value === "/cart") return value;
+  if (
+    value.startsWith("/minha-conta") ||
+    value === "/cart" ||
+    value.startsWith("/cart?") ||
+    value === "/finalizar-compra" ||
+    value.startsWith("/finalizar-compra?")
+  ) {
+    return value;
+  }
   return "/minha-conta";
 }
 

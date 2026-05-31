@@ -307,7 +307,7 @@ describe("createCheckoutSession", () => {
     expect(mocks.stripeSessionsCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         success_url: "https://staging.rare.example/pedido/sucesso?session_id={CHECKOUT_SESSION_ID}",
-        cancel_url: "https://staging.rare.example/cart?checkout=cancelado",
+        cancel_url: "https://staging.rare.example/finalizar-compra?checkout=cancelado",
         line_items: [
           expect.objectContaining({
             quantity: 2,

@@ -76,7 +76,11 @@ function normalizeSafeInternalPath(value: string) {
     const url = new URL(value, "https://rare.local");
     if (url.origin !== "https://rare.local") return null;
     const decodedPathname = decodeURIComponent(url.pathname);
-    const pathAllowed = url.pathname === "/" || url.pathname === "/cart" || internalHrefPrefixes.some((prefix) => url.pathname.startsWith(prefix));
+    const pathAllowed =
+      url.pathname === "/" ||
+      url.pathname === "/cart" ||
+      url.pathname === "/finalizar-compra" ||
+      internalHrefPrefixes.some((prefix) => url.pathname.startsWith(prefix));
     if (!pathAllowed || decodedPathname.includes("\\")) return null;
     return `${url.pathname}${url.search}${url.hash}`;
   } catch {

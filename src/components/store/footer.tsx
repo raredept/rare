@@ -15,7 +15,7 @@ const serviceLinks = [
   { href: "/trocas-e-devolucoes", label: "Trocas e devoluções" },
   { href: "/minha-conta", label: "Minha conta" },
   { href: "/minha-conta/pedidos", label: "Meus pedidos" },
-  { href: "/cart", label: "Carrinho" },
+  { href: "/finalizar-compra", label: "Finalizar compra" },
 ];
 
 const institutionalLinks = [

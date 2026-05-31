@@ -612,7 +612,7 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
       mode: "payment",
       line_items: lineItems,
       success_url: `${appUrl}/pedido/sucesso?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/cart?checkout=cancelado`,
+      cancel_url: `${appUrl}/finalizar-compra?checkout=cancelado`,
       client_reference_id: order.id,
       metadata: {
         orderId: order.id,

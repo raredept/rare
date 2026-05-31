@@ -63,7 +63,7 @@ describe("CartDrawer", () => {
     expect(html).toBe("");
   });
 
-  it("renders the empty cart state with continue and cart-page actions", () => {
+  it("renders the empty cart state with continue and checkout actions", () => {
     cartMocks.state.isOpen = true;
 
     const html = renderToStaticMarkup(createElement(CartDrawer) as ReactElement);
@@ -74,9 +74,10 @@ describe("CartDrawer", () => {
     expect(html).toContain("Sua seleção ainda está vazia.");
     expect(html).toContain("Finalizar compra");
     expect(html).toContain("Continuar comprando");
-    expect(html).toContain("Ver carrinho");
-    expect(html.match(/href="\/cart"/g)).toHaveLength(2);
-    expect(html).toContain("Frete e prazo são calculados no carrinho/checkout.");
+    expect(html).not.toContain("Ver carrinho");
+    expect(html.match(/href="\/finalizar-compra"/g)).toHaveLength(1);
+    expect(html).not.toContain('href="/cart"');
+    expect(html).toContain("Frete e prazo são calculados ao finalizar a compra.");
   });
 
   it("renders cart items with image, variant, quantity controls, subtotal, and remove action", () => {

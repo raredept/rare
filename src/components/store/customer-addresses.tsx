@@ -137,7 +137,10 @@ export function CustomerAddresses({ addresses, pageError }: { addresses: Address
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Link href={`/cart?address=${encodeURIComponent(address.id)}`} className="rounded-lg border border-neutral-300 px-3 py-2 text-xs font-black">
+                  <Link
+                    href={`/finalizar-compra?address=${encodeURIComponent(address.id)}`}
+                    className="rounded-lg border border-neutral-300 px-3 py-2 text-xs font-black"
+                  >
                     Usar no checkout
                   </Link>
                   {!address.isDefault ? (
