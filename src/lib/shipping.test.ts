@@ -168,6 +168,12 @@ describe("shipping domain", () => {
     expect(getConfiguredShippingOriginCep({ originCep: null, shippingMode: "melhor_envio" })).toBe(DEFAULT_SHIPPING_ORIGIN_CEP);
   });
 
+  it("prioritizes the store settings origin CEP over the environment fallback", () => {
+    vi.stubEnv("SHIPPING_ORIGIN_CEP", "22041001");
+
+    expect(getConfiguredShippingOriginCep({ originCep: "31170-350", shippingMode: "melhor_envio" })).toBe("31170350");
+  });
+
   it("calls Melhor Envio with backend product data and normalizes successful quotes", async () => {
     vi.stubEnv("MELHOR_ENVIO_TOKEN", "test-token");
     const fetchMock = vi.fn<typeof fetch>(async () =>

@@ -36,7 +36,6 @@ const publicCheckoutErrors = new Set([
   "Frete Frenet precisa de FRENET_TOKEN configurado.",
   "Configure um valor de frete fixo para habilitar o checkout.",
   "Provider Correios preparado, mas a integração externa ainda não está ativada nesta versão.",
-  "Provider Melhor Envio preparado, mas a integração externa ainda não está ativada nesta versão.",
   "Provider Frenet preparado, mas a integração externa ainda não está ativada nesta versão.",
 ]);
 
@@ -54,7 +53,6 @@ const serviceUnavailableCheckoutErrors = new Set([
   "Frete Frenet precisa de FRENET_TOKEN configurado.",
   "Configure um valor de frete fixo para habilitar o checkout.",
   "Provider Correios preparado, mas a integração externa ainda não está ativada nesta versão.",
-  "Provider Melhor Envio preparado, mas a integração externa ainda não está ativada nesta versão.",
   "Provider Frenet preparado, mas a integração externa ainda não está ativada nesta versão.",
 ]);
 

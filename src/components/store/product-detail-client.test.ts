@@ -42,6 +42,7 @@ describe("ProductDetailClient", () => {
     expect(html).toContain("Produto sem imagem");
     expect(html).toContain("2 unidades disponíveis");
     expect(html).toContain("Frete e prazo");
+    expect(html).toContain("Descrição completa.");
     expect(html).toContain('href="/politica-de-envio"');
     expect(html).toContain("Pagamento seguro no checkout");
     expect(html).toContain("Estoque limitado");
@@ -49,5 +50,24 @@ describe("ProductDetailClient", () => {
     expect(html).toContain("Troca e devolução em até 7 dias");
     expect(html).toContain("Atendimento direto");
     expect(html).toContain("Fale com a RARE pelo WhatsApp");
+  });
+
+  it("keeps the description near the product purchase column and adds desktop-only image zoom classes", () => {
+    const html = renderToStaticMarkup(
+      createElement(ProductDetailClient, {
+        product: {
+          ...product,
+          images: [{ url: "/uploads/camiseta-rare.webp", alt: "Camiseta RARE" }],
+        },
+        productUrl: "https://raredept.com.br/produto/camiseta-rare",
+        whatsappNumber: "5511999999999",
+        whatsappMessage: "Tenho interesse.",
+      }) as ReactElement,
+    );
+
+    expect(html).toContain("md:cursor-zoom-in");
+    expect(html).toContain("motion-safe:md:group-hover:scale-[1.08]");
+    expect(html.indexOf("Frete e prazo")).toBeLessThan(html.indexOf("Descrição completa."));
+    expect(html.indexOf("Descrição completa.")).toBeLessThan(html.indexOf("Pagamento seguro no checkout"));
   });
 });

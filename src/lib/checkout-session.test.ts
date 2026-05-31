@@ -451,7 +451,7 @@ describe("createCheckoutSession", () => {
 
   it("recalculates Melhor Envio freight on the backend and ignores adulterated frontend amounts", async () => {
     process.env.SHIPPING_PROVIDER = "melhor_envio";
-    process.env.SHIPPING_ORIGIN_CEP = "";
+    process.env.SHIPPING_ORIGIN_CEP = "22041001";
     process.env.MELHOR_ENVIO_TOKEN = "test-token";
     const fetchMock = vi.fn<typeof fetch>(async () =>
       new Response(

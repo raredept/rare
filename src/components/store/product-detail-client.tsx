@@ -28,7 +28,8 @@ type ProductDetailClientProps = {
 
 type ShippingQuoteOption = {
   id: string;
-  service: "PAC" | "SEDEX";
+  provider?: string;
+  service: string;
   label: string;
   amountCents: number;
   deliveryEstimateText: string;
@@ -65,6 +66,8 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
   const [shippingLoading, setShippingLoading] = useState(false);
   const [shippingError, setShippingError] = useState<string | null>(null);
   const image = product.images[imageIndex];
+  const mainMediaType = image ? getProductMediaTypeFromUrl(image.url) : null;
+  const mainMediaCanZoom = mainMediaType === "image" || mainMediaType === "gif";
   const cartImage = getPreferredProductCardMedia(product.images);
   const soldOut = purchasableVariants.every((variant) => getAvailableStock(variant.stock, variant.reservedStock) <= 0);
 
@@ -136,15 +139,23 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
   return (
     <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(380px,480px)] lg:gap-16">
       <section className="min-w-0">
-        <div className="relative aspect-[4/5] overflow-hidden rounded-lg border border-neutral-200 bg-white p-2 shadow-[0_18px_55px_rgba(15,23,42,0.08)]">
+        <div
+          className={`relative aspect-[4/5] overflow-hidden rounded-lg border border-neutral-200 bg-white p-2 shadow-[0_18px_55px_rgba(15,23,42,0.08)] ${
+            mainMediaCanZoom ? "group md:cursor-zoom-in" : ""
+          }`}
+        >
           {image ? (
             <ProductMedia
               url={image.url}
               alt={image.alt}
-              controls={getProductMediaTypeFromUrl(image.url) === "video"}
+              controls={mainMediaType === "video"}
               loading="eager"
               placeholderLabel="Mídia indisponível"
-              className="store-product-image h-full w-full rounded-lg object-cover"
+              className={`store-product-image h-full w-full rounded-lg object-cover ${
+                mainMediaCanZoom
+                  ? "motion-safe:transition-transform motion-safe:duration-500 motion-safe:ease-out motion-safe:md:group-hover:scale-[1.08]"
+                  : ""
+              }`}
             />
           ) : (
             <ProductMediaPlaceholder label="Produto sem imagem" className="rounded-lg" />
@@ -308,7 +319,9 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
               {shippingOptions.map((option) => (
                 <div key={option.id} className="rounded-lg border border-neutral-200 px-4 py-3 text-sm font-semibold text-neutral-600">
                   <div className="flex items-center justify-between gap-4">
-                    <span className="font-black text-neutral-950">{option.service}</span>
+                    <span className="font-black text-neutral-950">
+                      {option.provider === "fixed" || option.provider === "melhor_envio" ? option.label : option.service}
+                    </span>
                     <span className="whitespace-nowrap font-black text-success">{formatMoney(option.amountCents)}</span>
                   </div>
                   <p className="mt-1">{option.deliveryEstimateText}</p>
@@ -324,6 +337,12 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
             Ver política de envio
           </Link>
         </div>
+
+        <section className="mt-6 rounded-lg border border-neutral-200 bg-white p-5">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-neutral-500">Detalhes</p>
+          <h2 className="mt-2 text-xl font-black text-neutral-950">Descrição</h2>
+          <p className="mt-4 text-sm font-semibold leading-7 text-neutral-600">{product.description}</p>
+        </section>
 
         <div className="mt-5 grid gap-4 rounded-lg border border-neutral-200 bg-white p-5 text-sm font-bold text-neutral-700">
           <div className="flex items-start gap-3">

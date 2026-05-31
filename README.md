@@ -79,7 +79,7 @@ O provider principal de frete real é `SHIPPING_PROVIDER=melhor_envio`, usando c
 
 Sem `MELHOR_ENVIO_BASE_URL`, o app usa `https://www.melhorenvio.com.br`. Com `MELHOR_ENVIO_ENV=sandbox`, usa a base sandbox padrão. A cotação inicial solicita os serviços `1,2` por `MELHOR_ENVIO_SERVICES`, normalmente PAC/SEDEX no Melhor Envio, e sempre normaliza o nome retornado pela API.
 
-O CEP de origem usa `SHIPPING_ORIGIN_CEP` ou `StoreSettings.originCep`. Se ambos estiverem vazios, o fallback controlado da loja é `31170350`.
+O CEP de origem usa primeiro `StoreSettings.originCep`. Se ele estiver vazio, `SHIPPING_ORIGIN_CEP` funciona apenas como fallback operacional documentado; se ambos estiverem vazios, o fallback controlado da loja é `31170350`.
 
 O cálculo usa dados reais de `Product.weightGrams`, `lengthCm`, `widthCm` e `heightCm`. Quando faltarem dados, usa fallback controlado de `1000g` e `10x35x35cm`. Rode `npm run shipping:dimensions:audit` para listar produtos que ainda dependem desse fallback antes de venda aberta.
 

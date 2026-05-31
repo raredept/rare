@@ -189,7 +189,7 @@ export function isFixedShippingModeActive(settings?: ProvisionalShippingSettings
 }
 
 export function getConfiguredShippingOriginCep(settings?: ProvisionalShippingSettings | null) {
-  const originCep = clean(process.env.SHIPPING_ORIGIN_CEP) ?? clean(settings?.originCep) ?? DEFAULT_SHIPPING_ORIGIN_CEP;
+  const originCep = clean(settings?.originCep) ?? clean(process.env.SHIPPING_ORIGIN_CEP) ?? DEFAULT_SHIPPING_ORIGIN_CEP;
   return validateCep(originCep, "CEP de origem");
 }
 

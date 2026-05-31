@@ -62,5 +62,6 @@ describe("storefront product media rendering", () => {
     expect(html).toContain("<video");
     expect(html).toContain("controls");
     expect(html).toContain("Vídeo");
+    expect(html).not.toContain("motion-safe:md:group-hover:scale-[1.08]");
   });
 });

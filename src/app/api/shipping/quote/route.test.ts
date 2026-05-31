@@ -220,6 +220,7 @@ describe("shipping quote route", () => {
 
   it("returns normalized Melhor Envio options using originCep from settings", async () => {
     vi.stubEnv("SHIPPING_PROVIDER", "melhor_envio");
+    vi.stubEnv("SHIPPING_ORIGIN_CEP", "22041001");
     vi.stubEnv("MELHOR_ENVIO_TOKEN", "test-token");
     const fetchMock = vi.fn<typeof fetch>(async () =>
       new Response(
@@ -289,6 +290,37 @@ describe("shipping quote route", () => {
     );
   });
 
+  it("accepts Melhor Envio destination CEP without punctuation", async () => {
+    vi.stubEnv("SHIPPING_PROVIDER", "melhor_envio");
+    vi.stubEnv("MELHOR_ENVIO_TOKEN", "test-token");
+    const fetchMock = vi.fn<typeof fetch>(async () =>
+      new Response(JSON.stringify([{ id: 1, name: "PAC", price: "20.00", delivery_time: 5 }]), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    quoteMocks.getStoreSettings.mockResolvedValueOnce({
+      shippingMode: "melhor_envio",
+      originCep: "31170350",
+      fixedShippingInCents: 0,
+      manualShippingInCents: 0,
+      freeShippingMinInCents: null,
+      freeShippingThresholdInCents: null,
+      checkoutRequiresAddress: true,
+    });
+
+    const response = await POST(request({ ...validBody, cep: "22041001" }) as never);
+    const body = await response.json();
+    const payload = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+
+    expect(response.status).toBe(200);
+    expect(payload.to.postal_code).toBe("22041001");
+    expect(body.options[0]).toEqual(
+      expect.objectContaining({
+        destinationCep: "22041001",
+        provider: "melhor_envio",
+      }),
+    );
+  });
+
   it("returns a clear Melhor Envio configuration error without falling back to manual quotes", async () => {
     vi.stubEnv("SHIPPING_PROVIDER", "melhor_envio");
     quoteMocks.getStoreSettings.mockResolvedValueOnce({
@@ -306,5 +338,28 @@ describe("shipping quote route", () => {
 
     expect(response.status).toBe(503);
     expect(body.error).toBe("Configure MELHOR_ENVIO_TOKEN para calcular o frete automaticamente.");
+  });
+
+  it("returns the OAuth authorization guidance when only Melhor Envio client credentials are configured", async () => {
+    vi.stubEnv("SHIPPING_PROVIDER", "melhor_envio");
+    vi.stubEnv("MELHOR_ENVIO_TOKEN", "");
+    vi.stubEnv("MELHOR_ENVIO_ACCESS_TOKEN", "");
+    vi.stubEnv("MELHOR_ENVIO_CLIENT_ID", "client-id");
+    vi.stubEnv("MELHOR_ENVIO_CLIENT_SECRET", "client-secret");
+    quoteMocks.getStoreSettings.mockResolvedValueOnce({
+      shippingMode: "manual",
+      originCep: "31170350",
+      fixedShippingInCents: 0,
+      manualShippingInCents: 0,
+      freeShippingMinInCents: null,
+      freeShippingThresholdInCents: null,
+      checkoutRequiresAddress: true,
+    });
+
+    const response = await POST(request(validBody) as never);
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body.error).toBe("Configure MELHOR_ENVIO_TOKEN ou finalize a autorização OAuth do Melhor Envio.");
   });
 });

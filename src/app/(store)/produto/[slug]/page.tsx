@@ -80,13 +80,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
         whatsappNumber={settings.whatsappNumber}
         whatsappMessage={settings.whatsappDefaultMessage}
       />
-      <section className="mt-14 grid gap-6 border-t border-neutral-200 pt-10 lg:grid-cols-[280px_minmax(0,1fr)]">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.24em] text-neutral-500">Detalhes</p>
-          <h2 className="mt-2 text-2xl font-black text-neutral-950">Descrição</h2>
-        </div>
-        <p className="max-w-4xl text-base font-semibold leading-8 text-neutral-600">{product.description}</p>
-      </section>
     </div>
   );
 }
