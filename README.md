@@ -35,6 +35,8 @@ npm run typecheck
 npm test
 npm run db:check
 npm run app:check
+npm run inventory:release-expired
+npm run shipping:dimensions:audit
 ```
 
 ## Uploads do Admin
@@ -43,3 +45,36 @@ O storage persistente recomendado para produção é Cloudflare R2 com `STORAGE_
 O Admin usa `POST /api/admin/uploads`: o navegador envia o arquivo para o domínio da aplicação e a Vercel Function grava no R2 com credenciais server-side. Isso evita upload direto do navegador para o bucket.
 
 Limite atual: 4 MB por arquivo. Para melhor qualidade e performance, envie imagens em WEBP/JPG otimizadas.
+
+## Produção e operações
+
+### Health check
+
+`GET /api/health` retorna `200` quando aplicação, banco e configurações críticas estão funcionais. Pendências operacionais que não impedem a loja de responder, como `RATE_LIMIT_DRIVER=memory`, aparecem em `configuration.warnings` com `status: "ok_with_warnings"` sem derrubar o monitor como indisponível.
+
+Para produção aberta, mantenha `RATE_LIMIT_DRIVER` em um backend compartilhado/durável quando a loja sair de baixo tráfego. O modo `memory` é aceitável só como transição, porque cada instância mantém seu próprio contador.
+
+### Carrinho legado
+
+`/cart` é uma rota legada e redireciona por HTTP para `/finalizar-compra`. A querystring é preservada para compatibilidade com callbacks antigos, por exemplo `/cart?checkout=cancelado`.
+
+### Reservas expiradas
+
+Reservas temporárias de checkout são liberadas por `npm run inventory:release-expired` e pelo endpoint protegido:
+
+```bash
+GET /api/cron/release-expired-inventory
+Authorization: Bearer $CRON_SECRET
+```
+
+O `vercel.json` agenda esse endpoint a cada 10 minutos. Configure `CRON_SECRET` na Vercel antes do deploy para que o cron execute; sem o segredo correto, a rota não altera reservas.
+
+### Stripe homologação
+
+Antes de venda aberta, faça um smoke em modo de teste da Stripe com `CHECKOUT_ENABLED=true`, `STRIPE_SECRET_KEY` de teste, `STRIPE_WEBHOOK_SECRET` de teste e webhook apontando para `/api/stripe/webhook`. Não use cartão real nem conclua pagamento em modo live.
+
+### Frete e medidas
+
+O provider `manual` retorna PAC/SEDEX de fallback e mantém o checkout backend-authoritative. Para frete real, configure um provider externo em homologação antes de produção aberta.
+
+O cálculo usa fallback de `1000g` e `10x35x35cm` quando o produto não tem medidas persistidas. Rode `npm run shipping:dimensions:audit` para listar produtos que ainda dependem desse fallback antes de ativar frete real.

@@ -54,6 +54,7 @@ next-env.d.ts
 /output/
 /output/playwright
 V1_*_REPORT.md
+V1_*_CHECKLIST.md
 AUDIT_REPORT.md
 HOMOLOGATION_REPORT.md
 QA_AUDIT_REPORT.md

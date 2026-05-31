@@ -62,7 +62,25 @@ describe("health route readiness", () => {
     expect(serialized).not.toContain("storage-secret-that-must-not-be-returned");
   });
 
-  it("stays degraded when checkout is enabled but Stripe secrets are absent", async () => {
+  it("returns 200 with warnings when the core app is ready but rate limiting is in memory", async () => {
+    process.env.DATABASE_URL = "postgresql://rare:password@localhost:5432/rare_test";
+    process.env.RATE_LIMIT_DRIVER = "memory";
+    healthMocks.prisma.$queryRaw.mockResolvedValue([{ ok: 1 }]);
+
+    const response = await GET();
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.status).toBe("ok_with_warnings");
+    expect(body.database.ok).toBe(true);
+    expect(body.configuration.ok).toBe(true);
+    expect(body.configuration.errors).toEqual([]);
+    expect(body.configuration.warnings).toEqual(
+      expect.arrayContaining([expect.objectContaining({ variable: "RATE_LIMIT_DRIVER" })]),
+    );
+  });
+
+  it("returns 503 when checkout is enabled but Stripe secrets are absent", async () => {
     process.env.DATABASE_URL = "postgresql://rare:password@localhost:5432/rare_test";
     process.env.STRIPE_SECRET_KEY = "";
     process.env.STRIPE_WEBHOOK_SECRET = "";
@@ -73,7 +91,7 @@ describe("health route readiness", () => {
     const serialized = JSON.stringify(body);
 
     expect(response.status).toBe(503);
-    expect(body.status).toBe("degraded");
+    expect(body.status).toBe("error");
     expect(body.database.ok).toBe(true);
     expect(body.configuration.ok).toBe(false);
     expect(body.configuration.errors).toEqual(
@@ -83,5 +101,19 @@ describe("health route readiness", () => {
       ]),
     );
     expect(serialized).not.toContain("postgresql://rare:password@localhost:5432/rare_test");
+  });
+
+  it("returns 503 when the database check fails even if configuration is valid", async () => {
+    process.env.DATABASE_URL = "postgresql://rare:password@localhost:5432/rare_test";
+    process.env.RATE_LIMIT_DRIVER = "redis";
+    healthMocks.prisma.$queryRaw.mockRejectedValue(new Error("connection failed"));
+
+    const response = await GET();
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body.status).toBe("error");
+    expect(body.database.ok).toBe(false);
+    expect(body.configuration.ok).toBe(true);
   });
 });

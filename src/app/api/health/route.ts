@@ -5,7 +5,7 @@ import { validateEnvironment } from "@/lib/env";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type HealthStatus = "ok" | "degraded" | "error";
+type HealthStatus = "ok" | "ok_with_warnings" | "error";
 const disabledValues = new Set(["0", "false", "off", "disabled", "no"]);
 
 function clean(value: string | undefined) {
@@ -47,8 +47,8 @@ export async function GET() {
     }
   }
 
-  const status: HealthStatus = env.ok && env.warnings.length === 0 && database.ok ? "ok" : database.ok ? "degraded" : "error";
-  const httpStatus = status === "ok" ? 200 : 503;
+  const status: HealthStatus = env.ok && database.ok ? (env.warnings.length ? "ok_with_warnings" : "ok") : "error";
+  const httpStatus = status === "error" ? 503 : 200;
 
   return response(
     {

@@ -19,6 +19,7 @@
     "catalog:remap-legacy-bags": "tsx scripts/remap-legacy-bags-subcategory.ts",
     "admin:create": "tsx scripts/create-admin.ts",
     "inventory:release-expired": "tsx scripts/release-expired-reservations.ts",
+    "shipping:dimensions:audit": "tsx scripts/audit-product-shipping-dimensions.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

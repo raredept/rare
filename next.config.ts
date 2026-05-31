@@ -6,6 +6,15 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "6mb",
     },
   },
+  async redirects() {
+    return [
+      {
+        source: "/cart",
+        destination: "/finalizar-compra",
+        permanent: false,
+      },
+    ];
+  },
   async headers() {
     return [
       {

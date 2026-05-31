@@ -3,6 +3,7 @@ import {
   createCheckoutSession,
   processStripeCheckoutEvent,
   processStripePaymentIntentEvent,
+  releaseExpiredReservations,
 } from "@/lib/checkout";
 
 const mocks = vi.hoisted(() => {
@@ -362,6 +363,50 @@ describe("createCheckoutSession", () => {
 
     expect(mocks.tx.order.create).not.toHaveBeenCalled();
     expect(mocks.stripeSessionsCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe("expired reservation release job", () => {
+  it("queries only expired awaiting-payment orders", async () => {
+    mocks.tx.order.findMany.mockResolvedValueOnce([]);
+
+    const count = await releaseExpiredReservations(mocks.tx as never);
+
+    expect(count).toBe(0);
+    expect(mocks.tx.order.findMany).toHaveBeenCalledWith({
+      where: {
+        status: "awaiting_payment",
+        reservationExpiresAt: {
+          lt: expect.any(Date),
+        },
+      },
+      include: {
+        items: true,
+      },
+    });
+    expect(mocks.tx.productVariant.updateMany).not.toHaveBeenCalled();
+    expect(mocks.tx.inventoryMovement.create).not.toHaveBeenCalled();
+  });
+
+  it("is idempotent when the release job runs more than once", async () => {
+    mocks.tx.order.findMany.mockResolvedValueOnce([buildOrder()]).mockResolvedValueOnce([]);
+    mocks.tx.order.findUnique.mockResolvedValue({ status: "awaiting_payment" });
+    mocks.tx.productVariant.updateMany.mockResolvedValue({ count: 1 });
+    mocks.tx.inventoryMovement.create.mockResolvedValue({});
+    mocks.tx.order.update.mockResolvedValue({});
+
+    const firstRun = await releaseExpiredReservations(mocks.tx as never);
+    const secondRun = await releaseExpiredReservations(mocks.tx as never);
+
+    expect(firstRun).toBe(1);
+    expect(secondRun).toBe(0);
+    expect(mocks.tx.productVariant.updateMany).toHaveBeenCalledTimes(1);
+    expect(mocks.tx.inventoryMovement.create).toHaveBeenCalledTimes(1);
+    expect(mocks.tx.order.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { status: "canceled" },
+      }),
+    );
   });
 });
 
