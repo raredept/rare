@@ -72,9 +72,10 @@ describe("CartDrawer", () => {
     expect(html).toContain('aria-modal="true"');
     expect(html).toContain("Sua seleção");
     expect(html).toContain("Sua seleção ainda está vazia.");
+    expect(html).toContain("Finalizar compra");
     expect(html).toContain("Continuar comprando");
     expect(html).toContain("Ver carrinho");
-    expect(html).toContain('href="/cart"');
+    expect(html.match(/href="\/cart"/g)).toHaveLength(2);
     expect(html).toContain("Frete e prazo são calculados no carrinho/checkout.");
   });
 

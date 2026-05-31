@@ -45,6 +45,7 @@ describe("HeaderUtilities", () => {
 
     expect(html).toContain("Carrinho com 3 item(s)");
     expect(html).toContain("3 item(s) no carrinho");
+    expect(html).toContain("data-cart-trigger");
     expect(html).toContain('aria-haspopup="dialog"');
     expect(html).toContain('aria-expanded="false"');
     expect(html).toContain(">3</span>");

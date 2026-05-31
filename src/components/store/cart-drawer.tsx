@@ -149,6 +149,20 @@ export function CartDrawer() {
           </div>
           <p className="mt-2 text-xs font-semibold leading-5 text-white/45">Frete e prazo são calculados no carrinho/checkout.</p>
           <div className="mt-5 grid gap-3">
+            <Link
+              href="/cart"
+              onClick={closeCart}
+              className="flex min-h-12 items-center justify-center rounded-lg bg-white px-5 text-xs font-black uppercase tracking-[0.16em] text-black transition-[background-color,transform] duration-150 hover:bg-neutral-200 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+            >
+              Finalizar compra
+            </Link>
+            <Link
+              href="/cart"
+              onClick={closeCart}
+              className="flex min-h-12 items-center justify-center rounded-lg border border-white/15 px-5 text-xs font-black uppercase tracking-[0.16em] text-white transition-[background-color,border-color,transform] duration-150 hover:border-white/35 hover:bg-white/10 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+            >
+              Ver carrinho
+            </Link>
             <button
               type="button"
               onClick={closeCart}
@@ -156,13 +170,6 @@ export function CartDrawer() {
             >
               Continuar comprando
             </button>
-            <Link
-              href="/cart"
-              onClick={closeCart}
-              className="flex min-h-12 items-center justify-center rounded-lg bg-white px-5 text-xs font-black uppercase tracking-[0.16em] text-black transition-[background-color,transform] duration-150 hover:bg-neutral-200 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-            >
-              Ver carrinho
-            </Link>
           </div>
         </div>
       </aside>

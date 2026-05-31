@@ -53,6 +53,7 @@ export function HeaderUtilities() {
       </Link>
       <button
         type="button"
+        data-cart-trigger
         onClick={openCart}
         className="relative flex h-11 w-11 items-center justify-center rounded-full text-white transition-[background-color,transform] duration-150 hover:bg-white/10 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
         aria-label={`Carrinho com ${count} item(s)`}
