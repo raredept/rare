@@ -57,6 +57,10 @@ beforeEach(() => {
   quoteMocks.getStoreSettings.mockResolvedValue({
     shippingMode: "manual",
     originCep: "01001000",
+    fixedShippingInCents: 0,
+    manualShippingInCents: 0,
+    freeShippingMinInCents: null,
+    freeShippingThresholdInCents: null,
     checkoutRequiresAddress: true,
   });
   quoteMocks.prisma.productVariant.findMany.mockResolvedValue([variant()]);
@@ -64,6 +68,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
 });
 
 describe("shipping quote route", () => {
@@ -107,6 +112,75 @@ describe("shipping quote route", () => {
     expect(JSON.stringify(body)).not.toContain("priceInCents");
   });
 
+  it("returns fixed shipping without requiring origin CEP", async () => {
+    quoteMocks.getStoreSettings.mockResolvedValueOnce({
+      shippingMode: "fixed",
+      originCep: null,
+      fixedShippingInCents: 2500,
+      manualShippingInCents: 0,
+      freeShippingMinInCents: null,
+      freeShippingThresholdInCents: null,
+      checkoutRequiresAddress: true,
+    });
+
+    const response = await POST(request(validBody) as never);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.options).toEqual([
+      expect.objectContaining({
+        id: "fixed",
+        provider: "fixed",
+        service: "fixed",
+        label: "Frete fixo",
+        amountCents: 2500,
+        originCep: null,
+        destinationCep: "22041001",
+      }),
+    ]);
+  });
+
+  it("uses the default origin CEP when manual shipping has no configured origin", async () => {
+    quoteMocks.getStoreSettings.mockResolvedValueOnce({
+      shippingMode: "manual",
+      originCep: null,
+      fixedShippingInCents: 0,
+      manualShippingInCents: 0,
+      freeShippingMinInCents: null,
+      freeShippingThresholdInCents: null,
+      checkoutRequiresAddress: true,
+    });
+
+    const response = await POST(request(validBody) as never);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.options.map((option: { service: string }) => option.service)).toEqual(["PAC", "SEDEX"]);
+    expect(body.options[0].originCep).toBe("31170350");
+  });
+
+  it("returns disabled shipping without requiring a quote", async () => {
+    quoteMocks.getStoreSettings.mockResolvedValueOnce({
+      shippingMode: "disabled",
+      originCep: null,
+      fixedShippingInCents: 0,
+      manualShippingInCents: 0,
+      freeShippingMinInCents: null,
+      freeShippingThresholdInCents: null,
+      checkoutRequiresAddress: true,
+    });
+
+    const response = await POST(request(validBody) as never);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      options: [],
+      disabled: true,
+    });
+    expect(quoteMocks.prisma.productVariant.findMany).not.toHaveBeenCalled();
+  });
+
   it("uses fixed package dimensions when product shipping dimensions are missing", async () => {
     quoteMocks.prisma.productVariant.findMany.mockResolvedValueOnce([
       variant({
@@ -142,5 +216,95 @@ describe("shipping quote route", () => {
 
     expect(response.status).toBe(503);
     expect(body.error).toBe("Frete Correios precisa de CORREIOS_USER e CORREIOS_TOKEN configurados.");
+  });
+
+  it("returns normalized Melhor Envio options using originCep from settings", async () => {
+    vi.stubEnv("SHIPPING_PROVIDER", "melhor_envio");
+    vi.stubEnv("MELHOR_ENVIO_TOKEN", "test-token");
+    const fetchMock = vi.fn<typeof fetch>(async () =>
+      new Response(
+        JSON.stringify([{ id: 1, name: "PAC", custom_price: "22.30", custom_delivery_time: 5, company: { name: "Correios" } }]),
+        { status: 200 },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    quoteMocks.getStoreSettings.mockResolvedValueOnce({
+      shippingMode: "fixed",
+      originCep: "31170-350",
+      fixedShippingInCents: 2500,
+      manualShippingInCents: 0,
+      freeShippingMinInCents: null,
+      freeShippingThresholdInCents: null,
+      checkoutRequiresAddress: true,
+    });
+
+    const response = await POST(request(validBody) as never);
+    const body = await response.json();
+    const payload = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+
+    expect(response.status).toBe(200);
+    expect(payload.from.postal_code).toBe("31170350");
+    expect(body.options).toEqual([
+      expect.objectContaining({
+        id: "melhor_envio:1",
+        provider: "melhor_envio",
+        service: "1",
+        label: "Correios PAC",
+        amountCents: 2230,
+        originCep: "31170350",
+        destinationCep: "22041001",
+      }),
+    ]);
+    expect(body.options.map((option: { provider: string }) => option.provider)).not.toContain("manual");
+  });
+
+  it("uses the default store origin CEP for Melhor Envio when settings originCep is empty", async () => {
+    vi.stubEnv("SHIPPING_PROVIDER", "melhor_envio");
+    vi.stubEnv("MELHOR_ENVIO_TOKEN", "test-token");
+    const fetchMock = vi.fn<typeof fetch>(async () =>
+      new Response(JSON.stringify([{ id: 2, name: "SEDEX", price: "30.00", delivery_time: 2 }]), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    quoteMocks.getStoreSettings.mockResolvedValueOnce({
+      shippingMode: "melhor_envio",
+      originCep: null,
+      fixedShippingInCents: 0,
+      manualShippingInCents: 0,
+      freeShippingMinInCents: null,
+      freeShippingThresholdInCents: null,
+      checkoutRequiresAddress: true,
+    });
+
+    const response = await POST(request(validBody) as never);
+    const body = await response.json();
+    const payload = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+
+    expect(response.status).toBe(200);
+    expect(payload.from.postal_code).toBe("31170350");
+    expect(body.options[0]).toEqual(
+      expect.objectContaining({
+        provider: "melhor_envio",
+        amountCents: 3000,
+      }),
+    );
+  });
+
+  it("returns a clear Melhor Envio configuration error without falling back to manual quotes", async () => {
+    vi.stubEnv("SHIPPING_PROVIDER", "melhor_envio");
+    quoteMocks.getStoreSettings.mockResolvedValueOnce({
+      shippingMode: "manual",
+      originCep: "31170350",
+      fixedShippingInCents: 0,
+      manualShippingInCents: 0,
+      freeShippingMinInCents: null,
+      freeShippingThresholdInCents: null,
+      checkoutRequiresAddress: true,
+    });
+
+    const response = await POST(request(validBody) as never);
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body.error).toBe("Configure MELHOR_ENVIO_TOKEN para calcular o frete automaticamente.");
   });
 });

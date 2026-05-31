@@ -75,6 +75,12 @@ Antes de venda aberta, faça um smoke em modo de teste da Stripe com `CHECKOUT_E
 
 ### Frete e medidas
 
-O provider `manual` retorna PAC/SEDEX de fallback e mantém o checkout backend-authoritative. Para frete real, configure um provider externo em homologação antes de produção aberta.
+O provider principal de frete real é `SHIPPING_PROVIDER=melhor_envio`, usando cotação via `POST /api/v2/me/shipment/calculate`. Configure `MELHOR_ENVIO_TOKEN` ou `MELHOR_ENVIO_ACCESS_TOKEN`; `MELHOR_ENVIO_CLIENT_ID` e `MELHOR_ENVIO_CLIENT_SECRET` sozinhos não bastam sem o OAuth finalizado.
 
-O cálculo usa fallback de `1000g` e `10x35x35cm` quando o produto não tem medidas persistidas. Rode `npm run shipping:dimensions:audit` para listar produtos que ainda dependem desse fallback antes de ativar frete real.
+Sem `MELHOR_ENVIO_BASE_URL`, o app usa `https://www.melhorenvio.com.br`. Com `MELHOR_ENVIO_ENV=sandbox`, usa a base sandbox padrão. A cotação inicial solicita os serviços `1,2` por `MELHOR_ENVIO_SERVICES`, normalmente PAC/SEDEX no Melhor Envio, e sempre normaliza o nome retornado pela API.
+
+O CEP de origem usa `SHIPPING_ORIGIN_CEP` ou `StoreSettings.originCep`. Se ambos estiverem vazios, o fallback controlado da loja é `31170350`.
+
+O cálculo usa dados reais de `Product.weightGrams`, `lengthCm`, `widthCm` e `heightCm`. Quando faltarem dados, usa fallback controlado de `1000g` e `10x35x35cm`. Rode `npm run shipping:dimensions:audit` para listar produtos que ainda dependem desse fallback antes de venda aberta.
+
+O provider `manual` permanece como fallback de homologação, e `fixed` é legado/provisório. O checkout nunca confia em valor de frete vindo do frontend; ele recalcula a opção no backend antes de criar a sessão Stripe.

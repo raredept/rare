@@ -50,6 +50,7 @@ describe("CartPageClient", () => {
         },
         shippingConfig: {
           enabled: false,
+          mode: "fixed",
           provider: "manual",
           originCepConfigured: false,
         },
@@ -90,14 +91,15 @@ describe("CartPageClient", () => {
         },
         shippingConfig: {
           enabled: true,
+          mode: "manual",
           provider: "manual",
           originCepConfigured: true,
         },
       }) as ReactElement,
     );
 
-    expect(html).toContain("Opções de entrega");
-    expect(html).toContain("Calcular frete");
+    expect(html).toContain("Escolha uma forma de entrega");
+    expect(html).toContain("Calcule o frete");
     expect(html).toContain("Calcule o frete com seu CEP.");
     expect(html).toContain("Total");
     expect(html).toContain("100,00");
@@ -131,16 +133,19 @@ describe("CartPageClient", () => {
         },
         shippingConfig: {
           enabled: true,
+          mode: "fixed",
           provider: "manual",
-          originCepConfigured: true,
+          originCepConfigured: false,
         },
       }) as ReactElement,
     );
 
     expect(html).toContain("Subtotal");
     expect(html).toContain("319,99");
-    expect(html).toContain("Calcule o frete");
-    expect(html).toContain("Calcule o frete com seu CEP.");
+    expect(html).toContain("Entrega combinada com valor fixo para este pedido.");
+    expect(html).toContain("Informe o CEP do endereço de entrega.");
+    expect(html).not.toContain("Calcule o frete");
+    expect(html).not.toContain("Calcule o frete com seu CEP.");
     expect(html).not.toContain("50,00");
     expect(html).not.toContain("369,99");
   });
@@ -165,6 +170,15 @@ describe("CartPageClient", () => {
       label: "SEDEX",
       amountCents: 2990,
     };
+    const fixed = {
+      ...pac,
+      id: "fixed",
+      provider: "fixed",
+      service: "fixed" as const,
+      label: "Frete fixo",
+      amountCents: 2500,
+      originCep: null,
+    };
 
     expect(
       resolveShippingOptionSelection([pac, sedex], {
@@ -175,6 +189,9 @@ describe("CartPageClient", () => {
     ).toBe("manual:SEDEX");
     expect(resolveShippingOptionSelection([pac], { normalizedCep: "01001000", autoSelectSingle: true, now })?.id).toBe(
       "manual:PAC",
+    );
+    expect(resolveShippingOptionSelection([fixed], { normalizedCep: "01001000", autoSelectSingle: true, now })?.id).toBe(
+      "fixed",
     );
     expect(
       resolveShippingOptionSelection([{ ...pac, destinationCep: "22041001" }], {

@@ -18,7 +18,9 @@ import {
   getConfiguredShippingOriginCep,
   getConfiguredShippingProvider,
   getEffectiveFreeShippingThresholdInCents,
+  getFixedShippingQuotes,
   getShippingQuotes,
+  isFixedShippingModeActive,
   isShippingEnabled,
   type ShippingOption,
 } from "@/lib/shipping";
@@ -495,21 +497,38 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
                 lengthCm: variant.product.lengthCm,
                 widthCm: variant.product.widthCm,
                 heightCm: variant.product.heightCm,
+                priceInCents: variant.product.priceInCents,
               };
             }),
           );
-          const provider = getConfiguredShippingProvider(settings);
-          const originCep = getConfiguredShippingOriginCep(settings);
-          const quotes = await getShippingQuotes({
-            provider,
-            originCep,
-            destinationCep: destinationCep ?? "",
-            package: pkg,
-            subtotalInCents,
-            freeShippingThresholdInCents: getEffectiveFreeShippingThresholdInCents(settings),
-          });
+          const quotes =
+            isFixedShippingModeActive(settings)
+              ? getFixedShippingQuotes({
+                  settings,
+                  destinationCep: destinationCep ?? "",
+                  package: pkg,
+                  subtotalInCents,
+                })
+              : await (async () => {
+                  const provider = getConfiguredShippingProvider(settings);
+                  const originCep = getConfiguredShippingOriginCep(settings);
+                  return getShippingQuotes({
+                    provider,
+                    originCep,
+                    destinationCep: destinationCep ?? "",
+                    package: pkg,
+                    subtotalInCents,
+                    freeShippingThresholdInCents: getEffectiveFreeShippingThresholdInCents(settings),
+                  });
+                })();
           const selectedOption = findShippingOption(quotes.options, parsed.shippingOptionId);
           if (!selectedOption) {
+            throw new Error("Escolha uma opção de entrega válida para continuar.");
+          }
+          if (
+            (parsed.shippingOptionProvider && parsed.shippingOptionProvider !== selectedOption.provider) ||
+            (parsed.shippingOptionService && parsed.shippingOptionService !== selectedOption.service)
+          ) {
             throw new Error("Escolha uma opção de entrega válida para continuar.");
           }
 

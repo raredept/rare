@@ -3,6 +3,13 @@ import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import packageJson from "../package.json";
 import { validateEnvironment } from "../src/lib/env";
+import {
+  DEFAULT_PRODUCT_PACKAGE,
+  DEFAULT_PRODUCT_PACKAGE_WEIGHT_GRAMS,
+  DEFAULT_SHIPPING_ORIGIN_CEP,
+  normalizeShippingMode,
+  normalizeShippingProvider,
+} from "../src/lib/shipping";
 
 type CheckResult = {
   label: string;
@@ -38,6 +45,69 @@ async function checkDatabase() {
   try {
     const { prisma } = await import("../src/lib/prisma");
     await prisma.$queryRaw`SELECT 1`;
+
+    const [settings, activeProductsMissingDimensions] = await Promise.all([
+      prisma.storeSettings.findUnique({
+        where: { id: "store" },
+        select: {
+          shippingMode: true,
+          originCep: true,
+          fixedShippingInCents: true,
+          manualShippingInCents: true,
+        },
+      }),
+      prisma.product.count({
+        where: {
+          active: true,
+          OR: [
+            { weightGrams: null },
+            { lengthCm: null },
+            { widthCm: null },
+            { heightCm: null },
+            { weightGrams: { lte: 0 } },
+            { lengthCm: { lte: 0 } },
+            { widthCm: { lte: 0 } },
+            { heightCm: { lte: 0 } },
+          ],
+        },
+      }),
+    ]);
+
+    const mode = normalizeShippingMode(settings?.shippingMode);
+    const envProvider = normalizeShippingProvider(process.env.SHIPPING_PROVIDER);
+    const effectiveProvider = envProvider ?? normalizeShippingProvider(mode) ?? (mode === "fixed" ? "fixed" : mode === "disabled" ? null : "manual");
+    const originCepConfigured = Boolean(process.env.SHIPPING_ORIGIN_CEP?.trim() || settings?.originCep?.trim());
+    if (mode === "fixed" && !envProvider) {
+      add("shipping mode", true, "Frete fixo esta ativo como modo legado/provisorio; fluxo principal deve ser provider automatico.", true);
+    }
+    if (effectiveProvider === "melhor_envio") {
+      const hasToken = Boolean(process.env.MELHOR_ENVIO_TOKEN?.trim() || process.env.MELHOR_ENVIO_ACCESS_TOKEN?.trim());
+      const hasOAuthClient = Boolean(process.env.MELHOR_ENVIO_CLIENT_ID?.trim() || process.env.MELHOR_ENVIO_CLIENT_SECRET?.trim());
+      add(
+        "shipping:melhor_envio",
+        hasToken,
+        hasToken
+          ? `Melhor Envio configurado por token (${(process.env.MELHOR_ENVIO_ENV || "production").trim() || "production"}).`
+          : hasOAuthClient
+            ? "Configure MELHOR_ENVIO_TOKEN ou finalize a autorizacao OAuth do Melhor Envio."
+            : "MELHOR_ENVIO_TOKEN ou MELHOR_ENVIO_ACCESS_TOKEN ausente para SHIPPING_PROVIDER=melhor_envio.",
+        !hasToken,
+      );
+    }
+    if (effectiveProvider && effectiveProvider !== "fixed" && !originCepConfigured) {
+      add("shipping:originCep", true, `originCep ausente; fallback ${DEFAULT_SHIPPING_ORIGIN_CEP} sera usado.`, true);
+    }
+    if (activeProductsMissingDimensions > 0) {
+      add(
+        "shipping:dimensions",
+        true,
+        `${activeProductsMissingDimensions} produto(s) ativo(s) usam fallback ${DEFAULT_PRODUCT_PACKAGE_WEIGHT_GRAMS}g e ${DEFAULT_PRODUCT_PACKAGE.heightCm}x${DEFAULT_PRODUCT_PACKAGE.widthCm}x${DEFAULT_PRODUCT_PACKAGE.lengthCm}cm.`,
+        true,
+      );
+    } else {
+      add("shipping:dimensions", true, "Produtos ativos possuem peso e dimensoes para cotacao.");
+    }
+
     await prisma.$disconnect();
     add("database", true, "Conexao com banco ok.");
   } catch (error) {

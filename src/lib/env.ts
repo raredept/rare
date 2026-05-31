@@ -334,6 +334,39 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
     );
   }
 
+  const shippingProvider = clean(process.env.SHIPPING_PROVIDER)?.toLowerCase();
+  if (shippingProvider === "melhor_envio") {
+    const melhorEnvioToken = clean(process.env.MELHOR_ENVIO_TOKEN) ?? clean(process.env.MELHOR_ENVIO_ACCESS_TOKEN);
+    const melhorEnvioOAuthClient = clean(process.env.MELHOR_ENVIO_CLIENT_ID) || clean(process.env.MELHOR_ENVIO_CLIENT_SECRET);
+    const level: EnvIssueLevel = production && checkoutEnabled ? "error" : "warning";
+
+    if (!melhorEnvioToken && melhorEnvioOAuthClient) {
+      addIssue(
+        issues,
+        level,
+        "MELHOR_ENVIO_TOKEN",
+        "Configure MELHOR_ENVIO_TOKEN or finish Melhor Envio OAuth authorization before automatic shipping.",
+      );
+    } else if (!melhorEnvioToken) {
+      addIssue(
+        issues,
+        level,
+        "MELHOR_ENVIO_TOKEN",
+        "MELHOR_ENVIO_TOKEN or MELHOR_ENVIO_ACCESS_TOKEN is required for SHIPPING_PROVIDER=melhor_envio.",
+      );
+    }
+
+    const melhorEnvioEnv = clean(process.env.MELHOR_ENVIO_ENV);
+    if (melhorEnvioEnv && !["production", "sandbox"].includes(melhorEnvioEnv.toLowerCase())) {
+      addIssue(issues, "warning", "MELHOR_ENVIO_ENV", "MELHOR_ENVIO_ENV should be production or sandbox.");
+    }
+
+    const melhorEnvioBaseUrl = clean(process.env.MELHOR_ENVIO_BASE_URL);
+    if (melhorEnvioBaseUrl && !isHttpUrl(melhorEnvioBaseUrl)) {
+      addIssue(issues, "error", "MELHOR_ENVIO_BASE_URL", "MELHOR_ENVIO_BASE_URL must be an absolute http(s) URL.");
+    }
+  }
+
   const errors = issues.filter((issue) => issue.level === "error");
   const warnings = issues.filter((issue) => issue.level === "warning");
 

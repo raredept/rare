@@ -3,10 +3,17 @@ import { isValidCep, normalizeCep as normalizeCepValue, parseCep } from "@/lib/c
 export const shippingProviders = ["manual", "correios", "melhor_envio", "frenet"] as const;
 export const shippingModes = ["disabled", "manual", "fixed", "future_provider", "correios", "melhor_envio", "frenet"] as const;
 export const shippingServiceCodes = ["PAC", "SEDEX"] as const;
+export const fixedShippingOptionId = "fixed";
+export const DEFAULT_SHIPPING_ORIGIN_CEP = "31170350";
+export const MELHOR_ENVIO_DEFAULT_PRODUCTION_BASE_URL = "https://www.melhorenvio.com.br";
+export const MELHOR_ENVIO_DEFAULT_SANDBOX_BASE_URL = "https://sandbox.melhorenvio.com.br";
+export const MELHOR_ENVIO_DEFAULT_SERVICES = "1,2";
 
 export type ShippingProvider = (typeof shippingProviders)[number];
 export type ShippingMode = (typeof shippingModes)[number];
 export type ShippingServiceCode = (typeof shippingServiceCodes)[number];
+export type ShippingOptionProvider = ShippingProvider | "fixed";
+export type ShippingOptionService = string;
 
 export type ShippingPackageItem = {
   productId: string;
@@ -16,6 +23,7 @@ export type ShippingPackageItem = {
   lengthCm?: number | null;
   widthCm?: number | null;
   heightCm?: number | null;
+  priceInCents?: number | null;
 };
 
 export type ShippingPackage = {
@@ -31,27 +39,36 @@ export type ShippingPackage = {
     lengthCm: number;
     widthCm: number;
     heightCm: number;
+    priceInCents: number;
+    usedFallbackWeight: boolean;
+    usedFallbackDimensions: boolean;
+    usedFallback: boolean;
   }>;
+  usedFallbackWeight: boolean;
+  usedFallbackDimensions: boolean;
+  usedFallback: boolean;
 };
 
 export type ShippingOption = {
   id: string;
-  provider: ShippingProvider;
-  service: ShippingServiceCode;
+  provider: ShippingOptionProvider;
+  service: ShippingOptionService;
   label: string;
   amountCents: number;
   estimatedDaysMin?: number;
   estimatedDaysMax?: number;
   deliveryEstimateText: string;
-  originCep: string;
+  originCep: string | null;
   destinationCep: string;
   expiresAt?: string;
+  companyName?: string;
+  rawServiceId?: string | number;
   raw?: unknown;
 };
 
 export type ShippingQuoteRequest = {
   provider?: ShippingProvider;
-  originCep: string;
+  originCep?: string | null;
   destinationCep: string;
   package: ShippingPackage;
   subtotalInCents?: number;
@@ -61,6 +78,13 @@ export type ShippingQuoteRequest = {
 export type ShippingProviderResult = {
   options: ShippingOption[];
   warnings: string[];
+};
+
+export type FixedShippingQuoteRequest = {
+  settings: ProvisionalShippingSettings;
+  destinationCep: string;
+  package: ShippingPackage;
+  subtotalInCents?: number;
 };
 
 export type ProvisionalShippingSettings = {
@@ -134,12 +158,15 @@ export function normalizeShippingProvider(value: string | null | undefined): Shi
 }
 
 export function isShippingEnabled(settings?: ProvisionalShippingSettings | null) {
+  const mode = normalizeShippingMode(settings?.shippingMode);
+  if (mode === "disabled") return false;
+
   const envValue = clean(process.env.SHIPPING_ENABLED);
   if (envValue) {
     return !disabledValues.has(envValue.toLowerCase());
   }
 
-  return normalizeShippingMode(settings?.shippingMode) !== "disabled";
+  return true;
 }
 
 export function getConfiguredShippingProvider(settings?: ProvisionalShippingSettings | null): ShippingProvider {
@@ -157,34 +184,46 @@ export function getConfiguredShippingProvider(settings?: ProvisionalShippingSett
   return "manual";
 }
 
+export function isFixedShippingModeActive(settings?: ProvisionalShippingSettings | null) {
+  return normalizeShippingMode(settings?.shippingMode) === "fixed" && !clean(process.env.SHIPPING_PROVIDER);
+}
+
 export function getConfiguredShippingOriginCep(settings?: ProvisionalShippingSettings | null) {
-  const originCep = clean(process.env.SHIPPING_ORIGIN_CEP) ?? clean(settings?.originCep);
-  if (!originCep) {
-    throw new Error("Configure o CEP de origem da loja para calcular o frete.");
-  }
+  const originCep = clean(process.env.SHIPPING_ORIGIN_CEP) ?? clean(settings?.originCep) ?? DEFAULT_SHIPPING_ORIGIN_CEP;
   return validateCep(originCep, "CEP de origem");
+}
+
+export function isUsingDefaultShippingOriginCep(settings?: ProvisionalShippingSettings | null) {
+  return !clean(process.env.SHIPPING_ORIGIN_CEP) && !clean(settings?.originCep);
 }
 
 export function getShippingPublicConfig(settings?: ProvisionalShippingSettings | null) {
   const enabled = isShippingEnabled(settings);
+  const mode = normalizeShippingMode(settings?.shippingMode);
+  const fixedModeActive = isFixedShippingModeActive(settings);
   let provider: ShippingProvider = "manual";
   let originCepConfigured = false;
 
-  try {
-    provider = getConfiguredShippingProvider(settings);
-  } catch {
-    provider = "manual";
+  if (!fixedModeActive) {
+    try {
+      provider = getConfiguredShippingProvider(settings);
+    } catch {
+      provider = "manual";
+    }
   }
 
-  try {
-    getConfiguredShippingOriginCep(settings);
-    originCepConfigured = true;
-  } catch {
-    originCepConfigured = false;
+  if (!fixedModeActive && mode !== "disabled") {
+    try {
+      getConfiguredShippingOriginCep(settings);
+      originCepConfigured = true;
+    } catch {
+      originCepConfigured = false;
+    }
   }
 
   return {
     enabled,
+    mode: mode === "disabled" ? mode : fixedModeActive ? "fixed" : provider,
     provider,
     originCepConfigured,
   };
@@ -194,6 +233,14 @@ export function getEffectiveFixedShippingInCents(settings: ProvisionalShippingSe
   const fixed = settings.fixedShippingInCents ?? 0;
   if (fixed > 0) return fixed;
   return Math.max(0, settings.manualShippingInCents ?? 0);
+}
+
+export function getRequiredFixedShippingInCents(settings: ProvisionalShippingSettings) {
+  const amount = getEffectiveFixedShippingInCents(settings);
+  if (amount <= 0) {
+    throw new Error("Configure um valor de frete fixo para habilitar o checkout.");
+  }
+  return amount;
 }
 
 export function getEffectiveFreeShippingThresholdInCents(settings: ProvisionalShippingSettings) {
@@ -276,13 +323,20 @@ export function buildPackageFromCart(items: ShippingPackageItem[]): ShippingPack
   let lengthCm = 0;
   let widthCm = 0;
   let stackedHeightCm = 0;
+  let usedFallbackWeight = false;
+  let usedFallbackDimensions = false;
   const normalizedItems: ShippingPackage["items"] = [];
 
   for (const item of items) {
+    const itemUsedFallbackLength = !requirePositiveDimension(Number(item.lengthCm));
+    const itemUsedFallbackWidth = !requirePositiveDimension(Number(item.widthCm));
+    const itemUsedFallbackHeight = !requirePositiveDimension(Number(item.heightCm));
+    const itemUsedFallbackWeight = !requirePositiveDimension(Number(item.weightGrams));
     const itemLengthCm = resolvePositiveInt(item.lengthCm, DEFAULT_PRODUCT_PACKAGE.lengthCm);
     const itemWidthCm = resolvePositiveInt(item.widthCm, DEFAULT_PRODUCT_PACKAGE.widthCm);
     const itemHeightCm = resolvePositiveInt(item.heightCm, DEFAULT_PRODUCT_PACKAGE.heightCm);
     const itemWeightGrams = resolvePositiveInt(item.weightGrams, DEFAULT_PRODUCT_PACKAGE_WEIGHT_GRAMS);
+    const itemUsedFallbackDimensions = itemUsedFallbackLength || itemUsedFallbackWidth || itemUsedFallbackHeight;
 
     const quantity = Math.max(1, item.quantity);
     const normalized = {
@@ -293,8 +347,14 @@ export function buildPackageFromCart(items: ShippingPackageItem[]): ShippingPack
       lengthCm: itemLengthCm,
       widthCm: itemWidthCm,
       heightCm: itemHeightCm,
+      priceInCents: Math.max(0, Math.round(Number(item.priceInCents ?? 0))),
+      usedFallbackWeight: itemUsedFallbackWeight,
+      usedFallbackDimensions: itemUsedFallbackDimensions,
+      usedFallback: itemUsedFallbackWeight || itemUsedFallbackDimensions,
     };
     normalizedItems.push(normalized);
+    usedFallbackWeight ||= itemUsedFallbackWeight;
+    usedFallbackDimensions ||= itemUsedFallbackDimensions;
     weightGrams += normalized.weightGrams * quantity;
     lengthCm = Math.max(lengthCm, normalized.lengthCm);
     widthCm = Math.max(widthCm, normalized.widthCm);
@@ -307,6 +367,9 @@ export function buildPackageFromCart(items: ShippingPackageItem[]): ShippingPack
     widthCm,
     heightCm: Math.max(1, stackedHeightCm),
     items: normalizedItems,
+    usedFallbackWeight,
+    usedFallbackDimensions,
+    usedFallback: usedFallbackWeight || usedFallbackDimensions,
   };
 }
 
@@ -416,6 +479,199 @@ export async function getManualShippingQuotes(request: ShippingQuoteRequest): Pr
   };
 }
 
+export function getFixedShippingQuotes(request: FixedShippingQuoteRequest): ShippingProviderResult {
+  const destinationCep = validateCep(request.destinationCep, "CEP de destino");
+  const threshold = getEffectiveFreeShippingThresholdInCents(request.settings);
+  const freeShippingApplied = Boolean(
+    threshold && request.subtotalInCents && request.subtotalInCents >= threshold,
+  );
+  const amountCents = freeShippingApplied ? 0 : getRequiredFixedShippingInCents(request.settings);
+
+  return {
+    options: [
+      {
+        id: fixedShippingOptionId,
+        provider: "fixed",
+        service: "fixed",
+        label: freeShippingApplied ? "Frete grátis" : "Frete fixo",
+        amountCents,
+        deliveryEstimateText: freeShippingApplied
+          ? "Entrega combinada com frete grátis para este pedido."
+          : "Entrega combinada com valor fixo para este pedido.",
+        originCep: null,
+        destinationCep,
+        raw: {
+          mode: "fixed",
+          freeShippingApplied,
+          freeShippingThresholdInCents: threshold ?? null,
+          package: {
+            weightGrams: request.package.weightGrams,
+            lengthCm: request.package.lengthCm,
+            widthCm: request.package.widthCm,
+            heightCm: request.package.heightCm,
+          },
+        },
+      },
+    ],
+    warnings: [],
+  };
+}
+
+type MelhorEnvioRawQuote = {
+  id?: string | number | null;
+  name?: string | null;
+  price?: string | number | null;
+  custom_price?: string | number | null;
+  customPrice?: string | number | null;
+  delivery_time?: string | number | null;
+  custom_delivery_time?: string | number | null;
+  customDeliveryTime?: string | number | null;
+  company?: {
+    id?: string | number | null;
+    name?: string | null;
+  } | null;
+  error?: unknown;
+};
+
+function getMelhorEnvioToken() {
+  const token = clean(process.env.MELHOR_ENVIO_TOKEN) ?? clean(process.env.MELHOR_ENVIO_ACCESS_TOKEN);
+  if (token) return token;
+
+  if (clean(process.env.MELHOR_ENVIO_CLIENT_ID) || clean(process.env.MELHOR_ENVIO_CLIENT_SECRET)) {
+    throw new Error("Configure MELHOR_ENVIO_TOKEN ou finalize a autorização OAuth do Melhor Envio.");
+  }
+
+  throw new Error("Configure MELHOR_ENVIO_TOKEN para calcular o frete automaticamente.");
+}
+
+export function getMelhorEnvioBaseUrl() {
+  const configured = clean(process.env.MELHOR_ENVIO_BASE_URL);
+  if (configured) return configured.replace(/\/$/, "");
+
+  const env = clean(process.env.MELHOR_ENVIO_ENV)?.toLowerCase();
+  if (env === "sandbox") return MELHOR_ENVIO_DEFAULT_SANDBOX_BASE_URL;
+  return MELHOR_ENVIO_DEFAULT_PRODUCTION_BASE_URL;
+}
+
+function getMelhorEnvioUserAgent() {
+  return clean(process.env.MELHOR_ENVIO_USER_AGENT) ?? "RARE Store (raredept.com.br)";
+}
+
+function parseDecimal(value: string | number | null | undefined) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  const trimmed = clean(value);
+  if (!trimmed) return null;
+
+  const normalized = trimmed.includes(",") ? trimmed.replace(/\./g, "").replace(",", ".") : trimmed;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parsePriceInCents(value: string | number | null | undefined) {
+  const parsed = parseDecimal(value);
+  if (parsed === null) return null;
+  return Math.round(parsed * 100);
+}
+
+function parseDeliveryDays(value: string | number | null | undefined) {
+  const parsed = parseDecimal(value);
+  if (parsed === null || parsed < 0) return null;
+  return Math.max(1, Math.ceil(parsed));
+}
+
+function centsToReais(cents: number) {
+  return Math.max(0, Math.round(cents)) / 100;
+}
+
+function gramsToKg(grams: number) {
+  return Math.max(0.001, Math.round((grams / 1000) * 1000) / 1000);
+}
+
+function buildMelhorEnvioPayload(request: ShippingQuoteRequest, originCep: string, destinationCep: string) {
+  return {
+    from: {
+      postal_code: originCep,
+    },
+    to: {
+      postal_code: destinationCep,
+    },
+    products: request.package.items.map((item) => ({
+      id: item.productId,
+      width: item.widthCm,
+      height: item.heightCm,
+      length: item.lengthCm,
+      weight: gramsToKg(item.weightGrams),
+      insurance_value: centsToReais(item.priceInCents),
+      quantity: item.quantity,
+    })),
+    options: {
+      receipt: false,
+      own_hand: false,
+    },
+    services: clean(process.env.MELHOR_ENVIO_SERVICES) ?? MELHOR_ENVIO_DEFAULT_SERVICES,
+  };
+}
+
+function normalizeMelhorEnvioQuotes(params: {
+  quotes: MelhorEnvioRawQuote[];
+  originCep: string;
+  destinationCep: string;
+  request: ShippingQuoteRequest;
+}) {
+  const threshold = params.request.freeShippingThresholdInCents ?? null;
+  const freeShippingApplied = Boolean(
+    threshold && params.request.subtotalInCents && params.request.subtotalInCents >= threshold,
+  );
+
+  return params.quotes.flatMap<ShippingOption>((quote) => {
+    if (!quote || quote.error) return [];
+
+    const rawServiceId = quote.id ?? quote.name ?? null;
+    const service = rawServiceId === null || rawServiceId === undefined ? null : String(rawServiceId);
+    const priceInCents = parsePriceInCents(quote.custom_price ?? quote.customPrice ?? quote.price);
+    if (!service || priceInCents === null || priceInCents <= 0) return [];
+
+    const amountCents = freeShippingApplied ? 0 : priceInCents;
+    const deliveryDays = parseDeliveryDays(quote.custom_delivery_time ?? quote.customDeliveryTime ?? quote.delivery_time);
+    const companyName = clean(quote.company?.name);
+    const serviceName = clean(quote.name) ?? `Serviço ${service}`;
+    const label = companyName && !serviceName.toLowerCase().includes(companyName.toLowerCase())
+      ? `${companyName} ${serviceName}`
+      : serviceName;
+
+    return [
+      {
+        id: `melhor_envio:${service}`,
+        provider: "melhor_envio",
+        service,
+        label,
+        amountCents,
+        estimatedDaysMin: deliveryDays ?? undefined,
+        estimatedDaysMax: deliveryDays ?? undefined,
+        deliveryEstimateText: deliveryDays
+          ? `Prazo estimado em até ${deliveryDays} dias úteis`
+          : "Prazo estimado informado pela transportadora.",
+        originCep: params.originCep,
+        destinationCep: params.destinationCep,
+        expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+        companyName,
+        rawServiceId: quote.id ?? service,
+        raw: {
+          provider: "melhor_envio",
+          serviceId: quote.id ?? service,
+          company: quote.company ?? null,
+          serviceName,
+          priceInCents,
+          freeShippingApplied,
+          freeShippingThresholdInCents: threshold,
+          usedFallbackWeight: params.request.package.usedFallbackWeight,
+          usedFallbackDimensions: params.request.package.usedFallbackDimensions,
+        },
+      },
+    ];
+  });
+}
+
 export async function getCorreiosShippingQuotes(): Promise<ShippingProviderResult> {
   if (!clean(process.env.CORREIOS_USER) || !clean(process.env.CORREIOS_TOKEN)) {
     throw new Error("Frete Correios precisa de CORREIOS_USER e CORREIOS_TOKEN configurados.");
@@ -423,11 +679,68 @@ export async function getCorreiosShippingQuotes(): Promise<ShippingProviderResul
   throw new Error("Provider Correios preparado, mas a integração externa ainda não está ativada nesta versão.");
 }
 
-export async function getMelhorEnvioShippingQuotes(): Promise<ShippingProviderResult> {
-  if (!clean(process.env.MELHOR_ENVIO_TOKEN)) {
-    throw new Error("Frete Melhor Envio precisa de MELHOR_ENVIO_TOKEN configurado.");
+export async function getMelhorEnvioShippingQuotes(request: ShippingQuoteRequest): Promise<ShippingProviderResult> {
+  const token = getMelhorEnvioToken();
+  const originCep = validateCep(request.originCep, "CEP de origem");
+  let destinationCep: string;
+  try {
+    destinationCep = validateCep(request.destinationCep, "CEP de destino");
+  } catch {
+    throw new Error("Informe um CEP válido para calcular o frete.");
   }
-  throw new Error("Provider Melhor Envio preparado, mas a integração externa ainda não está ativada nesta versão.");
+  const baseUrl = getMelhorEnvioBaseUrl();
+  const endpoint = `${baseUrl}/api/v2/me/shipment/calculate`;
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": getMelhorEnvioUserAgent(),
+    },
+    body: JSON.stringify(buildMelhorEnvioPayload(request, originCep, destinationCep)),
+  });
+
+  let body: unknown = null;
+  try {
+    body = await response.json();
+  } catch {
+    body = null;
+  }
+
+  if (response.status === 401 || response.status === 403) {
+    throw new Error("Não foi possível autenticar no Melhor Envio. Verifique o token.");
+  }
+
+  if (response.status === 422) {
+    throw new Error("Não foi possível calcular o frete com os dados informados.");
+  }
+
+  if (!response.ok) {
+    throw new Error("Frete indisponível no momento. Tente novamente em alguns instantes.");
+  }
+
+  const rawQuotes = Array.isArray(body)
+    ? body
+    : body && typeof body === "object" && Array.isArray((body as { data?: unknown }).data)
+      ? (body as { data: unknown[] }).data
+      : [];
+  const options = normalizeMelhorEnvioQuotes({
+    quotes: rawQuotes as MelhorEnvioRawQuote[],
+    originCep,
+    destinationCep,
+    request,
+  });
+
+  if (!options.length) {
+    throw new Error("Nenhuma opção de frete disponível para este CEP.");
+  }
+
+  const warnings = request.package.usedFallback
+    ? ["Cotação Melhor Envio usou fallback controlado de peso/dimensões para produto sem dados completos."]
+    : [];
+
+  return { options, warnings };
 }
 
 export async function getFrenetShippingQuotes(): Promise<ShippingProviderResult> {
@@ -442,11 +755,14 @@ export async function getShippingQuotes(request: ShippingQuoteRequest): Promise<
 
   if (provider === "manual") return getManualShippingQuotes(request);
   if (provider === "correios") return getCorreiosShippingQuotes();
-  if (provider === "melhor_envio") return getMelhorEnvioShippingQuotes();
+  if (provider === "melhor_envio") return getMelhorEnvioShippingQuotes(request);
   return getFrenetShippingQuotes();
 }
 
 export function formatShippingLabel(option: ShippingOption) {
+  if (option.provider === "fixed" || option.provider === "melhor_envio") {
+    return `${option.label} — ${option.deliveryEstimateText}`;
+  }
   return `${option.service} — ${option.deliveryEstimateText}`;
 }
 
@@ -471,6 +787,9 @@ export function buildShippingQuoteSnapshot(option: ShippingOption, pkg: Shipping
       lengthCm: pkg.lengthCm,
       widthCm: pkg.widthCm,
       heightCm: pkg.heightCm,
+      usedFallbackWeight: pkg.usedFallbackWeight,
+      usedFallbackDimensions: pkg.usedFallbackDimensions,
+      usedFallback: pkg.usedFallback,
       items: pkg.items,
     },
     quotedAt: quotedAt.toISOString(),

@@ -133,9 +133,9 @@ export function ProductForm({ product, categories, error }: ProductFormProps) {
 
         <section className="space-y-4 rounded-lg border border-neutral-800 bg-neutral-950/70 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
           <div>
-            <h2 className="text-sm font-black uppercase tracking-wide text-neutral-500">Dados para frete futuro</h2>
+            <h2 className="text-sm font-black uppercase tracking-wide text-neutral-500">Dados para frete automático</h2>
             <p className="mt-1 text-xs font-semibold text-neutral-500">
-              Essas medidas serao usadas para calculo de frete real em fase futura.
+              Essas medidas sao usadas na cotacao real. Se ficarem vazias, a loja usa fallback controlado ate completar o cadastro.
             </p>
           </div>
           <Field label="Peso em gramas">

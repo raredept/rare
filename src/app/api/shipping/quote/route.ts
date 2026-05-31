@@ -8,7 +8,9 @@ import {
   getConfiguredShippingOriginCep,
   getConfiguredShippingProvider,
   getEffectiveFreeShippingThresholdInCents,
+  getFixedShippingQuotes,
   getShippingQuotes,
+  isFixedShippingModeActive,
   isShippingEnabled,
   validateCep,
   type ShippingOption,
@@ -30,10 +32,33 @@ const publicQuoteErrors = new Set([
   "Variação inválida.",
   "Esse produto ainda precisa de peso e medidas para calcular o frete.",
   "Configure o CEP de origem da loja para calcular o frete.",
+  "Configure MELHOR_ENVIO_TOKEN para calcular o frete automaticamente.",
+  "Configure MELHOR_ENVIO_TOKEN ou finalize a autorização OAuth do Melhor Envio.",
+  "Informe um CEP válido para calcular o frete.",
+  "Não foi possível autenticar no Melhor Envio. Verifique o token.",
+  "Não foi possível calcular o frete com os dados informados.",
+  "Nenhuma opção de frete disponível para este CEP.",
+  "Frete indisponível no momento. Tente novamente em alguns instantes.",
   "Provedor de frete inválido.",
   "Frete Correios precisa de CORREIOS_USER e CORREIOS_TOKEN configurados.",
   "Frete Melhor Envio precisa de MELHOR_ENVIO_TOKEN configurado.",
   "Frete Frenet precisa de FRENET_TOKEN configurado.",
+  "Configure um valor de frete fixo para habilitar o checkout.",
+  "Provider Correios preparado, mas a integração externa ainda não está ativada nesta versão.",
+  "Provider Melhor Envio preparado, mas a integração externa ainda não está ativada nesta versão.",
+  "Provider Frenet preparado, mas a integração externa ainda não está ativada nesta versão.",
+]);
+
+const serviceUnavailableQuoteErrors = new Set([
+  "Configure o CEP de origem da loja para calcular o frete.",
+  "Configure MELHOR_ENVIO_TOKEN para calcular o frete automaticamente.",
+  "Configure MELHOR_ENVIO_TOKEN ou finalize a autorização OAuth do Melhor Envio.",
+  "Não foi possível autenticar no Melhor Envio. Verifique o token.",
+  "Frete indisponível no momento. Tente novamente em alguns instantes.",
+  "Frete Correios precisa de CORREIOS_USER e CORREIOS_TOKEN configurados.",
+  "Frete Melhor Envio precisa de MELHOR_ENVIO_TOKEN configurado.",
+  "Frete Frenet precisa de FRENET_TOKEN configurado.",
+  "Configure um valor de frete fixo para habilitar o checkout.",
   "Provider Correios preparado, mas a integração externa ainda não está ativada nesta versão.",
   "Provider Melhor Envio preparado, mas a integração externa ainda não está ativada nesta versão.",
   "Provider Frenet preparado, mas a integração externa ainda não está ativada nesta versão.",
@@ -65,6 +90,8 @@ function toPublicOption(option: ShippingOption) {
     originCep: option.originCep,
     destinationCep: option.destinationCep,
     expiresAt: option.expiresAt,
+    companyName: option.companyName,
+    rawServiceId: option.rawServiceId,
   };
 }
 
@@ -81,7 +108,7 @@ function getPublicError(error: unknown) {
   }
 
   if (error instanceof Error && publicQuoteErrors.has(error.message)) {
-    const status = error.message.startsWith("Frete ") || error.message.startsWith("Provider ") ? 503 : 400;
+    const status = serviceUnavailableQuoteErrors.has(error.message) ? 503 : 400;
     return { message: error.message, status };
   }
 
@@ -140,10 +167,25 @@ export async function POST(request: NextRequest) {
         lengthCm: variant.product.lengthCm,
         widthCm: variant.product.widthCm,
         heightCm: variant.product.heightCm,
+        priceInCents: variant.product.priceInCents,
       };
     });
 
     const pkg = buildPackageFromCart(packageItems);
+    if (isFixedShippingModeActive(settings)) {
+      const result = getFixedShippingQuotes({
+        settings,
+        destinationCep,
+        package: pkg,
+        subtotalInCents,
+      });
+
+      return NextResponse.json({
+        options: result.options.map(toPublicOption),
+        warnings: result.warnings,
+      });
+    }
+
     const provider = getConfiguredShippingProvider(settings);
     const originCep = getConfiguredShippingOriginCep(settings);
     const result = await getShippingQuotes({

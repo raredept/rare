@@ -283,7 +283,7 @@ export async function getCategoryPageData(slug: string, params?: { query?: strin
       eyebrow: "Catálogo RARE",
       title: "Catálogo completo",
       description: "Explore todas as peças da RARE por categoria.",
-      sections: await getProductsGroupedByCategory({ query: params?.query }),
+      sections: await getProductsGroupedByCategory({ query: params?.query, limitPerCategory: 10 }),
     };
   }
 

@@ -4,6 +4,12 @@ import { GET } from "@/app/api/health/route";
 const healthMocks = vi.hoisted(() => ({
   prisma: {
     $queryRaw: vi.fn(),
+    storeSettings: {
+      findUnique: vi.fn(),
+    },
+    product: {
+      count: vi.fn(),
+    },
   },
 }));
 
@@ -35,6 +41,15 @@ beforeEach(() => {
     SHIPPING_PROVIDER: "manual",
     SHIPPING_ORIGIN_CEP: "01001000",
   };
+  healthMocks.prisma.storeSettings.findUnique.mockResolvedValue({
+    shippingMode: "manual",
+    originCep: "01001000",
+    fixedShippingInCents: 0,
+    manualShippingInCents: 0,
+    freeShippingMinInCents: null,
+    freeShippingThresholdInCents: null,
+  });
+  healthMocks.prisma.product.count.mockResolvedValue(0);
 });
 
 afterEach(() => {
@@ -50,11 +65,19 @@ describe("health route readiness", () => {
     expect(response.status).toBe(503);
     expect(body.app.ok).toBe(true);
     expect(body.database.ok).toBe(false);
-    expect(body.environment.shipping).toEqual({
+    expect(body.environment.shipping.env).toEqual({
+      checked: true,
       enabled: true,
       provider: "manual",
       originCepConfigured: true,
+      melhorEnvio: {
+        environment: "production",
+        baseUrlConfigured: false,
+        tokenConfigured: false,
+        oauthClientConfigured: false,
+      },
     });
+    expect(body.environment.shipping.storeSettings.checked).toBe(false);
     expect(serialized).not.toContain("stripe-secret-value-that-must-not-be-returned");
     expect(serialized).not.toContain("stripe-webhook-value-that-must-not-be-returned");
     expect(serialized).not.toContain("storage-account-id-that-must-not-be-returned");
@@ -77,6 +100,144 @@ describe("health route readiness", () => {
     expect(body.configuration.errors).toEqual([]);
     expect(body.configuration.warnings).toEqual(
       expect.arrayContaining([expect.objectContaining({ variable: "RATE_LIMIT_DRIVER" })]),
+    );
+  });
+
+  it("reports fixed shipping as a legacy warning without requiring originCep", async () => {
+    process.env.DATABASE_URL = "postgresql://rare:password@localhost:5432/rare_test";
+    process.env.RATE_LIMIT_DRIVER = "redis";
+    process.env.SHIPPING_PROVIDER = "";
+    process.env.SHIPPING_ORIGIN_CEP = "";
+    healthMocks.prisma.$queryRaw.mockResolvedValue([{ ok: 1 }]);
+    healthMocks.prisma.storeSettings.findUnique.mockResolvedValueOnce({
+      shippingMode: "fixed",
+      originCep: null,
+      fixedShippingInCents: 2500,
+      manualShippingInCents: 0,
+      freeShippingMinInCents: null,
+      freeShippingThresholdInCents: null,
+    });
+
+    const response = await GET();
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.status).toBe("ok_with_warnings");
+    expect(body.environment.shipping.storeSettings).toEqual(
+      expect.objectContaining({
+        checked: true,
+        found: true,
+        enabled: true,
+        mode: "fixed",
+        provider: "fixed",
+        effectiveProvider: null,
+        originCepConfigured: false,
+        originCepFallbackActive: false,
+        fixedShippingConfigured: true,
+        warnings: ["Fixed shipping mode is legacy/provisional and should not be the main production flow."],
+      }),
+    );
+  });
+
+  it("reports the default origin CEP fallback when manual shipping has no originCep", async () => {
+    process.env.DATABASE_URL = "postgresql://rare:password@localhost:5432/rare_test";
+    process.env.RATE_LIMIT_DRIVER = "redis";
+    process.env.SHIPPING_ORIGIN_CEP = "";
+    healthMocks.prisma.$queryRaw.mockResolvedValue([{ ok: 1 }]);
+    healthMocks.prisma.storeSettings.findUnique.mockResolvedValueOnce({
+      shippingMode: "manual",
+      originCep: null,
+      fixedShippingInCents: 0,
+      manualShippingInCents: 0,
+      freeShippingMinInCents: null,
+      freeShippingThresholdInCents: null,
+    });
+
+    const response = await GET();
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.status).toBe("ok_with_warnings");
+    expect(body.environment.shipping.storeSettings).toEqual(
+      expect.objectContaining({
+        mode: "manual",
+        effectiveProvider: "manual",
+        originCepConfigured: false,
+        originCepFallbackActive: true,
+        warnings: ["Origin CEP missing; fallback 31170350 is active."],
+      }),
+    );
+    expect(body.operational.warnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          scope: "shipping.storeSettings",
+          message: "Origin CEP missing; fallback 31170350 is active.",
+        }),
+      ]),
+    );
+  });
+
+  it("reports Melhor Envio token readiness without exposing the token", async () => {
+    process.env.DATABASE_URL = "postgresql://rare:password@localhost:5432/rare_test";
+    process.env.RATE_LIMIT_DRIVER = "redis";
+    process.env.SHIPPING_PROVIDER = "melhor_envio";
+    process.env.MELHOR_ENVIO_TOKEN = "melhor-envio-token-that-must-not-be-returned";
+    process.env.SHIPPING_ORIGIN_CEP = "";
+    healthMocks.prisma.$queryRaw.mockResolvedValue([{ ok: 1 }]);
+    healthMocks.prisma.product.count.mockResolvedValueOnce(2);
+    healthMocks.prisma.storeSettings.findUnique.mockResolvedValueOnce({
+      shippingMode: "fixed",
+      originCep: null,
+      fixedShippingInCents: 2500,
+      manualShippingInCents: 0,
+      freeShippingMinInCents: null,
+      freeShippingThresholdInCents: null,
+    });
+
+    const response = await GET();
+    const body = await response.json();
+    const serialized = JSON.stringify(body);
+
+    expect(response.status).toBe(200);
+    expect(body.status).toBe("ok_with_warnings");
+    expect(body.environment.shipping.env.melhorEnvio).toEqual(
+      expect.objectContaining({
+        environment: "production",
+        tokenConfigured: true,
+      }),
+    );
+    expect(body.environment.shipping.storeSettings).toEqual(
+      expect.objectContaining({
+        mode: "fixed",
+        provider: "manual",
+        effectiveProvider: "melhor_envio",
+        originCepFallbackActive: true,
+        warnings: expect.arrayContaining([
+          "Origin CEP missing; fallback 31170350 is active.",
+          "2 active product(s) will use fallback shipping weight/dimensions until Admin data is completed.",
+        ]),
+      }),
+    );
+    expect(serialized).not.toContain("melhor-envio-token-that-must-not-be-returned");
+  });
+
+  it("warns when Melhor Envio is selected without a token", async () => {
+    process.env.DATABASE_URL = "postgresql://rare:password@localhost:5432/rare_test";
+    process.env.RATE_LIMIT_DRIVER = "redis";
+    process.env.SHIPPING_PROVIDER = "melhor_envio";
+    process.env.MELHOR_ENVIO_TOKEN = "";
+    process.env.MELHOR_ENVIO_ACCESS_TOKEN = "";
+    healthMocks.prisma.$queryRaw.mockResolvedValue([{ ok: 1 }]);
+
+    const response = await GET();
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body.configuration.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ variable: "MELHOR_ENVIO_TOKEN" })]),
+    );
+    expect(body.environment.shipping.storeSettings.warnings).toEqual(
+      expect.arrayContaining(["SHIPPING_PROVIDER=melhor_envio requires MELHOR_ENVIO_TOKEN or MELHOR_ENVIO_ACCESS_TOKEN."]),
     );
   });
 

@@ -207,6 +207,7 @@ beforeEach(() => {
 
 afterEach(() => {
   process.env = originalEnv;
+  vi.unstubAllGlobals();
 });
 
 describe("createCheckoutSession", () => {
@@ -347,6 +348,75 @@ describe("createCheckoutSession", () => {
     );
   });
 
+  it("validates fixed shipping from settings without trusting frontend freight values or origin CEP", async () => {
+    process.env.SHIPPING_ORIGIN_CEP = "";
+    process.env.SHIPPING_PROVIDER = "";
+    mocks.getStoreSettings.mockResolvedValueOnce({
+      checkoutReservationMinutes: 30,
+      checkoutRequiresAddress: true,
+      shippingMode: "fixed",
+      originCep: null,
+      fixedShippingInCents: 2500,
+      manualShippingInCents: 0,
+      freeShippingMinInCents: null,
+      freeShippingThresholdInCents: null,
+    });
+
+    await createCheckoutSession({
+      ...validCheckoutInput,
+      shippingOptionId: "fixed",
+      totalInCents: 1,
+      selectedShippingMethod: "manual:PAC",
+    });
+
+    expect(mocks.tx.order.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          subtotalInCents: 20000,
+          shippingInCents: 2500,
+          shippingMethodSnapshot: "Frete fixo — Entrega combinada com valor fixo para este pedido.",
+          shippingCepSnapshot: "01001000",
+          shippingQuoteSnapshot: expect.objectContaining({
+            provider: "fixed",
+            service: "fixed",
+            amountCents: 2500,
+            originCep: null,
+            destinationCep: "01001000",
+          }),
+          totalInCents: 22500,
+        }),
+      }),
+    );
+    expect(mocks.stripeSessionsCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        shipping_options: [
+          expect.objectContaining({
+            shipping_rate_data: expect.objectContaining({
+              display_name: "Frete fixo",
+              fixed_amount: {
+                amount: 2500,
+                currency: "brl",
+              },
+              metadata: expect.objectContaining({
+                shippingProvider: "fixed",
+                shippingService: "fixed",
+                shippingAmountCents: "2500",
+                destinationCep: "01001000",
+              }),
+            }),
+          }),
+        ],
+        payment_intent_data: {
+          metadata: expect.objectContaining({
+            shippingProvider: "fixed",
+            shippingService: "fixed",
+            shippingAmountCents: "2500",
+          }),
+        },
+      }),
+    );
+  });
+
   it("rejects checkout when automatic shipping has no selected option", async () => {
     await expect(createCheckoutSession({ ...validCheckoutInput, shippingOptionId: undefined })).rejects.toThrow(
       "Escolha uma opção de entrega para continuar.",
@@ -360,6 +430,134 @@ describe("createCheckoutSession", () => {
     await expect(createCheckoutSession({ ...validCheckoutInput, shippingOptionId: "manual:EXPRESS" })).rejects.toThrow(
       "Escolha uma opção de entrega válida para continuar.",
     );
+
+    expect(mocks.tx.order.create).not.toHaveBeenCalled();
+    expect(mocks.stripeSessionsCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects checkout when selected provider/service metadata does not match the backend option", async () => {
+    await expect(
+      createCheckoutSession({
+        ...validCheckoutInput,
+        shippingOptionId: "manual:PAC",
+        shippingOptionProvider: "melhor_envio",
+        shippingOptionService: "1",
+      }),
+    ).rejects.toThrow("Escolha uma opção de entrega válida para continuar.");
+
+    expect(mocks.tx.order.create).not.toHaveBeenCalled();
+    expect(mocks.stripeSessionsCreate).not.toHaveBeenCalled();
+  });
+
+  it("recalculates Melhor Envio freight on the backend and ignores adulterated frontend amounts", async () => {
+    process.env.SHIPPING_PROVIDER = "melhor_envio";
+    process.env.SHIPPING_ORIGIN_CEP = "";
+    process.env.MELHOR_ENVIO_TOKEN = "test-token";
+    const fetchMock = vi.fn<typeof fetch>(async () =>
+      new Response(
+        JSON.stringify([{ id: 1, name: "PAC", custom_price: "44.90", custom_delivery_time: 5, company: { name: "Correios" } }]),
+        { status: 200 },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createCheckoutSession({
+      ...validCheckoutInput,
+      shippingOptionId: "melhor_envio:1",
+      shippingOptionProvider: "melhor_envio",
+      shippingOptionService: "1",
+      shippingAmountCents: 1,
+      totalInCents: 1,
+    });
+
+    const payload = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(payload.from.postal_code).toBe("01001000");
+    expect(payload.products[0]).toMatchObject({
+      id: "prod_1",
+      width: 24,
+      height: 4,
+      length: 30,
+      weight: 0.4,
+      insurance_value: 100,
+      quantity: 2,
+    });
+    expect(mocks.tx.order.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          subtotalInCents: 20000,
+          shippingInCents: 4490,
+          shippingMethodSnapshot: "Correios PAC — Prazo estimado em até 5 dias úteis",
+          shippingQuoteSnapshot: expect.objectContaining({
+            provider: "melhor_envio",
+            service: "1",
+            label: "Correios PAC",
+            amountCents: 4490,
+            originCep: "01001000",
+            destinationCep: "01001000",
+            package: expect.objectContaining({
+              usedFallback: false,
+            }),
+          }),
+          totalInCents: 24490,
+        }),
+      }),
+    );
+    expect(mocks.stripeSessionsCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        shipping_options: [
+          expect.objectContaining({
+            shipping_rate_data: expect.objectContaining({
+              display_name: "Correios PAC",
+              fixed_amount: {
+                amount: 4490,
+                currency: "brl",
+              },
+              metadata: expect.objectContaining({
+                shippingProvider: "melhor_envio",
+                shippingService: "1",
+                shippingAmountCents: "4490",
+              }),
+            }),
+          }),
+        ],
+      }),
+    );
+  });
+
+  it("rejects a Melhor Envio option that no longer exists in the backend quote", async () => {
+    process.env.SHIPPING_PROVIDER = "melhor_envio";
+    process.env.MELHOR_ENVIO_TOKEN = "test-token";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify([{ id: 1, name: "PAC", price: "20.00", delivery_time: 5 }]), { status: 200 })),
+    );
+
+    await expect(
+      createCheckoutSession({
+        ...validCheckoutInput,
+        shippingOptionId: "melhor_envio:9",
+        shippingOptionProvider: "melhor_envio",
+        shippingOptionService: "9",
+      }),
+    ).rejects.toThrow("Escolha uma opção de entrega válida para continuar.");
+
+    expect(mocks.tx.order.create).not.toHaveBeenCalled();
+    expect(mocks.stripeSessionsCreate).not.toHaveBeenCalled();
+  });
+
+  it("blocks checkout when Melhor Envio quote fails", async () => {
+    process.env.SHIPPING_PROVIDER = "melhor_envio";
+    process.env.MELHOR_ENVIO_TOKEN = "test-token";
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ message: "temporary" }), { status: 500 })));
+
+    await expect(
+      createCheckoutSession({
+        ...validCheckoutInput,
+        shippingOptionId: "melhor_envio:1",
+        shippingOptionProvider: "melhor_envio",
+        shippingOptionService: "1",
+      }),
+    ).rejects.toThrow("Frete indisponível no momento. Tente novamente em alguns instantes.");
 
     expect(mocks.tx.order.create).not.toHaveBeenCalled();
     expect(mocks.stripeSessionsCreate).not.toHaveBeenCalled();

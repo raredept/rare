@@ -38,6 +38,7 @@ type CartPageClientProps = {
   };
   shippingConfig: {
     enabled: boolean;
+    mode: string;
     provider: string;
     originCepConfigured: boolean;
   };
@@ -46,15 +47,17 @@ type CartPageClientProps = {
 type ShippingQuoteOption = {
   id: string;
   provider: string;
-  service: "PAC" | "SEDEX";
+  service: string;
   label: string;
   amountCents: number;
   estimatedDaysMin?: number;
   estimatedDaysMax?: number;
   deliveryEstimateText: string;
-  originCep: string;
+  originCep: string | null;
   destinationCep: string;
   expiresAt?: string;
+  companyName?: string;
+  rawServiceId?: string | number;
 };
 
 type ShippingQuoteContext = {
@@ -159,7 +162,10 @@ function formatShippingError(message: string) {
     return "Esse produto ainda precisa de peso e medidas para calcular o frete.";
   }
   if (message.includes("CEP de origem")) {
-    return "Frete indisponível no momento. A RARE precisa configurar o CEP de origem da loja.";
+    return "Frete indisponível no momento. A RARE precisa revisar o CEP de origem da loja.";
+  }
+  if (message.includes("MELHOR_ENVIO_TOKEN") || message.includes("OAuth do Melhor Envio")) {
+    return "A loja precisa finalizar a configuração do Melhor Envio para calcular o frete.";
   }
   return formatCheckoutMessage(message);
 }
@@ -197,6 +203,8 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
     selectedShipping?.cartSignature === cartSignature && selectedShipping.cep === normalizedCheckoutCep
       ? selectedShipping.option
       : null;
+  const isFixedShipping = shippingConfig.enabled && shippingConfig.mode === "fixed";
+  const isMelhorEnvioShipping = shippingConfig.enabled && shippingConfig.provider === "melhor_envio";
   const legacyShippingPreview = useMemo(() => {
     if (shippingConfig.enabled) {
       return { result: null, error: null };
@@ -244,6 +252,8 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
         ...(shippingConfig.enabled
           ? {
               shippingOptionId: selectedShippingOption?.id,
+              shippingOptionProvider: selectedShippingOption?.provider,
+              shippingOptionService: selectedShippingOption?.service,
               shippingDestinationCep: checkoutCep,
             }
           : {
@@ -260,6 +270,8 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
       legacyShippingPreview.result?.shippingMethod,
       selectedAddressId,
       selectedShippingOption?.id,
+      selectedShippingOption?.provider,
+      selectedShippingOption?.service,
       shippingConfig.enabled,
       shippingSettings.checkoutRequiresAddress,
     ],
@@ -596,20 +608,26 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
               <div className="mt-5 rounded-lg border border-neutral-200 bg-neutral-50 p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                   <div>
-                    <p className="text-sm font-black text-neutral-950">Opções de entrega</p>
+                    <p className="text-sm font-black text-neutral-950">Escolha uma forma de entrega</p>
                     <p className="mt-1 text-xs font-semibold leading-5 text-neutral-500">
-                      Calcule pelo CEP para escolher PAC ou SEDEX antes de finalizar.
+                      {isFixedShipping
+                        ? "Entrega combinada com valor fixo para este pedido."
+                        : isMelhorEnvioShipping
+                          ? "Frete calculado automaticamente pelo Melhor Envio."
+                          : "Calcule pelo CEP para escolher PAC ou SEDEX antes de finalizar."}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={calculateShipping}
-                    disabled={shippingLoading}
-                    className="inline-flex h-11 items-center justify-center rounded-lg bg-black px-5 text-xs font-black uppercase tracking-wide text-white transition hover:bg-neutral-800 disabled:cursor-wait disabled:bg-neutral-500"
-                  >
-                    {shippingLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Calcular frete
-                  </button>
+                  {isFixedShipping ? null : (
+                    <button
+                      type="button"
+                      onClick={calculateShipping}
+                      disabled={shippingLoading}
+                      className="inline-flex h-11 items-center justify-center rounded-lg bg-black px-5 text-xs font-black uppercase tracking-wide text-white transition hover:bg-neutral-800 disabled:cursor-wait disabled:bg-neutral-500"
+                    >
+                      {shippingLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      Calcule o frete
+                    </button>
+                  )}
                 </div>
                 <p className="mt-3 text-xs font-bold text-neutral-500">
                   {checkoutCep ? `CEP usado: ${formatCep(checkoutCep) || checkoutCep}` : "Digite seu CEP no endereço de entrega."}
@@ -632,10 +650,15 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
                         />
                         <span className="min-w-0 flex-1">
                           <span className="flex items-center justify-between gap-4">
-                            <span className="font-black text-neutral-950">{option.service}</span>
+                            <span className="font-black text-neutral-950">
+                              {option.provider === "fixed" || option.provider === "melhor_envio" ? option.label : option.service}
+                            </span>
                             <span className="whitespace-nowrap font-black text-success">{formatMoney(option.amountCents)}</span>
                           </span>
                           <span className="mt-1 block">{option.deliveryEstimateText}</span>
+                          {option.provider === "fixed" || option.provider === "melhor_envio" ? (
+                            <span className="mt-2 block text-xs font-bold text-neutral-500">Prazo estimado em dias úteis.</span>
+                          ) : null}
                           {option.provider === "manual" ? (
                             <span className="mt-2 block text-xs font-bold text-neutral-500">Cálculo manual/fallback para homologação.</span>
                           ) : null}
@@ -647,11 +670,19 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
                 {shippingError ? <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800">{shippingError}</p> : null}
                 {currentShippingOptions.length && !selectedShippingOption ? (
                   <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
-                    Selecione PAC ou SEDEX para fechar o pedido.
+                    {isFixedShipping
+                      ? "Selecione Frete fixo para fechar o pedido."
+                      : isMelhorEnvioShipping
+                        ? "Escolha uma forma de entrega para fechar o pedido."
+                        : "Selecione PAC ou SEDEX para fechar o pedido."}
                   </p>
                 ) : null}
                 <p className="mt-3 text-xs font-semibold leading-5 text-neutral-500">
-                  Frete e prazo podem variar conforme endereço e disponibilidade.
+                  {isFixedShipping
+                    ? "Entrega combinada com valor fixo para este pedido."
+                    : isMelhorEnvioShipping
+                      ? "Frete calculado automaticamente pelo Melhor Envio. Valor e prazo podem variar conforme disponibilidade."
+                      : "Frete e prazo podem variar conforme endereço e disponibilidade."}
                 </p>
               </div>
             ) : null}
@@ -670,12 +701,22 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
               <span className="whitespace-nowrap text-right">
                 {shippingConfig.enabled
                   ? selectedShippingOption
-                    ? `${selectedShippingOption.service} · ${formatMoney(shippingInCents)}`
+                    ? `${
+                        selectedShippingOption.provider === "fixed" || selectedShippingOption.provider === "melhor_envio"
+                          ? selectedShippingOption.label
+                          : selectedShippingOption.service
+                      } · ${formatMoney(shippingInCents)}`
                     : shippingLoading
                       ? "Calculando frete"
                       : normalizedCheckoutCep
-                        ? "Escolha uma opção"
-                        : "Calcule o frete"
+                        ? isFixedShipping
+                          ? "Aguardando frete fixo"
+                        : isMelhorEnvioShipping
+                          ? "Escolha uma forma"
+                          : "Escolha uma opção"
+                        : isFixedShipping
+                          ? "Informe o CEP"
+                          : "Calcule o frete"
                   : legacyShippingPreview.result
                     ? shippingInCents
                       ? formatMoney(shippingInCents)
@@ -695,9 +736,17 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
                   ? "Calculando opções de entrega."
                   : normalizedCheckoutCep
                     ? currentShippingOptions.length
-                      ? "Selecione PAC ou SEDEX para fechar o pedido."
-                      : "Escolha uma entrega para continuar."
-                    : "Calcule o frete com seu CEP."}
+                      ? isFixedShipping
+                        ? "Selecione Frete fixo para fechar o pedido."
+                        : isMelhorEnvioShipping
+                          ? "Escolha uma forma de entrega para fechar o pedido."
+                          : "Selecione PAC ou SEDEX para fechar o pedido."
+                      : isFixedShipping
+                        ? "Aguarde a validação do frete fixo."
+                        : "Escolha uma entrega para continuar."
+                    : isFixedShipping
+                      ? "Informe o CEP do endereço de entrega."
+                      : "Calcule o frete com seu CEP."}
               </p>
             ) : null}
             {legacyShippingPreview.error ? (

@@ -278,6 +278,30 @@ describe("storefront catalog helpers", () => {
     expect(mocks.prisma.category.findUnique).not.toHaveBeenCalled();
   });
 
+  it("limits the virtual grouped catalog page to 10 products per category while keeping total count", async () => {
+    mocks.prisma.product.findMany.mockResolvedValueOnce(
+      Array.from({ length: 11 }, (_, index) =>
+        product({
+          id: `camiseta-${index + 1}`,
+          category: { name: "Camisetas", slug: "camisetas" },
+          subcategory: null,
+        }),
+      ),
+    );
+
+    const { getCategoryPageData } = await import("@/lib/storefront");
+    const pageData = await getCategoryPageData("tudo");
+
+    if (!pageData || pageData.kind !== "grouped") {
+      throw new Error("Expected grouped page data");
+    }
+
+    expect(pageData.sections[0]?.products).toHaveLength(10);
+    expect(pageData.sections[0]?.total).toBe(11);
+    expect(pageData.sections[0]?.hasMore).toBe(true);
+    expect(mocks.prisma.category.findUnique).not.toHaveBeenCalled();
+  });
+
   it("keeps unknown real category slugs as not-found page data", async () => {
     mocks.prisma.category.findUnique.mockResolvedValueOnce(null);
 

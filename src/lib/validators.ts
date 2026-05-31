@@ -80,6 +80,8 @@ export const checkoutRequestSchema = z.object({
   guestCustomerData: guestCustomerDataSchema.optional(),
   guestAddress: checkoutAddressSchema.optional(),
   shippingOptionId: z.string().trim().max(120).optional(),
+  shippingOptionProvider: z.string().trim().max(80).optional(),
+  shippingOptionService: z.string().trim().max(80).optional(),
   shippingDestinationCep: cepSchema.optional(),
   selectedShippingMethod: z.string().trim().max(80).optional(),
 });

@@ -31,9 +31,9 @@ export default async function SettingsPage() {
 
         <section className="space-y-4 rounded-lg border border-neutral-200 bg-neutral-50 p-4">
           <div>
-            <h2 className="text-lg font-black text-neutral-950">Frete PAC/SEDEX</h2>
+            <h2 className="text-lg font-black text-neutral-950">Frete automático</h2>
             <p className="mt-1 text-sm font-semibold text-neutral-500">
-              O checkout recalcula o frete no backend. Use manual para homologação ou configure um provedor real por variáveis de ambiente.
+              O checkout recalcula o frete no backend. Use Melhor Envio em produção e mantenha manual/fixo apenas como legado ou homologação.
             </p>
           </div>
           <label className="block">
@@ -47,14 +47,14 @@ export default async function SettingsPage() {
               <option value="manual">Manual/fallback PAC e SEDEX</option>
               <option value="fixed">Fixo legado</option>
               <option value="correios">Correios via env</option>
-              <option value="melhor_envio">Melhor Envio via env</option>
+              <option value="melhor_envio">Melhor Envio automático via env</option>
               <option value="frenet">Frenet via env</option>
               <option value="future_provider">Legado: futuro provedor real</option>
             </select>
           </label>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
-              <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Valor fixo de frete</span>
+              <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Valor fixo legado</span>
               <input name="fixedShipping" defaultValue={formatMoney(fixedShippingInCents)} className="admin-input" />
             </label>
             <label className="block">
