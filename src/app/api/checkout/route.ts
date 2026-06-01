@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ZodError } from "zod";
-import { createCheckoutSession } from "@/lib/checkout";
+import { checkoutRequiresCpfMessage, checkoutRequiresLoginMessage, createCheckoutSession } from "@/lib/checkout";
 import { getCurrentCustomer } from "@/lib/customer-auth";
+import { isValidCpf } from "@/lib/cpf";
 import { getStripeSecretKey, isCheckoutEnabled } from "@/lib/env";
 import { rateLimit } from "@/lib/rate-limit";
 
@@ -9,6 +10,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const publicCheckoutErrors = new Set([
+  checkoutRequiresLoginMessage,
+  checkoutRequiresCpfMessage,
   "Produto indisponível.",
   "Estoque insuficiente para finalizar este carrinho.",
   "Variação inválida.",
@@ -62,7 +65,7 @@ function getPublicCheckoutError(error: unknown) {
   }
 
   if (error instanceof Error && publicCheckoutErrors.has(error.message)) {
-    const status = serviceUnavailableCheckoutErrors.has(error.message) ? 503 : 400;
+    const status = error.message === checkoutRequiresLoginMessage ? 401 : serviceUnavailableCheckoutErrors.has(error.message) ? 503 : 400;
     return { message: error.message, status };
   }
 
@@ -85,12 +88,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: checkoutUnavailableMessage }, { status: 503 });
   }
 
-  try {
-    getStripeSecretKey();
-  } catch {
-    return NextResponse.json({ error: checkoutUnavailableMessage }, { status: 503 });
-  }
-
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
   const limit = rateLimit(`checkout:${ip}`, 20, 60_000);
 
@@ -98,10 +95,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Muitas tentativas. Aguarde um instante." }, { status: 429 });
   }
 
+  const customer = await getCurrentCustomer();
+  if (!customer) {
+    return NextResponse.json({ error: checkoutRequiresLoginMessage }, { status: 401 });
+  }
+
+  if (!isValidCpf(customer.cpf)) {
+    return NextResponse.json({ error: checkoutRequiresCpfMessage }, { status: 400 });
+  }
+
+  try {
+    getStripeSecretKey();
+  } catch {
+    return NextResponse.json({ error: checkoutUnavailableMessage }, { status: 503 });
+  }
+
   try {
     const body = await request.json();
-    const customer = await getCurrentCustomer();
-    const session = await createCheckoutSession(body, { customerId: customer?.id });
+    const session = await createCheckoutSession(body, { customerId: customer.id });
     return NextResponse.json(session);
   } catch (error) {
     const publicError = getPublicCheckoutError(error);

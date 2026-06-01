@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  checkoutRequiresCpfMessage,
+  checkoutRequiresLoginMessage,
   createCheckoutSession,
   processStripeCheckoutEvent,
   processStripePaymentIntentEvent,
@@ -71,20 +73,11 @@ const originalEnv = process.env;
 const validCheckoutInput = {
   items: [{ productId: "prod_1", variantId: "var_1", quantity: 2 }],
   shippingOptionId: "manual:PAC",
-  guestCustomerData: {
-    name: "Cliente Teste",
-    email: "cliente@example.com",
-    phone: "11999999999",
-  },
-  guestAddress: {
-    cep: "01001000",
-    street: "Rua Teste",
-    number: "123",
-    neighborhood: "Centro",
-    city: "Sao Paulo",
-    state: "SP",
-  },
+  customerAddressId: "addr_1",
+  shippingDestinationCep: "01001000",
 };
+
+const checkoutOptions = { customerId: "customer_1" };
 
 const orderItem = {
   id: "item_1",
@@ -181,8 +174,29 @@ beforeEach(() => {
   mocks.prisma.$transaction.mockImplementation(async (callback: (transaction: typeof mocks.tx) => unknown) =>
     callback(mocks.tx),
   );
-  mocks.prisma.customer.findFirst.mockResolvedValue(null);
-  mocks.prisma.customerAddress.findMany.mockResolvedValue([]);
+  mocks.prisma.customer.findFirst.mockResolvedValue({
+    id: "customer_1",
+    name: "Cliente Teste",
+    email: "cliente@example.com",
+    phone: "11999999999",
+    cpf: "12345678909",
+  });
+  mocks.prisma.customerAddress.findMany.mockResolvedValue([
+    {
+      id: "addr_1",
+      customerId: "customer_1",
+      label: "Casa",
+      recipientName: null,
+      phone: null,
+      cep: "01001000",
+      street: "Rua Teste",
+      number: "123",
+      complement: null,
+      neighborhood: "Centro",
+      city: "Sao Paulo",
+      state: "SP",
+    },
+  ]);
   mocks.prisma.order.update.mockResolvedValue({});
   mocks.getStoreSettings.mockResolvedValue({
     checkoutReservationMinutes: 30,
@@ -211,10 +225,47 @@ afterEach(() => {
 });
 
 describe("createCheckoutSession", () => {
-  it("rejects an empty cart before creating an order", async () => {
-    await expect(createCheckoutSession({ ...validCheckoutInput, items: [] })).rejects.toThrow();
+  it("requires a logged customer before parsing or creating checkout state", async () => {
+    await expect(createCheckoutSession(validCheckoutInput)).rejects.toThrow(checkoutRequiresLoginMessage);
 
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+    expect(mocks.stripeSessionsCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a logged customer without CPF before creating a Stripe session", async () => {
+    mocks.prisma.customer.findFirst.mockResolvedValueOnce({
+      id: "customer_1",
+      name: "Cliente Teste",
+      email: "cliente@example.com",
+      phone: "11999999999",
+      cpf: null,
+    });
+
+    await expect(createCheckoutSession(validCheckoutInput, checkoutOptions)).rejects.toThrow(checkoutRequiresCpfMessage);
+
+    expect(mocks.tx.order.create).not.toHaveBeenCalled();
+    expect(mocks.stripeSessionsCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a logged customer with invalid CPF before creating a Stripe session", async () => {
+    mocks.prisma.customer.findFirst.mockResolvedValueOnce({
+      id: "customer_1",
+      name: "Cliente Teste",
+      email: "cliente@example.com",
+      phone: "11999999999",
+      cpf: "11111111111",
+    });
+
+    await expect(createCheckoutSession(validCheckoutInput, checkoutOptions)).rejects.toThrow(checkoutRequiresCpfMessage);
+
+    expect(mocks.tx.order.create).not.toHaveBeenCalled();
+    expect(mocks.stripeSessionsCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects an empty cart before creating an order", async () => {
+    await expect(createCheckoutSession({ ...validCheckoutInput, items: [] }, checkoutOptions)).rejects.toThrow();
+
+    expect(mocks.tx.order.create).not.toHaveBeenCalled();
     expect(mocks.stripeSessionsCreate).not.toHaveBeenCalled();
   });
 
@@ -235,7 +286,7 @@ describe("createCheckoutSession", () => {
       },
     ]);
 
-    await expect(createCheckoutSession(validCheckoutInput)).rejects.toThrow("Produto indisponível.");
+    await expect(createCheckoutSession(validCheckoutInput, checkoutOptions)).rejects.toThrow("Produto indisponível.");
 
     expect(mocks.stripeSessionsCreate).not.toHaveBeenCalled();
   });
@@ -243,7 +294,7 @@ describe("createCheckoutSession", () => {
   it("rejects a missing variant with a controlled domain error", async () => {
     mocks.tx.productVariant.findMany.mockResolvedValueOnce([]);
 
-    await expect(createCheckoutSession(validCheckoutInput)).rejects.toThrow("Variação inválida.");
+    await expect(createCheckoutSession(validCheckoutInput, checkoutOptions)).rejects.toThrow("Variação inválida.");
 
     expect(mocks.stripeSessionsCreate).not.toHaveBeenCalled();
   });
@@ -251,7 +302,7 @@ describe("createCheckoutSession", () => {
   it("rejects insufficient stock before creating a Stripe session", async () => {
     mocks.tx.$executeRaw.mockResolvedValueOnce(0);
 
-    await expect(createCheckoutSession(validCheckoutInput)).rejects.toThrow(
+    await expect(createCheckoutSession(validCheckoutInput, checkoutOptions)).rejects.toThrow(
       "Estoque insuficiente para finalizar este carrinho.",
     );
 
@@ -259,19 +310,22 @@ describe("createCheckoutSession", () => {
   });
 
   it("recalculates price, freight, total and URLs on the backend", async () => {
-    const result = await createCheckoutSession({
-      ...validCheckoutInput,
-      items: [
-        {
-          productId: "prod_1",
-          variantId: "var_1",
-          quantity: 2,
-          priceInCents: 1,
-          totalInCents: 2,
-        },
-      ],
-      totalInCents: 2,
-    });
+    const result = await createCheckoutSession(
+      {
+        ...validCheckoutInput,
+        items: [
+          {
+            productId: "prod_1",
+            variantId: "var_1",
+            quantity: 2,
+            priceInCents: 1,
+            totalInCents: 2,
+          },
+        ],
+        totalInCents: 2,
+      },
+      checkoutOptions,
+    );
 
     expect(result).toEqual({
       url: "https://checkout.stripe.test/session",
@@ -292,6 +346,9 @@ describe("createCheckoutSession", () => {
             originCep: "01001000",
             destinationCep: "01001000",
           }),
+          customerId: "customer_1",
+          customerDocument: "12345678909",
+          customerCpfSnapshot: "12345678909",
           totalInCents: 21990,
           status: "awaiting_payment",
           items: {
@@ -337,6 +394,7 @@ describe("createCheckoutSession", () => {
           metadata: {
             orderId: "order_1",
             orderNumber: "RARE-TEST",
+            customerId: "customer_1",
             shippingProvider: "manual",
             shippingService: "PAC",
             shippingAmountCents: "1990",
@@ -362,12 +420,15 @@ describe("createCheckoutSession", () => {
       freeShippingThresholdInCents: null,
     });
 
-    await createCheckoutSession({
-      ...validCheckoutInput,
-      shippingOptionId: "fixed",
-      totalInCents: 1,
-      selectedShippingMethod: "manual:PAC",
-    });
+    await createCheckoutSession(
+      {
+        ...validCheckoutInput,
+        shippingOptionId: "fixed",
+        totalInCents: 1,
+        selectedShippingMethod: "manual:PAC",
+      },
+      checkoutOptions,
+    );
 
     expect(mocks.tx.order.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -415,10 +476,14 @@ describe("createCheckoutSession", () => {
         },
       }),
     );
+    expect(JSON.stringify(mocks.stripeSessionsCreate.mock.calls[0][0].metadata)).not.toContain("12345678909");
+    expect(JSON.stringify(mocks.stripeSessionsCreate.mock.calls[0][0].payment_intent_data?.metadata)).not.toContain(
+      "12345678909",
+    );
   });
 
   it("rejects checkout when automatic shipping has no selected option", async () => {
-    await expect(createCheckoutSession({ ...validCheckoutInput, shippingOptionId: undefined })).rejects.toThrow(
+    await expect(createCheckoutSession({ ...validCheckoutInput, shippingOptionId: undefined }, checkoutOptions)).rejects.toThrow(
       "Escolha uma opção de entrega para continuar.",
     );
 
@@ -427,7 +492,7 @@ describe("createCheckoutSession", () => {
   });
 
   it("rejects checkout when the selected shipping option is not in fresh backend quotes", async () => {
-    await expect(createCheckoutSession({ ...validCheckoutInput, shippingOptionId: "manual:EXPRESS" })).rejects.toThrow(
+    await expect(createCheckoutSession({ ...validCheckoutInput, shippingOptionId: "manual:EXPRESS" }, checkoutOptions)).rejects.toThrow(
       "Escolha uma opção de entrega válida para continuar.",
     );
 
@@ -442,7 +507,7 @@ describe("createCheckoutSession", () => {
         shippingOptionId: "manual:PAC",
         shippingOptionProvider: "melhor_envio",
         shippingOptionService: "1",
-      }),
+      }, checkoutOptions),
     ).rejects.toThrow("Escolha uma opção de entrega válida para continuar.");
 
     expect(mocks.tx.order.create).not.toHaveBeenCalled();
@@ -461,14 +526,17 @@ describe("createCheckoutSession", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await createCheckoutSession({
-      ...validCheckoutInput,
-      shippingOptionId: "melhor_envio:1",
-      shippingOptionProvider: "melhor_envio",
-      shippingOptionService: "1",
-      shippingAmountCents: 1,
-      totalInCents: 1,
-    });
+    await createCheckoutSession(
+      {
+        ...validCheckoutInput,
+        shippingOptionId: "melhor_envio:1",
+        shippingOptionProvider: "melhor_envio",
+        shippingOptionService: "1",
+        shippingAmountCents: 1,
+        totalInCents: 1,
+      },
+      checkoutOptions,
+    );
 
     const payload = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
     expect(payload.from.postal_code).toBe("01001000");
@@ -538,7 +606,7 @@ describe("createCheckoutSession", () => {
         shippingOptionId: "melhor_envio:9",
         shippingOptionProvider: "melhor_envio",
         shippingOptionService: "9",
-      }),
+      }, checkoutOptions),
     ).rejects.toThrow("Escolha uma opção de entrega válida para continuar.");
 
     expect(mocks.tx.order.create).not.toHaveBeenCalled();
@@ -556,7 +624,7 @@ describe("createCheckoutSession", () => {
         shippingOptionId: "melhor_envio:1",
         shippingOptionProvider: "melhor_envio",
         shippingOptionService: "1",
-      }),
+      }, checkoutOptions),
     ).rejects.toThrow("Frete indisponível no momento. Tente novamente em alguns instantes.");
 
     expect(mocks.tx.order.create).not.toHaveBeenCalled();

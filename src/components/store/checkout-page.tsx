@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { CartPageClient } from "@/components/store/cart-page-client";
 import { getCurrentCustomer } from "@/lib/customer-auth";
+import { isValidCpf, maskCpf } from "@/lib/cpf";
 import { prisma } from "@/lib/prisma";
 import { getStoreSettings } from "@/lib/settings";
 import { getEffectiveFixedShippingInCents, getEffectiveFreeShippingThresholdInCents, getShippingPublicConfig } from "@/lib/shipping";
@@ -10,31 +12,40 @@ type StoreCheckoutPageProps = {
 
 export async function StoreCheckoutPage({ searchParams }: StoreCheckoutPageProps) {
   const [{ address }, settings, customer] = await Promise.all([searchParams, getStoreSettings(), getCurrentCustomer()]);
-  const addresses = customer
-    ? await prisma.customerAddress.findMany({
-        where: { customerId: customer.id },
-        orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
-        select: {
-          id: true,
-          label: true,
-          recipientName: true,
-          phone: true,
-          cep: true,
-          street: true,
-          number: true,
-          complement: true,
-          neighborhood: true,
-          city: true,
-          state: true,
-          isDefault: true,
-        },
-      })
-    : [];
+
+  if (!customer) {
+    return <CheckoutLoginRequired />;
+  }
+
+  const addresses = await prisma.customerAddress.findMany({
+    where: { customerId: customer.id },
+    orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+    select: {
+      id: true,
+      label: true,
+      recipientName: true,
+      phone: true,
+      cep: true,
+      street: true,
+      number: true,
+      complement: true,
+      neighborhood: true,
+      city: true,
+      state: true,
+      isDefault: true,
+    },
+  });
   const selectedAddressId = address && addresses.some((item) => item.id === address) ? address : addresses[0]?.id ?? "";
 
   return (
     <CartPageClient
-      customer={customer ? { name: customer.name, email: customer.email, phone: customer.phone } : null}
+      customer={{
+        name: customer.name,
+        email: customer.email,
+        phone: customer.phone,
+        hasCpf: isValidCpf(customer.cpf),
+        cpfMasked: maskCpf(customer.cpf),
+      }}
       addresses={addresses}
       initialSelectedAddressId={selectedAddressId}
       shippingSettings={{
@@ -48,5 +59,33 @@ export async function StoreCheckoutPage({ searchParams }: StoreCheckoutPageProps
       }}
       shippingConfig={getShippingPublicConfig(settings)}
     />
+  );
+}
+
+function CheckoutLoginRequired() {
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-16 text-center lg:px-8">
+      <section className="mx-auto max-w-xl rounded-lg border border-neutral-200 bg-white px-6 py-12">
+        <p className="text-xs font-black uppercase tracking-[0.24em] text-neutral-500">Finalizar compra</p>
+        <h1 className="mt-3 text-3xl font-black tracking-tight text-neutral-950">Para finalizar sua compra, entre ou crie sua conta.</h1>
+        <p className="mt-3 text-sm font-semibold leading-6 text-neutral-500">
+          Seu carrinho fica salvo neste navegador enquanto você acessa sua conta.
+        </p>
+        <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <Link
+            href="/entrar?next=%2Ffinalizar-compra"
+            className="inline-flex min-h-12 items-center justify-center rounded-lg bg-black px-6 text-sm font-black uppercase tracking-wide text-white transition hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
+          >
+            Entrar
+          </Link>
+          <Link
+            href="/cadastro?next=%2Ffinalizar-compra"
+            className="inline-flex min-h-12 items-center justify-center rounded-lg border border-neutral-300 px-6 text-sm font-black uppercase tracking-wide text-neutral-950 transition hover:border-neutral-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
+          >
+            Criar conta
+          </Link>
+        </div>
+      </section>
+    </div>
   );
 }

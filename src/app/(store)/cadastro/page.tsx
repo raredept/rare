@@ -20,7 +20,7 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
       <p className="text-xs font-black uppercase tracking-[0.2em] text-neutral-500">Conta RARE</p>
       <h1 className="mt-2 text-3xl font-black text-neutral-950">Criar cadastro</h1>
       <p className="mt-3 text-sm font-medium text-neutral-500">
-        O CPF é opcional nesta fase. O endereço pode ser cadastrado depois em Minha Conta.
+        Informe seus dados para finalizar compras com segurança. O CPF é obrigatório para emissão e envio do pedido.
       </p>
       <CustomerRegisterForm next={next} />
     </div>

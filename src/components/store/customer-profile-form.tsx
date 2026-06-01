@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { updateCustomerProfileAction, type CustomerActionState } from "@/lib/customer-actions";
+import { formatCpf } from "@/lib/cpf";
 
 type CustomerProfileFormProps = {
   customer: {
@@ -18,6 +19,8 @@ function FieldError({ errors }: { errors?: string[] }) {
 
 export function CustomerProfileForm({ customer }: CustomerProfileFormProps) {
   const [state, formAction, pending] = useActionState<CustomerActionState, FormData>(updateCustomerProfileAction, {});
+  const [cpf, setCpf] = useState("");
+  const hasCpf = Boolean(customer.cpfMasked);
 
   return (
     <form action={formAction} className="max-w-2xl space-y-5 rounded-lg border border-neutral-200 bg-white p-5">
@@ -37,15 +40,20 @@ export function CustomerProfileForm({ customer }: CustomerProfileFormProps) {
         <FieldError errors={state.fieldErrors?.phone} />
       </label>
       <label className="block">
-        <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">CPF opcional</span>
+        <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">CPF</span>
         <input
           name="cpf"
-          defaultValue=""
-          placeholder={customer.cpfMasked || "Opcional"}
+          value={cpf}
+          onChange={(event) => setCpf(formatCpf(event.target.value))}
+          required={!hasCpf}
+          placeholder={customer.cpfMasked || "000.000.000-00"}
           inputMode="numeric"
+          maxLength={14}
           className="admin-input h-12"
         />
-        <p className="mt-1 text-xs font-semibold text-neutral-500">Digite o CPF completo somente se quiser cadastrar ou alterar.</p>
+        <p className="mt-1 text-xs font-semibold text-neutral-500">
+          {hasCpf ? "CPF cadastrado. Digite o CPF completo somente se precisar corrigir." : "Precisamos do CPF para emissão e envio do pedido."}
+        </p>
         <FieldError errors={state.fieldErrors?.cpf} />
       </label>
       {state.error ? <p className="text-sm font-semibold text-red-700">{state.error}</p> : null}

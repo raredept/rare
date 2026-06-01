@@ -46,7 +46,7 @@ export default async function MyAccountPage() {
       </div>
 
       <div className="mt-8 grid gap-4 md:grid-cols-3">
-        <AccountShortcut href="/minha-conta/dados" title="Dados pessoais" text="Nome, telefone e CPF opcional." />
+        <AccountShortcut href="/minha-conta/dados" title="Dados pessoais" text="Nome, telefone e CPF para checkout." />
         <AccountShortcut href="/minha-conta/enderecos" title="Endereços" text="Cadastrar, editar e definir padrão." />
         <AccountShortcut href="/minha-conta/pedidos" title="Meus pedidos" text="Histórico vinculado à sua conta." />
       </div>

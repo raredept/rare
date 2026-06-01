@@ -1,14 +1,9 @@
 import type Stripe from "stripe";
 import { Prisma, type OrderStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import {
-  buildCheckoutCustomerData,
-  buildGuestCheckoutCustomerData,
-  type CheckoutAddressSource,
-  type CheckoutGuestCustomerSource,
-} from "@/lib/customer-order";
+import { buildCheckoutCustomerData, type CheckoutAddressSource } from "@/lib/customer-order";
+import { isValidCpf } from "@/lib/cpf";
 import { getAppUrl } from "@/lib/env";
-import { normalizePhone } from "@/lib/privacy";
 import {
   buildPackageFromCart,
   buildShippingQuoteSnapshot,
@@ -43,6 +38,9 @@ type CheckoutItem = {
 type CheckoutOptions = {
   customerId?: string | null;
 };
+
+export const checkoutRequiresLoginMessage = "Para finalizar sua compra, entre ou crie sua conta.";
+export const checkoutRequiresCpfMessage = "Precisamos de um CPF válido para finalizar sua compra.";
 
 type CustomerAddressForCheckout = CheckoutAddressSource & {
   id: string;
@@ -352,6 +350,10 @@ async function releaseOrderReservation(
 }
 
 export async function createCheckoutSession(input: unknown, options: CheckoutOptions = {}) {
+  if (!options.customerId) {
+    throw new Error(checkoutRequiresLoginMessage);
+  }
+
   const parsed = checkoutRequestSchema.parse(input);
   const items = consolidateItems(parsed.items);
   let stripeShippingOption: ShippingOption | null = null;
@@ -363,79 +365,60 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
   const settings = await getStoreSettings();
   const reservationMinutes = Math.max(30, settings.checkoutReservationMinutes);
   const reservationExpiresAt = new Date(Date.now() + reservationMinutes * 60 * 1000);
-  const checkoutCustomer = options.customerId
-    ? await prisma.customer.findFirst({
-        where: {
-          id: options.customerId,
-          active: true,
-        },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          phone: true,
-          cpf: true,
-        },
-      })
-    : null;
-  const customerAddresses: CustomerAddressForCheckout[] = checkoutCustomer
-    ? await prisma.customerAddress.findMany({
-        where: { customerId: checkoutCustomer.id },
-        orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
-        select: {
-          id: true,
-          customerId: true,
-          label: true,
-          recipientName: true,
-          phone: true,
-          cep: true,
-          street: true,
-          number: true,
-          complement: true,
-          neighborhood: true,
-          city: true,
-          state: true,
-        },
-      })
-    : [];
-  const selectedCustomerAddress = checkoutCustomer
-    ? parsed.customerAddressId
-      ? customerAddresses.find((address) => address.id === parsed.customerAddressId) ?? null
-      : customerAddresses[0] ?? null
-    : null;
+  const checkoutCustomer = await prisma.customer.findFirst({
+    where: {
+      id: options.customerId,
+      active: true,
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      cpf: true,
+    },
+  });
 
-  if (checkoutCustomer && parsed.customerAddressId && !selectedCustomerAddress) {
+  if (!checkoutCustomer) {
+    throw new Error(checkoutRequiresLoginMessage);
+  }
+
+  if (!isValidCpf(checkoutCustomer.cpf)) {
+    throw new Error(checkoutRequiresCpfMessage);
+  }
+
+  const customerAddresses: CustomerAddressForCheckout[] = await prisma.customerAddress.findMany({
+    where: { customerId: checkoutCustomer.id },
+    orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+    select: {
+      id: true,
+      customerId: true,
+      label: true,
+      recipientName: true,
+      phone: true,
+      cep: true,
+      street: true,
+      number: true,
+      complement: true,
+      neighborhood: true,
+      city: true,
+      state: true,
+    },
+  });
+  const selectedCustomerAddress = parsed.customerAddressId
+    ? customerAddresses.find((address) => address.id === parsed.customerAddressId) ?? null
+    : customerAddresses[0] ?? null;
+
+  if (parsed.customerAddressId && !selectedCustomerAddress) {
     throw new Error("Endereço de entrega inválido.");
   }
 
-  if (checkoutCustomer && settings.checkoutRequiresAddress && !selectedCustomerAddress) {
+  if (settings.checkoutRequiresAddress && !selectedCustomerAddress) {
     throw new Error("Selecione um endereço de entrega.");
   }
 
-  if (!checkoutCustomer && !parsed.guestCustomerData) {
-    throw new Error("Informe seus dados de contato para finalizar.");
-  }
-
-  if (!checkoutCustomer && settings.checkoutRequiresAddress && !parsed.guestAddress) {
-    throw new Error("Informe o endereço de entrega.");
-  }
-
-  const guestCustomerData: CheckoutGuestCustomerSource | null = parsed.guestCustomerData
-    ? {
-        ...parsed.guestCustomerData,
-        phone: normalizePhone(parsed.guestCustomerData.phone),
-      }
-    : null;
-  const guestAddress = parsed.guestAddress
-    ? {
-        ...parsed.guestAddress,
-        phone: normalizePhone(parsed.guestAddress.phone),
-      }
-    : null;
-  const selectedShippingAddress = selectedCustomerAddress ?? guestAddress;
-  const checkoutCustomerData = checkoutCustomer
-    ? buildCheckoutCustomerData({ ...checkoutCustomer, addresses: [] }, selectedCustomerAddress)
-    : buildGuestCheckoutCustomerData(guestCustomerData!, guestAddress);
+  const selectedShippingAddress = selectedCustomerAddress;
+  const checkoutCustomerData = buildCheckoutCustomerData({ ...checkoutCustomer, addresses: [] }, selectedCustomerAddress);
 
   const order = await prisma.$transaction(async (tx) => {
     const variants = await tx.productVariant.findMany({

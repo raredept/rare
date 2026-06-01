@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { OrderStatus } from "@prisma/client";
 import { formatMoney } from "@/lib/money";
 import { formatOrderStatus, formatPaymentMethod } from "@/lib/order-display";
+import { maskCpf } from "@/lib/privacy";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +17,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     where: status ? { status: status as OrderStatus } : {},
     include: {
       items: true,
-      customer: { select: { name: true, email: true } },
+      customer: { select: { name: true, email: true, cpf: true } },
     },
     orderBy: { createdAt: "desc" },
     take: 100,
@@ -53,7 +54,14 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
             <div key={order.id} className="grid gap-3 px-5 py-4 lg:grid-cols-[160px_1fr_150px_140px_120px_100px] lg:items-center">
               <span className="font-black text-neutral-950">{order.orderNumber}</span>
               <span className="text-sm font-semibold text-neutral-600">
-                {order.customer?.name ?? order.customerNameSnapshot ?? order.customerEmailSnapshot ?? order.customerEmail ?? order.customerName ?? "Cliente convidado"}
+                <span className="block">
+                  {order.customer?.name ?? order.customerNameSnapshot ?? order.customerEmailSnapshot ?? order.customerEmail ?? order.customerName ?? "Cliente"}
+                </span>
+                {maskCpf(order.customer?.cpf ?? order.customerCpfSnapshot) ? (
+                  <span className="mt-1 block text-xs font-semibold text-neutral-500">
+                    CPF {maskCpf(order.customer?.cpf ?? order.customerCpfSnapshot)}
+                  </span>
+                ) : null}
               </span>
               <span className="text-sm font-black text-neutral-700">{formatOrderStatus(order.status)}</span>
               <span className="text-sm font-semibold text-neutral-600">{formatPaymentMethod(order.paymentMethod)}</span>

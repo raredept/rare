@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkoutRequestSchema, customerAddressSchema, productFormSchema } from "@/lib/validators";
+import { checkoutRequestSchema, customerAddressSchema, customerRegisterSchema, productFormSchema } from "@/lib/validators";
 
 const checkoutItems = [{ productId: "product_1", variantId: "variant_1", quantity: 1 }];
 
@@ -38,6 +38,47 @@ describe("validators", () => {
     });
 
     expect(parsed.success).toBe(false);
+  });
+
+  it("requires CPF on customer registration", () => {
+    const parsed = customerRegisterSchema.safeParse({
+      name: "Cliente Teste",
+      email: "cliente@example.com",
+      phone: "11999998888",
+      cpf: "",
+      password: "password123",
+      passwordConfirmation: "password123",
+    });
+
+    expect(parsed.success).toBe(false);
+    expect(parsed.error?.flatten().fieldErrors.cpf).toContain("Informe seu CPF.");
+  });
+
+  it("rejects invalid CPF on customer registration", () => {
+    const parsed = customerRegisterSchema.safeParse({
+      name: "Cliente Teste",
+      email: "cliente@example.com",
+      phone: "11999998888",
+      cpf: "111.111.111-11",
+      password: "password123",
+      passwordConfirmation: "password123",
+    });
+
+    expect(parsed.success).toBe(false);
+    expect(parsed.error?.flatten().fieldErrors.cpf).toContain("CPF inválido.");
+  });
+
+  it("normalizes CPF on customer registration", () => {
+    const parsed = customerRegisterSchema.parse({
+      name: "Cliente Teste",
+      email: "cliente@example.com",
+      phone: "11999998888",
+      cpf: "123.456.789-09",
+      password: "password123",
+      passwordConfirmation: "password123",
+    });
+
+    expect(parsed.cpf).toBe("12345678909");
   });
 
   it("accepts positive product shipping dimensions", () => {

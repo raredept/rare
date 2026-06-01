@@ -1,36 +1,9 @@
-const cpfInvalidRepeatedDigits = /^(\d)\1{10}$/;
+import { isValidCpf, maskCpf, normalizeCpf } from "@/lib/cpf";
+
+export { formatCpf, isValidCpf, maskCpf, normalizeCpf } from "@/lib/cpf";
 
 export function onlyDigits(value: string | null | undefined) {
   return (value ?? "").replace(/\D/g, "");
-}
-
-export function normalizeCpf(value: string | null | undefined) {
-  const digits = onlyDigits(value);
-  return digits.length ? digits : null;
-}
-
-export function isValidCpf(value: string | null | undefined) {
-  const cpf = normalizeCpf(value);
-  if (!cpf || cpf.length !== 11 || cpfInvalidRepeatedDigits.test(cpf)) {
-    return false;
-  }
-
-  const calculateDigit = (factor: number) => {
-    let total = 0;
-    for (let index = 0; index < factor - 1; index += 1) {
-      total += Number(cpf[index]) * (factor - index);
-    }
-    const rest = (total * 10) % 11;
-    return rest === 10 ? 0 : rest;
-  };
-
-  return calculateDigit(10) === Number(cpf[9]) && calculateDigit(11) === Number(cpf[10]);
-}
-
-export function maskCpf(value: string | null | undefined) {
-  const cpf = normalizeCpf(value);
-  if (!cpf || cpf.length !== 11) return "";
-  return `***.${cpf.slice(3, 6)}.${cpf.slice(6, 9)}-**`;
 }
 
 export function normalizeOptionalCpf(value: string | null | undefined) {

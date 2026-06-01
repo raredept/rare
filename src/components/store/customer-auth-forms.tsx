@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import {
   loginCustomerAction,
   registerCustomerAction,
   type CustomerActionState,
 } from "@/lib/customer-actions";
+import { formatCpf } from "@/lib/cpf";
 
 function FieldError({ errors }: { errors?: string[] }) {
   return errors?.length ? <p className="mt-1 text-sm font-semibold text-red-700">{errors[0]}</p> : null;
@@ -46,6 +47,7 @@ export function CustomerLoginForm({ next }: { next?: string }) {
 
 export function CustomerRegisterForm({ next }: { next?: string }) {
   const [state, formAction, pending] = useActionState<CustomerActionState, FormData>(registerCustomerAction, {});
+  const [cpf, setCpf] = useState("");
 
   return (
     <form action={formAction} className="mt-8 space-y-4">
@@ -67,8 +69,18 @@ export function CustomerRegisterForm({ next }: { next?: string }) {
           <FieldError errors={state.fieldErrors?.phone} />
         </label>
         <label className="block">
-          <span className="mb-2 block text-sm font-black uppercase tracking-wide text-neutral-700">CPF opcional</span>
-          <input name="cpf" inputMode="numeric" autoComplete="off" className="admin-input h-12" />
+          <span className="mb-2 block text-sm font-black uppercase tracking-wide text-neutral-700">CPF</span>
+          <input
+            name="cpf"
+            value={cpf}
+            onChange={(event) => setCpf(formatCpf(event.target.value))}
+            required
+            inputMode="numeric"
+            autoComplete="off"
+            maxLength={14}
+            placeholder="000.000.000-00"
+            className="admin-input h-12"
+          />
           <FieldError errors={state.fieldErrors?.cpf} />
         </label>
       </div>

@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCart, type CartItem } from "@/components/store/cart-context";
 import { ProductMediaPlaceholder } from "@/components/store/product-media-placeholder";
 import { formatCep, parseCep } from "@/lib/cep";
+import { formatCpf, isValidCpf, normalizeCpf } from "@/lib/cpf";
 import { formatMoney } from "@/lib/money";
 import { calculateProvisionalShipping, type ProvisionalShippingSettings } from "@/lib/shipping";
 
@@ -30,7 +31,9 @@ type CartPageClientProps = {
     name: string;
     email: string;
     phone: string | null;
-  } | null;
+    hasCpf: boolean;
+    cpfMasked: string;
+  };
   addresses: CheckoutAddress[];
   initialSelectedAddressId: string;
   shippingSettings: ProvisionalShippingSettings & {
@@ -67,23 +70,6 @@ type ShippingQuoteContext = {
 
 type ShippingSelection = ShippingQuoteContext & {
   option: ShippingQuoteOption;
-};
-
-const emptyGuestCustomer = {
-  name: "",
-  email: "",
-  phone: "",
-  cpf: "",
-};
-
-const emptyGuestAddress = {
-  cep: "",
-  street: "",
-  number: "",
-  complement: "",
-  neighborhood: "",
-  city: "",
-  state: "",
 };
 
 const shippingSelectionStorageKey = "rare_store_shipping_selection";
@@ -181,8 +167,6 @@ function formatCheckoutMessage(message: string) {
 export function CartPageClient({ customer, addresses, initialSelectedAddressId, shippingSettings, shippingConfig }: CartPageClientProps) {
   const { items, subtotalInCents, updateQuantity, removeItem } = useCart();
   const [selectedAddressId, setSelectedAddressId] = useState(initialSelectedAddressId);
-  const [guestCustomerData, setGuestCustomerData] = useState(emptyGuestCustomer);
-  const [guestAddress, setGuestAddress] = useState(emptyGuestAddress);
   const [shippingOptions, setShippingOptions] = useState<ShippingQuoteOption[]>([]);
   const [shippingQuoteContext, setShippingQuoteContext] = useState<ShippingQuoteContext | null>(null);
   const [selectedShipping, setSelectedShipping] = useState<ShippingSelection | null>(null);
@@ -190,10 +174,19 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
   const [shippingError, setShippingError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasRequiredCpf, setHasRequiredCpf] = useState(customer.hasCpf);
+  const [cpfMasked, setCpfMasked] = useState(customer.cpfMasked);
+  const [cpfInput, setCpfInput] = useState("");
+  const [cpfError, setCpfError] = useState<string | null>(null);
+  const [cpfSaving, setCpfSaving] = useState(false);
   const shippingRequestId = useRef(0);
   const selectedAddress = addresses.find((address) => address.id === selectedAddressId) ?? null;
-  const checkoutCep = customer ? selectedAddress?.cep : guestAddress.cep;
+  const checkoutCep = selectedAddress?.cep;
   const normalizedCheckoutCep = parseCep(checkoutCep);
+  const needsCpf = !hasRequiredCpf;
+  const normalizedCpfInput = normalizeCpf(cpfInput);
+  const cpfInputIsValid = isValidCpf(normalizedCpfInput);
+  const cpfSaveDisabled = cpfSaving || !normalizedCpfInput || !cpfInputIsValid;
   const cartSignature = useMemo(() => getCartSignature(items), [items]);
   const currentShippingOptions =
     shippingQuoteContext?.cartSignature === cartSignature && shippingQuoteContext.cep === normalizedCheckoutCep
@@ -233,22 +226,13 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
 
   const checkoutPayload = useMemo(
     () => {
-      const hasGuestAddress = Object.values(guestAddress).some((value) => value.trim());
-
       return {
         items: items.map((item) => ({
           productId: item.productId,
           variantId: item.variantId,
           quantity: item.quantity,
         })),
-        ...(customer
-          ? {
-              customerAddressId: selectedAddressId || undefined,
-            }
-          : {
-              guestCustomerData,
-              guestAddress: hasGuestAddress || shippingSettings.checkoutRequiresAddress !== false ? guestAddress : undefined,
-            }),
+        customerAddressId: selectedAddressId || undefined,
         ...(shippingConfig.enabled
           ? {
               shippingOptionId: selectedShippingOption?.id,
@@ -263,9 +247,6 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
     },
     [
       checkoutCep,
-      customer,
-      guestAddress,
-      guestCustomerData,
       items,
       legacyShippingPreview.result?.shippingMethod,
       selectedAddressId,
@@ -273,7 +254,6 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
       selectedShippingOption?.provider,
       selectedShippingOption?.service,
       shippingConfig.enabled,
-      shippingSettings.checkoutRequiresAddress,
     ],
   );
 
@@ -409,10 +389,6 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
     shippingError,
   ]);
 
-  function updateGuestCustomer(field: keyof typeof emptyGuestCustomer, value: string) {
-    setGuestCustomerData((current) => ({ ...current, [field]: value }));
-  }
-
   function resetSelectedShipping() {
     setShippingOptions([]);
     setShippingQuoteContext(null);
@@ -430,34 +406,47 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
     resetSelectedShipping();
   }
 
-  function updateGuestAddress(field: keyof typeof emptyGuestAddress, value: string) {
-    setGuestAddress((current) => ({ ...current, [field]: value }));
-    if (field === "cep") {
-      resetSelectedShipping();
+  async function saveCpf() {
+    if (!normalizedCpfInput) {
+      setCpfError("Informe seu CPF.");
+      return;
+    }
+
+    if (!cpfInputIsValid) {
+      setCpfError("CPF inválido.");
+      return;
+    }
+
+    setCpfSaving(true);
+    setCpfError(null);
+
+    try {
+      const response = await fetch("/api/customer/cpf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cpf: normalizedCpfInput }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Não foi possível salvar o CPF.");
+      setHasRequiredCpf(true);
+      setCpfMasked(data.cpfMasked ?? "");
+      setCpfInput("");
+      setError(null);
+    } catch (saveError) {
+      const message = saveError instanceof Error ? saveError.message : "Não foi possível salvar o CPF.";
+      setCpfError(message);
+    } finally {
+      setCpfSaving(false);
     }
   }
 
   function validateBeforeCheckout() {
-    if (customer && shippingSettings.checkoutRequiresAddress !== false && !selectedAddressId) {
-      return "Selecione um endereço de entrega.";
+    if (needsCpf) {
+      return "Informe um CPF válido para finalizar.";
     }
 
-    if (!customer) {
-      if (!guestCustomerData.name.trim() || !guestCustomerData.email.trim() || !guestCustomerData.phone.trim()) {
-        return "Informe nome, e-mail e telefone para finalizar.";
-      }
-
-      if (
-        shippingSettings.checkoutRequiresAddress !== false &&
-        (!guestAddress.cep.trim() ||
-          !guestAddress.street.trim() ||
-          !guestAddress.number.trim() ||
-          !guestAddress.neighborhood.trim() ||
-          !guestAddress.city.trim() ||
-          !guestAddress.state.trim())
-      ) {
-        return "Informe o endereço de entrega.";
-      }
+    if (shippingSettings.checkoutRequiresAddress !== false && !selectedAddressId) {
+      return "Selecione um endereço de entrega.";
     }
 
     if (shippingConfig.enabled && !selectedShippingOption) {
@@ -544,42 +533,49 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
               <h2 className="text-lg font-black text-neutral-950">Dados de contato</h2>
             </div>
 
-            {customer ? (
-              <div className="mt-4 rounded-lg bg-neutral-50 p-4 text-sm font-semibold text-neutral-600">
-                <p className="font-black text-neutral-950">{customer.name}</p>
-                <p>{customer.email}</p>
-                <p>{customer.phone ?? "Telefone não cadastrado"}</p>
-              </div>
-            ) : (
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <Field label="Nome">
-                  <input value={guestCustomerData.name} onChange={(event) => updateGuestCustomer("name", event.target.value)} className="admin-input" />
-                </Field>
-                <Field label="E-mail">
-                  <input
-                    value={guestCustomerData.email}
-                    onChange={(event) => updateGuestCustomer("email", event.target.value)}
-                    type="email"
-                    className="admin-input"
-                  />
-                </Field>
-                <Field label="Telefone">
-                  <input
-                    value={guestCustomerData.phone}
-                    onChange={(event) => updateGuestCustomer("phone", event.target.value)}
-                    inputMode="tel"
-                    className="admin-input"
-                  />
-                </Field>
-                <Field label="CPF opcional">
-                  <input value={guestCustomerData.cpf} onChange={(event) => updateGuestCustomer("cpf", event.target.value)} className="admin-input" />
-                </Field>
-                <p className="text-sm font-semibold text-neutral-500 sm:col-span-2">
-                  Você pode criar uma conta depois para acompanhar próximos pedidos.
-                </p>
-              </div>
-            )}
+            <div className="mt-4 rounded-lg bg-neutral-50 p-4 text-sm font-semibold text-neutral-600">
+              <p className="font-black text-neutral-950">{customer.name}</p>
+              <p>{customer.email}</p>
+              <p>{customer.phone ?? "Telefone não cadastrado"}</p>
+              <p>{hasRequiredCpf ? `CPF ${cpfMasked || "cadastrado"}` : "CPF pendente"}</p>
+            </div>
           </section>
+
+          {needsCpf ? (
+            <section className="rounded-lg border border-amber-200 bg-amber-50 p-5">
+              <h2 className="text-lg font-black text-neutral-950">Complete seus dados</h2>
+              <p className="mt-2 text-sm font-semibold leading-6 text-amber-900">
+                Precisamos do CPF para emissão e envio do pedido.
+              </p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_160px] sm:items-end">
+                <Field label="CPF">
+                  <input
+                    value={cpfInput}
+                    onChange={(event) => {
+                      setCpfInput(formatCpf(event.target.value));
+                      setCpfError(null);
+                    }}
+                    inputMode="numeric"
+                    maxLength={14}
+                    placeholder="000.000.000-00"
+                    aria-invalid={Boolean(cpfInput && !cpfInputIsValid)}
+                    className="admin-input h-12 bg-white"
+                  />
+                </Field>
+                <button
+                  type="button"
+                  onClick={saveCpf}
+                  disabled={cpfSaveDisabled}
+                  className="inline-flex h-12 items-center justify-center rounded-lg bg-black px-5 text-xs font-black uppercase tracking-wide text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-500"
+                >
+                  {cpfSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Salvar CPF
+                </button>
+              </div>
+              {cpfInput && !cpfInputIsValid ? <p className="mt-2 text-sm font-bold text-red-700">CPF inválido.</p> : null}
+              {cpfError ? <p className="mt-2 text-sm font-bold text-red-700">{cpfError}</p> : null}
+            </section>
+          ) : null}
 
           <section className="rounded-lg border border-neutral-200 bg-white p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -587,18 +583,12 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
                 <MapPin className="h-5 w-5 text-neutral-700" />
                 <h2 className="text-lg font-black text-neutral-950">Entrega</h2>
               </div>
-              {customer ? (
-                <Link href="/minha-conta/enderecos" className="rounded-lg border border-neutral-300 px-3 py-2 text-xs font-black">
-                  Cadastrar ou editar
-                </Link>
-              ) : null}
+              <Link href="/minha-conta/enderecos" className="rounded-lg border border-neutral-300 px-3 py-2 text-xs font-black">
+                Cadastrar ou editar
+              </Link>
             </div>
 
-            {customer ? (
-              <LoggedAddressSelector addresses={addresses} selectedAddressId={selectedAddressId} onSelect={selectAddress} />
-            ) : (
-              <GuestAddressForm guestAddress={guestAddress} onChange={updateGuestAddress} />
-            )}
+            <LoggedAddressSelector addresses={addresses} selectedAddressId={selectedAddressId} onSelect={selectAddress} />
 
             {shippingSettings.shippingInstructions ? (
               <p className="mt-4 rounded-lg bg-neutral-50 px-4 py-3 text-sm font-semibold text-neutral-600">{shippingSettings.shippingInstructions}</p>
@@ -749,6 +739,11 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
                       : "Calcule o frete com seu CEP."}
               </p>
             ) : null}
+            {needsCpf ? (
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+                Salve um CPF válido em Complete seus dados para liberar o checkout.
+              </p>
+            ) : null}
             {legacyShippingPreview.error ? (
               <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
                 {formatCheckoutMessage(legacyShippingPreview.error)}
@@ -765,7 +760,7 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
           <button
             type="button"
             onClick={checkout}
-            disabled={loading || (shippingConfig.enabled && !selectedShippingOption)}
+            disabled={loading || needsCpf || (shippingConfig.enabled && !selectedShippingOption)}
             className="mt-6 flex h-12 w-full items-center justify-center rounded-lg bg-black px-6 text-sm font-black uppercase tracking-wide text-white transition hover:bg-neutral-800 disabled:cursor-wait disabled:bg-neutral-500"
           >
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -911,45 +906,6 @@ function LoggedAddressSelector({
           </span>
         </label>
       ))}
-    </div>
-  );
-}
-
-function GuestAddressForm({
-  guestAddress,
-  onChange,
-}: {
-  guestAddress: typeof emptyGuestAddress;
-  onChange: (field: keyof typeof emptyGuestAddress, value: string) => void;
-}) {
-  return (
-    <div className="mt-4 grid gap-4 sm:grid-cols-2">
-      <Field label="CEP">
-        <input value={guestAddress.cep} onChange={(event) => onChange("cep", event.target.value)} inputMode="numeric" className="admin-input" />
-      </Field>
-      <Field label="Rua">
-        <input value={guestAddress.street} onChange={(event) => onChange("street", event.target.value)} className="admin-input" />
-      </Field>
-      <Field label="Número">
-        <input value={guestAddress.number} onChange={(event) => onChange("number", event.target.value)} className="admin-input" />
-      </Field>
-      <Field label="Complemento">
-        <input value={guestAddress.complement} onChange={(event) => onChange("complement", event.target.value)} className="admin-input" />
-      </Field>
-      <Field label="Bairro">
-        <input value={guestAddress.neighborhood} onChange={(event) => onChange("neighborhood", event.target.value)} className="admin-input" />
-      </Field>
-      <Field label="Cidade">
-        <input value={guestAddress.city} onChange={(event) => onChange("city", event.target.value)} className="admin-input" />
-      </Field>
-      <Field label="Estado">
-        <input
-          value={guestAddress.state}
-          onChange={(event) => onChange("state", event.target.value.toUpperCase())}
-          maxLength={2}
-          className="admin-input uppercase"
-        />
-      </Field>
     </div>
   );
 }

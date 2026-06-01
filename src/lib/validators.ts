@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { isValidCep, parseCep } from "@/lib/cep";
-import { isValidCpf, normalizeCpf } from "@/lib/privacy";
+import { isValidCpf, normalizeCpf } from "@/lib/cpf";
 import { shippingModes } from "@/lib/shipping";
 
 export const checkoutItemSchema = z.object({
@@ -32,6 +32,17 @@ const optionalCpf = z
     return !cpf || isValidCpf(cpf);
   }, "CPF inválido.")
   .transform((value) => normalizeCpf(value) ?? undefined);
+
+const requiredCpf = z
+  .string()
+  .trim()
+  .min(1, "Informe seu CPF.")
+  .max(18, "CPF inválido.")
+  .refine((value) => {
+    const cpf = normalizeCpf(value);
+    return Boolean(cpf && cpf.length === 11 && isValidCpf(cpf));
+  }, "CPF inválido.")
+  .transform((value) => normalizeCpf(value) ?? "");
 
 const cepSchema = z
   .string()
@@ -71,7 +82,7 @@ export const guestCustomerDataSchema = z.object({
   name: z.string().trim().min(2).max(120),
   email: z.string().trim().email().max(255).transform((value) => value.toLowerCase()),
   phone: z.string().trim().min(8).max(32),
-  cpf: optionalCpf,
+  cpf: requiredCpf,
 });
 
 export const checkoutRequestSchema = z.object({
@@ -91,7 +102,7 @@ export const customerRegisterSchema = z
     name: z.string().trim().min(2).max(120),
     email: z.string().trim().email().max(255).transform((value) => value.toLowerCase()),
     phone: optionalTrimmed(32),
-    cpf: optionalCpf,
+    cpf: requiredCpf,
     password: z.string().min(8).max(128),
     passwordConfirmation: z.string().min(8).max(128),
   })

@@ -163,6 +163,14 @@ export async function updateCustomerProfileAction(
 ): Promise<CustomerActionState> {
   const customer = await requireCustomer("/minha-conta/dados");
   const rawCpf = getString(formData, "cpf");
+
+  if (!customer.cpf && !rawCpf.trim()) {
+    return {
+      error: "Informe seu CPF.",
+      fieldErrors: { cpf: ["Informe seu CPF."] },
+    };
+  }
+
   const parsed = customerProfileSchema.safeParse({
     name: getString(formData, "name"),
     phone: getString(formData, "phone"),
