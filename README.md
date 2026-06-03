@@ -67,7 +67,7 @@ GET /api/cron/release-expired-inventory
 Authorization: Bearer $CRON_SECRET
 ```
 
-O `vercel.json` agenda esse endpoint a cada 10 minutos. Configure `CRON_SECRET` na Vercel antes do deploy para que o cron execute; sem o segredo correto, a rota não altera reservas.
+O `vercel.json` agenda esse endpoint uma vez por dia, as 03:00 UTC. Em contas Hobby da Vercel, cron com frequencia maior que diaria falha no deploy; para voltar a cada 10 minutos, use plano Pro ou um scheduler externo. Configure `CRON_SECRET` na Vercel antes do deploy para que o cron execute; sem o segredo correto, a rota não altera reservas.
 
 ### Stripe homologação
 
