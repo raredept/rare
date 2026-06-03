@@ -9,6 +9,7 @@ import {
   getMaxUploadBytes,
   hasValidImageSignature,
   normalizeUploadContext,
+  resolveLocalStorageObjectPath,
   saveUploadedImage,
   sanitizeUploadFilenameStem,
   validateDirectR2UploadMetadata,
@@ -157,6 +158,32 @@ describe("storage helpers", () => {
     expect(buildObjectKey("../Campanha Home.webp", "webp", new Date("2026-05-14T12:00:00Z"), "banners")).toMatch(
       /^banners\/2026\/05\/[a-f0-9-]+-campanha-home\.webp$/,
     );
+  });
+
+  it("resolves valid local object keys under the configured storage directory", () => {
+    const resolved = resolveLocalStorageObjectPath(
+      "output/test-storage",
+      "products/2026/05/00000000-0000-0000-0000-000000000000-produto-local.png",
+    );
+
+    expect(resolved.relativePath).toBe("products/2026/05/00000000-0000-0000-0000-000000000000-produto-local.png");
+    expect(resolved.absolutePath).toBe(path.join(testStorageDir, resolved.relativePath));
+    expect(resolved.directoryPath).toBe(path.join(testStorageDir, "products", "2026", "05"));
+  });
+
+  it("blocks traversal and absolute local object keys", () => {
+    const unsafeKeys = [
+      "../secret.png",
+      "products/2026/05/../../secret.png",
+      "products\\2026\\..\\secret.png",
+      "/products/2026/05/00000000-0000-0000-0000-000000000000-produto.png",
+      "C:\\tmp\\00000000-0000-0000-0000-000000000000-produto.png",
+      "products/2026/13/00000000-0000-0000-0000-000000000000-produto.png",
+    ];
+
+    for (const unsafeKey of unsafeKeys) {
+      expect(() => resolveLocalStorageObjectPath("output/test-storage", unsafeKey)).toThrow("Caminho de upload invalido.");
+    }
   });
 
   it("saves valid local uploads under the configured dev directory", async () => {

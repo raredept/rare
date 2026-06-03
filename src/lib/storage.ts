@@ -193,6 +193,90 @@ export function buildObjectKey(fileName: string, extension: string, now = new Da
   return `${context}/${year}/${month}/${randomUUID()}-${stem}.${extension}`;
 }
 
+type SafeLocalObjectKey = {
+  context: UploadContext;
+  year: string;
+  month: string;
+  fileName: string;
+  relativePath: string;
+};
+
+const localObjectKeyFileNamePattern =
+  /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}-[a-z0-9]+(?:-[a-z0-9]+)*\.(?:jpg|png|webp|avif|gif|mp4)$/;
+
+function isAbsoluteObjectKey(objectKey: string) {
+  return path.isAbsolute(objectKey) || path.posix.isAbsolute(objectKey) || path.win32.isAbsolute(objectKey);
+}
+
+function assertSafeLocalObjectKeySegment(segment: string) {
+  if (!segment || segment === "." || segment === ".." || segment.includes("/") || segment.includes("\\") || segment.includes("\0")) {
+    throw new Error("Caminho de upload invalido.");
+  }
+}
+
+function parseSafeLocalObjectKey(objectKey: string): SafeLocalObjectKey {
+  const normalizedObjectKey = objectKey.replace(/\\/g, "/");
+
+  if (!normalizedObjectKey || normalizedObjectKey.includes("\0") || isAbsoluteObjectKey(normalizedObjectKey)) {
+    throw new Error("Caminho de upload invalido.");
+  }
+
+  const segments = normalizedObjectKey.split("/");
+  if (segments.length !== 4) {
+    throw new Error("Caminho de upload invalido.");
+  }
+
+  for (const segment of segments) {
+    assertSafeLocalObjectKeySegment(segment);
+  }
+
+  const [context, year, month, fileName] = segments;
+  if (context !== "products" && context !== "banners") {
+    throw new Error("Caminho de upload invalido.");
+  }
+
+  if (!/^\d{4}$/.test(year) || !/^(0[1-9]|1[0-2])$/.test(month) || !localObjectKeyFileNamePattern.test(fileName)) {
+    throw new Error("Caminho de upload invalido.");
+  }
+
+  return {
+    context,
+    year,
+    month,
+    fileName,
+    relativePath: `${context}/${year}/${month}/${fileName}`,
+  };
+}
+
+export function resolveLocalStorageObjectPath(localStorageDir: string, objectKey: string) {
+  const safeKey = parseSafeLocalObjectKey(objectKey);
+  const storageDir = path.resolve(/*turbopackIgnore: true*/ process.cwd(), localStorageDir);
+  const absolutePath = path.resolve(
+    /*turbopackIgnore: true*/ storageDir,
+    safeKey.context,
+    safeKey.year,
+    safeKey.month,
+    safeKey.fileName,
+  );
+  const relativeFromStorageDir = path.relative(storageDir, absolutePath);
+
+  if (
+    !relativeFromStorageDir ||
+    relativeFromStorageDir.startsWith("..") ||
+    path.isAbsolute(relativeFromStorageDir) ||
+    path.win32.isAbsolute(relativeFromStorageDir)
+  ) {
+    throw new Error("Caminho de upload invalido.");
+  }
+
+  return {
+    absolutePath,
+    directoryPath: path.dirname(absolutePath),
+    relativePath: safeKey.relativePath,
+    storageDir,
+  };
+}
+
 function createR2Client(r2: ReturnType<typeof getR2StorageConfig>) {
   return new S3Client({
     region: "auto",
@@ -272,16 +356,11 @@ export async function saveUploadedImage(file: File, options: { context?: UploadC
     };
   }
 
-  const publicPath = `${getStoragePublicBaseUrl()}/${objectKey}`;
-  const storageDir = path.resolve(/*turbopackIgnore: true*/ process.cwd(), getStorageLocalDir());
-  const absolutePath = path.join(storageDir, objectKey);
+  const localPath = resolveLocalStorageObjectPath(getStorageLocalDir(), objectKey);
+  const publicPath = `${getStoragePublicBaseUrl()}/${localPath.relativePath}`;
 
-  if (!absolutePath.startsWith(`${storageDir}${path.sep}`)) {
-    throw new Error("Caminho de upload invalido.");
-  }
-
-  await mkdir(path.dirname(absolutePath), { recursive: true });
-  await writeFile(absolutePath, bytes);
+  await mkdir(/*turbopackIgnore: true*/ localPath.directoryPath, { recursive: true });
+  await writeFile(/*turbopackIgnore: true*/ localPath.absolutePath, bytes);
 
   return {
     url: publicPath,
