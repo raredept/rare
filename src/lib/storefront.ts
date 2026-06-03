@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { accessoryCatalogSubcategories, groupedCatalogCategories, primaryCatalogCategories } from "@/lib/catalog-categories";
 import { prisma } from "@/lib/prisma";
+import { isVariantPurchasable } from "@/lib/stock";
 
 export const productInclude = {
   category: true,
@@ -97,6 +98,27 @@ type GroupingCategory = {
   slug: string;
 };
 
+type CategoryAvailabilityProduct = {
+  category: { slug: string } | null;
+  subcategory: { slug: string } | null;
+  variants: { active: boolean; stock: number; reservedStock: number }[];
+};
+
+function buildPurchasableProductCountsByCategorySlug(products: CategoryAvailabilityProduct[]) {
+  const counts = new Map<string, number>();
+
+  for (const product of products) {
+    if (!product.variants.some((variant) => isVariantPurchasable(variant))) continue;
+
+    const slugs = new Set([product.category?.slug, product.subcategory?.slug].filter((slug): slug is string => Boolean(slug)));
+    for (const slug of slugs) {
+      counts.set(slug, (counts.get(slug) ?? 0) + 1);
+    }
+  }
+
+  return counts;
+}
+
 function getProductGroupingSlug(product: StorefrontProduct, groupedSlugs = groupedCatalogCategorySlugs) {
   const subcategorySlug = product.subcategory?.slug;
   if (subcategorySlug && groupedSlugs.has(subcategorySlug)) {
@@ -112,27 +134,43 @@ function getProductGroupingSlug(product: StorefrontProduct, groupedSlugs = group
 }
 
 export async function getNavigationCategories() {
-  const categories = await prisma.category.findMany({
-    where: { active: true, parentId: null },
-    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-    include: {
-      children: {
-        where: { active: true },
-        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+  const [categories, products] = await Promise.all([
+    prisma.category.findMany({
+      where: { active: true, parentId: null },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      include: {
+        children: {
+          where: { active: true },
+          orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+        },
       },
-    },
-  });
+    }),
+    prisma.product.findMany({
+      where: buildActiveProductWhere(),
+      select: {
+        category: { select: { slug: true } },
+        subcategory: { select: { slug: true } },
+        variants: { select: { active: true, stock: true, reservedStock: true } },
+      },
+    }),
+  ]);
+  const productCountsBySlug = buildPurchasableProductCountsByCategorySlug(products);
 
-  return categories.map((category) => {
-    if (category.slug !== "acessorios") return category;
+  return categories.flatMap((category) => {
+    const childrenWithProducts = category.children.filter((child) => (productCountsBySlug.get(child.slug) ?? 0) > 0);
+    const hasProducts = (productCountsBySlug.get(category.slug) ?? 0) > 0 || childrenWithProducts.length > 0;
+    if (!hasProducts) return [];
 
     return {
       ...category,
-      children: [...category.children].sort((first, second) => {
-        const firstOrder = accessorySubcategoryOrder.get(first.slug) ?? Number.MAX_SAFE_INTEGER;
-        const secondOrder = accessorySubcategoryOrder.get(second.slug) ?? Number.MAX_SAFE_INTEGER;
-        return firstOrder - secondOrder || first.sortOrder - second.sortOrder || first.name.localeCompare(second.name);
-      }),
+      children:
+        category.slug === "acessorios"
+          ? [...childrenWithProducts].sort((first, second) => {
+              const firstOrder = accessorySubcategoryOrder.get(first.slug) ?? Number.MAX_SAFE_INTEGER;
+              const secondOrder = accessorySubcategoryOrder.get(second.slug) ?? Number.MAX_SAFE_INTEGER;
+              return firstOrder - secondOrder || first.sortOrder - second.sortOrder || first.name.localeCompare(second.name);
+            })
+          : childrenWithProducts,
     };
   });
 }
@@ -183,6 +221,7 @@ export async function getHomeCategoryTiles(): Promise<HomeCategoryTiles> {
     select: {
       category: { select: { slug: true } },
       subcategory: { select: { slug: true } },
+      variants: { select: { active: true, stock: true, reservedStock: true } },
     },
   });
 
@@ -190,6 +229,8 @@ export async function getHomeCategoryTiles(): Promise<HomeCategoryTiles> {
   const accessoryCounts = new Map(accessoryCatalogSubcategories.map((category) => [category.slug, 0]));
 
   for (const product of products) {
+    if (!product.variants.some((variant) => isVariantPurchasable(variant))) continue;
+
     const categorySlug = product.category?.slug ?? null;
     const subcategorySlug = product.subcategory?.slug ?? null;
 
@@ -207,9 +248,13 @@ export async function getHomeCategoryTiles(): Promise<HomeCategoryTiles> {
   }
 
   return {
-    primary: primaryCatalogCategories.map((category) => buildHomeCategoryTile(category, primaryCounts.get(category.slug) ?? 0)).sort(sortHomeCategoryTiles),
+    primary: primaryCatalogCategories
+      .map((category) => buildHomeCategoryTile(category, primaryCounts.get(category.slug) ?? 0))
+      .filter((tile) => tile.total > 0)
+      .sort(sortHomeCategoryTiles),
     accessories: accessoryCatalogSubcategories
       .map((category) => buildHomeCategoryTile(category, accessoryCounts.get(category.slug) ?? 0))
+      .filter((tile) => tile.total > 0)
       .sort(sortHomeCategoryTiles),
   };
 }
@@ -323,6 +368,28 @@ export async function getCategoryPageData(slug: string, params?: { query?: strin
     description: "Peças disponíveis agora nesta categoria.",
     products: await getProducts({ categorySlug: slug, query: params?.query }),
   };
+}
+
+export async function isCategoryPageSlugAvailable(slug: string) {
+  if (slug === "destaques" || slug === "tudo") {
+    return true;
+  }
+
+  const category = await prisma.category.findUnique({
+    where: { slug },
+    select: { active: true },
+  });
+
+  return Boolean(category?.active);
+}
+
+export async function isProductPageSlugAvailable(slug: string) {
+  const product = await prisma.product.findFirst({
+    where: { slug, active: true },
+    select: { id: true },
+  });
+
+  return Boolean(product);
 }
 
 export async function getProductBySlug(slug: string) {

@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
     },
     product: {
       findMany: vi.fn(),
+      findFirst: vi.fn(),
     },
   },
 }));
@@ -98,15 +99,27 @@ describe("storefront catalog helpers", () => {
     );
   });
 
-  it("builds home category tiles with products first and empty categories marked as soon", async () => {
+  it("builds home category tiles only for categories with purchasable products", async () => {
     mocks.prisma.product.findMany.mockResolvedValueOnce([
       {
         category: { slug: "camisetas" },
         subcategory: null,
+        variants: [{ active: true, stock: 2, reservedStock: 0 }],
       },
       {
         category: { slug: "acessorios" },
         subcategory: { slug: "bags" },
+        variants: [{ active: true, stock: 1, reservedStock: 0 }],
+      },
+      {
+        category: { slug: "bermudas" },
+        subcategory: null,
+        variants: [{ active: true, stock: 1, reservedStock: 1 }],
+      },
+      {
+        category: { slug: "acessorios" },
+        subcategory: { slug: "relogios" },
+        variants: [{ active: false, stock: 5, reservedStock: 0 }],
       },
     ]);
 
@@ -125,16 +138,15 @@ describe("storefront catalog helpers", () => {
       total: 1,
       status: "available",
     });
-    expect(tiles.primary.at(-1)).toMatchObject({
-      total: 0,
-      status: "soon",
-    });
+    expect(tiles.primary.map((tile) => tile.slug)).toEqual(["camisetas", "acessorios"]);
     expect(tiles.accessories[0]).toMatchObject({
       name: "Bags",
       total: 1,
       status: "available",
     });
-    expect(tiles.accessories.some((tile) => tile.name === "Relógios" && tile.status === "soon")).toBe(true);
+    expect(tiles.accessories.map((tile) => tile.slug)).toEqual(["bags"]);
+    expect(tiles.primary.some((tile) => tile.slug === "bermudas")).toBe(false);
+    expect(tiles.accessories.some((tile) => tile.slug === "relogios")).toBe(false);
   });
 
   it("groups active products by category and accessory subcategory in the public catalog order", async () => {
@@ -261,6 +273,59 @@ describe("storefront catalog helpers", () => {
         where: expect.objectContaining({ active: true, featured: true }),
       }),
     );
+  });
+
+  it("checks product page slug availability with an active-product lookup", async () => {
+    mocks.prisma.product.findFirst.mockResolvedValueOnce({ id: "prod-1" });
+
+    const { isProductPageSlugAvailable } = await import("@/lib/storefront");
+    const isAvailable = await isProductPageSlugAvailable("camiseta-rare");
+
+    expect(isAvailable).toBe(true);
+    expect(mocks.prisma.product.findFirst).toHaveBeenCalledWith({
+      where: { slug: "camiseta-rare", active: true },
+      select: { id: true },
+    });
+  });
+
+  it("treats missing product page slugs as unavailable", async () => {
+    mocks.prisma.product.findFirst.mockResolvedValueOnce(null);
+
+    const { isProductPageSlugAvailable } = await import("@/lib/storefront");
+    const isAvailable = await isProductPageSlugAvailable("nao-existe");
+
+    expect(isAvailable).toBe(false);
+  });
+
+  it("checks category page slug availability without loading page products", async () => {
+    mocks.prisma.category.findUnique.mockResolvedValueOnce({ active: true });
+
+    const { isCategoryPageSlugAvailable } = await import("@/lib/storefront");
+    const isAvailable = await isCategoryPageSlugAvailable("camisetas");
+
+    expect(isAvailable).toBe(true);
+    expect(mocks.prisma.category.findUnique).toHaveBeenCalledWith({
+      where: { slug: "camisetas" },
+      select: { active: true },
+    });
+    expect(mocks.prisma.product.findMany).not.toHaveBeenCalled();
+  });
+
+  it("treats virtual category page slugs as available without a database lookup", async () => {
+    const { isCategoryPageSlugAvailable } = await import("@/lib/storefront");
+
+    await expect(isCategoryPageSlugAvailable("tudo")).resolves.toBe(true);
+    await expect(isCategoryPageSlugAvailable("destaques")).resolves.toBe(true);
+    expect(mocks.prisma.category.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("treats missing and inactive category page slugs as unavailable", async () => {
+    mocks.prisma.category.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce({ active: false });
+
+    const { isCategoryPageSlugAvailable } = await import("@/lib/storefront");
+
+    await expect(isCategoryPageSlugAvailable("nao-existe")).resolves.toBe(false);
+    await expect(isCategoryPageSlugAvailable("inativa")).resolves.toBe(false);
   });
 
   it("returns virtual grouped catalog page data without looking up a database category", async () => {

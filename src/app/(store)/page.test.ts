@@ -73,14 +73,6 @@ describe("store home page", () => {
           total: 2,
           status: "available",
         },
-        {
-          name: "Jaquetas",
-          slug: "jaquetas",
-          href: "/categoria/jaquetas",
-          description: "Camadas.",
-          total: 0,
-          status: "soon",
-        },
       ],
       accessories: [
         {
@@ -103,8 +95,9 @@ describe("store home page", () => {
     expect(html).toContain('data-slide-count="1"');
     expect(html).toContain("Escolha por categoria");
     expect(html).toContain("Camisetas");
-    expect(html).toContain("Jaquetas");
-    expect(html).toContain("Em breve");
+    expect(html).toContain("Bags");
+    expect(html).not.toContain("Jaquetas");
+    expect(html).not.toContain("Em breve");
     expect(html).toContain("Destaques do mês");
     expect(html).toContain('href="/categoria/destaques"');
     expect(html).toContain("Destaque 1");
