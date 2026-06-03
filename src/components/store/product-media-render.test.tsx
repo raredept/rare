@@ -38,6 +38,40 @@ describe("storefront product media rendering", () => {
     expect(html).not.toContain("/uploads/products/look.mp4");
   });
 
+  it("falls back to the static poster candidate before GIF in product cards", () => {
+    const html = renderToStaticMarkup(
+      createElement(ProductCard, {
+        product: {
+          ...baseProduct,
+          images: [
+            { url: "/uploads/products/look.mp4", alt: "Vídeo do produto" },
+            { url: "/uploads/products/look.gif", alt: "GIF do produto" },
+            { url: "/uploads/products/look.webp", alt: "Imagem do produto" },
+          ],
+        },
+      }) as ReactElement,
+    );
+
+    expect(html).toContain("/uploads/products/look.webp");
+    expect(html).not.toContain("/uploads/products/look.gif");
+    expect(html).not.toContain("/uploads/products/look.mp4");
+  });
+
+  it("uses the visual fallback for product cards when only video media exists", () => {
+    const html = renderToStaticMarkup(
+      createElement(ProductCard, {
+        product: {
+          ...baseProduct,
+          images: [{ url: "/uploads/products/look.mp4", alt: "Vídeo do produto" }],
+        },
+      }) as ReactElement,
+    );
+
+    expect(html).toContain("Sem imagem");
+    expect(html).not.toContain("/uploads/products/look.mp4");
+    expect(html).not.toContain("<video");
+  });
+
   it("renders product detail video media with controls and thumbnails", () => {
     const html = renderToStaticMarkup(
       createElement(
@@ -61,6 +95,8 @@ describe("storefront product media rendering", () => {
 
     expect(html).toContain("<video");
     expect(html).toContain("controls");
+    expect(html).toContain('poster="/uploads/products/look.webp"');
+    expect(html).toContain('preload="metadata"');
     expect(html).toContain("Vídeo");
     expect(html).not.toContain("motion-safe:md:group-hover:scale-[1.08]");
   });

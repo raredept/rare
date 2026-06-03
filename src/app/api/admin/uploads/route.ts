@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/auth";
+import { rateLimit } from "@/lib/rate-limit";
 import { getMaxAcceptedUploadBytes, normalizeUploadContext, saveUploadedImage } from "@/lib/storage";
 import {
   SERVER_ROUTED_UPLOAD_LIMIT_BYTES,
@@ -21,7 +22,11 @@ function getMaxRequestBytes() {
 }
 
 export async function POST(request: NextRequest) {
-  await requireAdmin();
+  const admin = await requireAdmin();
+  const limit = await rateLimit(`admin-upload:${admin.id}`, 120, 60_000);
+  if (!limit.ok) {
+    return NextResponse.json({ error: "Muitas tentativas. Aguarde um instante." }, { status: 429 });
+  }
 
   try {
     const contentLength = Number(request.headers.get("content-length") ?? 0);

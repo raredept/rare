@@ -40,6 +40,9 @@ beforeEach(() => {
     SHIPPING_ENABLED: "true",
     SHIPPING_PROVIDER: "manual",
     SHIPPING_ORIGIN_CEP: "01001000",
+    RATE_LIMIT_DRIVER: "redis",
+    UPSTASH_REDIS_REST_URL: "https://redis.example",
+    UPSTASH_REDIS_REST_TOKEN: "redis-token-that-must-not-be-returned",
   };
   healthMocks.prisma.storeSettings.findUnique.mockResolvedValue({
     shippingMode: "manual",
@@ -83,6 +86,7 @@ describe("health route readiness", () => {
     expect(serialized).not.toContain("storage-account-id-that-must-not-be-returned");
     expect(serialized).not.toContain("storage-access-key-that-must-not-be-returned");
     expect(serialized).not.toContain("storage-secret-that-must-not-be-returned");
+    expect(serialized).not.toContain("redis-token-that-must-not-be-returned");
   });
 
   it("returns 200 with warnings when the core app is ready but rate limiting is in memory", async () => {
@@ -101,6 +105,38 @@ describe("health route readiness", () => {
     expect(body.configuration.warnings).toEqual(
       expect.arrayContaining([expect.objectContaining({ variable: "RATE_LIMIT_DRIVER" })]),
     );
+    expect(body.environment.rateLimit).toEqual(
+      expect.objectContaining({
+        configuredDriver: "memory",
+        activeDriver: "memory",
+        shared: false,
+      }),
+    );
+  });
+
+  it("returns 200 without rate-limit warnings when the shared driver is configured", async () => {
+    process.env.DATABASE_URL = "postgresql://rare:password@localhost:5432/rare_test";
+    healthMocks.prisma.$queryRaw.mockResolvedValue([{ ok: 1 }]);
+
+    const response = await GET();
+    const body = await response.json();
+    const serialized = JSON.stringify(body);
+
+    expect(response.status).toBe(200);
+    expect(body.status).toBe("ok");
+    expect(body.environment.rateLimit).toEqual({
+      checked: true,
+      configuredDriver: "redis",
+      activeDriver: "redis",
+      shared: true,
+      redisRestUrlConfigured: true,
+      redisRestTokenConfigured: true,
+      warnings: [],
+    });
+    expect(body.configuration.warnings).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ variable: "RATE_LIMIT_DRIVER" })]),
+    );
+    expect(serialized).not.toContain("redis-token-that-must-not-be-returned");
   });
 
   it("reports fixed shipping as a legacy warning without requiring originCep", async () => {

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import CategoryPage, { generateMetadata } from "@/app/(store)/categoria/[slug]/page";
 
 const mocks = vi.hoisted(() => ({
+  getAppUrl: vi.fn(),
   getCategoryPageData: vi.fn(),
 }));
 
@@ -22,6 +23,10 @@ vi.mock("@/components/store/product-card", () => ({
   ProductCard: ({ product }: { product: { title: string } }) => createElement("article", null, product.title),
 }));
 
+vi.mock("@/lib/env", () => ({
+  getAppUrl: mocks.getAppUrl,
+}));
+
 vi.mock("@/lib/storefront", () => ({
   getCategoryPageData: mocks.getCategoryPageData,
 }));
@@ -37,9 +42,14 @@ const product = {
   variants: [],
 };
 
+function getJsonLdScripts(html: string) {
+  return [...html.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>(.*?)<\/script>/g)].map((match) => JSON.parse(match[1]));
+}
+
 describe("store category page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.getAppUrl.mockReturnValue("https://raredept.com.br");
   });
 
   it("renders the featured virtual category page", async () => {
@@ -156,6 +166,27 @@ describe("store category page", () => {
     expect(result.alternates).toEqual({ canonical: "/categoria/destaques" });
   });
 
+  it("calls notFound while generating metadata for unknown categories", async () => {
+    mocks.getCategoryPageData.mockResolvedValueOnce(null);
+
+    await expect(generateMetadata({ params: Promise.resolve({ slug: "nao-existe" }) })).rejects.toThrow("NEXT_NOT_FOUND");
+
+    expect(mocks.getCategoryPageData).toHaveBeenCalledWith("nao-existe");
+  });
+
+  it("calls notFound when the category slug does not exist", async () => {
+    mocks.getCategoryPageData.mockResolvedValueOnce(null);
+
+    await expect(
+      CategoryPage({
+        params: Promise.resolve({ slug: "nao-existe" }),
+        searchParams: Promise.resolve({}),
+      }),
+    ).rejects.toThrow("NEXT_NOT_FOUND");
+
+    expect(mocks.getCategoryPageData).toHaveBeenCalledWith("nao-existe", { query: undefined });
+  });
+
   it("renders the featured empty state when no featured products are active", async () => {
     mocks.getCategoryPageData.mockResolvedValueOnce({
       kind: "featured",
@@ -201,5 +232,30 @@ describe("store category page", () => {
     expect(html).toContain('href="/categoria/destaques"');
     expect(html).toContain("Ver destaques da loja");
     expect(html).not.toContain("admin");
+  });
+
+  it("renders BreadcrumbList JSON-LD for category pages", async () => {
+    mocks.getCategoryPageData.mockResolvedValueOnce({
+      kind: "category",
+      slug: "camisetas",
+      eyebrow: "Categoria",
+      title: "Camisetas",
+      description: "Peças disponíveis agora nesta categoria.",
+      products: [product],
+    });
+
+    const element = await CategoryPage({
+      params: Promise.resolve({ slug: "camisetas" }),
+      searchParams: Promise.resolve({}),
+    });
+    const html = renderToStaticMarkup(element as ReactElement);
+    const schemas = getJsonLdScripts(html);
+    const breadcrumbSchemas = schemas.filter((schema) => schema["@type"] === "BreadcrumbList");
+
+    expect(breadcrumbSchemas).toHaveLength(1);
+    expect(breadcrumbSchemas[0].itemListElement).toEqual([
+      { "@type": "ListItem", position: 1, name: "Início", item: "https://raredept.com.br/" },
+      { "@type": "ListItem", position: 2, name: "Camisetas", item: "https://raredept.com.br/categoria/camisetas" },
+    ]);
   });
 });

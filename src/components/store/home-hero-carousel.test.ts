@@ -71,4 +71,26 @@ describe("HomeHeroCarousel", () => {
     expect(html).toContain('aria-label="Destaque RARE"');
     expect(html).toContain("Editorial streetwear");
   });
+
+  it("renders MP4 banners progressively with a poster when configured", () => {
+    const html = renderToStaticMarkup(
+      createElement(HomeHeroCarousel, {
+        slides: [
+          {
+            id: "video-banner",
+            title: "Drop em movimento",
+            imageUrl: "https://media.rare.example/banners/drop.mp4",
+            mobileImageUrl: "https://media.rare.example/banners/drop-poster.webp",
+            alt: "Video do drop",
+            active: true,
+          },
+        ],
+      }),
+    );
+
+    expect(html).toContain("<video");
+    expect(html).toContain('src="https://media.rare.example/banners/drop.mp4"');
+    expect(html).toContain('poster="https://media.rare.example/banners/drop-poster.webp"');
+    expect(html).toContain('preload="metadata"');
+  });
 });

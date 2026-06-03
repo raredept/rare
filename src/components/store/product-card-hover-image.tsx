@@ -15,7 +15,11 @@ export function ProductCardHoverImage({ src }: ProductCardHoverImageProps) {
     <img
       src={src}
       alt=""
+      width={640}
+      height={800}
+      sizes="(max-width: 767px) 50vw, (max-width: 1279px) 33vw, 20vw"
       loading="lazy"
+      decoding="async"
       onError={() => setHidden(true)}
       className="store-product-hover-image pointer-events-none absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-200 ease-out group-hover:opacity-100 group-focus-within:opacity-100"
     />

@@ -75,6 +75,23 @@ describe("ProductCard", () => {
     expect(html).toContain("store-product-hover-image");
   });
 
+  it("prefers a static image over GIF in catalog cards", () => {
+    const html = renderToStaticMarkup(
+      createElement(ProductCard, {
+        product: {
+          ...baseProduct,
+          images: [
+            { url: "/uploads/products/spin.gif", alt: "GIF" },
+            { url: "/uploads/products/front.avif", alt: "Frente" },
+          ],
+        },
+      }) as ReactElement,
+    );
+
+    expect(html).toContain("/uploads/products/front.avif");
+    expect(html).not.toContain("/uploads/products/spin.gif");
+  });
+
   it("keeps the no-image fallback when a product has no card image", () => {
     const html = renderToStaticMarkup(
       createElement(ProductCard, {

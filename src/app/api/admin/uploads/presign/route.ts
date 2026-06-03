@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { getStorageDriver } from "@/lib/env";
+import { rateLimit } from "@/lib/rate-limit";
 import { createPresignedR2Upload, normalizeUploadContext } from "@/lib/storage";
 import { DIRECT_R2_UPLOAD_LIMIT_BYTES, SERVER_ROUTED_UPLOAD_LIMIT_BYTES } from "@/lib/upload-limits";
 
@@ -16,7 +17,11 @@ const presignRequestSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  await requireAdmin();
+  const admin = await requireAdmin();
+  const limit = await rateLimit(`admin-upload-presign:${admin.id}`, 120, 60_000);
+  if (!limit.ok) {
+    return NextResponse.json({ error: "Muitas tentativas. Aguarde um instante." }, { status: 429 });
+  }
 
   try {
     const payload = presignRequestSchema.parse(await request.json());

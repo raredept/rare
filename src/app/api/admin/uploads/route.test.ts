@@ -29,7 +29,7 @@ function buildUploadRequest(formData: FormData) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  process.env = { ...originalEnv };
+  process.env = { ...originalEnv, RATE_LIMIT_DRIVER: "memory" };
   routeMocks.requireAdmin.mockResolvedValue({ id: "admin-1" });
   routeMocks.saveUploadedImage.mockResolvedValue({
     url: "/uploads/products/2026/05/file.png",

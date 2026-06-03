@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/customer/cpf/route";
 
 const routeMocks = vi.hoisted(() => ({
@@ -20,6 +20,11 @@ vi.mock("@/lib/prisma", () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv("RATE_LIMIT_DRIVER", "memory");
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe("customer CPF route", () => {

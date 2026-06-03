@@ -32,10 +32,14 @@ describe("local upload serving route", () => {
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
   });
 
-  it("serves uploaded local GIF and MP4 media with safe content types", async () => {
+  it("serves uploaded local AVIF, GIF and MP4 media with safe content types", async () => {
+    await writeFile(path.join(uploadRoot, "products", "2026", "05", "poster.avif"), Buffer.from("avif"));
     await writeFile(path.join(uploadRoot, "products", "2026", "05", "animado.gif"), Buffer.from("GIF89a"));
     await writeFile(path.join(uploadRoot, "products", "2026", "05", "video.mp4"), Buffer.from([0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70]));
 
+    const avif = await GET(new Request("http://localhost/uploads/qa-test-route/products/2026/05/poster.avif") as never, {
+      params: Promise.resolve({ path: ["qa-test-route", "products", "2026", "05", "poster.avif"] }),
+    });
     const gif = await GET(new Request("http://localhost/uploads/qa-test-route/products/2026/05/animado.gif") as never, {
       params: Promise.resolve({ path: ["qa-test-route", "products", "2026", "05", "animado.gif"] }),
     });
@@ -43,6 +47,8 @@ describe("local upload serving route", () => {
       params: Promise.resolve({ path: ["qa-test-route", "products", "2026", "05", "video.mp4"] }),
     });
 
+    expect(avif.status).toBe(200);
+    expect(avif.headers.get("content-type")).toBe("image/avif");
     expect(gif.status).toBe(200);
     expect(gif.headers.get("content-type")).toBe("image/gif");
     expect(mp4.status).toBe(200);

@@ -11,6 +11,7 @@ const contentTypeByExtension = new Map([
   [".jpeg", "image/jpeg"],
   [".png", "image/png"],
   [".webp", "image/webp"],
+  [".avif", "image/avif"],
   [".gif", "image/gif"],
   [".mp4", "video/mp4"],
 ]);

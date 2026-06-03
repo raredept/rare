@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
   }
 
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
-  const limit = rateLimit(`checkout:${ip}`, 20, 60_000);
+  const limit = await rateLimit(`checkout:${ip}`, 20, 60_000);
 
   if (!limit.ok) {
     return NextResponse.json({ error: "Muitas tentativas. Aguarde um instante." }, { status: 429 });

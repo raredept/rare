@@ -6,6 +6,7 @@ import { createBannerAction, updateBannerAction } from "@/app/admin/(protected)/
 import { AdminSubmitButton } from "@/components/admin/admin-submit-button";
 import { uploadAdminMediaFile } from "@/lib/admin-upload-client";
 import type { HomeBannerSlide } from "@/lib/home-banners";
+import { getProductMediaTypeFromUrl } from "@/lib/product-media";
 import { BANNER_UPLOAD_HELP_TEXT, isOverServerRoutedUploadLimit, serverRoutedUploadLimitMessage } from "@/lib/upload-limits";
 
 type HomeBannerFormProps = {
@@ -62,7 +63,7 @@ export function HomeBannerForm({ banner, error, nextSortOrder }: HomeBannerFormP
     if (!file) return;
 
     if (isOverServerRoutedUploadLimit(file)) {
-      setUploadError(serverRoutedUploadLimitMessage("Imagem"));
+      setUploadError(serverRoutedUploadLimitMessage("Mídia"));
       return;
     }
 
@@ -79,7 +80,7 @@ export function HomeBannerForm({ banner, error, nextSortOrder }: HomeBannerFormP
         updateField("alt", state.title.trim() || "Banner RARE");
       }
     } catch (uploadFailure) {
-      setUploadError(uploadFailure instanceof Error ? uploadFailure.message : "Falha ao enviar imagem.");
+      setUploadError(uploadFailure instanceof Error ? uploadFailure.message : "Falha ao enviar mídia.");
     } finally {
       setUploading(null);
       setUploadProgress(null);
@@ -105,7 +106,7 @@ export function HomeBannerForm({ banner, error, nextSortOrder }: HomeBannerFormP
               {banner ? "Editar banner" : "Novo banner"}
             </h2>
             <p className="mt-1 text-xs font-semibold leading-5 text-neutral-500">
-              Use JPG, PNG ou WEBP. Desktop recomendado: 1920x650. Mobile recomendado: 1080x1350.
+              Use JPG, PNG, WEBP, AVIF, GIF ou MP4. Desktop recomendado: 1920x650. Mobile recomendado: 1080x1350.
             </p>
           </div>
           <label className="flex w-fit items-center gap-3 rounded-lg border border-neutral-800 bg-black px-3 py-2 text-sm font-black text-neutral-200">
@@ -202,13 +203,13 @@ export function HomeBannerForm({ banner, error, nextSortOrder }: HomeBannerFormP
 
         <div className="grid gap-4 md:grid-cols-2">
           <UploadField
-            label="Imagem desktop"
+            label="Mídia desktop"
             uploading={uploading === "desktop"}
             progress={uploading === "desktop" ? uploadProgress : null}
             onChange={(event) => onUploadChange("desktop", event)}
           />
           <UploadField
-            label="Imagem mobile opcional"
+            label="Mídia mobile opcional"
             uploading={uploading === "mobile"}
             progress={uploading === "mobile" ? uploadProgress : null}
             onChange={(event) => onUploadChange("mobile", event)}
@@ -279,7 +280,7 @@ function UploadField({
       </span>
       <input
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/jpeg,image/png,image/webp,image/avif,image/gif,video/mp4"
         disabled={uploading}
         className="block w-full cursor-pointer rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm font-semibold text-neutral-300 file:mr-3 file:rounded-md file:border-0 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-black file:text-black hover:border-neutral-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-not-allowed disabled:opacity-50"
         onChange={onChange}
@@ -314,7 +315,7 @@ function BannerPreview({
       </div>
       <div className={`relative ${ratio} overflow-hidden bg-black`}>
         {previewUrl ? (
-          <img src={previewUrl} alt={state.alt || state.title || "Preview do banner"} className="h-full w-full object-cover" />
+          <BannerPreviewMedia url={previewUrl} alt={state.alt || state.title || "Preview do banner"} mobile={mobile} />
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-[linear-gradient(135deg,#050505_0%,#161616_48%,#030303_100%)] text-neutral-500">
             <ImageIcon className="h-8 w-8" aria-hidden="true" />
@@ -336,5 +337,26 @@ function BannerPreview({
         </div>
       </div>
     </section>
+  );
+}
+
+function BannerPreviewMedia({ alt, mobile, url }: { alt: string; mobile: boolean; url: string }) {
+  const mediaType = getProductMediaTypeFromUrl(url);
+  const className = "h-full w-full object-cover";
+
+  if (mediaType === "video") {
+    return <video src={url} aria-label={alt} controls muted playsInline preload="metadata" className={className} />;
+  }
+
+  return (
+    <img
+      src={url}
+      alt={alt}
+      width={mobile ? 540 : 960}
+      height={mobile ? 780 : 420}
+      loading="lazy"
+      decoding="async"
+      className={className}
+    />
   );
 }

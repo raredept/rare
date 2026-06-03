@@ -21,7 +21,7 @@ export async function loginAction(_state: LoginState, formData: FormData): Promi
     return { error: "Informe e-mail e senha validos." };
   }
 
-  const limit = rateLimit(`admin-login:${parsed.data.email}`, 8, 5 * 60_000);
+  const limit = await rateLimit(`admin-login:${parsed.data.email}`, 8, 5 * 60_000);
   if (!limit.ok) {
     return { error: "Muitas tentativas. Tente novamente em alguns minutos." };
   }

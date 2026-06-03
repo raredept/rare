@@ -209,7 +209,7 @@ export function ProductImageManager({ images }: ProductImageManagerProps) {
             <input
               type="file"
               multiple
-              accept="image/jpeg,image/png,image/webp,image/gif,video/mp4"
+              accept="image/jpeg,image/png,image/webp,image/avif,image/gif,video/mp4"
               disabled={uploadDisabled}
               className="block w-full cursor-pointer rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm font-semibold text-neutral-300 file:mr-3 file:rounded-md file:border-0 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-black file:text-black hover:border-neutral-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-not-allowed disabled:opacity-45"
               aria-describedby="product-media-help"

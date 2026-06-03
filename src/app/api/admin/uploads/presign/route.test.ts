@@ -45,6 +45,7 @@ function configureR2Env() {
     R2_ACCESS_KEY_ID: "configured-access-key",
     R2_SECRET_ACCESS_KEY: "configured-secret-key-that-must-not-leak",
     R2_PUBLIC_BASE_URL: "https://media.rare.example",
+    RATE_LIMIT_DRIVER: "memory",
   };
 }
 

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import HomePage, { metadata } from "@/app/(store)/page";
 
 const mocks = vi.hoisted(() => ({
+  getAppUrl: vi.fn(),
   getProducts: vi.fn(),
   getFeaturedProducts: vi.fn(),
   getRecentProducts: vi.fn(),
@@ -17,6 +18,10 @@ vi.mock("@/components/store/home-hero-carousel", () => ({
 
 vi.mock("@/components/store/product-card", () => ({
   ProductCard: ({ product }: { product: { title: string } }) => createElement("article", null, product.title),
+}));
+
+vi.mock("@/lib/env", () => ({
+  getAppUrl: mocks.getAppUrl,
 }));
 
 vi.mock("@/lib/storefront", () => ({
@@ -50,9 +55,14 @@ function product(id: string, title = `Produto ${id}`) {
   };
 }
 
+function getJsonLdScripts(html: string) {
+  return [...html.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>(.*?)<\/script>/g)].map((match) => JSON.parse(match[1]));
+}
+
 describe("store home page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.getAppUrl.mockReturnValue("https://raredept.com.br");
     mocks.getProducts.mockResolvedValue([product("busca-1", "Resultado mock")]);
     mocks.getFeaturedProducts.mockResolvedValue([
       product("featured-1", "Destaque 1"),
@@ -119,6 +129,27 @@ describe("store home page", () => {
     expect(html.indexOf("Escolha por categoria")).toBeLessThan(html.indexOf("Compra segura"));
     expect(mocks.getFeaturedProducts).toHaveBeenCalledWith({ limit: 5 });
     expect(mocks.getRecentProducts).toHaveBeenCalledWith({ limit: 4 });
+  });
+
+  it("renders public Organization JSON-LD on the storefront home", async () => {
+    const element = await HomePage({ searchParams: Promise.resolve({}) });
+    const html = renderToStaticMarkup(element as ReactElement);
+    const schemas = getJsonLdScripts(html);
+    const organizationSchemas = schemas.filter((schema) => schema["@type"] === "Organization");
+
+    expect(organizationSchemas).toHaveLength(1);
+    expect(organizationSchemas[0]).toMatchObject({
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      name: "RARE",
+      url: "https://raredept.com.br",
+      logo: "https://raredept.com.br/brand/rare-logo.png",
+    });
+    expect(JSON.stringify(organizationSchemas[0])).not.toContain("suporte@");
+    expect(JSON.stringify(organizationSchemas[0])).not.toContain("contato@");
+    expect(JSON.stringify(organizationSchemas[0])).not.toContain("admin");
+    expect(JSON.stringify(organizationSchemas[0])).not.toContain("token");
+    expect(JSON.stringify(organizationSchemas[0])).not.toContain("secret");
   });
 
   it("exports basic SEO metadata for the storefront home", () => {

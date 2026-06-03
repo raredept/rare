@@ -44,6 +44,7 @@ const testStorageDir = path.join(process.cwd(), "output", "test-storage");
 const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const jpgBytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0]);
 const webpBytes = new Uint8Array(Buffer.from("RIFFxxxxWEBP", "ascii"));
+const avifBytes = new Uint8Array(Buffer.from([0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x61, 0x76, 0x69, 0x66]));
 const gifBytes = new Uint8Array(Buffer.from("GIF89a", "ascii"));
 const mp4Bytes = new Uint8Array(Buffer.from([0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d]));
 
@@ -87,27 +88,27 @@ describe("storage helpers", () => {
     expect(hasValidImageSignature(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), "png")).toBe(true);
     expect(hasValidImageSignature(Buffer.from("<svg></svg>"), "png")).toBe(false);
     expect(hasValidImageSignature(Buffer.from("RIFFxxxxWEBP"), "webp")).toBe(true);
+    expect(hasValidImageSignature(Buffer.from(avifBytes), "avif")).toBe(true);
     expect(hasValidImageSignature(Buffer.from("GIF89a"), "gif")).toBe(true);
     expect(hasValidImageSignature(Buffer.from(mp4Bytes), "mp4")).toBe(true);
   });
 
-  it("accepts JPG, PNG, WEBP, GIF and MP4 metadata", () => {
+  it("accepts JPG, PNG, WEBP, AVIF, GIF and MP4 metadata", () => {
     expect(validateUploadedImageMetadata(new File([jpgBytes], "produto.jpeg", { type: "image/jpeg" }))).toBe("jpg");
     expect(validateUploadedImageMetadata(new File([pngBytes], "produto.png", { type: "image/png" }))).toBe("png");
     expect(validateUploadedImageMetadata(new File([webpBytes], "produto.webp", { type: "image/webp" }))).toBe("webp");
+    expect(validateUploadedImageMetadata(new File([avifBytes], "produto.avif", { type: "image/avif" }))).toBe("avif");
     expect(validateUploadedImageMetadata(new File([gifBytes], "animado.gif", { type: "image/gif" }))).toBe("gif");
     expect(validateUploadedImageMetadata(new File([mp4Bytes], "video.mp4", { type: "video/mp4" }))).toBe("mp4");
   });
 
-  it("limits banner uploads to static JPG, PNG and WEBP images", () => {
+  it("accepts banner uploads for images, GIF and MP4 without reducing the upload limit", () => {
     expect(normalizeUploadContext("banners")).toBe("banners");
     expect(validateUploadedImageMetadata(new File([webpBytes], "banner.webp", { type: "image/webp" }), "banners")).toBe("webp");
-    expect(() => validateUploadedImageMetadata(new File([gifBytes], "banner.gif", { type: "image/gif" }), "banners")).toThrow(
-      "Formato invalido para banner",
-    );
-    expect(() => validateUploadedImageMetadata(new File([mp4Bytes], "banner.mp4", { type: "video/mp4" }), "banners")).toThrow(
-      "Formato invalido para banner",
-    );
+    expect(validateUploadedImageMetadata(new File([avifBytes], "banner.avif", { type: "image/avif" }), "banners")).toBe("avif");
+    expect(validateUploadedImageMetadata(new File([gifBytes], "banner.gif", { type: "image/gif" }), "banners")).toBe("gif");
+    expect(validateUploadedImageMetadata(new File([mp4Bytes], "banner.mp4", { type: "video/mp4" }), "banners")).toBe("mp4");
+    expect(getMaxUploadBytes("video/mp4")).toBe(4 * 1024 * 1024);
   });
 
   it("rejects SVG metadata", () => {

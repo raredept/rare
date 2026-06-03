@@ -76,7 +76,7 @@ export async function registerCustomerAction(_state: CustomerActionState, formDa
     };
   }
 
-  const limit = rateLimit(`customer-register:${parsed.data.email}`, 5, 10 * 60_000);
+  const limit = await rateLimit(`customer-register:${parsed.data.email}`, 5, 10 * 60_000);
   if (!limit.ok) {
     return { error: "Muitas tentativas. Aguarde alguns minutos." };
   }
@@ -121,7 +121,7 @@ export async function loginCustomerAction(_state: CustomerActionState, formData:
   }
 
   const email = parsed.data.email.toLowerCase();
-  const limit = rateLimit(`customer-login:${email}`, 8, 5 * 60_000);
+  const limit = await rateLimit(`customer-login:${email}`, 8, 5 * 60_000);
   if (!limit.ok) {
     return { error: "Muitas tentativas. Tente novamente em alguns minutos." };
   }

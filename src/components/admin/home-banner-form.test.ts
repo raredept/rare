@@ -9,7 +9,7 @@ vi.mock("@/app/admin/(protected)/banners/actions", () => ({
 }));
 
 describe("HomeBannerForm", () => {
-  it("renders banner fields, static image upload controls and desktop/mobile previews", () => {
+  it("renders banner fields, media upload controls and desktop/mobile previews", () => {
     const html = renderToStaticMarkup(
       createElement(HomeBannerForm, {
         nextSortOrder: 10,
@@ -30,16 +30,37 @@ describe("HomeBannerForm", () => {
     );
 
     expect(html).toContain("Editar banner");
-    expect(html).toContain("Imagem desktop");
-    expect(html).toContain("Imagem mobile opcional");
-    expect(html).toContain("accept=\"image/jpeg,image/png,image/webp\"");
+    expect(html).toContain("Mídia desktop");
+    expect(html).toContain("Mídia mobile opcional");
+    expect(html).toContain("accept=\"image/jpeg,image/png,image/webp,image/avif,image/gif,video/mp4\"");
     expect(html).toContain("Preview desktop");
     expect(html).toContain("Preview mobile");
     expect(html).toContain("Avançado: URLs manuais");
     expect(html).toContain("Salvar banner");
-    expect(html).toContain("JPG, PNG ou WEBP. Máximo 4 MB por arquivo.");
-    expect(html).toContain("Para melhor qualidade e performance, envie imagens em WEBP/JPG otimizadas.");
+    expect(html).toContain("JPG, PNG, WEBP, AVIF, GIF ou MP4. Máximo 4 MB por arquivo.");
+    expect(html).toContain("Para melhor qualidade e performance, envie imagem/poster otimizado quando usar GIF ou vídeo.");
     expect(html).toContain("Desktop recomendado: 1920x650. Mobile recomendado: 1080x1350.");
+  });
+
+  it("renders MP4 banner previews with controls", () => {
+    const html = renderToStaticMarkup(
+      createElement(HomeBannerForm, {
+        nextSortOrder: 10,
+        banner: {
+          id: "banner-video",
+          title: "Drop em vídeo",
+          imageUrl: "https://media.rare.example/banners/drop.mp4",
+          mobileImageUrl: "",
+          alt: "Video do drop",
+          active: true,
+          sortOrder: 10,
+        },
+      }) as ReactElement,
+    );
+
+    expect(html).toContain("<video");
+    expect(html).toContain("controls");
+    expect(html).toContain('preload="metadata"');
   });
 
   it("shows an active placeholder warning when a banner has no image", () => {
