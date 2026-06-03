@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import packageJson from "../../../../package.json";
 import { validateEnvironment } from "@/lib/env";
+import { getRateLimitStatus } from "@/lib/rate-limit-config";
 import {
   DEFAULT_PRODUCT_PACKAGE,
   DEFAULT_PRODUCT_PACKAGE_WEIGHT_GRAMS,
@@ -135,6 +136,7 @@ function response(body: unknown, status: number) {
 
 export async function GET() {
   const env = validateEnvironment();
+  const rateLimit = getRateLimitStatus();
   let database: { ok: boolean; message: string } = { ok: false, message: "Database check was not executed." };
   let storeSettingsShipping = {
     checked: false,
@@ -227,6 +229,15 @@ export async function GET() {
         nodeEnv: env.nodeEnv,
         checkoutEnabled: env.checkoutEnabled,
         storageDriver: env.storageDriver,
+        rateLimit: {
+          checked: true,
+          configuredDriver: rateLimit.configuredDriver,
+          activeDriver: rateLimit.activeDriver,
+          shared: rateLimit.shared,
+          redisRestUrlConfigured: rateLimit.redisRestUrlConfigured,
+          redisRestTokenConfigured: rateLimit.redisRestTokenConfigured,
+          warnings: rateLimit.warnings,
+        },
         shipping: {
           env: getShippingEnvironmentSummary(),
           storeSettings: storeSettingsShipping,

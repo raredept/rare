@@ -1,3 +1,5 @@
+import { getRateLimitStatus } from "@/lib/rate-limit-config";
+
 type EnvIssueLevel = "error" | "warning";
 
 export type EnvIssue = {
@@ -324,14 +326,9 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
     }
   }
 
-  const rateLimitDriver = clean(process.env.RATE_LIMIT_DRIVER) ?? "memory";
-  if (production && rateLimitDriver === "memory") {
-    addIssue(
-      issues,
-      "warning",
-      "RATE_LIMIT_DRIVER",
-      "In-memory rate limit is not shared across production instances. Configure an external limiter before open production.",
-    );
+  const rateLimit = getRateLimitStatus();
+  for (const warning of rateLimit.warnings) {
+    addIssue(issues, "warning", "RATE_LIMIT_DRIVER", warning);
   }
 
   const shippingProvider = clean(process.env.SHIPPING_PROVIDER)?.toLowerCase();
