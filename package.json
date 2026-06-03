@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "app:check": "tsx scripts/check-readiness.ts",
+    "checkout:smoke:guard": "tsx scripts/check-checkout-smoke-env.ts",
     "db:check": "tsx scripts/check-migrations.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",

@@ -72,6 +72,7 @@ O `vercel.json` agenda esse endpoint uma vez por dia, as 03:00 UTC. Em contas Ho
 ### Stripe homologação
 
 Antes de venda aberta, faça um smoke em modo de teste da Stripe com `CHECKOUT_ENABLED=true`, `STRIPE_SECRET_KEY` de teste, `STRIPE_WEBHOOK_SECRET` de teste e webhook apontando para `/api/stripe/webhook`. Não use cartão real nem conclua pagamento em modo live.
+Rode `npm run checkout:smoke:guard` antes da homologação e siga o procedimento completo em `docs/checkout-smoke-test.md`.
 
 ### Frete e medidas
 
