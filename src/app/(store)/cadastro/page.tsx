@@ -1,8 +1,23 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { CustomerRegisterForm } from "@/components/store/customer-auth-forms";
 import { getCurrentCustomer } from "@/lib/customer-auth";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: {
+    absolute: "Criar cadastro | RARE",
+  },
+  description: "Crie sua conta RARE para comprar e acompanhar pedidos com segurança.",
+  robots: {
+    index: false,
+    follow: false,
+  },
+  alternates: {
+    canonical: "/cadastro",
+  },
+};
 
 type RegisterPageProps = {
   searchParams: Promise<{ next?: string }>;

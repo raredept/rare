@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ProductCard } from "@/components/store/product-card";
+import { getAppUrl } from "@/lib/env";
+import { buildBreadcrumbListJsonLd, JsonLdScript } from "@/lib/structured-data";
 import { getCategoryPageData, type StorefrontProduct } from "@/lib/storefront";
 
 export const dynamic = "force-dynamic";
@@ -16,12 +18,7 @@ export async function generateMetadata({ params }: Pick<CategoryPageProps, "para
   const pageData = await getCategoryPageData(slug);
 
   if (!pageData) {
-    return {
-      title: "Categoria não encontrada",
-      robots: {
-        index: false,
-      },
-    };
+    notFound();
   }
 
   return {
@@ -99,8 +96,14 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
 
   if (!pageData) notFound();
 
+  const breadcrumbJsonLd = buildBreadcrumbListJsonLd(getAppUrl(), [
+    { name: "Início", path: "/" },
+    { name: pageData.title, path: `/categoria/${slug}` },
+  ]);
+
   return (
     <div className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6 lg:px-8 lg:py-14 xl:px-10">
+      <JsonLdScript id="rare-category-breadcrumb-json-ld" data={breadcrumbJsonLd} />
       <div className="mb-10 border-b border-neutral-200 pb-8">
         <p className="text-xs font-black uppercase tracking-[0.24em] text-neutral-500">{pageData.eyebrow}</p>
         <h1 className="mt-3 text-3xl font-black tracking-tight text-neutral-950 lg:text-5xl">{pageData.title}</h1>

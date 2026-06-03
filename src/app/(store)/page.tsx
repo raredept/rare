@@ -3,7 +3,9 @@ import { ArrowRight, CreditCard, Headphones, RotateCcw, ShieldCheck, Sparkles, T
 import Link from "next/link";
 import { HomeHeroCarousel } from "@/components/store/home-hero-carousel";
 import { ProductCard } from "@/components/store/product-card";
+import { getAppUrl } from "@/lib/env";
 import { getHomeBannerSlidesForStore } from "@/lib/home-banners";
+import { buildOrganizationJsonLd, JsonLdScript } from "@/lib/structured-data";
 import { getFeaturedProducts, getHomeCategoryTiles, getProducts, getRecentProducts, type HomeCategoryTile, type StorefrontProduct } from "@/lib/storefront";
 
 export const dynamic = "force-dynamic";
@@ -178,9 +180,11 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     getRecentProducts({ limit: 4 }),
   ]);
   const selectedFeaturedProducts = featuredProducts.slice(0, 5);
+  const organizationJsonLd = buildOrganizationJsonLd(getAppUrl());
 
   return (
     <div className="mx-auto max-w-[1440px] px-4 pb-10 pt-6 sm:px-6 lg:px-8 lg:pb-14 lg:pt-8 xl:px-10">
+      <JsonLdScript id="rare-organization-json-ld" data={organizationJsonLd} />
       <HomeHeroCarousel slides={heroSlides} />
 
       <section className="store-home-section mt-12 lg:mt-16" aria-labelledby="home-featured-title">
