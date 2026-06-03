@@ -9,8 +9,13 @@ type ProductMediaProps = {
   alt: string;
   className?: string;
   controls?: boolean;
+  height?: number;
   loading?: "eager" | "lazy";
   placeholderLabel?: string;
+  poster?: string;
+  preload?: "none" | "metadata" | "auto";
+  sizes?: string;
+  width?: number;
 };
 
 export function ProductMedia({
@@ -18,8 +23,13 @@ export function ProductMedia({
   alt,
   className = "",
   controls = false,
+  height,
   loading = "lazy",
   placeholderLabel = "Mídia indisponível",
+  poster,
+  preload,
+  sizes,
+  width,
 }: ProductMediaProps) {
   const [failed, setFailed] = useState(false);
   const mediaType = getProductMediaTypeFromUrl(url);
@@ -38,11 +48,24 @@ export function ProductMedia({
         muted={!controls}
         playsInline
         loop={!controls}
-        preload="metadata"
+        poster={poster}
+        preload={preload ?? (controls ? "metadata" : "none")}
         onError={() => setFailed(true)}
       />
     );
   }
 
-  return <img src={url} alt={alt} loading={loading} className={className} onError={() => setFailed(true)} />;
+  return (
+    <img
+      src={url}
+      alt={alt}
+      width={width}
+      height={height}
+      sizes={sizes}
+      loading={loading}
+      decoding="async"
+      className={className}
+      onError={() => setFailed(true)}
+    />
+  );
 }

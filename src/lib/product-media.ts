@@ -2,7 +2,7 @@ export const PRODUCT_MEDIA_LIMIT = 10;
 
 export type ProductMediaType = "image" | "gif" | "video" | "unknown";
 
-const imageExtensions = new Set(["jpg", "jpeg", "png", "webp", "svg"]);
+const imageExtensions = new Set(["jpg", "jpeg", "png", "webp", "avif", "svg"]);
 
 function getCleanPathname(value: string) {
   try {
@@ -40,9 +40,13 @@ export function isProductVideoUrl(url: string) {
   return getProductMediaTypeFromUrl(url) === "video";
 }
 
+export function isStaticProductImageUrl(url: string) {
+  return getProductMediaTypeFromUrl(url) === "image";
+}
+
 export function getPreferredProductCardMedia<T extends { url: string }>(media: T[]) {
   if (!media.length) return null;
-  return media.find((item) => !isProductVideoUrl(item.url)) ?? null;
+  return media.find((item) => isStaticProductImageUrl(item.url)) ?? media.find((item) => getProductMediaTypeFromUrl(item.url) === "gif") ?? null;
 }
 
 export function getProductCardMediaPair<T extends { url: string }>(media: T[]) {
@@ -52,7 +56,11 @@ export function getProductCardMediaPair<T extends { url: string }>(media: T[]) {
   }
 
   const hover =
-    media.find((item) => item.url !== primary.url && !isProductVideoUrl(item.url)) ?? null;
+    media.find((item) => item.url !== primary.url && isStaticProductImageUrl(item.url)) ?? null;
 
   return { primary, hover };
+}
+
+export function getProductVideoPoster<T extends { url: string }>(media: T[], videoUrl?: string) {
+  return media.find((item) => item.url !== videoUrl && isStaticProductImageUrl(item.url))?.url;
 }

@@ -6,9 +6,9 @@ export const DIRECT_R2_UPLOAD_LIMIT_MB = 100;
 export const DIRECT_R2_UPLOAD_LIMIT_BYTES = DIRECT_R2_UPLOAD_LIMIT_MB * 1024 * 1024;
 
 export const PRODUCT_UPLOAD_HELP_TEXT =
-  "JPG, PNG, WEBP, GIF ou MP4. Máximo 4 MB por arquivo. Para melhor qualidade e performance, envie imagens em WEBP/JPG otimizadas.";
+  "JPG, PNG, WEBP, AVIF, GIF ou MP4. Máximo 4 MB por arquivo. Para melhor qualidade e performance, envie imagens em WEBP/JPG/AVIF otimizadas.";
 export const BANNER_UPLOAD_HELP_TEXT =
-  "JPG, PNG ou WEBP. Máximo 4 MB por arquivo. Para melhor qualidade e performance, envie imagens em WEBP/JPG otimizadas.";
+  "JPG, PNG, WEBP, AVIF, GIF ou MP4. Máximo 4 MB por arquivo. Para melhor qualidade e performance, envie imagem/poster otimizado quando usar GIF ou vídeo.";
 
 export function isOverServerRoutedUploadLimit(file: Pick<File, "size">) {
   return file.size > SERVER_ROUTED_UPLOAD_LIMIT_BYTES;

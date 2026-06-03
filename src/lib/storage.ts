@@ -28,16 +28,18 @@ const allowedMimeTypes = new Map([
   ["image/jpeg", ["jpg", "jpeg"]],
   ["image/png", ["png"]],
   ["image/webp", ["webp"]],
+  ["image/avif", ["avif"]],
   ["image/gif", ["gif"]],
   ["video/mp4", ["mp4"]],
 ]);
 
-const bannerAllowedMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const bannerAllowedMimeTypes = new Set(allowedMimeTypes.keys());
 
 const publicExtensionByMimeType = new Map([
   ["image/jpeg", "jpg"],
   ["image/png", "png"],
   ["image/webp", "webp"],
+  ["image/avif", "avif"],
   ["image/gif", "gif"],
   ["video/mp4", "mp4"],
 ]);
@@ -111,12 +113,12 @@ export function validateUploadedImageMetadata(
   options: { maxBytes?: number; maxMb?: number } = {},
 ) {
   if (context === "banners" && !bannerAllowedMimeTypes.has(file.type)) {
-    throw new Error("Formato invalido para banner. Envie JPG, PNG ou WEBP.");
+    throw new Error("Formato invalido para banner. Envie JPG, PNG, WEBP, AVIF, GIF ou MP4.");
   }
 
   const allowedExtensions = allowedMimeTypes.get(file.type);
   if (!allowedExtensions) {
-    throw new Error("Formato invalido. Envie JPG, PNG, WEBP, GIF ou MP4.");
+    throw new Error("Formato invalido. Envie JPG, PNG, WEBP, AVIF, GIF ou MP4.");
   }
 
   const extension = getFileExtension(file.name);
@@ -132,7 +134,7 @@ export function validateUploadedImageMetadata(
 
   const publicExtension = publicExtensionByMimeType.get(file.type);
   if (!publicExtension) {
-    throw new Error("Formato invalido. Envie JPG, PNG, WEBP, GIF ou MP4.");
+    throw new Error("Formato invalido. Envie JPG, PNG, WEBP, AVIF, GIF ou MP4.");
   }
 
   return publicExtension;
@@ -166,6 +168,10 @@ export function hasValidImageSignature(bytes: Buffer, extension: string) {
 
   if (extension === "webp") {
     return bytes.length >= 12 && bytes.subarray(0, 4).toString("ascii") === "RIFF" && bytes.subarray(8, 12).toString("ascii") === "WEBP";
+  }
+
+  if (extension === "avif") {
+    return bytes.length >= 12 && bytes.subarray(4, 8).toString("ascii") === "ftyp" && ["avif", "avis"].includes(bytes.subarray(8, 12).toString("ascii"));
   }
 
   if (extension === "gif") {

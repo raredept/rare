@@ -38,6 +38,9 @@ export function ProductCard({ product }: ProductCardProps) {
             <ProductMedia
               url={image.url}
               alt={image.alt}
+              width={640}
+              height={800}
+              sizes="(max-width: 767px) 50vw, (max-width: 1279px) 33vw, 20vw"
               loading="lazy"
               placeholderLabel="Mídia indisponível"
               className="store-product-image h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.035] group-active:scale-[1.015]"

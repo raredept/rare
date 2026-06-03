@@ -12,6 +12,7 @@ import {
   shouldRenderHomeHeroControls,
   type HomeHeroSlide,
 } from "@/lib/home-hero-slides";
+import { getProductMediaTypeFromUrl } from "@/lib/product-media";
 
 const autoplayMs = 6000;
 const swipeThresholdPx = 48;
@@ -53,19 +54,59 @@ function HomeHeroPlaceholder({ label = "Banner RARE" }: { label?: string }) {
   );
 }
 
-function HomeHeroImage({ slide, index, failed, onError }: { slide: HomeHeroSlide; index: number; failed: boolean; onError: () => void }) {
+function HomeHeroImage({
+  failed,
+  index,
+  onError,
+  reducedMotion,
+  slide,
+}: {
+  slide: HomeHeroSlide;
+  index: number;
+  failed: boolean;
+  onError: () => void;
+  reducedMotion: boolean;
+}) {
   if (!slide.imageUrl || failed) {
     return <HomeHeroPlaceholder label={slide.alt} />;
   }
 
+  const mediaType = getProductMediaTypeFromUrl(slide.imageUrl);
+  const mobileMediaType = slide.mobileImageUrl ? getProductMediaTypeFromUrl(slide.mobileImageUrl) : null;
+  const videoPoster = slide.mobileImageUrl && mobileMediaType !== "video" ? slide.mobileImageUrl : undefined;
+
+  if (mediaType === "video") {
+    return (
+      <div className="relative h-full w-full">
+        <HomeHeroPlaceholder label={slide.alt} />
+        <video
+          src={slide.imageUrl}
+          aria-label={slide.alt}
+          className="absolute inset-0 h-full w-full object-cover"
+          autoPlay={!reducedMotion}
+          muted
+          loop={!reducedMotion}
+          playsInline
+          poster={videoPoster}
+          preload="metadata"
+          onError={onError}
+        />
+      </div>
+    );
+  }
+
   return (
     <picture>
-      {slide.mobileImageUrl ? <source media="(max-width: 767px)" srcSet={slide.mobileImageUrl} /> : null}
+      {slide.mobileImageUrl && mobileMediaType !== "video" ? <source media="(max-width: 767px)" srcSet={slide.mobileImageUrl} /> : null}
       <img
         src={slide.imageUrl}
         alt={slide.alt}
+        width={1920}
+        height={650}
+        sizes="100vw"
         loading={index === 0 ? "eager" : "lazy"}
         fetchPriority={index === 0 ? "high" : "auto"}
+        decoding="async"
         className="h-full w-full object-cover"
         onError={onError}
       />
@@ -195,6 +236,7 @@ export function HomeHeroCarousel({ slides }: HomeHeroCarouselProps) {
             index={normalizedActiveIndex}
             failed={failedSlideIds.has(activeSlide.id)}
             onError={() => markImageFailed(activeSlide.id)}
+            reducedMotion={reducedMotion}
           />
         </div>
 

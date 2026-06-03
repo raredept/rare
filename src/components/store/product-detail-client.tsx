@@ -7,7 +7,7 @@ import { useCart, useCartDrawer } from "@/components/store/cart-context";
 import { ProductMedia } from "@/components/store/product-media";
 import { ProductMediaPlaceholder } from "@/components/store/product-media-placeholder";
 import { formatMoney } from "@/lib/money";
-import { getPreferredProductCardMedia, getProductMediaLabel, getProductMediaTypeFromUrl } from "@/lib/product-media";
+import { getPreferredProductCardMedia, getProductMediaLabel, getProductMediaTypeFromUrl, getProductVideoPoster } from "@/lib/product-media";
 import { getAvailableStock } from "@/lib/stock";
 
 type ProductDetailClientProps = {
@@ -67,6 +67,7 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
   const [shippingError, setShippingError] = useState<string | null>(null);
   const image = product.images[imageIndex];
   const mainMediaType = image ? getProductMediaTypeFromUrl(image.url) : null;
+  const mainVideoPoster = image && mainMediaType === "video" ? getProductVideoPoster(product.images, image.url) : undefined;
   const mainMediaCanZoom = mainMediaType === "image" || mainMediaType === "gif";
   const cartImage = getPreferredProductCardMedia(product.images);
   const soldOut = purchasableVariants.every((variant) => getAvailableStock(variant.stock, variant.reservedStock) <= 0);
@@ -149,6 +150,11 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
               url={image.url}
               alt={image.alt}
               controls={mainMediaType === "video"}
+              poster={mainVideoPoster}
+              preload={mainMediaType === "video" ? "metadata" : undefined}
+              width={1200}
+              height={1500}
+              sizes="(max-width: 1023px) 100vw, 60vw"
               loading="eager"
               placeholderLabel="Mídia indisponível"
               className={`store-product-image h-full w-full rounded-lg object-cover ${
@@ -198,6 +204,11 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
                   <ProductMedia
                     url={media.url}
                     alt=""
+                    poster={mediaType === "video" ? getProductVideoPoster(product.images, media.url) : undefined}
+                    preload="none"
+                    width={180}
+                    height={180}
+                    sizes="(max-width: 639px) 25vw, 12vw"
                     placeholderLabel="Mídia indisponível"
                     className="h-full w-full rounded-md object-cover"
                   />
