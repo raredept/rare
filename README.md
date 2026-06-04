@@ -54,6 +54,7 @@ Use estes documentos para entrega ao cliente e homologação:
 
 - [Checklist de variáveis da Vercel](docs/vercel-env-checklist.md)
 - [Handoff técnico do cliente](docs/client-handoff.md)
+- [Auditoria final de release](docs/final-release-audit.md)
 - [Checkout Stripe test-mode smoke](docs/checkout-smoke-test.md)
 - [Rate limit em produção](docs/rate-limit.md)
 
@@ -70,6 +71,7 @@ O smoke público valida rotas públicas, `robots.txt`, `sitemap.xml`, 404s, `/ap
 Antes de qualquer checkout de homologação, rode:
 
 ```powershell
+npm run checkout
 npm run checkout:smoke
 ```
 

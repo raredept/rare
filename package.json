@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "app:check": "tsx scripts/check-readiness.ts",
+    "checkout": "npm run checkout:smoke",
     "checkout:smoke": "npm run checkout:smoke:guard",
     "checkout:smoke:guard": "tsx scripts/check-checkout-smoke-env.ts",
     "smoke": "tsx scripts/smoke-public-site.ts",
