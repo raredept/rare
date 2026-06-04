@@ -8,7 +8,7 @@ import { normalizeProductImageUrls, resolveProductImageSubmission } from "@/lib/
 import { parseMoneyToCents } from "@/lib/money";
 import { requireAdmin } from "@/lib/auth";
 import { saveUploadedImage } from "@/lib/storage";
-import { productFormSchema } from "@/lib/validators";
+import { ACTIVE_PRODUCT_SHIPPING_DATA_ERROR, hasCompleteProductShippingData, productFormSchema } from "@/lib/validators";
 import { slugify } from "@/lib/slug";
 
 function productFormPath(productId: string | null) {
@@ -17,6 +17,10 @@ function productFormPath(productId: string | null) {
 
 function redirectWithProductFormError(productId: string | null, message: string): never {
   redirect(withAdminActionRefresh(`${productFormPath(productId)}?error=${encodeURIComponent(message)}`));
+}
+
+function redirectWithProductsListError(message: string): never {
+  redirect(withAdminActionRefresh(`/admin/products?error=${encodeURIComponent(message)}`));
 }
 
 function getString(formData: FormData, key: string) {
@@ -156,11 +160,22 @@ export async function saveProductAction(productId: string | null, formData: Form
   }
 
   const title = getString(formData, "title");
+  const active = formData.get("active") === "on";
   const featured = formData.get("featured") === "on";
   const featuredSortOrder = featured ? parseOptionalFeaturedSortOrder(formData) : null;
+  const shippingData = {
+    weightGrams: parseOptionalPositiveInt(formData, "weightGrams"),
+    lengthCm: parseOptionalPositiveInt(formData, "lengthCm"),
+    widthCm: parseOptionalPositiveInt(formData, "widthCm"),
+    heightCm: parseOptionalPositiveInt(formData, "heightCm"),
+  };
 
   if (typeof featuredSortOrder === "number" && Number.isNaN(featuredSortOrder)) {
     redirectWithProductFormError(productId, "Informe uma ordem de destaque inteira maior ou igual a 1, ou deixe em branco.");
+  }
+
+  if (active && !hasCompleteProductShippingData(shippingData)) {
+    redirectWithProductFormError(productId, ACTIVE_PRODUCT_SHIPPING_DATA_ERROR);
   }
 
   const parsedResult = productFormSchema.safeParse({
@@ -173,11 +188,11 @@ export async function saveProductAction(productId: string | null, formData: Form
     subcategoryId: getString(formData, "subcategoryId") || undefined,
     priceInCents: parseMoneyToCents(formData.get("price")),
     compareAtPriceInCents: parseMoneyToCents(formData.get("compareAtPrice")) || undefined,
-    weightGrams: parseOptionalPositiveInt(formData, "weightGrams"),
-    lengthCm: parseOptionalPositiveInt(formData, "lengthCm"),
-    widthCm: parseOptionalPositiveInt(formData, "widthCm"),
-    heightCm: parseOptionalPositiveInt(formData, "heightCm"),
-    active: formData.get("active") === "on",
+    weightGrams: shippingData.weightGrams,
+    lengthCm: shippingData.lengthCm,
+    widthCm: shippingData.widthCm,
+    heightCm: shippingData.heightCm,
+    active,
     featured,
     featuredSortOrder,
     sortOrder: Number(getString(formData, "sortOrder") || 0),
@@ -333,6 +348,23 @@ export async function toggleProductActiveAction(formData: FormData) {
   await requireAdmin();
   const id = getString(formData, "id");
   const active = getString(formData, "active") === "true";
+
+  if (!active) {
+    const productForActivation = await prisma.product.findUnique({
+      where: { id },
+      select: {
+        weightGrams: true,
+        lengthCm: true,
+        widthCm: true,
+        heightCm: true,
+      },
+    });
+
+    if (!productForActivation || !hasCompleteProductShippingData(productForActivation)) {
+      redirectWithProductsListError(ACTIVE_PRODUCT_SHIPPING_DATA_ERROR);
+    }
+  }
+
   const product = await prisma.product.update({
     where: { id },
     data: { active: !active },

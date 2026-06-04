@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
     },
     product: {
       findUnique: vi.fn(),
+      update: vi.fn(),
     },
     $transaction: vi.fn(),
   },
@@ -53,7 +54,22 @@ vi.mock("@/lib/storage", () => ({
   saveUploadedImage: mocks.saveUploadedImage,
 }));
 
-function buildProductFormData(options: { imageUrls?: string; featured?: boolean; featuredSortOrder?: string } = {}) {
+type ShippingFormData = {
+  weightGrams?: string;
+  lengthCm?: string;
+  widthCm?: string;
+  heightCm?: string;
+};
+
+function buildProductFormData(
+  options: {
+    imageUrls?: string;
+    featured?: boolean;
+    featuredSortOrder?: string;
+    active?: boolean;
+    shippingData?: ShippingFormData | null;
+  } = {},
+) {
   const formData = new FormData();
   formData.set("title", "Supreme Bag");
   formData.set("slug", "supreme-bag-nova");
@@ -64,13 +80,28 @@ function buildProductFormData(options: { imageUrls?: string; featured?: boolean;
   formData.set("subcategoryId", "cat-bags");
   formData.set("price", "R$ 529,99");
   formData.set("sortOrder", "0");
-  formData.set("active", "on");
+  if (options.active ?? true) {
+    formData.set("active", "on");
+  }
   if (options.featured ?? true) {
     formData.set("featured", "on");
   }
   formData.set("featuredSortOrder", options.featuredSortOrder ?? "1");
   formData.set("variants", "Único:2:SKU-1");
   formData.set("imageUrls", options.imageUrls ?? "https://media.rare.example/products/new.webp");
+  if (options.shippingData !== null) {
+    const shippingData = {
+      weightGrams: "500",
+      lengthCm: "30",
+      widthCm: "24",
+      heightCm: "8",
+      ...options.shippingData,
+    };
+    formData.set("weightGrams", shippingData.weightGrams ?? "");
+    formData.set("lengthCm", shippingData.lengthCm ?? "");
+    formData.set("widthCm", shippingData.widthCm ?? "");
+    formData.set("heightCm", shippingData.heightCm ?? "");
+  }
   return formData;
 }
 
@@ -97,6 +128,13 @@ beforeEach(() => {
   mocks.tx.product.create.mockResolvedValue({
     id: "prod-new",
     slug: "supreme-bag-nova",
+    category: { slug: "acessorios" },
+    subcategory: { slug: "bags" },
+  });
+  mocks.prisma.product.update.mockResolvedValue({
+    id: "prod-1",
+    slug: "supreme-bag",
+    active: true,
     category: { slug: "acessorios" },
     subcategory: { slug: "bags" },
   });
@@ -154,6 +192,10 @@ describe("product admin actions", () => {
           title: "Supreme Bag",
           slug: "supreme-bag-nova",
           priceInCents: 52999,
+          weightGrams: 500,
+          lengthCm: 30,
+          widthCm: 24,
+          heightCm: 8,
           active: true,
           featured: true,
           featuredSortOrder: 1,
@@ -162,6 +204,55 @@ describe("product admin actions", () => {
     );
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin/products/prod-new/edit");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/produto/supreme-bag-nova");
+  }, 60000);
+
+  it("rejects active product without weight and dimensions", async () => {
+    const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
+
+    await expect(saveProductAction(null, buildProductFormData({ shippingData: null }))).rejects.toThrow(
+      /^NEXT_REDIRECT:\/admin\/products\/new\?error=Informe%20peso%2C%20altura%2C%20largura%20e%20comprimento%20maiores%20que%200/,
+    );
+
+    expect(mocks.tx.product.create).not.toHaveBeenCalled();
+  }, 60000);
+
+  it("allows inactive product without weight and dimensions", async () => {
+    const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
+
+    await expect(saveProductAction(null, buildProductFormData({ active: false, shippingData: null }))).rejects.toThrow(
+      /^NEXT_REDIRECT:\/admin\/products\/new\?success=product-created&refresh=\d+$/,
+    );
+
+    expect(mocks.tx.product.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          active: false,
+          weightGrams: undefined,
+          lengthCm: undefined,
+          widthCm: undefined,
+          heightCm: undefined,
+        }),
+      }),
+    );
+  }, 60000);
+
+  it("rejects activating a hidden product without weight and dimensions", async () => {
+    mocks.prisma.product.findUnique.mockResolvedValueOnce({
+      weightGrams: null,
+      lengthCm: null,
+      widthCm: null,
+      heightCm: null,
+    });
+    const formData = new FormData();
+    formData.set("id", "prod-1");
+    formData.set("active", "false");
+    const { toggleProductActiveAction } = await import("@/app/admin/(protected)/products/actions");
+
+    await expect(toggleProductActiveAction(formData)).rejects.toThrow(
+      /^NEXT_REDIRECT:\/admin\/products\?error=Informe%20peso%2C%20altura%2C%20largura%20e%20comprimento%20maiores%20que%200/,
+    );
+
+    expect(mocks.prisma.product.update).not.toHaveBeenCalled();
   }, 60000);
 
   it("persists every submitted media URL in order when creating a product", async () => {

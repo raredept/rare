@@ -65,6 +65,26 @@ const optionalPositiveInt = (max: number) =>
     .max(max)
     .optional();
 
+export const ACTIVE_PRODUCT_SHIPPING_DATA_ERROR =
+  "Informe peso, altura, largura e comprimento maiores que 0 para ativar o produto.";
+
+type ProductShippingData = {
+  weightGrams?: number | null;
+  lengthCm?: number | null;
+  widthCm?: number | null;
+  heightCm?: number | null;
+};
+
+const productShippingFields = ["weightGrams", "lengthCm", "widthCm", "heightCm"] as const;
+
+function isPositiveInteger(value: number | null | undefined) {
+  return typeof value === "number" && Number.isInteger(value) && value > 0;
+}
+
+export function hasCompleteProductShippingData(data: ProductShippingData) {
+  return productShippingFields.every((field) => isPositiveInteger(data[field]));
+}
+
 export const checkoutAddressSchema = z.object({
   label: optionalTrimmed(40),
   recipientName: optionalTrimmed(120),
@@ -121,25 +141,37 @@ export const customerAddressSchema = checkoutAddressSchema.extend({
   isDefault: z.boolean(),
 });
 
-export const productFormSchema = z.object({
-  title: z.string().trim().min(2).max(140),
-  slug: z.string().trim().max(120).optional(),
-  shortDescription: z.string().trim().min(5).max(220),
-  description: z.string().trim().min(5).max(3000),
-  brand: z.string().trim().max(80).optional(),
-  categoryId: z.string().optional(),
-  subcategoryId: z.string().optional(),
-  priceInCents: z.number().int().min(50),
-  compareAtPriceInCents: z.number().int().min(0).optional(),
-  weightGrams: optionalPositiveInt(100000),
-  lengthCm: optionalPositiveInt(1000),
-  widthCm: optionalPositiveInt(1000),
-  heightCm: optionalPositiveInt(1000),
-  active: z.boolean(),
-  featured: z.boolean(),
-  featuredSortOrder: z.number().int().min(1).max(999999).nullable(),
-  sortOrder: z.number().int().min(0).max(999999),
-});
+export const productFormSchema = z
+  .object({
+    title: z.string().trim().min(2).max(140),
+    slug: z.string().trim().max(120).optional(),
+    shortDescription: z.string().trim().min(5).max(220),
+    description: z.string().trim().min(5).max(3000),
+    brand: z.string().trim().max(80).optional(),
+    categoryId: z.string().optional(),
+    subcategoryId: z.string().optional(),
+    priceInCents: z.number().int().min(50),
+    compareAtPriceInCents: z.number().int().min(0).optional(),
+    weightGrams: optionalPositiveInt(100000),
+    lengthCm: optionalPositiveInt(1000),
+    widthCm: optionalPositiveInt(1000),
+    heightCm: optionalPositiveInt(1000),
+    active: z.boolean(),
+    featured: z.boolean(),
+    featuredSortOrder: z.number().int().min(1).max(999999).nullable(),
+    sortOrder: z.number().int().min(0).max(999999),
+  })
+  .superRefine((data, context) => {
+    if (!data.active || hasCompleteProductShippingData(data)) return;
+
+    for (const field of productShippingFields) {
+      context.addIssue({
+        code: "custom",
+        message: ACTIVE_PRODUCT_SHIPPING_DATA_ERROR,
+        path: [field],
+      });
+    }
+  });
 
 export const categoryFormSchema = z.object({
   name: z.string().trim().min(2).max(80),
