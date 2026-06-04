@@ -35,6 +35,7 @@ npm run typecheck
 npm test
 npm run db:check
 npm run app:check
+npm run smoke:public -- https://raredept.com.br
 npm run inventory:release-expired
 npm run shipping:dimensions:audit
 ```
@@ -53,6 +54,23 @@ Limite atual: 4 MB por arquivo. Para melhor qualidade e performance, envie image
 `GET /api/health` retorna `200` quando aplicação, banco e configurações críticas estão funcionais. Pendências operacionais que não impedem a loja de responder, como `RATE_LIMIT_DRIVER=memory`, aparecem em `configuration.warnings` com `status: "ok_with_warnings"` sem derrubar o monitor como indisponível.
 
 Para produção aberta, mantenha `RATE_LIMIT_DRIVER` em um backend compartilhado/durável quando a loja sair de baixo tráfego. O modo `memory` é aceitável só como transição, porque cada instância mantém seu próprio contador.
+
+### Smoke público pós-deploy
+
+Rode um smoke local contra a URL pública depois que o deploy estiver disponível, sem acesso à Vercel e sem secrets:
+
+```bash
+npm run smoke:public -- https://raredept.com.br
+```
+
+O script também aceita `SITE_URL` e, se nada for informado, usa `https://raredept.com.br`:
+
+```powershell
+$env:SITE_URL="https://raredept.com.br"
+npm run smoke:public
+```
+
+O smoke valida `robots.txt`, `sitemap.xml`, 404s públicos, `/api/health`, headers de segurança, CSP Report-Only, rotas privadas fora do sitemap e marcadores óbvios de segredo em respostas públicas. Ele não chama checkout real, Stripe real, Admin protegido ou rotas que alterem dados. Qualquer `FAIL` encerra com exit code diferente de zero.
 
 ### Carrinho legado
 
