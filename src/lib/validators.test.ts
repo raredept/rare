@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { checkoutRequestSchema, customerAddressSchema, customerRegisterSchema, productFormSchema } from "@/lib/validators";
+import {
+  ACTIVE_PRODUCT_SHIPPING_DATA_ERROR,
+  checkoutRequestSchema,
+  customerAddressSchema,
+  customerRegisterSchema,
+  productFormSchema,
+} from "@/lib/validators";
 
 const checkoutItems = [{ productId: "product_1", variantId: "variant_1", quantity: 1 }];
 
@@ -107,12 +113,48 @@ describe("validators", () => {
         shortDescription: "Descricao curta",
         description: "Descricao completa do produto",
         priceInCents: 10000,
+        weightGrams: 500,
+        lengthCm: 20,
+        widthCm: 15,
+        heightCm: 10,
         active: true,
         featured: true,
         featuredSortOrder: 1,
         sortOrder: 0,
       }).featuredSortOrder,
     ).toBe(1);
+  });
+
+  it("rejects active product without shipping dimensions", () => {
+    const parsed = productFormSchema.safeParse({
+      title: "Produto Teste",
+      shortDescription: "Descricao curta",
+      description: "Descricao completa do produto",
+      priceInCents: 10000,
+      active: true,
+      featured: false,
+      featuredSortOrder: null,
+      sortOrder: 0,
+    });
+
+    expect(parsed.success).toBe(false);
+    expect(parsed.error?.flatten().fieldErrors.weightGrams).toContain(ACTIVE_PRODUCT_SHIPPING_DATA_ERROR);
+  });
+
+  it("accepts inactive product without shipping dimensions", () => {
+    const parsed = productFormSchema.parse({
+      title: "Produto Teste",
+      shortDescription: "Descricao curta",
+      description: "Descricao completa do produto",
+      priceInCents: 10000,
+      active: false,
+      featured: false,
+      featuredSortOrder: null,
+      sortOrder: 0,
+    });
+
+    expect(parsed.active).toBe(false);
+    expect(parsed.weightGrams).toBeUndefined();
   });
 
   it("rejects invalid product shipping dimensions", () => {

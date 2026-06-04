@@ -135,7 +135,7 @@ export function ProductForm({ product, categories, error }: ProductFormProps) {
           <div>
             <h2 className="text-sm font-black uppercase tracking-wide text-neutral-500">Dados para frete automático</h2>
             <p className="mt-1 text-xs font-semibold text-neutral-500">
-              Essas medidas sao usadas na cotacao real. Se ficarem vazias, a loja usa fallback controlado ate completar o cadastro.
+              Produtos ativos precisam ter peso e medidas reais maiores que zero. Inativos podem ficar vazios ate completar o cadastro.
             </p>
           </div>
           <Field label="Peso em gramas">
