@@ -1,12 +1,10 @@
-import type { Metadata } from "next";
+import { buildPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = buildPageMetadata({
   title: "Privacidade e termos",
   description: "Informações básicas sobre dados, pedidos, pagamento e uso da loja RARE.",
-  alternates: {
-    canonical: "/privacidade-e-termos",
-  },
-};
+  path: "/privacidade-e-termos",
+});
 
 const terms = [
   {

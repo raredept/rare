@@ -2,6 +2,7 @@ import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import HomePage, { metadata } from "@/app/(store)/page";
+import { absoluteUrl } from "@/lib/seo";
 
 const mocks = vi.hoisted(() => ({
   getAppUrl: vi.fn(),
@@ -153,11 +154,26 @@ describe("store home page", () => {
   });
 
   it("exports basic SEO metadata for the storefront home", () => {
+    const canonical = absoluteUrl("/");
+
     expect(metadata.title).toEqual({
       absolute: "RARE — Streetwear importado e drops selecionados",
     });
     expect(metadata.description).toBe("Peças importadas, streetwear e acessórios selecionados para quem busca sair do comum.");
-    expect(metadata.alternates).toEqual({ canonical: "/" });
+    expect(metadata.alternates).toEqual({ canonical });
+    expect(metadata.openGraph).toMatchObject({
+      title: "RARE — Streetwear importado e drops selecionados",
+      description: "Peças importadas, streetwear e acessórios selecionados para quem busca sair do comum.",
+      url: canonical,
+      siteName: "RARE",
+      locale: "pt_BR",
+      type: "website",
+    });
+    expect(metadata.twitter).toMatchObject({
+      card: "summary_large_image",
+      title: "RARE — Streetwear importado e drops selecionados",
+      description: "Peças importadas, streetwear e acessórios selecionados para quem busca sair do comum.",
+    });
   });
 
   it("keeps search pages focused on results without the hero carousel", async () => {

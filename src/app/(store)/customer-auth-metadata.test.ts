@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { absoluteUrl } from "@/lib/seo";
 
 vi.mock("next/navigation", () => ({
   redirect: vi.fn(),
@@ -20,7 +21,7 @@ describe("customer auth page metadata", () => {
     expect(loginMetadata.title).toEqual({ absolute: "Entrar | RARE" });
     expect(loginMetadata.description).toBe("Acesse sua conta RARE com segurança para acompanhar pedidos.");
     expect(loginMetadata.robots).toEqual({ index: false, follow: false });
-    expect(loginMetadata.alternates).toEqual({ canonical: "/entrar" });
+    expect(loginMetadata.alternates).toEqual({ canonical: absoluteUrl("/entrar") });
   });
 
   it("sets noindex metadata for the registration page", async () => {
@@ -29,6 +30,6 @@ describe("customer auth page metadata", () => {
     expect(registerMetadata.title).toEqual({ absolute: "Criar cadastro | RARE" });
     expect(registerMetadata.description).toBe("Crie sua conta RARE para comprar e acompanhar pedidos com segurança.");
     expect(registerMetadata.robots).toEqual({ index: false, follow: false });
-    expect(registerMetadata.alternates).toEqual({ canonical: "/cadastro" });
+    expect(registerMetadata.alternates).toEqual({ canonical: absoluteUrl("/cadastro") });
   });
 });

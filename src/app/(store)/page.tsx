@@ -1,29 +1,21 @@
-import type { Metadata } from "next";
 import { ArrowRight, CreditCard, Headphones, RotateCcw, ShieldCheck, Sparkles, Truck } from "lucide-react";
 import Link from "next/link";
 import { HomeHeroCarousel } from "@/components/store/home-hero-carousel";
 import { ProductCard } from "@/components/store/product-card";
 import { getAppUrl } from "@/lib/env";
 import { getHomeBannerSlidesForStore } from "@/lib/home-banners";
+import { buildPageMetadata } from "@/lib/seo";
 import { buildOrganizationJsonLd, JsonLdScript } from "@/lib/structured-data";
 import { getFeaturedProducts, getHomeCategoryTiles, getProducts, getRecentProducts, type HomeCategoryTile, type StorefrontProduct } from "@/lib/storefront";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: {
-    absolute: "RARE — Streetwear importado e drops selecionados",
-  },
+export const metadata = buildPageMetadata({
+  title: "RARE — Streetwear importado e drops selecionados",
   description: "Peças importadas, streetwear e acessórios selecionados para quem busca sair do comum.",
-  alternates: {
-    canonical: "/",
-  },
-  openGraph: {
-    title: "RARE — Streetwear importado e drops selecionados",
-    description: "Peças importadas, streetwear e acessórios selecionados para quem busca sair do comum.",
-    type: "website",
-  },
-};
+  path: "/",
+  absoluteTitle: true,
+});
 
 type HomePageProps = {
   searchParams: Promise<{ q?: string }>;

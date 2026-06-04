@@ -1,10 +1,10 @@
-export const metadata = {
+import { buildPageMetadata } from "@/lib/seo";
+
+export const metadata = buildPageMetadata({
   title: "Trocas e Devoluções",
   description: "Política de trocas e devoluções da RARE.",
-  alternates: {
-    canonical: "/trocas-e-devolucoes",
-  },
-};
+  path: "/trocas-e-devolucoes",
+});
 
 const policyParagraphs = [
   "A RARE aceita devoluções em até 7 dias após o recebimento, conforme o Código de Defesa do Consumidor.",

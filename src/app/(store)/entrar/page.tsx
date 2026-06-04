@@ -1,23 +1,15 @@
-import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { CustomerLoginForm } from "@/components/store/customer-auth-forms";
 import { getCurrentCustomer } from "@/lib/customer-auth";
+import { buildNoIndexMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: {
-    absolute: "Entrar | RARE",
-  },
+export const metadata = buildNoIndexMetadata({
+  title: "Entrar | RARE",
   description: "Acesse sua conta RARE com segurança para acompanhar pedidos.",
-  robots: {
-    index: false,
-    follow: false,
-  },
-  alternates: {
-    canonical: "/entrar",
-  },
-};
+  path: "/entrar",
+});
 
 type LoginPageProps = {
   searchParams: Promise<{ next?: string }>;

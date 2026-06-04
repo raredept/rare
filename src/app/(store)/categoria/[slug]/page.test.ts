@@ -2,6 +2,7 @@ import { createElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CategoryPage, { generateMetadata } from "@/app/(store)/categoria/[slug]/page";
+import { absoluteUrl } from "@/lib/seo";
 
 const mocks = vi.hoisted(() => ({
   getAppUrl: vi.fn(),
@@ -160,10 +161,73 @@ describe("store category page", () => {
     });
 
     const result = await generateMetadata({ params: Promise.resolve({ slug: "destaques" }) });
+    const canonical = absoluteUrl("/categoria/destaques");
 
     expect(result.title).toBe("Destaques da loja");
     expect(result.description).toBe("Peças em evidência na RARE — selecionadas por estilo, procura e presença.");
-    expect(result.alternates).toEqual({ canonical: "/categoria/destaques" });
+    expect(result.alternates).toEqual({ canonical });
+    expect(result.openGraph).toMatchObject({
+      title: "Destaques da loja | RARE",
+      description: "Peças em evidência na RARE — selecionadas por estilo, procura e presença.",
+      url: canonical,
+      siteName: "RARE",
+      locale: "pt_BR",
+      type: "website",
+    });
+    expect(result.twitter).toMatchObject({
+      card: "summary_large_image",
+      title: "Destaques da loja | RARE",
+      description: "Peças em evidência na RARE — selecionadas por estilo, procura e presença.",
+    });
+  });
+
+  it("generates metadata for the all-products virtual category", async () => {
+    mocks.getCategoryPageData.mockResolvedValueOnce({
+      kind: "grouped",
+      slug: "tudo",
+      eyebrow: "Catálogo RARE",
+      title: "Catálogo completo",
+      description: "Explore todas as peças da RARE por categoria.",
+      sections: [
+        {
+          name: "Camisetas",
+          slug: "camisetas",
+          href: "/categoria/camisetas",
+          products: [product],
+          total: 1,
+          hasMore: false,
+        },
+      ],
+    });
+
+    const result = await generateMetadata({ params: Promise.resolve({ slug: "tudo" }) });
+    const canonical = absoluteUrl("/categoria/tudo");
+
+    expect(result.title).toBe("Catálogo completo");
+    expect(result.description).toBe("Explore todas as peças da RARE por categoria.");
+    expect(result.alternates).toEqual({ canonical });
+    expect(result.robots).toBeUndefined();
+    expect(result.openGraph).toMatchObject({
+      title: "Catálogo completo | RARE",
+      url: canonical,
+      type: "website",
+    });
+  });
+
+  it("marks existing empty categories as noindex in metadata", async () => {
+    mocks.getCategoryPageData.mockResolvedValueOnce({
+      kind: "category",
+      slug: "cuecas",
+      eyebrow: "Categoria",
+      title: "Cuecas",
+      description: "Peças disponíveis agora nesta categoria.",
+      products: [],
+    });
+
+    const result = await generateMetadata({ params: Promise.resolve({ slug: "cuecas" }) });
+
+    expect(result.alternates).toEqual({ canonical: absoluteUrl("/categoria/cuecas") });
+    expect(result.robots).toEqual({ index: false, follow: true });
   });
 
   it("calls notFound while generating metadata for unknown categories", async () => {

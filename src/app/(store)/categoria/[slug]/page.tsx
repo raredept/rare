@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ProductCard } from "@/components/store/product-card";
 import { getAppUrl } from "@/lib/env";
+import { buildCategoryMetadata } from "@/lib/seo";
 import { buildBreadcrumbListJsonLd, JsonLdScript } from "@/lib/structured-data";
 import { getCategoryPageData, type StorefrontProduct } from "@/lib/storefront";
 
@@ -21,18 +22,7 @@ export async function generateMetadata({ params }: Pick<CategoryPageProps, "para
     notFound();
   }
 
-  return {
-    title: pageData.title,
-    description: pageData.description,
-    alternates: {
-      canonical: `/categoria/${slug}`,
-    },
-    openGraph: {
-      title: `${pageData.title} | RARE`,
-      description: pageData.description,
-      type: "website",
-    },
-  };
+  return buildCategoryMetadata(pageData);
 }
 
 function ProductGrid({ products }: { products: StorefrontProduct[] }) {

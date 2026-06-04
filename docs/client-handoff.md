@@ -11,7 +11,7 @@ O desenvolvedor não tinha acesso direto à Vercel, Redis/Upstash, Stripe Dashbo
 | Área | Correção | Status | Como validar |
 | --- | --- | --- | --- |
 | 404 público | Produto/categoria inexistentes retornam HTTP 404 real. | Preparado no código | `curl.exe -I https://raredept.com.br/produto/nao-existe` e `curl.exe -I https://raredept.com.br/categoria/nao-existe`. |
-| SEO técnico | `robots.txt` e `sitemap.xml` implementados. | Preparado no código | `curl.exe -I https://raredept.com.br/robots.txt` e `curl.exe -I https://raredept.com.br/sitemap.xml`. |
+| SEO técnico | `robots.txt`, `sitemap.xml`, canonical absoluto, Open Graph e Twitter Cards implementados nas páginas públicas principais. | Preparado no código | `curl.exe -I https://raredept.com.br/robots.txt`, `curl.exe -I https://raredept.com.br/sitemap.xml` e inspeção do HTML/head das rotas públicas. |
 | Mídia | Produto/banner aceitam JPG, JPEG, PNG, WEBP, AVIF, GIF e MP4. | Preparado no código | Upload e renderização pelo Admin/staging. |
 | Performance de mídia | Cards/listagens não renderizam MP4 pesado diretamente. | Preparado no código | Navegar listagens com produtos que tenham MP4. |
 | Rate limit | Suporte a Redis/Upstash REST com fallback `memory` para dev/test. | Depende de envs | Ver [docs/rate-limit.md](./rate-limit.md) e `/api/health`. |
@@ -25,6 +25,8 @@ O desenvolvedor não tinha acesso direto à Vercel, Redis/Upstash, Stripe Dashbo
 | Smoke público | Smoke público local criado. | Preparado no código | `npm run smoke -- https://raredept.com.br`. |
 | Pendências do catálogo | Admin mostra pendências de catálogo. | Preparado no código | Abrir painel Admin em staging. |
 | Prontidão de venda | Admin mostra uma área somente leitura com bloqueios, warnings e ações para go-live. | Preparado no código | Abrir `/admin/readiness` no Admin. |
+
+Nota: `WebSite/SearchAction` fica como melhoria futura quando houver uma página de busca canônica estável. Um domínio/CDN dedicado para imagens sociais também pode ser avaliado depois, se o cliente quiser controlar previews por campanha.
 
 ## 3. O que o cliente precisa configurar
 

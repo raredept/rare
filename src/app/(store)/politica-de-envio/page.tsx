@@ -1,13 +1,11 @@
-import type { Metadata } from "next";
 import Link from "next/link";
+import { buildPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = buildPageMetadata({
   title: "Política de envio",
   description: "Como a RARE trata frete, prazo e endereço de entrega no checkout.",
-  alternates: {
-    canonical: "/politica-de-envio",
-  },
-};
+  path: "/politica-de-envio",
+});
 
 const shippingItems = [
   {

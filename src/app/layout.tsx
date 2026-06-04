@@ -1,5 +1,5 @@
-import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { buildRootMetadata } from "@/lib/seo";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,22 +12,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: "RARE",
-    template: "%s | RARE",
-  },
-  description: "Peças importadas, streetwear e acessórios selecionados para quem busca sair do comum.",
-  openGraph: {
-    siteName: "RARE",
-    type: "website",
-    locale: "pt_BR",
-  },
-  icons: {
-    icon: "/brand/favicon.ico",
-    shortcut: "/brand/favicon.ico",
-  },
-};
+export const metadata = buildRootMetadata();
 
 export default function RootLayout({
   children,

@@ -2,6 +2,7 @@ import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ProductPage, { generateMetadata } from "@/app/(store)/produto/[slug]/page";
+import { absoluteUrl } from "@/lib/seo";
 
 const mocks = vi.hoisted(() => ({
   getAppUrl: vi.fn(),
@@ -70,6 +71,16 @@ const product = {
 
 function getJsonLdScripts(html: string) {
   return [...html.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>(.*?)<\/script>/g)].map((match) => JSON.parse(match[1]));
+}
+
+function getOpenGraphImageUrls(metadata: Awaited<ReturnType<typeof generateMetadata>>) {
+  const images = metadata.openGraph?.images;
+  const list = Array.isArray(images) ? images : images ? [images] : [];
+  return list.map((image) => {
+    if (typeof image === "string") return image;
+    if (image instanceof URL) return image.toString();
+    return String(image.url);
+  });
 }
 
 describe("store product page", () => {
@@ -142,10 +153,52 @@ describe("store product page", () => {
     mocks.getProductBySlug.mockResolvedValueOnce(product);
 
     const result = await generateMetadata({ params: Promise.resolve({ slug: "camiseta-rare" }) });
+    const canonical = absoluteUrl("/produto/camiseta-rare");
 
     expect(result.title).toBe("Camiseta RARE");
     expect(result.description).toBe("Camiseta importada selecionada.");
-    expect(result.alternates).toEqual({ canonical: "/produto/camiseta-rare" });
+    expect(result.alternates).toEqual({ canonical });
+    expect(result.openGraph).toMatchObject({
+      title: "Camiseta RARE | RARE",
+      description: "Camiseta importada selecionada.",
+      url: canonical,
+      siteName: "RARE",
+      locale: "pt_BR",
+      type: "website",
+    });
+    expect(result.twitter).toMatchObject({
+      card: "summary_large_image",
+      title: "Camiseta RARE | RARE",
+      description: "Camiseta importada selecionada.",
+    });
+    expect(getOpenGraphImageUrls(result)).toEqual(["https://raredept.com.br/uploads/camiseta-rare.webp"]);
+  });
+
+  it("prefers static product images over GIF and video metadata images", async () => {
+    mocks.getProductBySlug.mockResolvedValueOnce({
+      ...product,
+      images: [
+        { url: "https://raredept.com.br/uploads/camiseta-rare.mp4", alt: "Vídeo" },
+        { url: "https://raredept.com.br/uploads/camiseta-rare.gif", alt: "GIF" },
+        { url: "https://raredept.com.br/uploads/camiseta-rare.jpg", alt: "Camiseta RARE" },
+      ],
+    });
+
+    const result = await generateMetadata({ params: Promise.resolve({ slug: "camiseta-rare" }) });
+
+    expect(getOpenGraphImageUrls(result)).toEqual(["https://raredept.com.br/uploads/camiseta-rare.jpg"]);
+  });
+
+  it("does not use MP4 as product og:image when it is the only media", async () => {
+    mocks.getProductBySlug.mockResolvedValueOnce({
+      ...product,
+      images: [{ url: "https://raredept.com.br/uploads/camiseta-rare.mp4", alt: "Vídeo" }],
+    });
+
+    const result = await generateMetadata({ params: Promise.resolve({ slug: "camiseta-rare" }) });
+
+    expect(getOpenGraphImageUrls(result)).toEqual([absoluteUrl("/brand/rare-logo.png")]);
+    expect(JSON.stringify(result)).not.toContain(".mp4");
   });
 
   it("calls notFound while generating metadata for unknown products", async () => {

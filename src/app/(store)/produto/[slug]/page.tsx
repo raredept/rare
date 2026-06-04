@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ProductDetailClient } from "@/components/store/product-detail-client";
 import { getAppUrl } from "@/lib/env";
 import { isProductVideoUrl } from "@/lib/product-media";
+import { buildProductMetadata } from "@/lib/seo";
 import { getStoreSettings } from "@/lib/settings";
 import { buildBreadcrumbListJsonLd, buildProductJsonLd, JsonLdScript } from "@/lib/structured-data";
 import { getProductBySlug } from "@/lib/storefront";
@@ -21,22 +22,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
     notFound();
   }
 
-  const description = product.shortDescription || product.description;
-  const openGraphImage = product.images.find((image) => !isProductVideoUrl(image.url) && image.url.startsWith("http"));
-
-  return {
-    title: product.title,
-    description,
-    alternates: {
-      canonical: `/produto/${product.slug}`,
-    },
-    openGraph: {
-      title: `${product.title} | RARE`,
-      description,
-      type: "website",
-      images: openGraphImage ? [{ url: openGraphImage.url, alt: openGraphImage.alt || product.title }] : undefined,
-    },
-  };
+  return buildProductMetadata(product);
 }
 
 export default async function ProductPage({ params }: ProductPageProps) {

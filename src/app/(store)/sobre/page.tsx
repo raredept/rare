@@ -1,13 +1,11 @@
-import type { Metadata } from "next";
 import Link from "next/link";
+import { buildPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = buildPageMetadata({
   title: "Sobre a RARE",
   description: "Streetwear importado, drops limitados e peças escolhidas para quem busca sair do comum.",
-  alternates: {
-    canonical: "/sobre",
-  },
-};
+  path: "/sobre",
+});
 
 export default function AboutPage() {
   return (

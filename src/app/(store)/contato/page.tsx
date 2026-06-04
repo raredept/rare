@@ -1,13 +1,11 @@
-import type { Metadata } from "next";
 import Link from "next/link";
+import { buildPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = buildPageMetadata({
   title: "Contato",
   description: "Canais de atendimento da RARE para dúvidas sobre produtos, pedidos, trocas e pós-compra.",
-  alternates: {
-    canonical: "/contato",
-  },
-};
+  path: "/contato",
+});
 
 export default function ContactPage() {
   return (
