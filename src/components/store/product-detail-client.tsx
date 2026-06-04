@@ -238,12 +238,10 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
               ref={zoomTriggerRef}
               type="button"
               onClick={() => setZoomImageIndex(imageIndex)}
-              className="absolute inset-2 z-10 rounded-lg text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 focus-visible:ring-offset-white md:cursor-zoom-in"
+              className="absolute right-3 top-3 z-10 hidden h-10 w-10 items-center justify-center rounded-full bg-black/70 text-white shadow-[0_10px_30px_rgba(15,23,42,0.22)] backdrop-blur-sm transition hover:bg-black/80 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 focus-visible:ring-offset-white md:inline-flex md:cursor-zoom-in"
               aria-label="Ampliar imagem do produto"
             >
-              <span className="pointer-events-none absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/70 shadow-[0_10px_30px_rgba(15,23,42,0.22)] backdrop-blur-sm transition">
-                <Maximize2 className="h-4 w-4" aria-hidden="true" />
-              </span>
+              <Maximize2 className="h-4 w-4" aria-hidden="true" />
             </button>
           ) : null}
           {product.images.length > 1 ? (

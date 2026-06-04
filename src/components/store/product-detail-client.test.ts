@@ -76,6 +76,8 @@ describe("ProductDetailClient", () => {
     expect(html).toContain("md:cursor-zoom-in");
     expect(html).toContain("motion-safe:md:group-hover:scale-[1.08]");
     expect(html).toContain('aria-label="Ampliar imagem do produto"');
+    expect(html).toContain("md:inline-flex");
+    expect(html).not.toContain("absolute inset-2");
     expect(titleIndex).toBeGreaterThanOrEqual(0);
     expect(descriptionIndex).toBeGreaterThan(titleIndex);
     expect(priceIndex).toBeGreaterThan(descriptionIndex);
