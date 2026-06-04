@@ -15,6 +15,8 @@ export type RedisRestConfig = {
   prefix: string;
 };
 
+type RuntimeEnv = Record<string, string | undefined>;
+
 const DEFAULT_REDIS_PREFIX = "rare:rate-limit";
 
 function clean(value: string | undefined) {
@@ -22,11 +24,11 @@ function clean(value: string | undefined) {
   return trimmed ? trimmed : undefined;
 }
 
-function getConfiguredDriver(env: NodeJS.ProcessEnv) {
+function getConfiguredDriver(env: RuntimeEnv) {
   return clean(env.RATE_LIMIT_DRIVER)?.toLowerCase() ?? "memory";
 }
 
-export function getRedisRestConfig(env: NodeJS.ProcessEnv = process.env): RedisRestConfig {
+export function getRedisRestConfig(env: RuntimeEnv = process.env): RedisRestConfig {
   return {
     url: clean(env.UPSTASH_REDIS_REST_URL) ?? clean(env.REDIS_REST_URL),
     token: clean(env.UPSTASH_REDIS_REST_TOKEN) ?? clean(env.REDIS_REST_TOKEN),
@@ -34,7 +36,7 @@ export function getRedisRestConfig(env: NodeJS.ProcessEnv = process.env): RedisR
   };
 }
 
-export function getRateLimitStatus(env: NodeJS.ProcessEnv = process.env): RateLimitStatus {
+export function getRateLimitStatus(env: RuntimeEnv = process.env): RateLimitStatus {
   const configuredDriver = getConfiguredDriver(env);
   const production = (clean(env.NODE_ENV) ?? "development") === "production";
   const redis = getRedisRestConfig(env);

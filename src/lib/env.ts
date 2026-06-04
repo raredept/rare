@@ -9,6 +9,7 @@ export type EnvIssue = {
 };
 
 type EnvValidationOptions = {
+  env?: Record<string, string | undefined>;
   requireDatabase?: boolean;
   requireAdminAuth?: boolean;
   requireCheckout?: boolean;
@@ -72,16 +73,16 @@ function validateRequired(
   }
 }
 
-export function getNodeEnv() {
-  return clean(process.env.NODE_ENV) ?? "development";
+export function getNodeEnv(env: Record<string, string | undefined> = process.env) {
+  return clean(env.NODE_ENV) ?? "development";
 }
 
-export function isProductionEnv() {
-  return getNodeEnv() === "production";
+export function isProductionEnv(env: Record<string, string | undefined> = process.env) {
+  return getNodeEnv(env) === "production";
 }
 
-export function isCheckoutEnabled() {
-  const value = clean(process.env.CHECKOUT_ENABLED);
+export function isCheckoutEnabled(env: Record<string, string | undefined> = process.env) {
+  const value = clean(env.CHECKOUT_ENABLED);
   return !value || !CHECKOUT_DISABLED_VALUES.has(value.toLowerCase());
 }
 
@@ -142,8 +143,8 @@ export function getStripeWebhookSecret() {
   return webhookSecret;
 }
 
-export function getStorageDriver(): StorageDriver {
-  const rawDriver = (clean(process.env.STORAGE_DRIVER) ?? clean(process.env.UPLOAD_DRIVER) ?? "local").toLowerCase();
+export function getStorageDriver(env: Record<string, string | undefined> = process.env): StorageDriver {
+  const rawDriver = (clean(env.STORAGE_DRIVER) ?? clean(env.UPLOAD_DRIVER) ?? "local").toLowerCase();
   if (rawDriver === "local" || rawDriver === "r2") {
     return rawDriver;
   }
@@ -158,8 +159,8 @@ export function getStoragePublicBaseUrl() {
   return normalizeUrl(clean(process.env.STORAGE_PUBLIC_BASE_URL) ?? DEFAULT_LOCAL_STORAGE_PUBLIC_BASE_URL);
 }
 
-export function getR2PublicBaseUrl() {
-  const publicBaseUrl = clean(process.env.R2_PUBLIC_BASE_URL) ?? clean(process.env.STORAGE_PUBLIC_BASE_URL);
+export function getR2PublicBaseUrl(env: Record<string, string | undefined> = process.env) {
+  const publicBaseUrl = clean(env.R2_PUBLIC_BASE_URL) ?? clean(env.STORAGE_PUBLIC_BASE_URL);
   if (!publicBaseUrl || hasPlaceholderValue(publicBaseUrl)) {
     throw new Error("Configure R2_PUBLIC_BASE_URL ou STORAGE_PUBLIC_BASE_URL para publicar uploads do Cloudflare R2.");
   }
@@ -171,11 +172,11 @@ export function getR2PublicBaseUrl() {
   return normalizeUrl(publicBaseUrl);
 }
 
-export function getR2StorageConfig() {
-  const accountId = clean(process.env.R2_ACCOUNT_ID);
-  const bucket = clean(process.env.R2_BUCKET);
-  const accessKeyId = clean(process.env.R2_ACCESS_KEY_ID);
-  const secretAccessKey = clean(process.env.R2_SECRET_ACCESS_KEY);
+export function getR2StorageConfig(env: Record<string, string | undefined> = process.env) {
+  const accountId = clean(env.R2_ACCOUNT_ID);
+  const bucket = clean(env.R2_BUCKET);
+  const accessKeyId = clean(env.R2_ACCESS_KEY_ID);
+  const secretAccessKey = clean(env.R2_SECRET_ACCESS_KEY);
   const missing = [
     ["R2_ACCOUNT_ID", accountId],
     ["R2_BUCKET", bucket],
@@ -187,7 +188,7 @@ export function getR2StorageConfig() {
 
   let publicBaseUrl = "";
   try {
-    publicBaseUrl = getR2PublicBaseUrl();
+    publicBaseUrl = getR2PublicBaseUrl(env);
   } catch {
     missing.push("R2_PUBLIC_BASE_URL or STORAGE_PUBLIC_BASE_URL");
   }
@@ -206,8 +207,8 @@ export function getR2StorageConfig() {
   };
 }
 
-export function isLocalStorageAllowedInProduction() {
-  return clean(process.env.ALLOW_LOCAL_STORAGE_IN_PRODUCTION)?.toLowerCase() === "true";
+export function isLocalStorageAllowedInProduction(env: Record<string, string | undefined> = process.env) {
+  return clean(env.ALLOW_LOCAL_STORAGE_IN_PRODUCTION)?.toLowerCase() === "true";
 }
 
 export function assertUploadStorageReady() {
@@ -224,12 +225,13 @@ export function assertUploadStorageReady() {
 }
 
 export function validateEnvironment(options: EnvValidationOptions = {}) {
+  const env = options.env ?? process.env;
   const issues: EnvIssue[] = [];
-  const production = isProductionEnv();
-  const checkoutEnabled = isCheckoutEnabled();
+  const production = isProductionEnv(env);
+  const checkoutEnabled = isCheckoutEnabled(env);
   const storageDriver = (() => {
     try {
-      return getStorageDriver();
+      return getStorageDriver(env);
     } catch {
       return null;
     }
@@ -241,16 +243,16 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
   const requireWebhook = options.requireWebhook ?? (production && checkoutEnabled);
   const requireStorage = options.requireStorage ?? production;
 
-  if (!["development", "test", "production"].includes(getNodeEnv())) {
+  if (!["development", "test", "production"].includes(getNodeEnv(env))) {
     addIssue(issues, "warning", "NODE_ENV", "NODE_ENV should be development, test or production.");
   }
 
   if (requireDatabase) {
-    validateRequired(issues, "DATABASE_URL", process.env.DATABASE_URL, "DATABASE_URL is required.");
+    validateRequired(issues, "DATABASE_URL", env.DATABASE_URL, "DATABASE_URL is required.");
   }
 
   if (requireAdminAuth) {
-    const authSecret = clean(process.env.ADMIN_SESSION_SECRET) ?? clean(process.env.AUTH_SECRET);
+    const authSecret = clean(env.ADMIN_SESSION_SECRET) ?? clean(env.AUTH_SECRET);
     validateRequired(
       issues,
       "ADMIN_SESSION_SECRET",
@@ -262,7 +264,7 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
     }
   }
 
-  const appUrl = clean(process.env.APP_URL) ?? clean(process.env.NEXT_PUBLIC_APP_URL);
+  const appUrl = clean(env.APP_URL) ?? clean(env.NEXT_PUBLIC_APP_URL);
   if (production) {
     validateRequired(
       issues,
@@ -282,7 +284,7 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
     validateRequired(
       issues,
       "STRIPE_SECRET_KEY",
-      process.env.STRIPE_SECRET_KEY,
+      env.STRIPE_SECRET_KEY,
       "STRIPE_SECRET_KEY is required when checkout is active.",
       stripeLevel,
     );
@@ -290,7 +292,7 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
     validateRequired(
       issues,
       "STRIPE_WEBHOOK_SECRET",
-      process.env.STRIPE_WEBHOOK_SECRET,
+      env.STRIPE_WEBHOOK_SECRET,
       "STRIPE_WEBHOOK_SECRET is required to confirm paid orders from Stripe.",
       webhookLevel,
     );
@@ -298,7 +300,7 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
 
   if (!storageDriver) {
     addIssue(issues, "error", "STORAGE_DRIVER", "Use STORAGE_DRIVER=local em desenvolvimento ou STORAGE_DRIVER=r2 em producao.");
-  } else if (requireStorage && storageDriver === "local" && !isLocalStorageAllowedInProduction()) {
+  } else if (requireStorage && storageDriver === "local" && !isLocalStorageAllowedInProduction(env)) {
     addIssue(
       issues,
       "error",
@@ -311,10 +313,10 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
 
   if (storageDriver === "r2") {
     for (const variable of ["R2_ACCOUNT_ID", "R2_BUCKET", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"]) {
-      validateRequired(issues, variable, process.env[variable], `${variable} is required for R2 upload storage.`);
+      validateRequired(issues, variable, env[variable], `${variable} is required for R2 upload storage.`);
     }
 
-    const publicBaseUrl = clean(process.env.R2_PUBLIC_BASE_URL) ?? clean(process.env.STORAGE_PUBLIC_BASE_URL);
+    const publicBaseUrl = clean(env.R2_PUBLIC_BASE_URL) ?? clean(env.STORAGE_PUBLIC_BASE_URL);
     validateRequired(
       issues,
       "R2_PUBLIC_BASE_URL",
@@ -326,15 +328,15 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
     }
   }
 
-  const rateLimit = getRateLimitStatus();
+  const rateLimit = getRateLimitStatus(env);
   for (const warning of rateLimit.warnings) {
     addIssue(issues, "warning", "RATE_LIMIT_DRIVER", warning);
   }
 
-  const shippingProvider = clean(process.env.SHIPPING_PROVIDER)?.toLowerCase();
+  const shippingProvider = clean(env.SHIPPING_PROVIDER)?.toLowerCase();
   if (shippingProvider === "melhor_envio") {
-    const melhorEnvioToken = clean(process.env.MELHOR_ENVIO_TOKEN) ?? clean(process.env.MELHOR_ENVIO_ACCESS_TOKEN);
-    const melhorEnvioOAuthClient = clean(process.env.MELHOR_ENVIO_CLIENT_ID) || clean(process.env.MELHOR_ENVIO_CLIENT_SECRET);
+    const melhorEnvioToken = clean(env.MELHOR_ENVIO_TOKEN) ?? clean(env.MELHOR_ENVIO_ACCESS_TOKEN);
+    const melhorEnvioOAuthClient = clean(env.MELHOR_ENVIO_CLIENT_ID) || clean(env.MELHOR_ENVIO_CLIENT_SECRET);
     const level: EnvIssueLevel = production && checkoutEnabled ? "error" : "warning";
 
     if (!melhorEnvioToken && melhorEnvioOAuthClient) {
@@ -353,12 +355,12 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
       );
     }
 
-    const melhorEnvioEnv = clean(process.env.MELHOR_ENVIO_ENV);
+    const melhorEnvioEnv = clean(env.MELHOR_ENVIO_ENV);
     if (melhorEnvioEnv && !["production", "sandbox"].includes(melhorEnvioEnv.toLowerCase())) {
       addIssue(issues, "warning", "MELHOR_ENVIO_ENV", "MELHOR_ENVIO_ENV should be production or sandbox.");
     }
 
-    const melhorEnvioBaseUrl = clean(process.env.MELHOR_ENVIO_BASE_URL);
+    const melhorEnvioBaseUrl = clean(env.MELHOR_ENVIO_BASE_URL);
     if (melhorEnvioBaseUrl && !isHttpUrl(melhorEnvioBaseUrl)) {
       addIssue(issues, "error", "MELHOR_ENVIO_BASE_URL", "MELHOR_ENVIO_BASE_URL must be an absolute http(s) URL.");
     }
@@ -369,7 +371,7 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
 
   return {
     ok: errors.length === 0,
-    nodeEnv: getNodeEnv(),
+    nodeEnv: getNodeEnv(env),
     checkoutEnabled,
     storageDriver: storageDriver ?? "invalid",
     errors,

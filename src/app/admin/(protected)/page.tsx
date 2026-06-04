@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { buildCatalogIssues, type CatalogIssue } from "@/lib/admin-catalog-issues";
+import { buildAdminReadiness, type ReadinessReport } from "@/lib/admin-readiness";
 import { buildOrderFlowCounts, calculateDashboardKpis, getSortedOrderFlowEntries } from "@/lib/admin-dashboard";
 import { formatMoney } from "@/lib/money";
 import { formatOrderStatus, isPaidRevenueStatus } from "@/lib/order-display";
@@ -8,7 +9,7 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
-  const [orders, variants, catalogProducts, catalogCategories, customers, recentOrders] = await Promise.all([
+  const [orders, variants, catalogProducts, catalogCategories, customers, settings, recentOrders] = await Promise.all([
     prisma.order.findMany({
       select: {
         id: true,
@@ -66,6 +67,15 @@ export default async function AdminDashboardPage() {
       },
     }),
     prisma.customer.count({ where: { active: true } }),
+    prisma.storeSettings.findUnique({
+      where: { id: "store" },
+      select: {
+        shippingMode: true,
+        originCep: true,
+        fixedShippingInCents: true,
+        manualShippingInCents: true,
+      },
+    }),
     prisma.order.findMany({
       orderBy: { createdAt: "desc" },
       take: 8,
@@ -89,6 +99,11 @@ export default async function AdminDashboardPage() {
     return activeVariants.every((variant) => variant.stock - variant.reservedStock <= 0);
   }).length;
   const catalogIssues = buildCatalogIssues({ products: catalogProducts, categories: catalogCategories });
+  const readinessReport = buildAdminReadiness({
+    settings,
+    products: catalogProducts,
+    categories: catalogCategories,
+  });
   const kpis = calculateDashboardKpis({
     orders,
     variants,
@@ -137,6 +152,8 @@ export default async function AdminDashboardPage() {
         <Metric title="Estoque baixo" value={kpis.lowStockVariants.toString()} />
         <Metric title="Clientes ativos" value={kpis.customers.toString()} />
       </div>
+
+      <ReadinessSummaryCard report={readinessReport} />
 
       <section className="mt-8 rounded-lg border border-neutral-200 bg-white p-5">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -264,6 +281,51 @@ export default async function AdminDashboardPage() {
           </div>
         </section>
       </div>
+    </div>
+  );
+}
+
+function ReadinessSummaryCard({ report }: { report: ReadinessReport }) {
+  return (
+    <section className="mt-8 rounded-lg border border-neutral-200 bg-white p-5">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div>
+          <ReadinessStatusBadge report={report} />
+          <h2 className="mt-3 text-lg font-black text-neutral-950">Prontidão de Venda</h2>
+          <p className="mt-1 max-w-3xl text-sm font-semibold leading-6 text-neutral-500">{report.summaryDescription}</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-4">
+          <ReadinessCount label="OK" value={report.counts.ok} />
+          <ReadinessCount label="Warnings" value={report.counts.warning} />
+          <ReadinessCount label="Bloqueios" value={report.counts.blocked} />
+          <ReadinessCount label="Cliente" value={report.clientActionCount} />
+        </div>
+      </div>
+      <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <p className="text-xs font-semibold text-neutral-500">Esta visão é somente leitura e nunca exibe secrets.</p>
+        <Link href="/admin/readiness" className="w-fit rounded-lg border border-neutral-300 px-4 py-2 text-xs font-black text-neutral-700 transition hover:border-neutral-950 hover:text-neutral-950">
+          Ver detalhes
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+function ReadinessStatusBadge({ report }: { report: ReadinessReport }) {
+  const classes = report.finalStatus.includes("blocked")
+    ? "border-red-200 bg-red-50 text-red-700"
+    : report.finalStatus === "ready_for_limited_production"
+      ? "border-amber-200 bg-amber-50 text-amber-700"
+      : "border-emerald-200 bg-emerald-50 text-emerald-700";
+
+  return <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-black uppercase tracking-wide ${classes}`}>{report.summaryLabel}</span>;
+}
+
+function ReadinessCount({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="min-w-24 rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+      <p className="text-[10px] font-black uppercase tracking-wide text-neutral-500">{label}</p>
+      <p className="mt-1 text-xl font-black text-neutral-950">{value}</p>
     </div>
   );
 }

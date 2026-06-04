@@ -10,6 +10,7 @@ const navItems = [
   { href: "/admin/banners", label: "Banners" },
   { href: "/admin/orders", label: "Pedidos" },
   { href: "/admin/customers", label: "Clientes" },
+  { href: "/admin/readiness", label: "Prontidão" },
   { href: "/admin/settings", label: "Configurações" },
 ];
 

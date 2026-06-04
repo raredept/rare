@@ -24,6 +24,7 @@ O desenvolvedor não tinha acesso direto à Vercel, Redis/Upstash, Stripe Dashbo
 | Catálogo/Admin | Admin bloqueia produto ativo sem peso/dimensões. | Preparado no código | Tentar ativar produto incompleto no Admin. |
 | Smoke público | Smoke público local criado. | Preparado no código | `npm run smoke -- https://raredept.com.br`. |
 | Pendências do catálogo | Admin mostra pendências de catálogo. | Preparado no código | Abrir painel Admin em staging. |
+| Prontidão de venda | Admin mostra uma área somente leitura com bloqueios, warnings e ações para go-live. | Preparado no código | Abrir `/admin/readiness` no Admin. |
 
 ## 3. O que o cliente precisa configurar
 
@@ -40,6 +41,7 @@ O desenvolvedor não tinha acesso direto à Vercel, Redis/Upstash, Stripe Dashbo
 
 ## 4. O que ainda bloqueia venda aberta
 
+- O Admin deve mostrar `/admin/readiness` sem bloqueios de venda aberta.
 - Produção precisa estar atualizada com os commits mais recentes.
 - Redis/Upstash precisa estar configurado e compartilhado.
 - `/api/health` precisa ficar sem erro crítico.
