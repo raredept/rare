@@ -35,7 +35,8 @@ npm run typecheck
 npm test
 npm run db:check
 npm run app:check
-npm run smoke:public -- https://raredept.com.br
+npm run smoke -- https://raredept.com.br
+npm run checkout:smoke
 npm run inventory:release-expired
 npm run shipping:dimensions:audit
 ```
@@ -47,59 +48,29 @@ O Admin usa `POST /api/admin/uploads`: o navegador envia o arquivo para o domín
 
 Limite atual: 4 MB por arquivo. Para melhor qualidade e performance, envie imagens em WEBP/JPG otimizadas.
 
-## Produção e operações
+## Operação, deploy e validação
 
-### Health check
+Use estes documentos para entrega ao cliente e homologação:
 
-`GET /api/health` retorna `200` quando aplicação, banco e configurações críticas estão funcionais. Pendências operacionais que não impedem a loja de responder, como `RATE_LIMIT_DRIVER=memory`, aparecem em `configuration.warnings` com `status: "ok_with_warnings"` sem derrubar o monitor como indisponível.
+- [Checklist de variáveis da Vercel](docs/vercel-env-checklist.md)
+- [Handoff técnico do cliente](docs/client-handoff.md)
+- [Checkout Stripe test-mode smoke](docs/checkout-smoke-test.md)
+- [Rate limit em produção](docs/rate-limit.md)
 
-Para produção aberta, mantenha `RATE_LIMIT_DRIVER` em um backend compartilhado/durável quando a loja sair de baixo tráfego. O modo `memory` é aceitável só como transição, porque cada instância mantém seu próprio contador.
-
-### Smoke público pós-deploy
-
-Rode um smoke local contra a URL pública depois que o deploy estiver disponível, sem acesso à Vercel e sem secrets:
-
-```bash
-npm run smoke:public -- https://raredept.com.br
-```
-
-O script também aceita `SITE_URL` e, se nada for informado, usa `https://raredept.com.br`:
+Smoke público pós-deploy:
 
 ```powershell
+npm run smoke -- https://raredept.com.br
 $env:SITE_URL="https://raredept.com.br"
-npm run smoke:public
+npm run smoke
 ```
 
-O smoke valida `robots.txt`, `sitemap.xml`, 404s públicos, `/api/health`, headers de segurança, CSP Report-Only, rotas privadas fora do sitemap e marcadores óbvios de segredo em respostas públicas. Ele não chama checkout real, Stripe real, Admin protegido ou rotas que alterem dados. Qualquer `FAIL` encerra com exit code diferente de zero.
+O smoke público valida rotas públicas, `robots.txt`, `sitemap.xml`, 404s, `/api/health`, headers de segurança e vazamentos óbvios de secrets. Ele não altera dados, não chama checkout real e não cria pedidos. `FAIL` bloqueia a validação; `WARNING` indica pendência operacional, como `RATE_LIMIT_DRIVER=memory` enquanto Redis/Upstash ainda não estiver configurado.
 
-### Carrinho legado
+Antes de qualquer checkout de homologação, rode:
 
-`/cart` é uma rota legada e redireciona por HTTP para `/finalizar-compra`. A querystring é preservada para compatibilidade com callbacks antigos, por exemplo `/cart?checkout=cancelado`.
-
-### Reservas expiradas
-
-Reservas temporárias de checkout são liberadas por `npm run inventory:release-expired` e pelo endpoint protegido:
-
-```bash
-GET /api/cron/release-expired-inventory
-Authorization: Bearer $CRON_SECRET
+```powershell
+npm run checkout:smoke
 ```
 
-O `vercel.json` agenda esse endpoint uma vez por dia, as 03:00 UTC. Em contas Hobby da Vercel, cron com frequencia maior que diaria falha no deploy; para voltar a cada 10 minutos, use plano Pro ou um scheduler externo. Configure `CRON_SECRET` na Vercel antes do deploy para que o cron execute; sem o segredo correto, a rota não altera reservas.
-
-### Stripe homologação
-
-Antes de venda aberta, faça um smoke em modo de teste da Stripe com `CHECKOUT_ENABLED=true`, `STRIPE_SECRET_KEY` de teste, `STRIPE_WEBHOOK_SECRET` de teste e webhook apontando para `/api/stripe/webhook`. Não use cartão real nem conclua pagamento em modo live.
-Rode `npm run checkout:smoke:guard` antes da homologação e siga o procedimento completo em `docs/checkout-smoke-test.md`.
-
-### Frete e medidas
-
-O provider principal de frete real é `SHIPPING_PROVIDER=melhor_envio`, usando cotação via `POST /api/v2/me/shipment/calculate`. Configure `MELHOR_ENVIO_TOKEN` ou `MELHOR_ENVIO_ACCESS_TOKEN`; `MELHOR_ENVIO_CLIENT_ID` e `MELHOR_ENVIO_CLIENT_SECRET` sozinhos não bastam sem o OAuth finalizado.
-
-Sem `MELHOR_ENVIO_BASE_URL`, o app usa `https://www.melhorenvio.com.br`. Com `MELHOR_ENVIO_ENV=sandbox`, usa a base sandbox padrão. A cotação inicial solicita os serviços `1,2` por `MELHOR_ENVIO_SERVICES`, normalmente PAC/SEDEX no Melhor Envio, e sempre normaliza o nome retornado pela API.
-
-O CEP de origem usa primeiro `StoreSettings.originCep`. Se ele estiver vazio, `SHIPPING_ORIGIN_CEP` funciona apenas como fallback operacional documentado; se ambos estiverem vazios, o fallback controlado da loja é `31170350`.
-
-O cálculo usa dados reais de `Product.weightGrams`, `lengthCm`, `widthCm` e `heightCm`. Quando faltarem dados, usa fallback controlado de `1000g` e `10x35x35cm`. Rode `npm run shipping:dimensions:audit` para listar produtos que ainda dependem desse fallback antes de venda aberta.
-
-O provider `manual` permanece como fallback de homologação, e `fixed` é legado/provisório. O checkout nunca confia em valor de frete vindo do frontend; ele recalcula a opção no backend antes de criar a sessão Stripe.
+O procedimento completo de Stripe test mode fica em [docs/checkout-smoke-test.md](docs/checkout-smoke-test.md). Venda aberta só deve acontecer depois de Production estar configurada, Redis/R2/Melhor Envio estarem ativos, smoke público passar sem `FAIL` e o fluxo Stripe test mode comprovar pedido pago no Admin e reserva de estoque correta.
