@@ -2,6 +2,7 @@ import { createElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { ProductDetailClient } from "@/components/store/product-detail-client";
+import { formatMoney } from "@/lib/money";
 
 vi.mock("next/link", () => ({
   default: ({ href, children, ...props }: { href: string; children: ReactNode }) =>
@@ -28,6 +29,10 @@ const product = {
   variants: [{ id: "var-p", size: "P", stock: 2, reservedStock: 0, active: true }],
 };
 
+function countOccurrences(value: string, pattern: string) {
+  return value.split(pattern).length - 1;
+}
+
 describe("ProductDetailClient", () => {
   it("renders product trust signals, stock copy, policy links, and media fallback", () => {
     const html = renderToStaticMarkup(
@@ -52,7 +57,7 @@ describe("ProductDetailClient", () => {
     expect(html).toContain("Fale com a RARE pelo WhatsApp");
   });
 
-  it("keeps the description near the product purchase column and adds desktop-only image zoom classes", () => {
+  it("renders the main description below the title before the price without duplicating the lower details section", () => {
     const html = renderToStaticMarkup(
       createElement(ProductDetailClient, {
         product: {
@@ -64,10 +69,69 @@ describe("ProductDetailClient", () => {
         whatsappMessage: "Tenho interesse.",
       }) as ReactElement,
     );
+    const titleIndex = html.indexOf("<h1");
+    const descriptionIndex = html.indexOf("Descrição completa.");
+    const priceIndex = html.indexOf(formatMoney(product.priceInCents));
 
     expect(html).toContain("md:cursor-zoom-in");
     expect(html).toContain("motion-safe:md:group-hover:scale-[1.08]");
-    expect(html.indexOf("Frete e prazo")).toBeLessThan(html.indexOf("Descrição completa."));
-    expect(html.indexOf("Descrição completa.")).toBeLessThan(html.indexOf("Pagamento seguro no checkout"));
+    expect(html).toContain('aria-label="Ampliar imagem do produto"');
+    expect(titleIndex).toBeGreaterThanOrEqual(0);
+    expect(descriptionIndex).toBeGreaterThan(titleIndex);
+    expect(priceIndex).toBeGreaterThan(descriptionIndex);
+    expect(countOccurrences(html, "Descrição completa.")).toBe(1);
+    expect(html).not.toContain(">Detalhes<");
+    expect(html).not.toContain("Camiseta importada selecionada.");
+  });
+
+  it("falls back to the short description and does not render an empty description block", () => {
+    const htmlWithShortDescription = renderToStaticMarkup(
+      createElement(ProductDetailClient, {
+        product: {
+          ...product,
+          description: "",
+        },
+        productUrl: "https://raredept.com.br/produto/camiseta-rare",
+        whatsappNumber: "5511999999999",
+        whatsappMessage: "Tenho interesse.",
+      }) as ReactElement,
+    );
+
+    expect(htmlWithShortDescription).toContain("Camiseta importada selecionada.");
+
+    const htmlWithoutDescription = renderToStaticMarkup(
+      createElement(ProductDetailClient, {
+        product: {
+          ...product,
+          shortDescription: "",
+          description: "",
+        },
+        productUrl: "https://raredept.com.br/produto/camiseta-rare",
+        whatsappNumber: "5511999999999",
+        whatsappMessage: "Tenho interesse.",
+      }) as ReactElement,
+    );
+
+    expect(htmlWithoutDescription).not.toContain("whitespace-pre-line");
+    expect(htmlWithoutDescription).not.toContain(">Detalhes<");
+  });
+
+  it("does not expose the image zoom action for MP4 media", () => {
+    const html = renderToStaticMarkup(
+      createElement(ProductDetailClient, {
+        product: {
+          ...product,
+          images: [{ url: "/uploads/camiseta-rare.mp4", alt: "Vídeo do produto" }],
+        },
+        productUrl: "https://raredept.com.br/produto/camiseta-rare",
+        whatsappNumber: "5511999999999",
+        whatsappMessage: "Tenho interesse.",
+      }) as ReactElement,
+    );
+
+    expect(html).toContain("<video");
+    expect(html).toContain("controls");
+    expect(html).not.toContain('aria-label="Ampliar imagem do produto"');
+    expect(html).not.toContain("motion-safe:md:group-hover:scale-[1.08]");
   });
 });

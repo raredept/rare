@@ -44,6 +44,11 @@ export function isStaticProductImageUrl(url: string) {
   return getProductMediaTypeFromUrl(url) === "image";
 }
 
+export function isZoomableProductMediaUrl(url: string) {
+  const mediaType = getProductMediaTypeFromUrl(url);
+  return mediaType === "image" || mediaType === "gif";
+}
+
 export function getPreferredProductCardMedia<T extends { url: string }>(media: T[]) {
   if (!media.length) return null;
   return media.find((item) => isStaticProductImageUrl(item.url)) ?? media.find((item) => getProductMediaTypeFromUrl(item.url) === "gif") ?? null;

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { getPreferredProductCardMedia, getProductCardMediaPair, getProductMediaTypeFromUrl, isProductVideoUrl } from "@/lib/product-media";
+import {
+  getPreferredProductCardMedia,
+  getProductCardMediaPair,
+  getProductMediaTypeFromUrl,
+  isProductVideoUrl,
+  isZoomableProductMediaUrl,
+} from "@/lib/product-media";
 
 describe("product media helpers", () => {
   it("infers media type from public URLs", () => {
@@ -21,6 +27,17 @@ describe("product media helpers", () => {
     expect(getPreferredProductCardMedia(media)?.url).toBe("/uploads/products/a.webp");
     expect(getPreferredProductCardMedia(media.slice(0, 2))?.url).toBe("/uploads/products/a.gif");
     expect(isProductVideoUrl(media[0].url)).toBe(true);
+  });
+
+  it("treats static images and GIFs as zoomable product media, but not videos", () => {
+    expect(isZoomableProductMediaUrl("/uploads/products/front.jpg")).toBe(true);
+    expect(isZoomableProductMediaUrl("/uploads/products/front.jpeg")).toBe(true);
+    expect(isZoomableProductMediaUrl("/uploads/products/front.png")).toBe(true);
+    expect(isZoomableProductMediaUrl("/uploads/products/front.webp")).toBe(true);
+    expect(isZoomableProductMediaUrl("/uploads/products/front.avif")).toBe(true);
+    expect(isZoomableProductMediaUrl("/uploads/products/spin.gif")).toBe(true);
+    expect(isZoomableProductMediaUrl("/uploads/products/fit.mp4")).toBe(false);
+    expect(isZoomableProductMediaUrl("/uploads/products/file.bin")).toBe(false);
   });
 
   it("uses the second sorted image as hover media only when it is not a video", () => {

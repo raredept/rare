@@ -1,13 +1,19 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, CircleHelp, Loader2, PackageCheck, RotateCcw, ShieldCheck, Truck } from "lucide-react";
+import { ChevronLeft, ChevronRight, CircleHelp, Loader2, Maximize2, PackageCheck, RotateCcw, ShieldCheck, Truck, X } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCart, useCartDrawer } from "@/components/store/cart-context";
 import { ProductMedia } from "@/components/store/product-media";
 import { ProductMediaPlaceholder } from "@/components/store/product-media-placeholder";
 import { formatMoney } from "@/lib/money";
-import { getPreferredProductCardMedia, getProductMediaLabel, getProductMediaTypeFromUrl, getProductVideoPoster } from "@/lib/product-media";
+import {
+  getPreferredProductCardMedia,
+  getProductMediaLabel,
+  getProductMediaTypeFromUrl,
+  getProductVideoPoster,
+  isZoomableProductMediaUrl,
+} from "@/lib/product-media";
 import { getAvailableStock } from "@/lib/stock";
 
 type ProductDetailClientProps = {
@@ -52,6 +58,9 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
   const { addItem } = useCart();
   const { openCart } = useCartDrawer();
   const [imageIndex, setImageIndex] = useState(0);
+  const [zoomImageIndex, setZoomImageIndex] = useState<number | null>(null);
+  const zoomTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const zoomCloseRef = useRef<HTMLButtonElement | null>(null);
   const purchasableVariants = product.variants.filter((variant) => variant.active);
   const firstAvailableVariant =
     purchasableVariants.find((variant) => getAvailableStock(variant.stock, variant.reservedStock) > 0) ?? purchasableVariants[0];
@@ -68,9 +77,19 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
   const image = product.images[imageIndex];
   const mainMediaType = image ? getProductMediaTypeFromUrl(image.url) : null;
   const mainVideoPoster = image && mainMediaType === "video" ? getProductVideoPoster(product.images, image.url) : undefined;
-  const mainMediaCanZoom = mainMediaType === "image" || mainMediaType === "gif";
+  const mainMediaCanZoom = image ? isZoomableProductMediaUrl(image.url) : false;
+  const zoomableImageIndexes = useMemo(
+    () => product.images.flatMap((media, index) => (isZoomableProductMediaUrl(media.url) ? [index] : [])),
+    [product.images],
+  );
+  const zoomedImage = zoomImageIndex === null ? null : product.images[zoomImageIndex] ?? null;
+  const zoomedImagePosition = zoomImageIndex === null ? -1 : zoomableImageIndexes.indexOf(zoomImageIndex);
+  const hasZoomNavigation = zoomableImageIndexes.length > 1;
   const cartImage = getPreferredProductCardMedia(product.images);
   const soldOut = purchasableVariants.every((variant) => getAvailableStock(variant.stock, variant.reservedStock) <= 0);
+  const fullDescription = product.description.trim();
+  const shortDescription = product.shortDescription.trim();
+  const mainDescription = fullDescription || shortDescription;
 
   const selectedSize = selectedVariant?.size;
   const sizeText = selectedSize ? ` Tamanho: ${selectedSize}.` : "";
@@ -79,6 +98,54 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
   const whatsappUrl = whatsappDigits
     ? `https://wa.me/${whatsappDigits}?text=${encodeURIComponent(whatsappText)}`
     : `https://wa.me/?text=${encodeURIComponent(whatsappText)}`;
+
+  const getNextZoomImageIndex = useCallback((currentIndex: number, direction: -1 | 1) => {
+    const currentZoomPosition = zoomableImageIndexes.indexOf(currentIndex);
+    if (currentZoomPosition === -1) return zoomableImageIndexes[0] ?? null;
+
+    const nextZoomPosition = (currentZoomPosition + direction + zoomableImageIndexes.length) % zoomableImageIndexes.length;
+    return zoomableImageIndexes[nextZoomPosition] ?? null;
+  }, [zoomableImageIndexes]);
+
+  const closeZoom = useCallback(() => {
+    setZoomImageIndex(null);
+    window.setTimeout(() => zoomTriggerRef.current?.focus(), 0);
+  }, []);
+
+  useEffect(() => {
+    if (zoomImageIndex === null) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    zoomCloseRef.current?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeZoom();
+        return;
+      }
+
+      if (!hasZoomNavigation) return;
+
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        setZoomImageIndex((currentIndex) => (currentIndex === null ? currentIndex : getNextZoomImageIndex(currentIndex, 1)));
+      }
+
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        setZoomImageIndex((currentIndex) => (currentIndex === null ? currentIndex : getNextZoomImageIndex(currentIndex, -1)));
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [closeZoom, getNextZoomImageIndex, hasZoomNavigation, zoomImageIndex]);
 
   function addToCart() {
     if (!selectedVariant || availableStock <= 0) return;
@@ -166,12 +233,25 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
           ) : (
             <ProductMediaPlaceholder label="Produto sem imagem" className="rounded-lg" />
           )}
+          {image && mainMediaCanZoom ? (
+            <button
+              ref={zoomTriggerRef}
+              type="button"
+              onClick={() => setZoomImageIndex(imageIndex)}
+              className="absolute inset-2 z-10 rounded-lg text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 focus-visible:ring-offset-white md:cursor-zoom-in"
+              aria-label="Ampliar imagem do produto"
+            >
+              <span className="pointer-events-none absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/70 shadow-[0_10px_30px_rgba(15,23,42,0.22)] backdrop-blur-sm transition">
+                <Maximize2 className="h-4 w-4" aria-hidden="true" />
+              </span>
+            </button>
+          ) : null}
           {product.images.length > 1 ? (
             <>
               <button
                 type="button"
                 onClick={() => setImageIndex((current) => (current === 0 ? product.images.length - 1 : current - 1))}
-                className="absolute left-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-neutral-950 shadow transition-[background-color,box-shadow,transform] duration-150 hover:bg-white hover:shadow-md active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
+                className="absolute left-4 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-neutral-950 shadow transition-[background-color,box-shadow,transform] duration-150 hover:bg-white hover:shadow-md active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
                 aria-label="Imagem anterior"
               >
                 <ChevronLeft className="h-5 w-5" />
@@ -179,7 +259,7 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
               <button
                 type="button"
                 onClick={() => setImageIndex((current) => (current + 1) % product.images.length)}
-                className="absolute right-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-neutral-950 shadow transition-[background-color,box-shadow,transform] duration-150 hover:bg-white hover:shadow-md active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
+                className="absolute right-4 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-neutral-950 shadow transition-[background-color,box-shadow,transform] duration-150 hover:bg-white hover:shadow-md active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
                 aria-label="Próxima imagem"
               >
                 <ChevronRight className="h-5 w-5" />
@@ -227,8 +307,10 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
       <aside className="lg:sticky lg:top-36 lg:self-start">
         <p className="text-xs font-black uppercase tracking-[0.24em] text-neutral-500">Produto RARE</p>
         <h1 className="mt-3 text-3xl font-black tracking-tight text-neutral-950 lg:text-5xl">{product.title}</h1>
+        {mainDescription ? (
+          <p className="mt-5 max-w-xl whitespace-pre-line text-base font-semibold leading-7 text-neutral-600">{mainDescription}</p>
+        ) : null}
         <p className="mt-5 whitespace-nowrap text-3xl font-black text-success lg:text-4xl">{formatMoney(product.priceInCents)}</p>
-        <p className="mt-5 text-base font-semibold leading-7 text-neutral-600">{product.shortDescription}</p>
 
         <div className="mt-8 space-y-5 rounded-lg border border-neutral-200 bg-white p-5">
           <label className="block">
@@ -349,12 +431,6 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
           </Link>
         </div>
 
-        <section className="mt-6 rounded-lg border border-neutral-200 bg-white p-5">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-neutral-500">Detalhes</p>
-          <h2 className="mt-2 text-xl font-black text-neutral-950">Descrição</h2>
-          <p className="mt-4 text-sm font-semibold leading-7 text-neutral-600">{product.description}</p>
-        </section>
-
         <div className="mt-5 grid gap-4 rounded-lg border border-neutral-200 bg-white p-5 text-sm font-bold text-neutral-700">
           <div className="flex items-start gap-3">
             <ShieldCheck className="mt-0.5 h-5 w-5 text-success" />
@@ -395,6 +471,66 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
           </div>
         </div>
       </aside>
+      {zoomedImage ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Imagem ampliada de ${product.title}`}
+          className="fixed inset-0 z-50 bg-neutral-950/92 px-4 py-4 text-white backdrop-blur-sm sm:px-6"
+        >
+          <button type="button" className="absolute inset-0 cursor-zoom-out" onClick={closeZoom} aria-label="Fechar zoom da imagem" />
+          <div className="relative z-10 flex h-full min-h-0 flex-col">
+            <div className="flex justify-end">
+              <button
+                ref={zoomCloseRef}
+                type="button"
+                onClick={closeZoom}
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-white/12 text-white transition hover:bg-white/20 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                aria-label="Fechar visualização ampliada"
+              >
+                <X className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </div>
+            <div className="relative flex min-h-0 flex-1 items-center justify-center py-4">
+              {hasZoomNavigation ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setZoomImageIndex((currentIndex) => (currentIndex === null ? currentIndex : getNextZoomImageIndex(currentIndex, -1)))
+                  }
+                  className="absolute left-0 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-white/12 text-white transition hover:bg-white/20 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:left-2"
+                  aria-label="Imagem ampliada anterior"
+                >
+                  <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+                </button>
+              ) : null}
+              <img
+                src={zoomedImage.url}
+                alt={zoomedImage.alt || product.title}
+                className="max-h-[82vh] max-w-full rounded-lg object-contain shadow-[0_22px_80px_rgba(0,0,0,0.42)]"
+                decoding="async"
+              />
+              {hasZoomNavigation ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setZoomImageIndex((currentIndex) => (currentIndex === null ? currentIndex : getNextZoomImageIndex(currentIndex, 1)))
+                  }
+                  className="absolute right-0 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-white/12 text-white transition hover:bg-white/20 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:right-2"
+                  aria-label="Próxima imagem ampliada"
+                >
+                  <ChevronRight className="h-5 w-5" aria-hidden="true" />
+                </button>
+              ) : null}
+            </div>
+            {hasZoomNavigation ? (
+              <p className="pb-2 text-center text-xs font-black uppercase tracking-[0.18em] text-white/70">
+                {zoomedImagePosition + 1} / {zoomableImageIndexes.length}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
