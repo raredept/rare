@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { buildCatalogIssues, type CatalogIssue } from "@/lib/admin-catalog-issues";
 import { buildOrderFlowCounts, calculateDashboardKpis, getSortedOrderFlowEntries } from "@/lib/admin-dashboard";
 import { formatMoney } from "@/lib/money";
 import { formatOrderStatus, isPaidRevenueStatus } from "@/lib/order-display";
@@ -7,7 +8,7 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
-  const [orders, variants, activeProductRows, customers, recentOrders] = await Promise.all([
+  const [orders, variants, catalogProducts, catalogCategories, customers, recentOrders] = await Promise.all([
     prisma.order.findMany({
       select: {
         id: true,
@@ -34,12 +35,33 @@ export default async function AdminDashboardPage() {
       orderBy: { stock: "asc" },
     }),
     prisma.product.findMany({
-      where: { active: true },
       select: {
         id: true,
+        title: true,
+        active: true,
+        weightGrams: true,
+        lengthCm: true,
+        widthCm: true,
+        heightCm: true,
+        images: {
+          orderBy: { sortOrder: "asc" },
+          select: { url: true },
+        },
         variants: {
-          where: { active: true },
-          select: { stock: true, reservedStock: true },
+          select: { active: true, stock: true, reservedStock: true },
+        },
+      },
+    }),
+    prisma.category.findMany({
+      select: {
+        id: true,
+        name: true,
+        active: true,
+        _count: {
+          select: {
+            products: true,
+            subcategoryProducts: true,
+          },
         },
       },
     }),
@@ -60,10 +82,13 @@ export default async function AdminDashboardPage() {
     }),
   ]);
 
+  const activeProductRows = catalogProducts.filter((product) => product.active);
   const soldOutProducts = activeProductRows.filter((product) => {
-    if (!product.variants.length) return true;
-    return product.variants.every((variant) => variant.stock - variant.reservedStock <= 0);
+    const activeVariants = product.variants.filter((variant) => variant.active);
+    if (!activeVariants.length) return true;
+    return activeVariants.every((variant) => variant.stock - variant.reservedStock <= 0);
   }).length;
+  const catalogIssues = buildCatalogIssues({ products: catalogProducts, categories: catalogCategories });
   const kpis = calculateDashboardKpis({
     orders,
     variants,
@@ -112,6 +137,41 @@ export default async function AdminDashboardPage() {
         <Metric title="Estoque baixo" value={kpis.lowStockVariants.toString()} />
         <Metric title="Clientes ativos" value={kpis.customers.toString()} />
       </div>
+
+      <section className="mt-8 rounded-lg border border-neutral-200 bg-white p-5">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h2 className="text-lg font-black text-neutral-950">Pendencias do catalogo</h2>
+            <p className="mt-1 text-sm font-semibold text-neutral-500">Itens que precisam de revisao antes da venda aberta.</p>
+          </div>
+          <span className="w-fit rounded-lg border border-neutral-200 px-3 py-2 text-xs font-black uppercase tracking-wide text-neutral-600">
+            {catalogIssues.length} pendencia(s)
+          </span>
+        </div>
+
+        <div className="mt-4 divide-y divide-neutral-200">
+          {catalogIssues.length ? (
+            catalogIssues.slice(0, 8).map((issue) => (
+              <div key={issue.id} className="grid gap-3 py-3 text-sm md:grid-cols-[120px_1fr_130px] md:items-center">
+                <CatalogIssueBadge issue={issue} />
+                <div>
+                  <p className="font-black text-neutral-950">{issue.title}</p>
+                  <p className="mt-1 font-semibold text-neutral-500">{issue.description}</p>
+                </div>
+                <Link href={issue.href} className="rounded-lg border border-neutral-300 px-3 py-2 text-center text-xs font-black text-neutral-700 transition hover:border-neutral-950 hover:text-neutral-950">
+                  {issue.actionLabel}
+                </Link>
+              </div>
+            ))
+          ) : (
+            <p className="py-8 text-sm font-semibold text-neutral-500">Nenhuma pendencia de catalogo encontrada.</p>
+          )}
+        </div>
+
+        {catalogIssues.length > 8 ? (
+          <p className="mt-3 text-xs font-semibold text-neutral-500">Mostrando 8 de {catalogIssues.length} pendencias encontradas.</p>
+        ) : null}
+      </section>
 
       <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
         <section className="rounded-lg border border-neutral-200 bg-white p-5">
@@ -214,5 +274,19 @@ function Metric({ title, value }: { title: string; value: string }) {
       <p className="text-xs font-black uppercase tracking-wide text-neutral-500">{title}</p>
       <p className="mt-3 whitespace-nowrap text-2xl font-black text-neutral-950">{value}</p>
     </div>
+  );
+}
+
+function CatalogIssueBadge({ issue }: { issue: CatalogIssue }) {
+  const classes = {
+    danger: "border-red-200 bg-red-50 text-red-700",
+    warning: "border-amber-200 bg-amber-50 text-amber-700",
+    muted: "border-neutral-200 bg-neutral-50 text-neutral-600",
+  }[issue.tone];
+
+  return (
+    <span className={`w-fit rounded-full border px-2 py-1 text-[10px] font-black uppercase ${classes}`}>
+      {issue.scope}
+    </span>
   );
 }
