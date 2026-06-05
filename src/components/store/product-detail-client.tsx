@@ -2,7 +2,8 @@
 
 import { ChevronLeft, ChevronRight, CircleHelp, Loader2, Maximize2, PackageCheck, RotateCcw, ShieldCheck, Truck, X } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import { useCart, useCartDrawer } from "@/components/store/cart-context";
 import { ProductMedia } from "@/components/store/product-media";
 import { ProductMediaPlaceholder } from "@/components/store/product-media-placeholder";
@@ -40,6 +41,87 @@ type ShippingQuoteOption = {
   amountCents: number;
   deliveryEstimateText: string;
 };
+
+type ProductImageZoomDialogProps = {
+  productTitle: string;
+  zoomedImage: { url: string; alt: string };
+  zoomedImagePosition: number;
+  zoomableImageCount: number;
+  hasZoomNavigation: boolean;
+  closeRef: RefObject<HTMLButtonElement | null>;
+  onClose: () => void;
+  onPrevious: () => void;
+  onNext: () => void;
+};
+
+export function ProductImageZoomDialog({
+  productTitle,
+  zoomedImage,
+  zoomedImagePosition,
+  zoomableImageCount,
+  hasZoomNavigation,
+  closeRef,
+  onClose,
+  onPrevious,
+  onNext,
+}: ProductImageZoomDialogProps) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Imagem ampliada de ${productTitle}`}
+      className="fixed inset-0 z-[90] h-dvh overflow-hidden bg-neutral-950/92 px-4 py-4 text-white backdrop-blur-sm sm:px-6"
+    >
+      <button type="button" className="absolute inset-0 cursor-zoom-out" onClick={onClose} aria-label="Fechar zoom da imagem" />
+      <div className="relative z-10 flex h-full min-h-0 flex-col">
+        <div className="flex justify-end">
+          <button
+            ref={closeRef}
+            type="button"
+            onClick={onClose}
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-white/12 text-white transition hover:bg-white/20 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            aria-label="Fechar visualização ampliada"
+          >
+            <X className="h-5 w-5" aria-hidden="true" />
+          </button>
+        </div>
+        <div className="relative flex min-h-0 flex-1 items-center justify-center py-4">
+          {hasZoomNavigation ? (
+            <button
+              type="button"
+              onClick={onPrevious}
+              className="absolute left-0 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-white/12 text-white transition hover:bg-white/20 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:left-2"
+              aria-label="Imagem ampliada anterior"
+            >
+              <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+            </button>
+          ) : null}
+          <img
+            src={zoomedImage.url}
+            alt={zoomedImage.alt || productTitle}
+            className="max-h-full max-w-full rounded-lg object-contain shadow-[0_22px_80px_rgba(0,0,0,0.42)]"
+            decoding="async"
+          />
+          {hasZoomNavigation ? (
+            <button
+              type="button"
+              onClick={onNext}
+              className="absolute right-0 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-white/12 text-white transition hover:bg-white/20 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:right-2"
+              aria-label="Próxima imagem ampliada"
+            >
+              <ChevronRight className="h-5 w-5" aria-hidden="true" />
+            </button>
+          ) : null}
+        </div>
+        {hasZoomNavigation ? (
+          <p className="pb-2 text-center text-xs font-black uppercase tracking-[0.18em] text-white/70">
+            {zoomedImagePosition + 1} / {zoomableImageCount}
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 function formatCepInput(value: string) {
   const digits = value.replace(/\D/g, "").slice(0, 8);
@@ -146,6 +228,14 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [closeZoom, getNextZoomImageIndex, hasZoomNavigation, zoomImageIndex]);
+
+  const showPreviousZoomImage = useCallback(() => {
+    setZoomImageIndex((currentIndex) => (currentIndex === null ? currentIndex : getNextZoomImageIndex(currentIndex, -1)));
+  }, [getNextZoomImageIndex]);
+
+  const showNextZoomImage = useCallback(() => {
+    setZoomImageIndex((currentIndex) => (currentIndex === null ? currentIndex : getNextZoomImageIndex(currentIndex, 1)));
+  }, [getNextZoomImageIndex]);
 
   function addToCart() {
     if (!selectedVariant || availableStock <= 0) return;
@@ -469,66 +559,22 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
           </div>
         </div>
       </aside>
-      {zoomedImage ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={`Imagem ampliada de ${product.title}`}
-          className="fixed inset-0 z-50 bg-neutral-950/92 px-4 py-4 text-white backdrop-blur-sm sm:px-6"
-        >
-          <button type="button" className="absolute inset-0 cursor-zoom-out" onClick={closeZoom} aria-label="Fechar zoom da imagem" />
-          <div className="relative z-10 flex h-full min-h-0 flex-col">
-            <div className="flex justify-end">
-              <button
-                ref={zoomCloseRef}
-                type="button"
-                onClick={closeZoom}
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-white/12 text-white transition hover:bg-white/20 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                aria-label="Fechar visualização ampliada"
-              >
-                <X className="h-5 w-5" aria-hidden="true" />
-              </button>
-            </div>
-            <div className="relative flex min-h-0 flex-1 items-center justify-center py-4">
-              {hasZoomNavigation ? (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setZoomImageIndex((currentIndex) => (currentIndex === null ? currentIndex : getNextZoomImageIndex(currentIndex, -1)))
-                  }
-                  className="absolute left-0 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-white/12 text-white transition hover:bg-white/20 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:left-2"
-                  aria-label="Imagem ampliada anterior"
-                >
-                  <ChevronLeft className="h-5 w-5" aria-hidden="true" />
-                </button>
-              ) : null}
-              <img
-                src={zoomedImage.url}
-                alt={zoomedImage.alt || product.title}
-                className="max-h-[82vh] max-w-full rounded-lg object-contain shadow-[0_22px_80px_rgba(0,0,0,0.42)]"
-                decoding="async"
-              />
-              {hasZoomNavigation ? (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setZoomImageIndex((currentIndex) => (currentIndex === null ? currentIndex : getNextZoomImageIndex(currentIndex, 1)))
-                  }
-                  className="absolute right-0 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-white/12 text-white transition hover:bg-white/20 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:right-2"
-                  aria-label="Próxima imagem ampliada"
-                >
-                  <ChevronRight className="h-5 w-5" aria-hidden="true" />
-                </button>
-              ) : null}
-            </div>
-            {hasZoomNavigation ? (
-              <p className="pb-2 text-center text-xs font-black uppercase tracking-[0.18em] text-white/70">
-                {zoomedImagePosition + 1} / {zoomableImageIndexes.length}
-              </p>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
+      {zoomedImage && typeof document !== "undefined"
+        ? createPortal(
+            <ProductImageZoomDialog
+              productTitle={product.title}
+              zoomedImage={zoomedImage}
+              zoomedImagePosition={zoomedImagePosition}
+              zoomableImageCount={zoomableImageIndexes.length}
+              hasZoomNavigation={hasZoomNavigation}
+              closeRef={zoomCloseRef}
+              onClose={closeZoom}
+              onPrevious={showPreviousZoomImage}
+              onNext={showNextZoomImage}
+            />,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

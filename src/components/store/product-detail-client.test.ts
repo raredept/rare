@@ -1,7 +1,7 @@
-import { createElement, type ReactElement, type ReactNode } from "react";
+import { createElement, createRef, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { ProductDetailClient } from "@/components/store/product-detail-client";
+import { ProductDetailClient, ProductImageZoomDialog } from "@/components/store/product-detail-client";
 import { formatMoney } from "@/lib/money";
 
 vi.mock("next/link", () => ({
@@ -55,6 +55,28 @@ describe("ProductDetailClient", () => {
     expect(html).toContain("Troca e devolução em até 7 dias");
     expect(html).toContain("Atendimento direto");
     expect(html).toContain("Fale com a RARE pelo WhatsApp");
+  });
+
+  it("renders the zoom dialog above the storefront shell and constrains the image to the viewport", () => {
+    const html = renderToStaticMarkup(
+      createElement(ProductImageZoomDialog, {
+        productTitle: "Camiseta RARE",
+        zoomedImage: { url: "/uploads/camiseta-rare.webp", alt: "Camiseta RARE" },
+        zoomedImagePosition: 0,
+        zoomableImageCount: 2,
+        hasZoomNavigation: true,
+        closeRef: createRef<HTMLButtonElement>(),
+        onClose: vi.fn(),
+        onPrevious: vi.fn(),
+        onNext: vi.fn(),
+      }) as ReactElement,
+    );
+
+    expect(html).toContain("z-[90]");
+    expect(html).toContain("h-dvh");
+    expect(html).toContain("overflow-hidden");
+    expect(html).toContain("max-h-full");
+    expect(html).toContain("1 / 2");
   });
 
   it("renders the main description below the title before the price without duplicating the lower details section", () => {
