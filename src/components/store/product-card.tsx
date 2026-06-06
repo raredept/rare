@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { formatMoney } from "@/lib/money";
-import { getProductCardMediaPair } from "@/lib/product-media";
+import { getProductCardMediaPair, type ProductMediaAsset } from "@/lib/product-media";
 import { getAvailableStock } from "@/lib/stock";
 import { ProductCardHoverImage } from "@/components/store/product-card-hover-image";
 import { ProductMedia } from "@/components/store/product-media";
@@ -14,7 +14,7 @@ type ProductCardProps = {
     priceInCents: number;
     category: { name: string } | null;
     subcategory: { name: string } | null;
-    images: { url: string; alt: string }[];
+    images: Array<ProductMediaAsset & { alt: string }>;
     variants: { stock: number; reservedStock: number; active: boolean }[];
   };
 };
@@ -36,19 +36,16 @@ export function ProductCard({ product }: ProductCardProps) {
         <div className="relative aspect-[4/5] overflow-hidden rounded-lg bg-neutral-100">
           {image ? (
             <ProductMedia
-              url={image.url}
+              media={image}
               alt={image.alt}
-              width={640}
-              height={800}
-              sizes="(max-width: 767px) 50vw, (max-width: 1279px) 33vw, 20vw"
-              loading="lazy"
+              context="card"
               placeholderLabel="Mídia indisponível"
               className="store-product-image h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.035] group-active:scale-[1.015]"
             />
           ) : (
             <ProductMediaPlaceholder />
           )}
-          {hoverImage ? <ProductCardHoverImage src={hoverImage.url} /> : null}
+          {hoverImage ? <ProductCardHoverImage media={hoverImage} /> : null}
           {soldOut ? (
             <span className="absolute left-3 top-3 rounded-full bg-black px-3 py-1 text-xs font-black uppercase tracking-wide text-white">
               Esgotado

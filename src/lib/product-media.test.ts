@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildProductImageSrcSet,
   getPreferredProductCardMedia,
   getProductCardMediaPair,
+  getProductMediaRenderPlan,
   getProductMediaTypeFromUrl,
+  isSafeProductOgImageUrl,
   isProductVideoUrl,
   isZoomableProductMediaUrl,
 } from "@/lib/product-media";
@@ -38,6 +41,76 @@ describe("product media helpers", () => {
     expect(isZoomableProductMediaUrl("/uploads/products/spin.gif")).toBe(true);
     expect(isZoomableProductMediaUrl("/uploads/products/fit.mp4")).toBe(false);
     expect(isZoomableProductMediaUrl("/uploads/products/file.bin")).toBe(false);
+  });
+
+  it("keeps OG images static, public and unsigned", () => {
+    expect(isSafeProductOgImageUrl("/uploads/products/front.jpg")).toBe(true);
+    expect(isSafeProductOgImageUrl("/uploads/products/front.jpeg")).toBe(true);
+    expect(isSafeProductOgImageUrl("/uploads/products/front.png")).toBe(true);
+    expect(isSafeProductOgImageUrl("/uploads/products/front.webp")).toBe(true);
+    expect(isSafeProductOgImageUrl("/uploads/products/front.avif")).toBe(true);
+    expect(isSafeProductOgImageUrl("/uploads/products/spin.gif")).toBe(false);
+    expect(isSafeProductOgImageUrl("/uploads/products/fit.mp4")).toBe(false);
+    expect(isSafeProductOgImageUrl("/uploads/products/front.webp?token=abc")).toBe(false);
+    expect(isSafeProductOgImageUrl("/uploads/products/private/front.webp")).toBe(false);
+    expect(isSafeProductOgImageUrl("/uploads/products/front-signed.webp")).toBe(false);
+  });
+
+  it("does not create a fake srcSet when no real variants exist", () => {
+    const media = { url: "/uploads/products/front.png" };
+
+    expect(buildProductImageSrcSet(media)).toBeUndefined();
+    expect(getProductMediaRenderPlan(media, "card")).toMatchObject({
+      src: "/uploads/products/front.png",
+      srcSet: undefined,
+      loading: "lazy",
+      decoding: "async",
+      fetchPriority: "auto",
+    });
+  });
+
+  it("uses real responsive candidates for card and detail while preserving the original for zoom", () => {
+    const media = {
+      url: "/uploads/products/front-original.webp",
+      variants: [
+        { url: "/uploads/products/front-320.webp", width: 320, height: 400 },
+        { url: "/uploads/products/front-640.webp", width: 640, height: 800 },
+        { url: "/uploads/products/front-1200.webp", width: 1200, height: 1500 },
+      ],
+    };
+
+    expect(buildProductImageSrcSet(media)).toBe(
+      "/uploads/products/front-320.webp 320w, /uploads/products/front-640.webp 640w, /uploads/products/front-1200.webp 1200w",
+    );
+    expect(getProductMediaRenderPlan(media, "card")).toMatchObject({
+      src: "/uploads/products/front-640.webp",
+      width: 640,
+      height: 800,
+      loading: "lazy",
+      fetchPriority: "auto",
+    });
+    expect(getProductMediaRenderPlan(media, "detail")).toMatchObject({
+      src: "/uploads/products/front-1200.webp",
+      width: 1200,
+      height: 1500,
+      loading: "eager",
+      fetchPriority: "high",
+    });
+    expect(getProductMediaRenderPlan(media, "zoom")).toMatchObject({
+      src: "/uploads/products/front-original.webp",
+      srcSet: undefined,
+      zoomable: true,
+    });
+  });
+
+  it("keeps video in detail and banner contexts but blocks it from card, zoom and OG plans", () => {
+    const video = { url: "/uploads/products/fit.mp4" };
+
+    expect(getProductMediaRenderPlan(video, "detail").renderAs).toBe("video");
+    expect(getProductMediaRenderPlan(video, "banner").renderAs).toBe("video");
+    expect(getProductMediaRenderPlan(video, "card").renderAs).toBe("placeholder");
+    expect(getProductMediaRenderPlan(video, "zoom").renderAs).toBe("placeholder");
+    expect(getProductMediaRenderPlan(video, "og").renderAs).toBe("placeholder");
   });
 
   it("uses the second sorted image as hover media only when it is not a video", () => {

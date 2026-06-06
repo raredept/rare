@@ -15,7 +15,7 @@ O desenvolvedor não tinha acesso direto à Vercel, Redis/Upstash, Stripe Dashbo
 | 404 público | Produto/categoria inexistentes retornam HTTP 404 real. | Preparado no código | `curl.exe -I https://raredept.com.br/produto/nao-existe` e `curl.exe -I https://raredept.com.br/categoria/nao-existe`. |
 | SEO técnico | `robots.txt`, `sitemap.xml`, canonical absoluto, Open Graph e Twitter Cards implementados nas páginas públicas principais. | Preparado no código | `curl.exe -I https://raredept.com.br/robots.txt`, `curl.exe -I https://raredept.com.br/sitemap.xml` e inspeção do HTML/head das rotas públicas. |
 | Mídia | Produto/banner aceitam JPG, JPEG, PNG, WEBP, AVIF, GIF e MP4. | Preparado no código | Upload e renderização pelo Admin/staging. |
-| Performance de mídia | Cards/listagens não renderizam MP4 pesado diretamente. | Preparado no código | Navegar listagens com produtos que tenham MP4. |
+| Performance de mídia | Cards/listagens evitam MP4, imagens usam plano responsivo por contexto e `srcSet` somente com variantes reais. | Preparado no código | Navegar cards/produto e inspecionar loading, dimensões, prioridade e `srcSet` quando houver variantes. |
 | Rate limit | Suporte a Redis/Upstash REST com fallback `memory` para dev/test. | Depende de envs | Ver [docs/rate-limit.md](./rate-limit.md) e `/api/health`. |
 | Categorias | Categorias vazias ocultadas da navegação pública/home/sitemap, sem apagar do Admin. | Preparado no código | Conferir navegação pública, home e sitemap. |
 | Segurança HTTP | CSP progressiva adicionada em `Content-Security-Policy-Report-Only`. | Preparado no código | `npm run smoke -- https://raredept.com.br`. |
@@ -29,6 +29,8 @@ O desenvolvedor não tinha acesso direto à Vercel, Redis/Upstash, Stripe Dashbo
 | Prontidão de venda | Admin mostra uma área somente leitura com bloqueios, warnings e ações para go-live. | Preparado no código | Abrir `/admin/readiness` no Admin. |
 
 Nota: `WebSite/SearchAction` fica como melhoria futura quando houver uma página de busca canônica estável. Um domínio/CDN dedicado para imagens sociais também pode ser avaliado depois, se o cliente quiser controlar previews por campanha.
+
+Nota de mídia: `next/image` não foi aplicado amplamente porque o catálogo aceita URLs antigas de origens variadas e o projeto não possui allowlist/loader remoto estável para todas elas. JPG/PNG/WEBP enviados pelo Admin continuam sendo convertidos para WEBP quando isso reduz o arquivo; GIF e MP4 permanecem permitidos. Produtos antigos sem thumbnail/medium usam a URL original até existir geração e persistência de variantes reais.
 
 ## 3. O que o cliente precisa configurar
 

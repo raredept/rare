@@ -14,6 +14,7 @@ import {
   getProductMediaTypeFromUrl,
   getProductVideoPoster,
   isZoomableProductMediaUrl,
+  type ProductMediaAsset,
 } from "@/lib/product-media";
 import { getAvailableStock } from "@/lib/stock";
 
@@ -25,7 +26,7 @@ type ProductDetailClientProps = {
     shortDescription: string;
     description: string;
     priceInCents: number;
-    images: { url: string; alt: string }[];
+    images: Array<ProductMediaAsset & { alt: string }>;
     variants: { id: string; size: string; stock: number; reservedStock: number; active: boolean }[];
   };
   productUrl: string;
@@ -44,7 +45,7 @@ type ShippingQuoteOption = {
 
 type ProductImageZoomDialogProps = {
   productTitle: string;
-  zoomedImage: { url: string; alt: string };
+  zoomedImage: ProductMediaAsset & { alt: string };
   zoomedImagePosition: number;
   zoomableImageCount: number;
   hasZoomNavigation: boolean;
@@ -96,11 +97,11 @@ export function ProductImageZoomDialog({
               <ChevronLeft className="h-5 w-5" aria-hidden="true" />
             </button>
           ) : null}
-          <img
-            src={zoomedImage.url}
+          <ProductMedia
+            media={zoomedImage}
             alt={zoomedImage.alt || productTitle}
+            context="zoom"
             className="max-h-full max-w-full rounded-lg object-contain shadow-[0_22px_80px_rgba(0,0,0,0.42)]"
-            decoding="async"
           />
           {hasZoomNavigation ? (
             <button
@@ -304,15 +305,13 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
         >
           {image ? (
             <ProductMedia
-              url={image.url}
+              media={image}
               alt={image.alt}
+              context="detail"
               controls={mainMediaType === "video"}
               poster={mainVideoPoster}
               preload={mainMediaType === "video" ? "metadata" : undefined}
-              width={1200}
-              height={1500}
-              sizes="(max-width: 1023px) 100vw, 60vw"
-              loading="eager"
+              priority
               placeholderLabel="Mídia indisponível"
               className={`store-product-image h-full w-full rounded-lg object-cover ${
                 mainMediaCanZoom
@@ -370,13 +369,11 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
                   aria-label={`Selecionar ${getProductMediaLabel(mediaType).toLowerCase()} ${index + 1}`}
                 >
                   <ProductMedia
-                    url={media.url}
+                    media={media}
                     alt=""
+                    context="thumbnail"
                     poster={mediaType === "video" ? getProductVideoPoster(product.images, media.url) : undefined}
                     preload="none"
-                    width={180}
-                    height={180}
-                    sizes="(max-width: 639px) 25vw, 12vw"
                     placeholderLabel="Mídia indisponível"
                     className="h-full w-full rounded-md object-cover"
                   />
