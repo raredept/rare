@@ -103,6 +103,50 @@ describe("product media helpers", () => {
     });
   });
 
+  it("infers persisted variants only for versioned server-routed upload URLs", () => {
+    const generatedMedia = {
+      url: "/uploads/products/2026/06/id-camiseta-rare-v1-original.png",
+    };
+
+    expect(getProductMediaRenderPlan(generatedMedia, "card")).toMatchObject({
+      src: "/uploads/products/2026/06/id-camiseta-rare-v1-thumbnail.webp",
+      width: 640,
+    });
+    expect(getProductMediaRenderPlan(generatedMedia, "detail")).toMatchObject({
+      src: "/uploads/products/2026/06/id-camiseta-rare-v1-medium.webp",
+      width: 1200,
+    });
+    expect(getProductMediaRenderPlan(generatedMedia, "zoom")).toMatchObject({
+      src: generatedMedia.url,
+      srcSet: undefined,
+    });
+    expect(buildProductImageSrcSet(generatedMedia)).toBe(
+      "/uploads/products/2026/06/id-camiseta-rare-v1-thumbnail.webp 640w, /uploads/products/2026/06/id-camiseta-rare-v1-medium.webp 1200w",
+    );
+
+    const legacyMedia = { url: "/uploads/products/2026/06/id-camiseta.png" };
+    expect(getProductMediaRenderPlan(legacyMedia, "card")).toMatchObject({
+      src: legacyMedia.url,
+      srcSet: undefined,
+    });
+  });
+
+  it("deduplicates explicit and inferred responsive candidates", () => {
+    const media = {
+      url: "/uploads/products/2026/06/id-camiseta-rare-v1-original.png",
+      variants: [
+        {
+          url: "/uploads/products/2026/06/id-camiseta-rare-v1-thumbnail.webp",
+          width: 640,
+        },
+      ],
+    };
+
+    expect(buildProductImageSrcSet(media)).toBe(
+      "/uploads/products/2026/06/id-camiseta-rare-v1-thumbnail.webp 640w, /uploads/products/2026/06/id-camiseta-rare-v1-medium.webp 1200w",
+    );
+  });
+
   it("keeps video in detail and banner contexts but blocks it from card, zoom and OG plans", () => {
     const video = { url: "/uploads/products/fit.mp4" };
 

@@ -10,6 +10,11 @@ import {
   getStorageLocalDir,
   getStoragePublicBaseUrl,
 } from "@/lib/env";
+import { generateStaticImageVariants, STATIC_IMAGE_CONTENT_TYPES } from "@/lib/image-variants";
+import {
+  buildGeneratedMediaObjectKey,
+  type GeneratedMediaVariantKind,
+} from "@/lib/media-variant-convention";
 import {
   DIRECT_R2_UPLOAD_LIMIT_BYTES,
   DIRECT_R2_UPLOAD_LIMIT_MB,
@@ -23,6 +28,26 @@ const UPLOAD_CACHE_CONTROL = "public, max-age=31536000, immutable";
 export const PRESIGNED_R2_UPLOAD_EXPIRES_SECONDS = 300;
 
 export type UploadContext = "products" | "banners";
+
+export type StoredUploadVariant = {
+  kind: GeneratedMediaVariantKind;
+  url: string;
+  key: string;
+  contentType: "image/webp";
+  size: number;
+  width: number;
+  height: number;
+};
+
+export type StoredUpload = {
+  url: string;
+  key: string;
+  contentType: string;
+  size: number;
+  width?: number;
+  height?: number;
+  variants?: StoredUploadVariant[];
+};
 
 const allowedMimeTypes = new Map([
   ["image/jpeg", ["jpg", "jpeg"]],
@@ -193,6 +218,13 @@ export function buildObjectKey(fileName: string, extension: string, now = new Da
   return `${context}/${year}/${month}/${randomUUID()}-${stem}.${extension}`;
 }
 
+function buildObjectKeyBase(fileName: string, now = new Date(), context: UploadContext = "products") {
+  const year = String(now.getUTCFullYear());
+  const month = String(now.getUTCMonth() + 1).padStart(2, "0");
+  const stem = sanitizeUploadFilenameStem(fileName);
+  return `${context}/${year}/${month}/${randomUUID()}-${stem}`;
+}
+
 type SafeLocalObjectKey = {
   context: UploadContext;
   year: string;
@@ -324,7 +356,6 @@ export async function createPresignedR2Upload(
 export async function saveUploadedImage(file: File, options: { context?: UploadContext } = {}) {
   const context = options.context ?? "products";
   const extension = validateUploadedImageMetadata(file, context);
-  const objectKey = buildObjectKey(file.name, extension, new Date(), context);
   const bytes = Buffer.from(await file.arrayBuffer());
 
   if (!hasValidImageSignature(bytes, extension)) {
@@ -332,40 +363,100 @@ export async function saveUploadedImage(file: File, options: { context?: UploadC
   }
 
   assertUploadStorageReady();
+  const storageDriver = getStorageDriver();
+  const r2 = storageDriver === "r2" ? getR2StorageConfig() : null;
+  const r2Client = r2 ? createR2Client(r2) : null;
 
-  if (getStorageDriver() === "r2") {
-    const r2 = getR2StorageConfig();
-    const client = createR2Client(r2);
+  async function persistObject(objectKey: string, objectBytes: Buffer, contentType: string) {
+    if (r2 && r2Client) {
+      await r2Client.send(
+        new PutObjectCommand({
+          Bucket: r2.bucket,
+          Key: objectKey,
+          Body: objectBytes,
+          ContentType: contentType,
+          CacheControl: UPLOAD_CACHE_CONTROL,
+          IfNoneMatch: "*",
+        }),
+      );
 
-    await client.send(
-      new PutObjectCommand({
-        Bucket: r2.bucket,
-        Key: objectKey,
-        Body: bytes,
-        ContentType: file.type,
-        CacheControl: UPLOAD_CACHE_CONTROL,
-        IfNoneMatch: "*",
-      }),
-    );
+      return `${r2.publicBaseUrl}/${objectKey}`;
+    }
 
-    return {
-      url: `${r2.publicBaseUrl}/${objectKey}`,
-      key: objectKey,
-      contentType: file.type,
-      size: file.size,
-    };
+    const localPath = resolveLocalStorageObjectPath(getStorageLocalDir(), objectKey);
+    const publicPath = `${getStoragePublicBaseUrl()}/${localPath.relativePath}`;
+
+    await mkdir(/*turbopackIgnore: true*/ localPath.directoryPath, { recursive: true });
+    await writeFile(/*turbopackIgnore: true*/ localPath.absolutePath, objectBytes);
+
+    return publicPath;
   }
 
-  const localPath = resolveLocalStorageObjectPath(getStorageLocalDir(), objectKey);
-  const publicPath = `${getStoragePublicBaseUrl()}/${localPath.relativePath}`;
+  const generatedVariants = STATIC_IMAGE_CONTENT_TYPES.has(file.type)
+    ? await generateStaticImageVariants(bytes)
+    : null;
 
-  await mkdir(/*turbopackIgnore: true*/ localPath.directoryPath, { recursive: true });
-  await writeFile(/*turbopackIgnore: true*/ localPath.absolutePath, bytes);
+  if (generatedVariants) {
+    const baseObjectKey = buildObjectKeyBase(file.name, new Date(), context);
+    const variants: StoredUploadVariant[] = [];
+
+    for (const generatedVariant of generatedVariants.variants) {
+      const variantKey = buildGeneratedMediaObjectKey(baseObjectKey, generatedVariant.kind, extension);
+      const variantUrl = await persistObject(variantKey, generatedVariant.bytes, generatedVariant.contentType);
+      variants.push({
+        kind: generatedVariant.kind,
+        url: variantUrl,
+        key: variantKey,
+        contentType: generatedVariant.contentType,
+        size: generatedVariant.bytes.length,
+        width: generatedVariant.width,
+        height: generatedVariant.height,
+      });
+    }
+
+    const originalKey = buildGeneratedMediaObjectKey(baseObjectKey, "original", extension);
+    const originalUrl = await persistObject(originalKey, bytes, file.type);
+
+    return {
+      url: originalUrl,
+      key: originalKey,
+      contentType: file.type,
+      size: bytes.length,
+      width: generatedVariants.sourceWidth,
+      height: generatedVariants.sourceHeight,
+      variants,
+    } satisfies StoredUpload;
+  }
+
+  const objectKey = buildObjectKey(file.name, extension, new Date(), context);
+  const publicPath = await persistObject(objectKey, bytes, file.type);
 
   return {
     url: publicPath,
     key: objectKey,
     contentType: file.type,
-    size: file.size,
-  };
+    size: bytes.length,
+  } satisfies StoredUpload;
+}
+
+const safePublicUploadErrorPatterns = [
+  /^Contexto de upload invalido\.$/,
+  /^Formato invalido/,
+  /^Extensao do arquivo nao corresponde/,
+  /^Arquivo maior que \d+MB\.$/,
+  /^Arquivo de midia invalido\.$/,
+  /^Arquivo de imagem estática inválido\.$/,
+  /^Caminho de upload invalido\.$/,
+  /^Upload direto para R2 indisponivel/,
+  /^Upload local nao e permitido em producao/,
+  /^Upload Cloudflare R2 incompleto/,
+];
+
+export function getPublicUploadErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  if (safePublicUploadErrorPatterns.some((pattern) => pattern.test(message))) {
+    return message;
+  }
+
+  return "Falha ao processar ou armazenar a mídia.";
 }

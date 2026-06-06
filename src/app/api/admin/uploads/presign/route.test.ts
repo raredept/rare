@@ -151,6 +151,7 @@ describe("admin upload presign route", () => {
     expect(productResponse.status).toBe(200);
     expect(productBody.upload.key).toMatch(/^products\/\d{4}\/\d{2}\/[a-f0-9-]+-produto-novo\.webp$/);
     expect(productBody.upload.publicUrl).toBe(`https://media.rare.example/${productBody.upload.key}`);
+    expect(productBody.upload.variants).toBeUndefined();
     expect(bannerResponse.status).toBe(200);
     expect(bannerBody.upload.key).toMatch(/^banners\/\d{4}\/\d{2}\/[a-f0-9-]+-campanha-home\.jpg$/);
     expect(bannerText).not.toContain("configured-secret-key-that-must-not-leak");

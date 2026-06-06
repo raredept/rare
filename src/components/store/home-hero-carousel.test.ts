@@ -93,4 +93,25 @@ describe("HomeHeroCarousel", () => {
     expect(html).toContain('poster="https://media.rare.example/banners/drop-poster.webp"');
     expect(html).toContain('preload="metadata"');
   });
+
+  it("uses generated banner variants without affecting the original persisted URL", () => {
+    const html = renderToStaticMarkup(
+      createElement(HomeHeroCarousel, {
+        slides: [
+          {
+            id: "optimized-banner",
+            title: "Drop otimizado",
+            imageUrl: "https://media.rare.example/banners/id-drop-rare-v1-original.png",
+            alt: "Drop otimizado",
+            active: true,
+          },
+        ],
+      }),
+    );
+
+    expect(html).toContain('src="https://media.rare.example/banners/id-drop-rare-v1-medium.webp"');
+    expect(html).toContain(
+      'srcSet="https://media.rare.example/banners/id-drop-rare-v1-thumbnail.webp 640w, https://media.rare.example/banners/id-drop-rare-v1-medium.webp 1200w"',
+    );
+  });
 });

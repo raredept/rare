@@ -37,8 +37,9 @@ describe("HomeBannerForm", () => {
     expect(html).toContain("Preview mobile");
     expect(html).toContain("Avançado: URLs manuais");
     expect(html).toContain("Salvar banner");
+    expect(html).toContain("Imagens estáticas enviadas pelo Admin podem gerar versões otimizadas");
     expect(html).toContain("JPG, PNG, WEBP, AVIF, GIF ou MP4. Máximo 4 MB por arquivo.");
-    expect(html).toContain("Para melhor qualidade e performance, envie imagem/poster otimizado quando usar GIF ou vídeo.");
+    expect(html).toContain("Imagens estáticas elegíveis podem gerar versões WEBP; GIF e MP4 são preservados.");
     expect(html).toContain("Desktop recomendado: 1920x650. Mobile recomendado: 1080x1350.");
   });
 

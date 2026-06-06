@@ -1,3 +1,5 @@
+import { getGeneratedMediaVariantsFromUrl } from "@/lib/media-variant-convention";
+
 export const PRODUCT_MEDIA_LIMIT = 10;
 
 export type ProductMediaType = "image" | "gif" | "video" | "unknown";
@@ -153,7 +155,7 @@ export function shouldRenderProductMediaAsVideo(url: string) {
 
 function getResponsiveImageCandidates(media: ProductMediaAsset) {
   const baseType = getProductMediaTypeFromUrl(media.url);
-  const candidates = (media.variants ?? [])
+  const candidates = [...(media.variants ?? []), ...getGeneratedMediaVariantsFromUrl(media.url)]
     .filter((candidate) => {
       if (!candidate.url.trim() || !Number.isFinite(candidate.width) || candidate.width <= 0) return false;
       const candidateType = getProductMediaTypeFromUrl(candidate.url);

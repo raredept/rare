@@ -46,7 +46,9 @@ npm run shipping:dimensions:audit
 O storage persistente recomendado para produção é Cloudflare R2 com `STORAGE_DRIVER=r2`.
 O Admin usa `POST /api/admin/uploads`: o navegador envia o arquivo para o domínio da aplicação e a Vercel Function grava no R2 com credenciais server-side. Isso evita upload direto do navegador para o bucket.
 
-Limite atual: 4 MB por arquivo. Para melhor qualidade e performance, envie imagens em WEBP/JPG otimizadas.
+Limite atual: 4 MB por arquivo. Imagens estáticas elegíveis preservam o original e podem gerar thumbnail 640 e medium 1200 em WEBP. GIF e MP4 permanecem sem processamento. O presign direto de até 100 MB não gera variantes.
+
+Detalhes: [docs/media-optimization.md](docs/media-optimization.md).
 
 ## Operação, deploy e validação
 

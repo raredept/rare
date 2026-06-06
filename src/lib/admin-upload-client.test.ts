@@ -29,7 +29,8 @@ describe("admin upload client", () => {
     global.fetch = fetchMock;
     const progress = vi.fn();
 
-    const url = await uploadAdminMediaFile(new File([new Uint8Array([1, 2, 3, 4])], "produto.webp", { type: "image/webp" }), {
+    const file = new File([new Uint8Array([1, 2, 3, 4])], "produto.webp", { type: "image/webp" });
+    const url = await uploadAdminMediaFile(file, {
       context: "products",
       onProgress: progress,
     });
@@ -44,7 +45,7 @@ describe("admin upload client", () => {
     );
     const body = fetchMock.mock.calls[0]?.[1]?.body as FormData;
     expect(body.get("uploadContext")).toBe("products");
-    expect(body.get("files")).toBeInstanceOf(File);
+    expect(body.get("files")).toBe(file);
     expect(fetchMock).not.toHaveBeenCalledWith("/api/admin/uploads/presign", expect.anything());
     expect(progress).toHaveBeenCalledWith(100);
   });

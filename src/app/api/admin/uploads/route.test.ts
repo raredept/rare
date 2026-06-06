@@ -6,6 +6,7 @@ const routeMocks = vi.hoisted(() => ({
   getMaxAcceptedUploadBytes: vi.fn(() => 30 * 1024 * 1024),
   normalizeUploadContext: vi.fn((value: FormDataEntryValue | null) => (value === "banners" ? "banners" : "products")),
   saveUploadedImage: vi.fn(),
+  getPublicUploadErrorMessage: vi.fn(() => "Falha ao processar ou armazenar a mídia."),
 }));
 
 const originalEnv = process.env;
@@ -16,6 +17,7 @@ vi.mock("@/lib/auth", () => ({
 
 vi.mock("@/lib/storage", () => ({
   getMaxAcceptedUploadBytes: routeMocks.getMaxAcceptedUploadBytes,
+  getPublicUploadErrorMessage: routeMocks.getPublicUploadErrorMessage,
   normalizeUploadContext: routeMocks.normalizeUploadContext,
   saveUploadedImage: routeMocks.saveUploadedImage,
 }));
@@ -73,6 +75,50 @@ describe("admin uploads route", () => {
     expect(body.uploads).toEqual([{ url: "/uploads/banners/2026/05/file.webp", key: "banners/2026/05/file.webp" }]);
   });
 
+  it("returns generated variant metadata from the server-routed upload", async () => {
+    routeMocks.saveUploadedImage.mockResolvedValueOnce({
+      url: "/uploads/products/file-rare-v1-original.png",
+      key: "products/2026/06/file-rare-v1-original.png",
+      contentType: "image/png",
+      size: 1000,
+      width: 1600,
+      height: 1200,
+      variants: [
+        {
+          kind: "thumbnail",
+          url: "/uploads/products/file-rare-v1-thumbnail.webp",
+          key: "products/2026/06/file-rare-v1-thumbnail.webp",
+          contentType: "image/webp",
+          size: 200,
+          width: 640,
+          height: 480,
+        },
+        {
+          kind: "medium",
+          url: "/uploads/products/file-rare-v1-medium.webp",
+          key: "products/2026/06/file-rare-v1-medium.webp",
+          contentType: "image/webp",
+          size: 500,
+          width: 1200,
+          height: 900,
+        },
+      ],
+    });
+    const formData = new FormData();
+    formData.append("files", new File([new Uint8Array([1])], "produto.png", { type: "image/png" }));
+
+    const response = await POST(buildUploadRequest(formData) as never);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.uploads[0].variants).toHaveLength(2);
+    expect(body.uploads[0].variants[0]).toMatchObject({
+      kind: "thumbnail",
+      contentType: "image/webp",
+      width: 640,
+    });
+  });
+
   it("does not save files when admin auth fails", async () => {
     routeMocks.requireAdmin.mockRejectedValue(new Error("unauthorized"));
     const formData = new FormData();
@@ -108,5 +154,20 @@ describe("admin uploads route", () => {
     expect(response.status).toBe(413);
     expect(body.error).toContain("Arquivo acima de 4 MB");
     expect(routeMocks.saveUploadedImage).not.toHaveBeenCalled();
+  });
+
+  it("does not expose internal processing or storage errors", async () => {
+    routeMocks.saveUploadedImage.mockRejectedValueOnce(
+      new Error("sharp failed with R2_SECRET_ACCESS_KEY=configured-secret-key"),
+    );
+    const formData = new FormData();
+    formData.append("files", new File([new Uint8Array([1])], "produto.png", { type: "image/png" }));
+
+    const response = await POST(buildUploadRequest(formData) as never);
+    const text = await response.text();
+
+    expect(response.status).toBe(400);
+    expect(text).toContain("Falha ao processar ou armazenar");
+    expect(text).not.toContain("configured-secret-key");
   });
 });

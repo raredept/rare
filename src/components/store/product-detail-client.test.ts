@@ -202,4 +202,39 @@ describe("ProductDetailClient", () => {
     expect(zoomHtml).toContain('src="/uploads/camiseta-original.webp"');
     expect(zoomHtml).not.toContain("srcSet=");
   });
+
+  it("infers the medium detail source while keeping the versioned original for zoom", () => {
+    const responsiveImage = {
+      url: "/uploads/products/2026/06/id-camiseta-rare-v1-original.png",
+      alt: "Camiseta RARE",
+    };
+    const detailHtml = renderToStaticMarkup(
+      createElement(ProductDetailClient, {
+        product: {
+          ...product,
+          images: [responsiveImage],
+        },
+        productUrl: "https://raredept.com.br/produto/camiseta-rare",
+        whatsappNumber: "5511999999999",
+        whatsappMessage: "Tenho interesse.",
+      }) as ReactElement,
+    );
+    const zoomHtml = renderToStaticMarkup(
+      createElement(ProductImageZoomDialog, {
+        productTitle: "Camiseta RARE",
+        zoomedImage: responsiveImage,
+        zoomedImagePosition: 0,
+        zoomableImageCount: 1,
+        hasZoomNavigation: false,
+        closeRef: createRef<HTMLButtonElement>(),
+        onClose: vi.fn(),
+        onPrevious: vi.fn(),
+        onNext: vi.fn(),
+      }) as ReactElement,
+    );
+
+    expect(detailHtml).toContain('src="/uploads/products/2026/06/id-camiseta-rare-v1-medium.webp"');
+    expect(zoomHtml).toContain('src="/uploads/products/2026/06/id-camiseta-rare-v1-original.png"');
+    expect(zoomHtml).not.toContain("srcSet=");
+  });
 });

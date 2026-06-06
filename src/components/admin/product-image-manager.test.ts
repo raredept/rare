@@ -25,7 +25,7 @@ describe("ProductImageManager", () => {
     expect(html).toContain("Avançado: URLs manuais");
     expect(html).not.toContain("open=\"\"");
     expect(html).toContain("JPG, PNG, WEBP, AVIF, GIF ou MP4. Máximo 4 MB por arquivo.");
-    expect(html).toContain("Para melhor qualidade e performance, envie imagens em WEBP/JPG/AVIF otimizadas.");
+    expect(html).toContain("Imagens estáticas elegíveis podem gerar versões WEBP para catálogo e detalhe.");
     expect(html).toContain("Seed");
     expect(html).toContain("GIF");
     expect(html).toContain("Vídeo");
@@ -41,5 +41,15 @@ describe("ProductImageManager", () => {
     expect(html).toContain("0/10 mídias adicionadas");
     expect(html).toContain("Nenhuma mídia principal");
     expect(html).not.toContain("checked=\"\"");
+  });
+
+  it("shows when a persisted media URL has generated variants", () => {
+    const html = renderToStaticMarkup(
+      createElement(ProductImageManager, {
+        images: [{ url: "/uploads/products/2026/06/id-produto-rare-v1-original.png" }],
+      }) as ReactElement,
+    );
+
+    expect(html).toContain("Otimizada");
   });
 });

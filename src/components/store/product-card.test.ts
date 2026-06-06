@@ -133,4 +133,25 @@ describe("ProductCard", () => {
       'srcSet="/uploads/products/front-320.webp 320w, /uploads/products/front-640.webp 640w, /uploads/products/front-1200.webp 1200w"',
     );
   });
+
+  it("uses persisted thumbnail and srcSet inferred from a new server-routed upload URL", () => {
+    const html = renderToStaticMarkup(
+      createElement(ProductCard, {
+        product: {
+          ...baseProduct,
+          images: [
+            {
+              url: "/uploads/products/2026/06/id-front-rare-v1-original.png",
+              alt: "Frente",
+            },
+          ],
+        },
+      }) as ReactElement,
+    );
+
+    expect(html).toContain('src="/uploads/products/2026/06/id-front-rare-v1-thumbnail.webp"');
+    expect(html).toContain(
+      'srcSet="/uploads/products/2026/06/id-front-rare-v1-thumbnail.webp 640w, /uploads/products/2026/06/id-front-rare-v1-medium.webp 1200w"',
+    );
+  });
 });

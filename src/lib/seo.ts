@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { isSafeProductOgImageUrl } from "@/lib/product-media";
+import { getProductMediaRenderPlan, isSafeProductOgImageUrl } from "@/lib/product-media";
 
 export const RARE_SITE_NAME = "RARE";
 export const RARE_TITLE_TEMPLATE = "%s | RARE";
@@ -285,7 +285,12 @@ export function getSocialImageForProduct(
   productTitle = RARE_SITE_NAME,
   env: EnvLike = process.env,
 ) {
-  const safeProductImage = images?.find((image) => isSafePublicSocialImageUrl(image.url, env));
+  const safeProductImage = images?.flatMap((image) => {
+    const renderPlan = getProductMediaRenderPlan(image, "og");
+    return renderPlan.renderAs === "img" && isSafePublicSocialImageUrl(renderPlan.src, env)
+      ? [{ ...image, url: renderPlan.src }]
+      : [];
+  })[0];
 
   if (safeProductImage) {
     return normalizeSocialImage(

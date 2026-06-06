@@ -1,7 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { rateLimit } from "@/lib/rate-limit";
-import { getMaxAcceptedUploadBytes, normalizeUploadContext, saveUploadedImage } from "@/lib/storage";
+import {
+  getMaxAcceptedUploadBytes,
+  getPublicUploadErrorMessage,
+  normalizeUploadContext,
+  saveUploadedImage,
+} from "@/lib/storage";
 import {
   SERVER_ROUTED_UPLOAD_LIMIT_BYTES,
   VERCEL_FUNCTION_PAYLOAD_LIMIT_BYTES,
@@ -59,7 +64,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ uploads });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Falha no upload.";
-    return NextResponse.json({ error: message }, { status: 400 });
+    return NextResponse.json({ error: getPublicUploadErrorMessage(error) }, { status: 400 });
   }
 }

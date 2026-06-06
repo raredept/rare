@@ -12,7 +12,7 @@ import {
   shouldRenderHomeHeroControls,
   type HomeHeroSlide,
 } from "@/lib/home-hero-slides";
-import { getProductMediaTypeFromUrl } from "@/lib/product-media";
+import { getProductMediaRenderPlan, getProductMediaTypeFromUrl } from "@/lib/product-media";
 
 const autoplayMs = 6000;
 const swipeThresholdPx = 48;
@@ -73,7 +73,12 @@ function HomeHeroImage({
 
   const mediaType = getProductMediaTypeFromUrl(slide.imageUrl);
   const mobileMediaType = slide.mobileImageUrl ? getProductMediaTypeFromUrl(slide.mobileImageUrl) : null;
-  const videoPoster = slide.mobileImageUrl && mobileMediaType !== "video" ? slide.mobileImageUrl : undefined;
+  const desktopRenderPlan = getProductMediaRenderPlan({ url: slide.imageUrl }, "banner", { priority: index === 0 });
+  const mobileRenderPlan =
+    slide.mobileImageUrl && mobileMediaType !== "video"
+      ? getProductMediaRenderPlan({ url: slide.mobileImageUrl }, "banner", { priority: index === 0 })
+      : null;
+  const videoPoster = mobileRenderPlan?.renderAs === "img" ? mobileRenderPlan.src : undefined;
 
   if (mediaType === "video") {
     return (
@@ -95,18 +100,25 @@ function HomeHeroImage({
     );
   }
 
+  if (desktopRenderPlan.renderAs !== "img") {
+    return <HomeHeroPlaceholder label={slide.alt} />;
+  }
+
   return (
     <picture>
-      {slide.mobileImageUrl && mobileMediaType !== "video" ? <source media="(max-width: 767px)" srcSet={slide.mobileImageUrl} /> : null}
+      {mobileRenderPlan?.renderAs === "img" ? (
+        <source media="(max-width: 767px)" srcSet={mobileRenderPlan.srcSet ?? mobileRenderPlan.src} />
+      ) : null}
       <img
-        src={slide.imageUrl}
+        src={desktopRenderPlan.src}
+        srcSet={desktopRenderPlan.srcSet}
         alt={slide.alt}
-        width={1920}
-        height={650}
-        sizes="100vw"
-        loading={index === 0 ? "eager" : "lazy"}
-        fetchPriority={index === 0 ? "high" : "auto"}
-        decoding="async"
+        width={desktopRenderPlan.width}
+        height={desktopRenderPlan.height}
+        sizes={desktopRenderPlan.sizes}
+        loading={desktopRenderPlan.loading}
+        fetchPriority={desktopRenderPlan.fetchPriority}
+        decoding={desktopRenderPlan.decoding}
         className="h-full w-full object-cover"
         onError={onError}
       />

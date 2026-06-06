@@ -115,6 +115,26 @@ describe("public SEO helpers", () => {
     expect(isSafePublicSocialImageUrl("https://raredept.com.br/private/look.webp", productionEnv)).toBe(false);
   });
 
+  it("uses the persisted medium variant for product social metadata", () => {
+    const metadata = buildProductMetadata(
+      {
+        title: "Camiseta RARE",
+        slug: "camiseta-rare",
+        images: [
+          {
+            url: "https://media.rare.example/products/id-look-rare-v1-original.png",
+            alt: "Camiseta RARE",
+          },
+        ],
+      },
+      productionEnv,
+    );
+
+    expect(getOpenGraphImageUrls(metadata)).toEqual([
+      "https://media.rare.example/products/id-look-rare-v1-medium.webp",
+    ]);
+  });
+
   it("falls back to the store image when product media is absent or only video", () => {
     expect(
       getSocialImageForProduct([{ url: "https://raredept.com.br/uploads/drop.mp4", alt: "Vídeo" }], "Drop", productionEnv),

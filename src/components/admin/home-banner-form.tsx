@@ -108,6 +108,9 @@ export function HomeBannerForm({ banner, error, nextSortOrder }: HomeBannerFormP
             <p className="mt-1 text-xs font-semibold leading-5 text-neutral-500">
               Use JPG, PNG, WEBP, AVIF, GIF ou MP4. Desktop recomendado: 1920x650. Mobile recomendado: 1080x1350.
             </p>
+            <p className="mt-1 text-xs font-semibold leading-5 text-neutral-500">
+              Imagens estáticas enviadas pelo Admin podem gerar versões otimizadas para catálogo e detalhe. GIF e MP4 mantêm o original.
+            </p>
           </div>
           <label className="flex w-fit items-center gap-3 rounded-lg border border-neutral-800 bg-black px-3 py-2 text-sm font-black text-neutral-200">
             <input

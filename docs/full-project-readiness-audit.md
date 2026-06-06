@@ -159,7 +159,7 @@ Recomendação: pronto para staging/homologação. Produção atual está públi
 - Cron diária é apenas uma rede de segurança lenta para reservas; depende de webhook confiável.
 - O Admin readiness avalia presença/coerência de configuração, mas não persiste evidência de que a homologação Stripe ou a cron foram executadas. Não deve ser o único gate de go-live.
 - A imagem principal antiga de `Supreme Bag` continua sendo um PNG de aproximadamente 2,86 MB até ser substituída ou receber variantes reais.
-- `ProductMedia` agora usa um plano central por contexto, dimensões, loading, decoding e prioridade corretos. `srcSet` só é emitido quando o objeto possui variantes reais; URLs antigas continuam usando o original, sem `srcSet` falso.
+- `ProductMedia` usa um plano central por contexto, dimensões, loading, decoding e prioridade corretos. Novos uploads server-routed elegíveis persistem thumbnail 640 e medium 1200; URLs antigas continuam usando o original, sem `srcSet` falso.
 
 ### Local
 
@@ -182,7 +182,7 @@ Nenhuma correção funcional de código foi identificada como P0 nesta auditoria
 
 ### P2 — Operação e qualidade
 
-- Gerar e persistir variantes responsivas WEBP/AVIF para mídia antiga e novos uploads.
+- Reenviar seletivamente mídia antiga pesada ou criar um job futuro explícito para backfill; novos uploads server-routed elegíveis já geram variantes WEBP.
 - Padronizar a origem pública de mídia antes de avaliar `next/image` ou CDN de transformação para URLs legadas.
 - Persistir no Admin evidências operacionais de homologação, sem secrets.
 - Adicionar monitoramento de falhas de webhook, cron e rate limit compartilhado.
@@ -380,8 +380,10 @@ Domínio oficial raredept.com.br: online e servindo o commit atual
 - Upload server-side ativo está protegido e limitado a 4 MB.
 - Presign R2 existe no backend, mas o cliente atual não o chama.
 - Upload autenticado real continua pendente por acesso.
-- O upload do Admin tenta converter JPG/PNG/WEBP para WEBP quando reduz bytes, mas ainda salva uma única URL.
-- A renderização está preparada para variantes reais; a redução adicional de bytes depende de gerar e persistir thumbnail/medium/original no futuro.
+- JPG/JPEG/PNG/WEBP/AVIF estáticos elegíveis no upload server-routed preservam o original e persistem thumbnail 640 e medium 1200 em WEBP.
+- GIF e MP4 preservam o original. Presign direto continua sem variantes porque não passa pelo backend.
+- O banco continua guardando a URL original; uma convenção versionada de key permite derivar apenas variantes que foram realmente geradas, sem migration.
+- Mídia antiga não é reprocessada automaticamente e continua usando fallback para o original.
 
 ### Segurança
 
@@ -427,7 +429,7 @@ Domínio oficial raredept.com.br: online e servindo o commit atual
 | P1 | Upload Admin/R2 autenticado | Operação do catálogo depende de upload real. | R2 público funciona; upload Admin não foi executado. | Testar produto e banner com sessão Admin. | Cliente | Upload, persistência e renderização após redeploy. | Pendente externo |
 | P1 | Projeto `rare-hjw3` | Mantém check vermelho e confunde deploy oficial. | Check Vercel secundário falhou. | Desconectar/remover integração duplicada. | Cliente | Commit com apenas checks esperados. | Pendente externo |
 | P1 | Mudança local de teste | Worktree precisava de decisão consciente. | `page.test.ts` foi revisado, reforçado e validado. | Manter no commit de higiene/readiness. | Dev | Teste direcionado e validações gerais. | Resolvido |
-| P2 | Otimização de mídia | PNG antigo de 2,86 MB ainda prejudica mobile e Core Web Vitals. | Render plan e `srcSet` condicional implementados; catálogo atual não possui variantes persistidas. | Gerar/persistir thumbnail, medium e original WEBP/AVIF e substituir mídia antiga pesada. | Dev | `srcSet` real no HTML, Lighthouse e bytes transferidos menores. | Parcial |
+| P2 | Otimização de mídia antiga | PNG antigo de 2,86 MB ainda prejudica mobile e Core Web Vitals. | Novos uploads elegíveis já persistem thumbnail/medium/original; mídia legada mantém fallback. | Reenviar seletivamente mídia pesada ou criar job futuro explícito, primeiro em staging. | Dev/Cliente | `srcSet` real no HTML, Lighthouse e bytes transferidos menores. | Parcial para legado |
 | P2 | Evidência no Admin readiness | Configuração presente não prova homologação executada. | Readiness não persiste resultado de Stripe/cron. | Adicionar estado/evidência operacional sanitizada. | Dev | Admin distingue “configurado” de “homologado”. | Melhoria de código |
 | P2 | Documentação Stripe duplicada | Dois guias podiam divergir. | Checklist raiz foi reduzido a ponteiro legado. | Manter `docs/checkout-smoke-test.md` como única fonte operacional. | Dev | Referências documentais apontam para o guia canônico. | Resolvido |
 | P3 | SEO estruturado | Pode melhorar rich results. | Product JSON-LD não inclui `brand`, `sku`, `priceValidUntil`. | Enriquecer schema com dados reais. | Dev | Rich Results Test sem warnings relevantes. | Futuro |

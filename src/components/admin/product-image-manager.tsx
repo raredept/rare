@@ -27,6 +27,7 @@ import {
   shouldReplaceProductImagesByDefault,
 } from "@/lib/admin-product-images";
 import { uploadAdminMediaFile } from "@/lib/admin-upload-client";
+import { hasGeneratedMediaVariants } from "@/lib/media-variant-convention";
 import {
   PRODUCT_UPLOAD_HELP_TEXT,
   isOverServerRoutedUploadLimit,
@@ -258,7 +259,13 @@ export function ProductImageManager({ images }: ProductImageManagerProps) {
                       {typeof item.progress === "number" && item.progress > 0 ? `Enviando... ${item.progress}%` : "Enviando..."}
                     </p>
                   ) : null}
-                  {item.status === "uploaded" ? <p className="mt-1 text-xs font-bold text-emerald-200">Upload concluído.</p> : null}
+                  {item.status === "uploaded" ? (
+                    <p className="mt-1 text-xs font-bold text-emerald-200">
+                      {item.uploadedUrl && hasGeneratedMediaVariants(item.uploadedUrl)
+                        ? "Upload concluído com versões para catálogo e detalhe."
+                        : "Upload concluído."}
+                    </p>
+                  ) : null}
                   {item.status === "error" ? <p className="mt-1 text-xs font-bold text-red-200">{item.error}</p> : null}
                 </div>
               </div>
@@ -304,6 +311,7 @@ export function ProductImageManager({ images }: ProductImageManagerProps) {
                     <div className="absolute left-2 top-2 flex flex-wrap gap-1">
                       {index === 0 ? <MediaBadge tone="strong">CAPA</MediaBadge> : null}
                       <MediaBadge>{mediaLabel}</MediaBadge>
+                      {hasGeneratedMediaVariants(url) ? <MediaBadge>Otimizada</MediaBadge> : null}
                     </div>
                   </div>
                   <div className="space-y-3 p-3">

@@ -1,11 +1,13 @@
 import { existsSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import path from "node:path";
+import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildObjectKey,
   createPresignedR2Upload,
   getMaxAcceptedUploadBytes,
+  getPublicUploadErrorMessage,
   getMaxUploadBytes,
   hasValidImageSignature,
   normalizeUploadContext,
@@ -49,6 +51,10 @@ const avifBytes = new Uint8Array(Buffer.from([0x00, 0x00, 0x00, 0x18, 0x66, 0x74
 const gifBytes = new Uint8Array(Buffer.from("GIF89a", "ascii"));
 const mp4Bytes = new Uint8Array(Buffer.from([0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d]));
 
+function toArrayBuffer(buffer: Buffer): ArrayBuffer {
+  return Uint8Array.from(buffer).buffer;
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   s3Mocks.send.mockResolvedValue({});
@@ -75,6 +81,13 @@ describe("storage helpers", () => {
     expect(getMaxAcceptedUploadBytes()).toBe(4 * 1024 * 1024);
   });
 
+  it("keeps validation errors public and hides unexpected internal details", () => {
+    expect(getPublicUploadErrorMessage(new Error("Arquivo de midia invalido."))).toBe("Arquivo de midia invalido.");
+    expect(
+      getPublicUploadErrorMessage(new Error("sharp failure R2_SECRET_ACCESS_KEY=configured-secret-key")),
+    ).toBe("Falha ao processar ou armazenar a mídia.");
+  });
+
   it("caps configured upload limits to the Vercel function payload-safe size", () => {
     process.env.VERCEL = "1";
     process.env.MAX_UPLOAD_SIZE_MB = "5";
@@ -92,6 +105,12 @@ describe("storage helpers", () => {
     expect(hasValidImageSignature(Buffer.from(avifBytes), "avif")).toBe(true);
     expect(hasValidImageSignature(Buffer.from("GIF89a"), "gif")).toBe(true);
     expect(hasValidImageSignature(Buffer.from(mp4Bytes), "mp4")).toBe(true);
+  });
+
+  it("rejects static files that match the signature but cannot be decoded", async () => {
+    await expect(
+      saveUploadedImage(new File([pngBytes], "corrompido.png", { type: "image/png" })),
+    ).rejects.toThrow("Arquivo de imagem estática inválido.");
   });
 
   it("accepts JPG, PNG, WEBP, AVIF, GIF and MP4 metadata", () => {
@@ -187,15 +206,76 @@ describe("storage helpers", () => {
   });
 
   it("saves valid local uploads under the configured dev directory", async () => {
-    const saved = await saveUploadedImage(new File([pngBytes], "produto local.png", { type: "image/png" }));
+    const source = await sharp({
+      create: {
+        width: 800,
+        height: 600,
+        channels: 3,
+        background: { r: 20, g: 20, b: 20 },
+      },
+    })
+      .png()
+      .toBuffer();
+    const saved = await saveUploadedImage(new File([toArrayBuffer(source)], "produto local.png", { type: "image/png" }));
 
     expect(saved.url).toMatch(/^\/test-uploads\/products\/\d{4}\/\d{2}\/[a-f0-9-]+-produto-local\.png$/);
     expect(saved.contentType).toBe("image/png");
     expect(existsSync(path.join(testStorageDir, saved.key))).toBe(true);
   });
 
+  it("stores original, thumbnail and medium files for an eligible static image", async () => {
+    const source = await sharp({
+      create: {
+        width: 1600,
+        height: 1200,
+        channels: 4,
+        background: { r: 20, g: 20, b: 20, alpha: 1 },
+      },
+    })
+      .png()
+      .toBuffer();
+    const saved = await saveUploadedImage(new File([toArrayBuffer(source)], "produto grande.png", { type: "image/png" }));
+
+    expect(saved.key).toMatch(/produto-grande-rare-v1-original\.png$/);
+    expect(saved).toMatchObject({
+      contentType: "image/png",
+      width: 1600,
+      height: 1200,
+      variants: [
+        { kind: "thumbnail", contentType: "image/webp", width: 640, height: 480 },
+        { kind: "medium", contentType: "image/webp", width: 1200, height: 900 },
+      ],
+    });
+    expect(existsSync(path.join(testStorageDir, saved.key))).toBe(true);
+    for (const variant of saved.variants ?? []) {
+      expect(existsSync(path.join(testStorageDir, variant.key))).toBe(true);
+    }
+  });
+
+  it("preserves GIF and MP4 uploads without trying to generate image variants", async () => {
+    const savedGif = await saveUploadedImage(new File([gifBytes], "animado.gif", { type: "image/gif" }));
+    const savedVideo = await saveUploadedImage(new File([mp4Bytes], "video.mp4", { type: "video/mp4" }));
+
+    expect(savedGif.contentType).toBe("image/gif");
+    expect(savedVideo.contentType).toBe("video/mp4");
+    expect(savedGif.variants).toBeUndefined();
+    expect(savedVideo.variants).toBeUndefined();
+    expect(savedGif.key).not.toContain("rare-v1-original");
+    expect(savedVideo.key).not.toContain("rare-v1-original");
+  });
+
   it("normalizes JPEG uploads to a jpg object key", async () => {
-    const saved = await saveUploadedImage(new File([jpgBytes], "foto-final.jpeg", { type: "image/jpeg" }));
+    const source = await sharp({
+      create: {
+        width: 800,
+        height: 600,
+        channels: 3,
+        background: { r: 30, g: 30, b: 30 },
+      },
+    })
+      .jpeg()
+      .toBuffer();
+    const saved = await saveUploadedImage(new File([toArrayBuffer(source)], "foto-final.jpeg", { type: "image/jpeg" }));
 
     expect(saved.key).toMatch(/foto-final\.jpg$/);
   });
@@ -236,7 +316,17 @@ describe("storage helpers", () => {
     process.env.R2_SECRET_ACCESS_KEY = "configured-secret-key";
     process.env.R2_PUBLIC_BASE_URL = "https://media.rare.example/";
 
-    const saved = await saveUploadedImage(new File([webpBytes], "produto.webp", { type: "image/webp" }));
+    const source = await sharp({
+      create: {
+        width: 800,
+        height: 600,
+        channels: 3,
+        background: { r: 40, g: 40, b: 40 },
+      },
+    })
+      .webp()
+      .toBuffer();
+    const saved = await saveUploadedImage(new File([toArrayBuffer(source)], "produto.webp", { type: "image/webp" }));
     const command = s3Mocks.PutObjectCommand.mock.calls[0]?.[0] as { Bucket: string; Key: string; ContentType: string; IfNoneMatch: string };
 
     expect(saved.url).toBe(`https://media.rare.example/${saved.key}`);
@@ -253,6 +343,38 @@ describe("storage helpers", () => {
       IfNoneMatch: "*",
     });
     expect(s3Mocks.send).toHaveBeenCalledTimes(1);
+  });
+
+  it("stores generated R2 variants with immutable cache and correct content types without real network calls", async () => {
+    process.env.STORAGE_DRIVER = "r2";
+    process.env.R2_ACCOUNT_ID = "abc123";
+    process.env.R2_BUCKET = "rare-media";
+    process.env.R2_ACCESS_KEY_ID = "configured-access-key";
+    process.env.R2_SECRET_ACCESS_KEY = "configured-secret-key";
+    process.env.R2_PUBLIC_BASE_URL = "https://media.rare.example/";
+    const source = await sharp({
+      create: {
+        width: 1600,
+        height: 1200,
+        channels: 4,
+        background: { r: 30, g: 30, b: 30, alpha: 1 },
+      },
+    })
+      .png()
+      .toBuffer();
+
+    const saved = await saveUploadedImage(new File([toArrayBuffer(source)], "produto.png", { type: "image/png" }));
+    const commands = s3Mocks.PutObjectCommand.mock.calls.map((call) => call[0] as {
+      Key: string;
+      ContentType: string;
+      CacheControl: string;
+    });
+
+    expect(s3Mocks.send).toHaveBeenCalledTimes(3);
+    expect(commands.map((command) => command.ContentType)).toEqual(["image/webp", "image/webp", "image/png"]);
+    expect(commands.every((command) => command.CacheControl === "public, max-age=31536000, immutable")).toBe(true);
+    expect(saved.variants).toHaveLength(2);
+    expect(JSON.stringify(saved)).not.toContain("configured-secret-key");
   });
 
   it("creates short-lived presigned R2 PUT uploads without reading file bytes", async () => {
