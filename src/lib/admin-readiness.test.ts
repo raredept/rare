@@ -152,6 +152,26 @@ describe("admin readiness", () => {
     expect(report.openSalesReady).toBe(true);
   });
 
+  it("warns about legacy media variants without blocking open sales", () => {
+    const report = build({
+      mediaAuditEntries: [
+        {
+          source: "product",
+          field: "product-image",
+          ownerId: "prod-legacy",
+          ownerTitle: "Produto legado",
+          ownerActive: true,
+          url: "https://media.rare.example/products/legacy.png",
+          usages: ["card", "detail", "zoom", "og"],
+        },
+      ],
+    });
+    const item = report.items.find((current) => current.id === "media-legacy-variants");
+
+    expect(item).toEqual(expect.objectContaining({ severity: "warning", blocksOpenSales: false }));
+    expect(report.finalStatus).toBe("ready_for_limited_production");
+  });
+
   it("does not include secret values or sensitive env names in the sanitized report", () => {
     const report = build();
     const serialized = JSON.stringify(report);

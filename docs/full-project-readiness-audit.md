@@ -30,7 +30,7 @@ Esses ajustes não alteram os bloqueadores operacionais P0 descritos abaixo.
 
 ## 1. Resumo executivo
 
-O site público está funcional e a base de código está tecnicamente sólida: lint, typecheck, 382 testes, build, Prisma, migrations, smoke público, SEO essencial, rotas, R2 público e cotação Melhor Envio passaram nas validações possíveis sem credenciais administrativas.
+O site público está funcional e a base de código está tecnicamente sólida: lint, typecheck, 418 testes, build, Prisma, migrations, smoke público, SEO essencial, rotas, R2 público e cotação Melhor Envio passaram nas validações possíveis sem credenciais administrativas.
 
 O projeto ainda não está 100% pronto para venda aberta.
 
@@ -159,6 +159,7 @@ Recomendação: pronto para staging/homologação. Produção atual está públi
 - Cron diária é apenas uma rede de segurança lenta para reservas; depende de webhook confiável.
 - O Admin readiness avalia presença/coerência de configuração, mas não persiste evidência de que a homologação Stripe ou a cron foram executadas. Não deve ser o único gate de go-live.
 - A imagem principal antiga de `Supreme Bag` continua sendo um PNG de aproximadamente 2,86 MB até ser substituída ou receber variantes reais.
+- `/admin/readiness` agora também pode sinalizar mídia legada sem variantes como warning de performance, sem bloquear venda aberta sozinho.
 - `ProductMedia` usa um plano central por contexto, dimensões, loading, decoding e prioridade corretos. Novos uploads server-routed elegíveis persistem thumbnail 640 e medium 1200; URLs antigas continuam usando o original, sem `srcSet` falso.
 
 ### Local
@@ -230,9 +231,11 @@ Risco de secret: não; contém apenas nomes de variáveis, estados sanitizados e
 | --- | --- |
 | `npm run lint` | OK |
 | `npm run typecheck` | OK |
-| `npm test` | OK — 72 arquivos, 382 testes |
+| `npm test` | OK — 75 arquivos, 418 testes |
 | `npm run build` | OK |
 | `git diff --check` | OK; somente aviso LF/CRLF |
+| `npm run media:variants:audit` | OK dry-run — 10 mídias locais, 0 com variantes, 5 candidatas a reupload, 10 sem tamanho conhecido, sem rede externa |
+| `npm test -- media-variant image-variant storage` | OK — 3 arquivos, 35 testes |
 | `npx prisma validate` | OK |
 | `npx prisma migrate status` | OK — 6 migrations, schema atualizado |
 | `npm run db:check` | OK com warning de shadow DB |
@@ -384,6 +387,7 @@ Domínio oficial raredept.com.br: online e servindo o commit atual
 - GIF e MP4 preservam o original. Presign direto continua sem variantes porque não passa pelo backend.
 - O banco continua guardando a URL original; uma convenção versionada de key permite derivar apenas variantes que foram realmente geradas, sem migration.
 - Mídia antiga não é reprocessada automaticamente e continua usando fallback para o original.
+- `npm run media:variants:audit` lista mídia legada em produtos e banners em dry-run; por padrão não chama R2, não faz HEAD remoto, não apaga, não substitui URL e mascara querystrings/tokens no console.
 
 ### Segurança
 
@@ -399,6 +403,7 @@ Domínio oficial raredept.com.br: online e servindo o commit atual
 - Scripts documentados existem.
 - Smoke público é read-only.
 - Checkout é somente guard.
+- Auditoria de variantes de mídia é read-only e não usa rede externa por padrão.
 - Scripts mutáveis são explicitamente nomeados e não rodam por padrão.
 - Documentação principal é coerente; há duplicação parcial no checklist Stripe da raiz.
 
@@ -429,7 +434,7 @@ Domínio oficial raredept.com.br: online e servindo o commit atual
 | P1 | Upload Admin/R2 autenticado | Operação do catálogo depende de upload real. | R2 público funciona; upload Admin não foi executado. | Testar produto e banner com sessão Admin. | Cliente | Upload, persistência e renderização após redeploy. | Pendente externo |
 | P1 | Projeto `rare-hjw3` | Mantém check vermelho e confunde deploy oficial. | Check Vercel secundário falhou. | Desconectar/remover integração duplicada. | Cliente | Commit com apenas checks esperados. | Pendente externo |
 | P1 | Mudança local de teste | Worktree precisava de decisão consciente. | `page.test.ts` foi revisado, reforçado e validado. | Manter no commit de higiene/readiness. | Dev | Teste direcionado e validações gerais. | Resolvido |
-| P2 | Otimização de mídia antiga | PNG antigo de 2,86 MB ainda prejudica mobile e Core Web Vitals. | Novos uploads elegíveis já persistem thumbnail/medium/original; mídia legada mantém fallback. | Reenviar seletivamente mídia pesada ou criar job futuro explícito, primeiro em staging. | Dev/Cliente | `srcSet` real no HTML, Lighthouse e bytes transferidos menores. | Parcial para legado |
+| P2 | Otimização de mídia antiga | PNG antigo de 2,86 MB ainda prejudica mobile e Core Web Vitals. | Novos uploads elegíveis já persistem thumbnail/medium/original; mídia legada mantém fallback e pode ser listada por dry-run. | Rodar `npm run media:variants:audit`, reenviar seletivamente mídia pesada em staging e só repetir em produção com autorização. | Dev/Cliente | `srcSet` real no HTML, Lighthouse e bytes transferidos menores. | Parcial para legado |
 | P2 | Evidência no Admin readiness | Configuração presente não prova homologação executada. | Readiness não persiste resultado de Stripe/cron. | Adicionar estado/evidência operacional sanitizada. | Dev | Admin distingue “configurado” de “homologado”. | Melhoria de código |
 | P2 | Documentação Stripe duplicada | Dois guias podiam divergir. | Checklist raiz foi reduzido a ponteiro legado. | Manter `docs/checkout-smoke-test.md` como única fonte operacional. | Dev | Referências documentais apontam para o guia canônico. | Resolvido |
 | P3 | SEO estruturado | Pode melhorar rich results. | Product JSON-LD não inclui `brand`, `sku`, `priceValidUntil`. | Enriquecer schema com dados reais. | Dev | Rich Results Test sem warnings relevantes. | Futuro |
@@ -444,6 +449,8 @@ Domínio oficial raredept.com.br: online e servindo o commit atual
 - [ ] Estoque/reserva validado
 - [ ] Expiração/falha gera movimento `release`
 - [ ] Upload Admin/R2 validado
+- [ ] Upload de variantes de mídia homologado em staging
+- [ ] `npm run media:variants:audit` revisado sem tratar legado como falha
 - [ ] Cron validada
 - [ ] Frequência da cron aceita ou melhorada
 - [ ] Projeto Vercel secundário resolvido

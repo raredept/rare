@@ -15,7 +15,7 @@ O desenvolvedor não tinha acesso direto à Vercel, Redis/Upstash, Stripe Dashbo
 | 404 público | Produto/categoria inexistentes retornam HTTP 404 real. | Preparado no código | `curl.exe -I https://raredept.com.br/produto/nao-existe` e `curl.exe -I https://raredept.com.br/categoria/nao-existe`. |
 | SEO técnico | `robots.txt`, `sitemap.xml`, canonical absoluto, Open Graph e Twitter Cards implementados nas páginas públicas principais. | Preparado no código | `curl.exe -I https://raredept.com.br/robots.txt`, `curl.exe -I https://raredept.com.br/sitemap.xml` e inspeção do HTML/head das rotas públicas. |
 | Mídia | Produto/banner aceitam JPG, JPEG, PNG, WEBP, AVIF, GIF e MP4; original, GIF e MP4 são preservados. | Preparado no código | Upload e renderização pelo Admin/staging. |
-| Performance de mídia | Upload server-routed pode gerar thumbnail 640 e medium 1200 em WEBP; cards/detail/banner/OG usam variantes reais e zoom usa o original. | Preparado no código para novos uploads elegíveis | Ver [docs/media-optimization.md](./media-optimization.md), reenviar uma fixture em staging e inspecionar `src`/`srcSet`. |
+| Performance de mídia | Upload server-routed pode gerar thumbnail 640 e medium 1200 em WEBP; cards/detail/banner/OG usam variantes reais e zoom usa o original. | Preparado no código para novos uploads elegíveis | Ver [docs/media-optimization.md](./media-optimization.md), rodar `npm run media:variants:audit`, reenviar uma fixture em staging e inspecionar `src`/`srcSet`. |
 | Rate limit | Suporte a Redis/Upstash REST com fallback `memory` para dev/test. | Depende de envs | Ver [docs/rate-limit.md](./rate-limit.md) e `/api/health`. |
 | Categorias | Categorias vazias ocultadas da navegação pública/home/sitemap, sem apagar do Admin. | Preparado no código | Conferir navegação pública, home e sitemap. |
 | Segurança HTTP | CSP progressiva adicionada em `Content-Security-Policy-Report-Only`. | Preparado no código | `npm run smoke -- https://raredept.com.br`. |
@@ -30,7 +30,7 @@ O desenvolvedor não tinha acesso direto à Vercel, Redis/Upstash, Stripe Dashbo
 
 Nota: `WebSite/SearchAction` fica como melhoria futura quando houver uma página de busca canônica estável. Um domínio/CDN dedicado para imagens sociais também pode ser avaliado depois, se o cliente quiser controlar previews por campanha.
 
-Nota de mídia: `next/image` não foi aplicado amplamente porque o catálogo aceita URLs antigas de origens variadas e o projeto não possui allowlist/loader remoto estável para todas elas. Novos JPG/JPEG/PNG/WEBP/AVIF estáticos e elegíveis enviados pelo fluxo server-routed podem gerar thumbnail/medium WEBP persistidos por convenção versionada de key. GIF e MP4 permanecem permitidos e sem processamento. O presign direto não gera variantes. Produtos antigos continuam na URL original até reupload manual ou um job futuro explícito.
+Nota de mídia: `next/image` não foi aplicado amplamente porque o catálogo aceita URLs antigas de origens variadas e o projeto não possui allowlist/loader remoto estável para todas elas. Novos JPG/JPEG/PNG/WEBP/AVIF estáticos e elegíveis enviados pelo fluxo server-routed podem gerar thumbnail/medium WEBP persistidos por convenção versionada de key. GIF e MP4 permanecem permitidos e sem processamento. O presign direto não gera variantes. Produtos antigos continuam na URL original até reupload manual ou um job futuro explícito. A triagem segura é `npm run media:variants:audit`, que é dry-run e não chama R2/rede externa por padrão.
 
 ## 3. O que o cliente precisa configurar
 
@@ -101,6 +101,8 @@ Depois do guard aprovado, execute o fluxo manual em Stripe test mode, com banco 
 - [ ] Redis/Upstash ativo em produção.
 - [ ] `/api/health` sem `status: "error"`.
 - [ ] R2 ativo e uploads carregando em domínio público.
+- [ ] Checklist de variantes de mídia aprovado em staging.
+- [ ] Mídias legadas pesadas triadas com `npm run media:variants:audit`.
 - [ ] Melhor Envio cotando frete real.
 - [ ] Produtos ativos completos, com estoque e dimensões.
 - [ ] Stripe test mode aprovado ponta a ponta.

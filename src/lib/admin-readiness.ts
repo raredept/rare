@@ -5,6 +5,7 @@ import {
   type CatalogIssueProduct,
 } from "@/lib/admin-catalog-issues";
 import { isCheckoutEnabled, validateEnvironment } from "@/lib/env";
+import { buildMediaVariantAuditReport, type MediaVariantAuditEntry } from "@/lib/media-variant-audit";
 import { getRateLimitStatus } from "@/lib/rate-limit-config";
 import { getSecurityHeaders } from "@/lib/security-headers";
 import { normalizeShippingMode, normalizeShippingProvider } from "@/lib/shipping";
@@ -20,6 +21,7 @@ export type ReadinessArea =
   | "webhook"
   | "rate-limit"
   | "storage"
+  | "media"
   | "shipping"
   | "catalog"
   | "seo"
@@ -82,6 +84,7 @@ export type BuildAdminReadinessInput = {
   categories: CatalogIssueCategory[];
   settings: ReadinessStoreSettings | null;
   documentation?: Partial<ReadinessDocumentationInput>;
+  mediaAuditEntries?: MediaVariantAuditEntry[];
 };
 
 export const readinessAreaLabels: Record<ReadinessArea, string> = {
@@ -92,6 +95,7 @@ export const readinessAreaLabels: Record<ReadinessArea, string> = {
   webhook: "Webhook",
   "rate-limit": "Rate limit",
   storage: "Storage",
+  media: "Midia",
   shipping: "Frete",
   catalog: "Catalogo",
   seo: "SEO",
@@ -451,6 +455,42 @@ function addStorageItems(items: ReadinessItem[], env: Record<string, string | un
   });
 }
 
+function addMediaItems(items: ReadinessItem[], entries: MediaVariantAuditEntry[] | undefined) {
+  const report = buildMediaVariantAuditReport(entries ?? []);
+
+  if (report.summary.totalReuploadCandidates > 0) {
+    const activeCandidates = report.reuploadCandidates.filter((item) => item.ownerActive).length;
+    addItem(items, {
+      id: "media-legacy-variants",
+      area: "media",
+      title: "Midias legadas sem variantes otimizadas",
+      severity: "warning",
+      description: `${report.summary.totalReuploadCandidates} midia(s) estatica(s) sem variantes foram encontradas; ${activeCandidates} estao em produto/banner ativo.`,
+      impact: "Nao bloqueia venda aberta sozinho, mas pode manter downloads maiores em mobile, cards, detalhes ou Open Graph.",
+      recommendedAction: "Rodar npm run media:variants:audit e reenviar manualmente as imagens pesadas pelo Admin em staging antes de repetir em producao autorizada.",
+      docsPath: "docs/media-optimization.md",
+      blocksOpenSales: false,
+      blocksStaging: false,
+      dependsOnClient: true,
+    });
+    return;
+  }
+
+  addItem(items, {
+    id: "media-legacy-variants",
+    area: "media",
+    title: "Variantes de midia",
+    severity: "ok",
+    description: "Nenhuma imagem estatica candidata a reupload manual foi encontrada nos dados avaliados.",
+    impact: "Novos uploads elegiveis podem usar thumbnail/medium; GIF e MP4 continuam preservados.",
+    recommendedAction: "Manter o checklist de upload em staging antes de substituir midias antigas.",
+    docsPath: "docs/media-optimization.md",
+    blocksOpenSales: false,
+    blocksStaging: false,
+    dependsOnClient: false,
+  });
+}
+
 function addShippingItems(items: ReadinessItem[], env: Record<string, string | undefined>, settings: ReadinessStoreSettings | null) {
   const production = isProductionRuntime(env);
   const envProvider = normalizeShippingProvider(clean(env.SHIPPING_PROVIDER));
@@ -696,6 +736,7 @@ export function buildAdminReadiness(input: BuildAdminReadinessInput): ReadinessR
   addRateLimitItems(items, env);
   addCheckoutItems(items, env);
   addStorageItems(items, env);
+  addMediaItems(items, input.mediaAuditEntries);
   addShippingItems(items, env, input.settings);
   addCatalogItems(items, input.products, input.categories);
   addSeoAndSecurityItems(items);

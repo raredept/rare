@@ -25,6 +25,7 @@
     "admin:create": "tsx scripts/create-admin.ts",
     "inventory:release-expired": "tsx scripts/release-expired-reservations.ts",
     "shipping:dimensions:audit": "tsx scripts/audit-product-shipping-dimensions.ts",
+    "media:variants:audit": "tsx scripts/audit-media-variants.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

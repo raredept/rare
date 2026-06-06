@@ -10,6 +10,10 @@ import {
   type ReadinessReport,
   type ReadinessSeverity,
 } from "@/lib/admin-readiness";
+import {
+  buildBannerMediaVariantAuditEntries,
+  buildProductMediaVariantAuditEntries,
+} from "@/lib/media-variant-audit";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +25,7 @@ const areaOrder: ReadinessArea[] = [
   "checkout",
   "rate-limit",
   "storage",
+  "media",
   "shipping",
   "catalog",
   "seo",
@@ -30,7 +35,7 @@ const areaOrder: ReadinessArea[] = [
 ];
 
 export default async function AdminReadinessPage() {
-  const [settings, products, categories] = await Promise.all([
+  const [settings, products, categories, banners] = await Promise.all([
     prisma.storeSettings.findUnique({
       where: { id: "store" },
       select: {
@@ -51,7 +56,7 @@ export default async function AdminReadinessPage() {
         heightCm: true,
         images: {
           orderBy: { sortOrder: "asc" },
-          select: { url: true },
+          select: { url: true, alt: true, sortOrder: true },
         },
         variants: {
           select: { active: true, stock: true, reservedStock: true },
@@ -71,12 +76,26 @@ export default async function AdminReadinessPage() {
         },
       },
     }),
+    prisma.homeBannerSlide.findMany({
+      select: {
+        id: true,
+        title: true,
+        active: true,
+        sortOrder: true,
+        imageUrl: true,
+        mobileImageUrl: true,
+      },
+    }),
   ]);
 
   const report = buildAdminReadiness({
     settings,
     products,
     categories,
+    mediaAuditEntries: [
+      ...buildProductMediaVariantAuditEntries(products),
+      ...buildBannerMediaVariantAuditEntries(banners),
+    ],
     documentation: getDocumentationStatus(),
   });
   const groupedItems = groupReadinessItems(report.items);
@@ -119,6 +138,7 @@ export default async function AdminReadinessPage() {
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <CommandLine command="npm run smoke -- https://raredept.com.br" description="Valida rotas públicas, headers, 404s e health depois do deploy." />
           <CommandLine command="npm run checkout:smoke" description="Executa o guard seguro antes de qualquer homologação Stripe test mode." />
+          <CommandLine command="npm run media:variants:audit" description="Lista mídias legadas sem variantes, sem upload, sem R2 write e sem rede externa por padrão." />
         </div>
       </section>
 

@@ -13,6 +13,9 @@ const mocks = vi.hoisted(() => ({
     category: {
       findMany: vi.fn(),
     },
+    homeBannerSlide: {
+      findMany: vi.fn(),
+    },
   },
 }));
 
@@ -82,6 +85,16 @@ beforeEach(() => {
       _count: { products: 0, subcategoryProducts: 0 },
     },
   ]);
+  mocks.prisma.homeBannerSlide.findMany.mockResolvedValue([
+    {
+      id: "banner-legacy",
+      title: "Drop principal",
+      active: true,
+      sortOrder: 0,
+      imageUrl: "https://media.rare.example/banners/drop.png",
+      mobileImageUrl: null,
+    },
+  ]);
 });
 
 afterEach(() => {
@@ -103,6 +116,8 @@ describe("AdminReadinessPage", () => {
     expect(html).toContain('href="/admin/products/prod-no-dimensions/edit"');
     expect(html).toContain("Bags ativa sem produtos");
     expect(html).toContain('href="/admin/categories/cat-empty/edit"');
+    expect(html).toContain("Midias legadas sem variantes otimizadas");
+    expect(html).toContain("npm run media:variants:audit");
     expect(html).not.toContain(process.env.STRIPE_SECRET_KEY);
     expect(html).not.toContain(process.env.STRIPE_WEBHOOK_SECRET);
     expect(html).not.toContain(process.env.DATABASE_URL);
