@@ -4,6 +4,8 @@
 
 O projeto está tecnicamente preparado para staging/homologação. Várias pendências do relatório foram resolvidas no código, mas venda aberta ainda depende de configuração real do cliente na Vercel, Redis/Upstash, Stripe, R2, Melhor Envio e bancos isolados.
 
+O estado e o checklist de evidências mais recentes estão em [docs/full-project-readiness-audit.md](./full-project-readiness-audit.md). A auditoria de 2026-06-04 permanece apenas como histórico.
+
 O desenvolvedor não tinha acesso direto à Vercel, Redis/Upstash, Stripe Dashboard e algumas credenciais do cliente. Por isso, a etapa final precisa ser executada pelo cliente ou por quem tenha acesso aos painéis.
 
 ## 2. O que foi corrigido
@@ -51,8 +53,10 @@ Nota: `WebSite/SearchAction` fica como melhoria futura quando houver uma página
 - Pedido pago de teste precisa aparecer no Admin.
 - Estoque/reserva precisa ser validado.
 - Expiração/cancelamento precisa liberar reserva.
+- A cron de liberação de reservas precisa ter execução comprovada.
 - Produtos ativos precisam ter peso e dimensões reais.
 - Produção online precisa passar no smoke público.
+- O cliente precisa autorizar formalmente a produção limitada e a venda aberta.
 
 ## 5. Como validar depois do deploy
 

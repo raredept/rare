@@ -54,7 +54,8 @@ Use estes documentos para entrega ao cliente e homologação:
 
 - [Checklist de variáveis da Vercel](docs/vercel-env-checklist.md)
 - [Handoff técnico do cliente](docs/client-handoff.md)
-- [Auditoria final de release](docs/final-release-audit.md)
+- [Auditoria atual de prontidão](docs/full-project-readiness-audit.md)
+- [Auditoria final de release de 2026-06-04 (histórico)](docs/final-release-audit.md)
 - [Checkout Stripe test-mode smoke](docs/checkout-smoke-test.md)
 - [Rate limit em produção](docs/rate-limit.md)
 
@@ -75,4 +76,4 @@ npm run checkout
 npm run checkout:smoke
 ```
 
-O procedimento completo de Stripe test mode fica em [docs/checkout-smoke-test.md](docs/checkout-smoke-test.md). Venda aberta só deve acontecer depois de Production estar configurada, Redis/R2/Melhor Envio estarem ativos, smoke público passar sem `FAIL` e o fluxo Stripe test mode comprovar pedido pago no Admin e reserva de estoque correta.
+O procedimento completo e canônico de Stripe test mode fica em [docs/checkout-smoke-test.md](docs/checkout-smoke-test.md). A evidência e o checklist atuais de prontidão ficam em [docs/full-project-readiness-audit.md](docs/full-project-readiness-audit.md). Venda aberta continua bloqueada até Redis/Upstash compartilhado estar ativo, o smoke Stripe test mode validar webhook assinado, pedido pago no Admin, estoque e reservas, a cron de liberação ser comprovada e o cliente autorizar formalmente o go-live.

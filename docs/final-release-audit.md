@@ -2,6 +2,9 @@
 
 Data desta consolidação: 2026-06-04.
 
+> Documento histórico. A referência atual de prontidão e o checklist de evidências
+> estão em [full-project-readiness-audit.md](./full-project-readiness-audit.md).
+
 Este relatório consolida o estado técnico atual da RARE para entrega ao cliente. Ele não substitui os guias operacionais detalhados; aponta para eles quando a execução depende de acesso a Vercel, Stripe, Redis/Upstash, Cloudflare R2, Melhor Envio ou credenciais do cliente.
 
 ## 1. Resumo executivo
