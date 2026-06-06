@@ -60,9 +60,9 @@ Recomendação: pronto para staging/homologação. Produção atual está públi
 
 ## 3. O que está OK
 
-- `main` está sincronizada com `origin/main` no commit `3d62e2e` (`Fix product zoom modal layering`).
+- `main` está limpa localmente e à frente de `origin/main` com commits pré-push de evidência operacional segura e documentação de readiness.
 - O repositório GitHub `raredept/rare` está público.
-- O projeto oficial Vercel `rare` concluiu o deploy desse commit.
+- O projeto oficial Vercel `rare` concluiu o deploy público anterior; após o push, precisa redeployar o commit pré-push atual.
 - Home, catálogo, categorias, produtos e páginas institucionais testadas respondem `200`.
 - Produto e categoria inexistentes respondem `404` real.
 - `/minha-conta`, `/admin` e `/admin/readiness` redirecionam para login sem sessão.
@@ -208,26 +208,23 @@ Nenhuma correção funcional de código foi identificada como P0 nesta auditoria
 
 ### Git
 
-Estado observado no início da auditoria, antes da atualização de higiene:
+Estado observado na revisão pré-push:
 
 ```text
 Branch: main
-HEAD: 3d62e2e Fix product zoom modal layering
-origin/main: 3d62e2e
-Commits locais não enviados: 0
-Worktree: 1 arquivo modificado e 1 relatório atual ainda não rastreado
+HEAD local: à frente de origin/main
+origin/main: 3d62e2e no início da revisão pré-push
+Commits locais não enviados: 2
+Worktree: limpo
 ```
 
-Arquivo modificado:
+Commits locais pendentes de push:
 
 ```text
-src/app/admin/(protected)/page.test.ts
-Classificação: revisado, aprovado e incluído na atualização de higiene.
-Risco de secret: não; valores são fixtures de teste.
-
-docs/full-project-readiness-audit.md
-Classificação: relatório atual revisado e incluído na atualização de higiene.
-Risco de secret: não; contém apenas nomes de variáveis, estados sanitizados e evidências públicas.
+Add safe readiness evidence migration
+Document pre-push readiness state
+Classificação: válido para push após validações finais.
+Risco de secret: não; contém nomes de variáveis, fixtures falsas e mensagens sanitizadas.
 ```
 
 ### Validações locais
@@ -324,18 +321,19 @@ configurationErrors: 0
 ### Deploy
 
 ```text
-Commit: 3d62e2e
-Vercel – rare: Deployment has completed
+Commit online antes do próximo push: origin/main atual (3d62e2e na revisão)
+Commits locais pré-push: evidência operacional segura e documentação de readiness
+Vercel – rare: deployment anterior concluído
 Vercel – rare-hjw3: Deployment has failed
-Domínio oficial raredept.com.br: online e servindo o commit atual
+Domínio oficial raredept.com.br: online; precisa validar novamente após push/redeploy
 ```
 
 ## 9. Auditoria por área
 
 ### Git/deploy
 
-- Branch sincronizada, sem commits locais pendentes de push.
-- Mudança local de teste foi revisada e aprovada na atualização de higiene.
+- Branch local limpa, com 1 commit pendente de push.
+- Mudanças de readiness/evidência foram revisadas, validadas e commitadas.
 - Projeto oficial está online.
 - Projeto secundário continua gerando ruído de CI/deploy.
 
