@@ -35,6 +35,9 @@ describe("ProductCard", () => {
     expect(html).toContain("/uploads/products/front.webp");
     expect(html).toContain("/uploads/products/back.webp");
     expect(html).toContain("store-product-hover-image");
+    expect(html).toContain('loading="lazy"');
+    expect(html).toContain('decoding="async"');
+    expect(html).not.toContain("srcSet=");
   });
 
   it("does not render hover media when the second sorted media is video", () => {
@@ -103,5 +106,31 @@ describe("ProductCard", () => {
     );
 
     expect(html).toContain("Sem imagem");
+  });
+
+  it("renders a real responsive srcSet when card variants are supplied", () => {
+    const html = renderToStaticMarkup(
+      createElement(ProductCard, {
+        product: {
+          ...baseProduct,
+          images: [
+            {
+              url: "/uploads/products/front-original.webp",
+              alt: "Frente",
+              variants: [
+                { url: "/uploads/products/front-320.webp", width: 320, height: 400 },
+                { url: "/uploads/products/front-640.webp", width: 640, height: 800 },
+                { url: "/uploads/products/front-1200.webp", width: 1200, height: 1500 },
+              ],
+            },
+          ],
+        },
+      }) as ReactElement,
+    );
+
+    expect(html).toContain('src="/uploads/products/front-640.webp"');
+    expect(html).toContain(
+      'srcSet="/uploads/products/front-320.webp 320w, /uploads/products/front-640.webp 640w, /uploads/products/front-1200.webp 1200w"',
+    );
   });
 });

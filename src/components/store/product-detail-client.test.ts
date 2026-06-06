@@ -99,6 +99,8 @@ describe("ProductDetailClient", () => {
     expect(html).toContain("motion-safe:md:group-hover:scale-[1.08]");
     expect(html).toContain('aria-label="Ampliar imagem do produto"');
     expect(html).toContain("md:inline-flex");
+    expect(html).toContain('loading="eager"');
+    expect(html).toContain('fetchPriority="high"');
     expect(html).not.toContain("absolute inset-2");
     expect(titleIndex).toBeGreaterThanOrEqual(0);
     expect(descriptionIndex).toBeGreaterThan(titleIndex);
@@ -157,5 +159,47 @@ describe("ProductDetailClient", () => {
     expect(html).toContain("controls");
     expect(html).not.toContain('aria-label="Ampliar imagem do produto"');
     expect(html).not.toContain("motion-safe:md:group-hover:scale-[1.08]");
+  });
+
+  it("uses responsive detail variants without replacing the original zoom source", () => {
+    const responsiveImage = {
+      url: "/uploads/camiseta-original.webp",
+      alt: "Camiseta RARE",
+      variants: [
+        { url: "/uploads/camiseta-640.webp", width: 640, height: 800 },
+        { url: "/uploads/camiseta-1200.webp", width: 1200, height: 1500 },
+      ],
+    };
+    const detailHtml = renderToStaticMarkup(
+      createElement(ProductDetailClient, {
+        product: {
+          ...product,
+          images: [responsiveImage],
+        },
+        productUrl: "https://raredept.com.br/produto/camiseta-rare",
+        whatsappNumber: "5511999999999",
+        whatsappMessage: "Tenho interesse.",
+      }) as ReactElement,
+    );
+    const zoomHtml = renderToStaticMarkup(
+      createElement(ProductImageZoomDialog, {
+        productTitle: "Camiseta RARE",
+        zoomedImage: responsiveImage,
+        zoomedImagePosition: 0,
+        zoomableImageCount: 1,
+        hasZoomNavigation: false,
+        closeRef: createRef<HTMLButtonElement>(),
+        onClose: vi.fn(),
+        onPrevious: vi.fn(),
+        onNext: vi.fn(),
+      }) as ReactElement,
+    );
+
+    expect(detailHtml).toContain('src="/uploads/camiseta-1200.webp"');
+    expect(detailHtml).toContain(
+      'srcSet="/uploads/camiseta-640.webp 640w, /uploads/camiseta-1200.webp 1200w"',
+    );
+    expect(zoomHtml).toContain('src="/uploads/camiseta-original.webp"');
+    expect(zoomHtml).not.toContain("srcSet=");
   });
 });

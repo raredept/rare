@@ -1,25 +1,29 @@
 "use client";
 
 import { useState } from "react";
+import { getProductMediaRenderPlan, type ProductMediaAsset } from "@/lib/product-media";
 
 type ProductCardHoverImageProps = {
-  src: string;
+  media: ProductMediaAsset;
 };
 
-export function ProductCardHoverImage({ src }: ProductCardHoverImageProps) {
+export function ProductCardHoverImage({ media }: ProductCardHoverImageProps) {
   const [hidden, setHidden] = useState(false);
+  const renderPlan = getProductMediaRenderPlan(media, "card");
 
-  if (hidden) return null;
+  if (hidden || renderPlan.renderAs !== "img") return null;
 
   return (
     <img
-      src={src}
+      src={renderPlan.src}
+      srcSet={renderPlan.srcSet}
       alt=""
-      width={640}
-      height={800}
-      sizes="(max-width: 767px) 50vw, (max-width: 1279px) 33vw, 20vw"
-      loading="lazy"
-      decoding="async"
+      width={renderPlan.width}
+      height={renderPlan.height}
+      sizes={renderPlan.sizes}
+      loading={renderPlan.loading}
+      decoding={renderPlan.decoding}
+      fetchPriority={renderPlan.fetchPriority}
       onError={() => setHidden(true)}
       className="store-product-hover-image pointer-events-none absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-200 ease-out group-hover:opacity-100 group-focus-within:opacity-100"
     />

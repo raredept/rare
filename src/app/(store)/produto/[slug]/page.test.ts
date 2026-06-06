@@ -44,9 +44,13 @@ vi.mock("@/lib/env", () => ({
   getAppUrl: mocks.getAppUrl,
 }));
 
-vi.mock("@/lib/product-media", () => ({
-  isProductVideoUrl: mocks.isProductVideoUrl,
-}));
+vi.mock("@/lib/product-media", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/product-media")>();
+  return {
+    ...actual,
+    isProductVideoUrl: mocks.isProductVideoUrl,
+  };
+});
 
 vi.mock("@/lib/settings", () => ({
   getStoreSettings: mocks.getStoreSettings,

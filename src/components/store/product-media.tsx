@@ -2,46 +2,46 @@
 
 import { useState } from "react";
 import { ProductMediaPlaceholder } from "@/components/store/product-media-placeholder";
-import { getProductMediaTypeFromUrl } from "@/lib/product-media";
+import {
+  getProductMediaRenderPlan,
+  type ProductMediaAsset,
+  type ProductMediaContext,
+} from "@/lib/product-media";
 
 type ProductMediaProps = {
-  url: string;
+  media: ProductMediaAsset;
   alt: string;
+  context: ProductMediaContext;
   className?: string;
   controls?: boolean;
-  height?: number;
-  loading?: "eager" | "lazy";
   placeholderLabel?: string;
   poster?: string;
   preload?: "none" | "metadata" | "auto";
-  sizes?: string;
-  width?: number;
+  priority?: boolean;
 };
 
 export function ProductMedia({
-  url,
+  media,
   alt,
+  context,
   className = "",
   controls = false,
-  height,
-  loading = "lazy",
   placeholderLabel = "Mídia indisponível",
   poster,
   preload,
-  sizes,
-  width,
+  priority,
 }: ProductMediaProps) {
   const [failed, setFailed] = useState(false);
-  const mediaType = getProductMediaTypeFromUrl(url);
+  const renderPlan = getProductMediaRenderPlan(media, context, { priority });
 
-  if (failed) {
+  if (failed || renderPlan.renderAs === "placeholder") {
     return <ProductMediaPlaceholder label={placeholderLabel} className={className} />;
   }
 
-  if (mediaType === "video") {
+  if (renderPlan.renderAs === "video") {
     return (
       <video
-        src={url}
+        src={renderPlan.src}
         aria-label={alt}
         className={className}
         controls={controls}
@@ -57,13 +57,15 @@ export function ProductMedia({
 
   return (
     <img
-      src={url}
+      src={renderPlan.src}
+      srcSet={renderPlan.srcSet}
       alt={alt}
-      width={width}
-      height={height}
-      sizes={sizes}
-      loading={loading}
-      decoding="async"
+      width={renderPlan.width}
+      height={renderPlan.height}
+      sizes={renderPlan.sizes}
+      loading={renderPlan.loading}
+      decoding={renderPlan.decoding}
+      fetchPriority={renderPlan.fetchPriority}
       className={className}
       onError={() => setFailed(true)}
     />

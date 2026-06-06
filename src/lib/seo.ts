@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { isSafeProductOgImageUrl } from "@/lib/product-media";
 
 export const RARE_SITE_NAME = "RARE";
 export const RARE_TITLE_TEMPLATE = "%s | RARE";
@@ -7,7 +8,6 @@ export const RARE_DEFAULT_SITE_URL = "https://raredept.com.br";
 export const RARE_LOCAL_SITE_URL = "http://localhost:3000";
 export const RARE_DEFAULT_SOCIAL_IMAGE_PATH = "/brand/rare-logo.png";
 
-const staticSocialImageExtensions = new Set(["jpg", "jpeg", "png", "webp", "avif"]);
 const sensitiveMetadataPatterns = [
   /sk_(?:live|test)_[A-Za-z0-9_]+/gi,
   /whsec_[A-Za-z0-9_]+/gi,
@@ -17,18 +17,6 @@ const sensitiveMetadataPatterns = [
   /\bSECRET_ACCESS_KEY\b/gi,
   /\bBearer\s+[A-Za-z0-9._~+/-]+/gi,
 ];
-const unsafeImageSignals = [
-  "token",
-  "signature",
-  "signed",
-  "private",
-  "secret",
-  "x-amz-",
-  "expires",
-  "credential",
-  "policy",
-];
-
 type EnvLike = Record<string, string | undefined>;
 
 export type SeoImage = {
@@ -139,22 +127,8 @@ export function absoluteUrl(pathOrUrl: string, env: EnvLike = process.env) {
   return `${url.origin}${url.pathname}`;
 }
 
-function getPathExtension(value: string) {
-  const pathname = (() => {
-    try {
-      return new URL(value, RARE_DEFAULT_SITE_URL).pathname;
-    } catch {
-      return value.split(/[?#]/, 1)[0] ?? "";
-    }
-  })();
-  const fileName = pathname.split("/").pop() ?? "";
-  const extension = fileName.includes(".") ? fileName.split(".").pop() : "";
-  return extension?.toLowerCase() ?? "";
-}
-
 function hasUnsafeImageSignal(value: string) {
-  const normalized = value.toLowerCase();
-  return unsafeImageSignals.some((signal) => normalized.includes(signal)) || sensitiveMetadataPatterns.some((pattern) => {
+  return sensitiveMetadataPatterns.some((pattern) => {
     pattern.lastIndex = 0;
     return pattern.test(value);
   });
@@ -163,9 +137,8 @@ function hasUnsafeImageSignal(value: string) {
 export function isSafePublicSocialImageUrl(value: string | null | undefined, env: EnvLike = process.env) {
   const rawValue = clean(value);
   if (!rawValue) return false;
-  if (rawValue.includes("?") || rawValue.includes("#")) return false;
+  if (!isSafeProductOgImageUrl(rawValue)) return false;
   if (hasUnsafeImageSignal(rawValue)) return false;
-  if (!staticSocialImageExtensions.has(getPathExtension(rawValue))) return false;
 
   try {
     const url = new URL(rawValue, getPublicBaseUrl(env));
