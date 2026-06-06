@@ -272,6 +272,23 @@ model StoreSettings {
   updatedAt                    DateTime @updatedAt
 }
 
+model OperationalEvidence {
+  id                String   @id @default(cuid())
+  key               String
+  status            String   @default("pending")
+  environment       String   @default("staging")
+  checkedAt         DateTime?
+  checkedByLabel    String?
+  notes             String?
+  evidenceReference String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([key, environment])
+  @@index([status, environment])
+  @@index([updatedAt])
+}
+
 model HomeBannerSlide {
   id             String   @id @default(cuid())
   eyebrow        String?

@@ -4,6 +4,10 @@ import {
   type CatalogIssueCategory,
   type CatalogIssueProduct,
 } from "@/lib/admin-catalog-issues";
+import {
+  buildOperationalEvidenceReport,
+  type StoredOperationalEvidence,
+} from "@/lib/admin-operational-evidence";
 import { isCheckoutEnabled, validateEnvironment } from "@/lib/env";
 import { buildMediaVariantAuditReport, type MediaVariantAuditEntry } from "@/lib/media-variant-audit";
 import { getRateLimitStatus } from "@/lib/rate-limit-config";
@@ -22,6 +26,7 @@ export type ReadinessArea =
   | "rate-limit"
   | "storage"
   | "media"
+  | "evidence"
   | "shipping"
   | "catalog"
   | "seo"
@@ -85,6 +90,7 @@ export type BuildAdminReadinessInput = {
   settings: ReadinessStoreSettings | null;
   documentation?: Partial<ReadinessDocumentationInput>;
   mediaAuditEntries?: MediaVariantAuditEntry[];
+  operationalEvidenceRows?: StoredOperationalEvidence[];
 };
 
 export const readinessAreaLabels: Record<ReadinessArea, string> = {
@@ -96,6 +102,7 @@ export const readinessAreaLabels: Record<ReadinessArea, string> = {
   "rate-limit": "Rate limit",
   storage: "Storage",
   media: "Midia",
+  evidence: "Evidencias",
   shipping: "Frete",
   catalog: "Catalogo",
   seo: "SEO",
@@ -491,6 +498,41 @@ function addMediaItems(items: ReadinessItem[], entries: MediaVariantAuditEntry[]
   });
 }
 
+function addOperationalEvidenceItems(items: ReadinessItem[], rows: StoredOperationalEvidence[] | undefined) {
+  const report = buildOperationalEvidenceReport(rows ?? []);
+
+  if (!report.openSalesReady) {
+    addItem(items, {
+      id: "operational-evidence-required",
+      area: "evidence",
+      title: "Homologacao operacional pendente",
+      severity: "blocked",
+      description: `${report.openSalesBlockedCount} evidencia(s) critica(s) ainda nao foram marcadas como aprovadas ou nao aplicaveis.`,
+      impact: "Configuracao presente nao comprova que Stripe, webhook, estoque, upload, cron e autorizacoes foram validados na operacao real.",
+      recommendedAction: "Registrar evidencias manuais e sanitizadas em /admin/readiness antes de liberar venda aberta.",
+      docsPath: "docs/full-project-readiness-audit.md",
+      blocksOpenSales: true,
+      blocksStaging: false,
+      dependsOnClient: true,
+    });
+    return;
+  }
+
+  addItem(items, {
+    id: "operational-evidence-required",
+    area: "evidence",
+    title: "Homologacao operacional registrada",
+    severity: "ok",
+    description: "Todas as evidencias criticas foram marcadas como aprovadas ou nao aplicaveis.",
+    impact: "O Admin diferencia configuracao presente de homologacao operacional registrada.",
+    recommendedAction: "Manter logs reais e evidencias externas arquivados fora do Admin conforme politica do cliente.",
+    docsPath: "docs/full-project-readiness-audit.md",
+    blocksOpenSales: false,
+    blocksStaging: false,
+    dependsOnClient: false,
+  });
+}
+
 function addShippingItems(items: ReadinessItem[], env: Record<string, string | undefined>, settings: ReadinessStoreSettings | null) {
   const production = isProductionRuntime(env);
   const envProvider = normalizeShippingProvider(clean(env.SHIPPING_PROVIDER));
@@ -737,6 +779,7 @@ export function buildAdminReadiness(input: BuildAdminReadinessInput): ReadinessR
   addCheckoutItems(items, env);
   addStorageItems(items, env);
   addMediaItems(items, input.mediaAuditEntries);
+  addOperationalEvidenceItems(items, input.operationalEvidenceRows);
   addShippingItems(items, env, input.settings);
   addCatalogItems(items, input.products, input.categories);
   addSeoAndSecurityItems(items);

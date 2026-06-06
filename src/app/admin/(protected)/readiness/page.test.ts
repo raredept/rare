@@ -16,6 +16,9 @@ const mocks = vi.hoisted(() => ({
     homeBannerSlide: {
       findMany: vi.fn(),
     },
+    operationalEvidence: {
+      findMany: vi.fn(),
+    },
   },
 }));
 
@@ -95,6 +98,30 @@ beforeEach(() => {
       mobileImageUrl: null,
     },
   ]);
+  mocks.prisma.operationalEvidence.findMany.mockResolvedValue([
+    {
+      key: "stripe_test_payment",
+      status: "passed",
+      environment: "staging",
+      checkedAt: new Date("2026-06-06T12:00:00.000Z"),
+      checkedByLabel: "Equipe RARE",
+      notes: "Pagamento test mode aprovado.",
+      evidenceReference: "Checklist staging",
+      createdAt: new Date("2026-06-06T12:00:00.000Z"),
+      updatedAt: new Date("2026-06-06T12:00:00.000Z"),
+    },
+    {
+      key: "stripe_webhook_signed",
+      status: "passed",
+      environment: "staging",
+      checkedAt: new Date("2026-06-06T12:00:00.000Z"),
+      checkedByLabel: "Equipe RARE",
+      notes: "Nao renderizar sk_test_value_that_must_not_render",
+      evidenceReference: "Checklist staging",
+      createdAt: new Date("2026-06-06T12:00:00.000Z"),
+      updatedAt: new Date("2026-06-06T12:00:00.000Z"),
+    },
+  ]);
 });
 
 afterEach(() => {
@@ -118,11 +145,16 @@ describe("AdminReadinessPage", () => {
     expect(html).toContain('href="/admin/categories/cat-empty/edit"');
     expect(html).toContain("Midias legadas sem variantes otimizadas");
     expect(html).toContain("npm run media:variants:audit");
+    expect(html).toContain("Evidências operacionais");
+    expect(html).toContain("Configuração presente não significa homologação concluída");
+    expect(html).toContain("Stripe test payment aprovado");
+    expect(html).toContain("Homologacao operacional pendente");
     expect(html).not.toContain(process.env.STRIPE_SECRET_KEY);
     expect(html).not.toContain(process.env.STRIPE_WEBHOOK_SECRET);
     expect(html).not.toContain(process.env.DATABASE_URL);
     expect(html).not.toContain(process.env.UPSTASH_REDIS_REST_TOKEN);
     expect(html).not.toContain(process.env.R2_SECRET_ACCESS_KEY);
     expect(html).not.toContain(process.env.MELHOR_ENVIO_TOKEN);
+    expect(html).not.toContain("sk_test_value_that_must_not_render");
   });
 });

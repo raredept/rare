@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildAdminReadiness, type BuildAdminReadinessInput } from "@/lib/admin-readiness";
+import { expectedOperationalEvidence, type StoredOperationalEvidence } from "@/lib/admin-operational-evidence";
 import type { CatalogIssueCategory, CatalogIssueProduct } from "@/lib/admin-catalog-issues";
 
 const readyEnv = {
@@ -53,6 +54,19 @@ function category(overrides: Partial<CatalogIssueCategory> = {}): CatalogIssueCa
 }
 
 function build(overrides: Partial<BuildAdminReadinessInput> = {}) {
+  const now = new Date("2026-06-06T12:00:00.000Z");
+  const passedEvidence: StoredOperationalEvidence[] = expectedOperationalEvidence.map((evidence) => ({
+    key: evidence.key,
+    status: "passed",
+    environment: evidence.defaultEnvironment,
+    checkedAt: now,
+    checkedByLabel: "Equipe RARE",
+    notes: "Evidencia sanitizada.",
+    evidenceReference: "Checklist interno",
+    createdAt: now,
+    updatedAt: now,
+  }));
+
   return buildAdminReadiness({
     env: readyEnv,
     settings: {
@@ -70,6 +84,7 @@ function build(overrides: Partial<BuildAdminReadinessInput> = {}) {
       smokeScriptExists: true,
       checkoutSmokeScriptExists: true,
     },
+    operationalEvidenceRows: passedEvidence,
     ...overrides,
   });
 }
@@ -170,6 +185,24 @@ describe("admin readiness", () => {
 
     expect(item).toEqual(expect.objectContaining({ severity: "warning", blocksOpenSales: false }));
     expect(report.finalStatus).toBe("ready_for_limited_production");
+  });
+
+  it("blocks open sales when operational evidence is missing even if configuration is present", () => {
+    const report = build({
+      operationalEvidenceRows: [],
+    });
+    const item = report.items.find((current) => current.id === "operational-evidence-required");
+
+    expect(item).toEqual(expect.objectContaining({ severity: "blocked", blocksOpenSales: true, blocksStaging: false }));
+    expect(report.finalStatus).toBe("blocked_for_open_sales");
+  });
+
+  it("removes the evidence blocker when Stripe evidence is passed with the rest of the checklist", () => {
+    const report = build();
+    const item = report.items.find((current) => current.id === "operational-evidence-required");
+
+    expect(item).toEqual(expect.objectContaining({ severity: "ok", blocksOpenSales: false }));
+    expect(report.openSalesReady).toBe(true);
   });
 
   it("does not include secret values or sensitive env names in the sanitized report", () => {

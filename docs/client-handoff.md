@@ -26,7 +26,7 @@ O desenvolvedor não tinha acesso direto à Vercel, Redis/Upstash, Stripe Dashbo
 | Catálogo/Admin | Admin bloqueia produto ativo sem peso/dimensões. | Preparado no código | Tentar ativar produto incompleto no Admin. |
 | Smoke público | Smoke público local criado. | Preparado no código | `npm run smoke -- https://raredept.com.br`. |
 | Pendências do catálogo | Admin mostra pendências de catálogo. | Preparado no código | Abrir painel Admin em staging. |
-| Prontidão de venda | Admin mostra uma área somente leitura com bloqueios, warnings e ações para go-live. | Preparado no código | Abrir `/admin/readiness` no Admin. |
+| Prontidão de venda | Admin mostra bloqueios, warnings, ações e evidências operacionais manuais/sanitizadas para go-live. | Preparado no código | Abrir `/admin/readiness` no Admin e preencher evidências sem secrets. |
 
 Nota: `WebSite/SearchAction` fica como melhoria futura quando houver uma página de busca canônica estável. Um domínio/CDN dedicado para imagens sociais também pode ser avaliado depois, se o cliente quiser controlar previews por campanha.
 
@@ -48,6 +48,7 @@ Nota de mídia: `next/image` não foi aplicado amplamente porque o catálogo ace
 ## 4. O que ainda bloqueia venda aberta
 
 - O Admin deve mostrar `/admin/readiness` sem bloqueios de venda aberta.
+- As evidências operacionais críticas em `/admin/readiness` devem estar aprovadas ou justificadas como não aplicáveis.
 - Produção precisa estar atualizada com os commits mais recentes.
 - Redis/Upstash precisa estar configurado e compartilhado.
 - `/api/health` precisa ficar sem erro crítico.
@@ -59,6 +60,8 @@ Nota de mídia: `next/image` não foi aplicado amplamente porque o catálogo ace
 - Produtos ativos precisam ter peso e dimensões reais.
 - Produção online precisa passar no smoke público.
 - O cliente precisa autorizar formalmente a produção limitada e a venda aberta.
+
+Nota de evidências: `/admin/readiness` diferencia configuração presente de homologação comprovada. Os registros são manuais e sanitizados; servem como checklist operacional, não substituem logs reais da Vercel, Stripe, Redis ou R2. Não salvar secrets, tokens, URLs assinadas, cartão, CPF real, e-mail real, payload Stripe/webhook ou dados pessoais.
 
 ## 5. Como validar depois do deploy
 
@@ -110,6 +113,7 @@ Depois do guard aprovado, execute o fluxo manual em Stripe test mode, com banco 
 - [ ] Pedido pago test mode visível no Admin.
 - [ ] Reserva de estoque baixa ao pagar.
 - [ ] Reserva expirada/cancelada é liberada.
+- [ ] Evidências operacionais críticas registradas no Admin sem dados sensíveis.
 - [ ] Smoke público online sem `FAIL`.
 - [ ] Cliente autoriza produção limitada.
 - [ ] `CHECKOUT_ENABLED=true` aplicado em Production somente após aprovação.
