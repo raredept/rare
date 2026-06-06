@@ -13,8 +13,9 @@ Restrições respeitadas nesta auditoria:
 - Nenhum cron foi acionado.
 - Nenhum upload real foi feito.
 - Nenhuma env real foi alterada.
-- Nenhuma migration ou alteração de schema foi criada.
-- Nenhuma alteração de banco foi executada.
+- Nenhuma migration destrutiva foi criada.
+- A migration aditiva `20260606182000_operational_evidence` existe para a tabela `OperationalEvidence`.
+- Nenhuma alteração de banco de produção foi executada.
 - Nenhum secret foi exibido.
 
 ## Atualização de higiene do repositório
@@ -26,12 +27,14 @@ Em 2026-06-06, as pendências locais de código e documentação desta auditoria
 - `docs/final-release-audit.md` foi marcado como histórico e aponta para este relatório.
 - Este relatório permanece como checklist atual de evidências; não foi criado `docs/production-evidence-checklist.md` para evitar uma terceira fonte duplicada.
 - `/admin/readiness` passou a registrar evidências operacionais manuais e sanitizadas em tabela aditiva, diferenciando configuração presente de homologação comprovada.
+- `/admin/readiness` degrada com aviso sanitizado se a tabela `OperationalEvidence` ainda não existir no ambiente, bloqueando venda aberta até `npx prisma migrate deploy`.
+- `docs/deploy-with-migrations.md` documenta a ordem segura de deploy com migrations.
 
 Esses ajustes não alteram os bloqueadores operacionais P0 descritos abaixo.
 
 ## 1. Resumo executivo
 
-O site público está funcional e a base de código está tecnicamente sólida: lint, typecheck, 429 testes, build, Prisma, migrations, smoke público, SEO essencial, rotas, R2 público e cotação Melhor Envio passaram nas validações possíveis sem credenciais administrativas.
+O site público está funcional e a base de código está tecnicamente sólida: lint, typecheck, 434 testes, build, Prisma, migrations, smoke público, SEO essencial, rotas, R2 público e cotação Melhor Envio passaram nas validações possíveis sem credenciais administrativas.
 
 O projeto ainda não está 100% pronto para venda aberta.
 
@@ -71,7 +74,7 @@ Recomendação: pronto para staging/homologação. Produção atual está públi
 - `/entrar` e `/cadastro` usam `noindex, nofollow`.
 - Headers de segurança estão presentes, incluindo CSP Report-Only.
 - `/api/health` é sanitizado e não expõe secrets.
-- Banco local conecta e as 6 migrations estão aplicadas.
+- Banco local conecta e as migrations estão aplicadas.
 - Checkout exige cliente autenticado e CPF válido.
 - Preço, estoque, frete e total são recalculados no backend.
 - Reserva e baixa de estoque usam transações e movimentos de inventário.
@@ -159,6 +162,7 @@ Recomendação: pronto para staging/homologação. Produção atual está públi
 - O check do commit está `1/2`: `Vercel – rare` passou; `Vercel – rare-hjw3` falhou.
 - Cron diária é apenas uma rede de segurança lenta para reservas; depende de webhook confiável.
 - O Admin readiness avalia presença/coerência de configuração e agora também registra evidências operacionais manuais/sanitizadas; ainda assim, os registros não substituem logs reais de Stripe, Vercel, Redis ou R2.
+- Se a migration `OperationalEvidence` ainda não tiver sido aplicada em um ambiente, `/admin/readiness` deve carregar com warning e bloquear venda aberta, sem expor stacktrace ou SQL.
 - A imagem principal antiga de `Supreme Bag` continua sendo um PNG de aproximadamente 2,86 MB até ser substituída ou receber variantes reais.
 - `/admin/readiness` agora também pode sinalizar mídia legada sem variantes como warning de performance, sem bloquear venda aberta sozinho.
 - `ProductMedia` usa um plano central por contexto, dimensões, loading, decoding e prioridade corretos. Novos uploads server-routed elegíveis persistem thumbnail 640 e medium 1200; URLs antigas continuam usando o original, sem `srcSet` falso.
@@ -232,14 +236,14 @@ Risco de secret: não; contém apenas nomes de variáveis, estados sanitizados e
 | --- | --- |
 | `npm run lint` | OK |
 | `npm run typecheck` | OK |
-| `npm test` | OK — 77 arquivos, 429 testes |
+| `npm test` | OK — 77 arquivos, 434 testes |
 | `npm run build` | OK |
 | `git diff --check` | OK; somente aviso LF/CRLF |
 | `npm run media:variants:audit` | OK dry-run — 10 mídias locais, 0 com variantes, 5 candidatas a reupload, 10 sem tamanho conhecido, sem rede externa |
 | `npm test -- media-variant image-variant storage` | OK — 3 arquivos, 35 testes |
-| `npm test -- operational-evidence admin-readiness readiness` | OK — 4 arquivos, 21 testes |
+| `npm test -- operational-evidence admin-readiness readiness` | OK — 4 arquivos, 26 testes |
 | `npx prisma validate` | OK |
-| `npx prisma migrate status` | OK — 6 migrations, schema atualizado |
+| `npx prisma migrate status` | OK — schema atualizado no banco local |
 | `npm run db:check` | OK com warning de shadow DB |
 | `npm run app:check` | OK sem erro bloqueante, com warnings locais |
 | `npm run shipping:dimensions:audit` | 10/10 produtos locais sem dimensões |
@@ -408,6 +412,7 @@ Domínio oficial raredept.com.br: online e servindo o commit atual
 - Checkout é somente guard.
 - Auditoria de variantes de mídia é read-only e não usa rede externa por padrão.
 - Evidências operacionais no Admin são submissões manuais protegidas por sessão Admin e rejeitam padrões de secrets/dados sensíveis em notas.
+- Deploy com migrations está documentado em `docs/deploy-with-migrations.md`; produção deve usar `npx prisma migrate deploy`, não `prisma migrate dev`.
 - Scripts mutáveis são explicitamente nomeados e não rodam por padrão.
 - Documentação principal é coerente; há duplicação parcial no checklist Stripe da raiz.
 
@@ -415,8 +420,9 @@ Domínio oficial raredept.com.br: online e servindo o commit atual
 
 - Schema válido e migrations aplicadas.
 - Banco principal local íntegro.
+- `OperationalEvidence` é aditiva e possui fallback defensivo no Admin enquanto a tabela estiver ausente em algum ambiente.
 - Shadow DB precisa limpeza antes de migrations futuras.
-- Nenhuma alteração de banco foi feita nesta auditoria.
+- Nenhuma alteração de banco de produção foi feita nesta auditoria.
 
 ### Cron/reservas
 
@@ -432,6 +438,7 @@ Domínio oficial raredept.com.br: online e servindo o commit atual
 | Prioridade | Item | Por que importa | Evidência | Ação | Responsável | Como validar | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | P0 | Redis/Upstash em Production | Rate limit precisa ser compartilhado entre instâncias. | Health: `memory`, `shared=false`. | Configurar Redis REST e redeploy. | Cliente | `/api/health` com `redis`, `shared=true`. | Bloqueado |
+| P0 | Migration `OperationalEvidence` por ambiente | Sem a tabela, não é possível registrar evidências de go-live. | Migration aplicada só no banco local; produção depende de operador com acesso ao banco. | Rodar `npx prisma migrate deploy` no banco correto antes ou junto do deploy. | Cliente/DevOps | `npx prisma migrate status` e `/admin/readiness` sem warning de tabela ausente. | Pendente por ambiente |
 | P0 | Stripe test-mode ponta a ponta | Testes unitários não provam o fluxo externo. | Sem evidência de sessão, webhook, pedido pago e estoque. | Executar runbook em staging isolado. | Ambos | Pedido pago e movimentos `reserve`, `sale`, `release`. | Pendente externo |
 | P0 | Decisão sobre checkout em Production | Checkout está ativo antes da aprovação documentada. | Health: `checkoutEnabled=true`. | Desabilitar ou autorizar conscientemente. | Cliente | Health e checklist aprovados. | Pendente decisão |
 | P0 | Reserva e cron | Estoque pode ficar preso se webhook falhar. | Cron diária sem logs acessíveis. | Validar cron e aceitar/melhorar frequência. | Ambos | Log de execução e movimento `release`. | Pendente externo |
@@ -445,6 +452,7 @@ Domínio oficial raredept.com.br: online e servindo o commit atual
 | P3 | CSP enforcement e observabilidade | Report-Only não bloqueia violações. | Header atual é Report-Only. | Coletar relatórios e ativar enforcement gradualmente. | Ambos | CSP sem regressões e logs monitorados. | Futuro |
 
 - [ ] Redis/Upstash production
+- [ ] Migration `OperationalEvidence` aplicada no banco correto
 - [ ] Health sem warnings críticos
 - [ ] Checkout mode decidido
 - [ ] Stripe test-mode smoke aprovado
@@ -467,17 +475,18 @@ Domínio oficial raredept.com.br: online e servindo o commit atual
 Ordem exata recomendada:
 
 1. Cliente decide se checkout deve permanecer ativo agora.
-2. Cliente configura Redis/Upstash em Production.
-3. Dev valida health e smoke público após redeploy.
-4. Cliente prepara staging isolado com Stripe test e webhook test.
-5. Ambos executam o checkout smoke completo.
-6. Ambos validam pedido pago, estoque, reserva e liberação.
-7. Cliente valida upload Admin/R2 autenticado.
-8. Cliente valida logs da cron e aceita a frequência diária ou altera plano/agendador.
-9. Cliente resolve `rare-hjw3`.
-10. Dev repete lint, typecheck, testes, build e smoke público.
-11. Cliente autoriza produção limitada.
-12. Após monitoramento sem incidentes, cliente autoriza venda aberta.
+2. DevOps aplica `npx prisma migrate deploy` no banco correto.
+3. Cliente configura Redis/Upstash em Production.
+4. Dev valida health, `/admin/readiness` e smoke público após redeploy.
+5. Cliente prepara staging isolado com Stripe test e webhook test.
+6. Ambos executam o checkout smoke completo.
+7. Ambos validam pedido pago, estoque, reserva e liberação.
+8. Cliente valida upload Admin/R2 autenticado.
+9. Cliente valida logs da cron e aceita a frequência diária ou altera plano/agendador.
+10. Cliente resolve `rare-hjw3`.
+11. Dev repete lint, typecheck, testes, build e smoke público.
+12. Cliente autoriza produção limitada.
+13. Após monitoramento sem incidentes, cliente autoriza venda aberta.
 
 ## 11. Recomendação final
 

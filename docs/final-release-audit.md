@@ -4,6 +4,7 @@ Data desta consolidação: 2026-06-04.
 
 > Documento histórico. A referência atual de prontidão e o checklist de evidências
 > estão em [full-project-readiness-audit.md](./full-project-readiness-audit.md).
+> Para releases com migrations, use também [deploy-with-migrations.md](./deploy-with-migrations.md).
 
 Este relatório consolida o estado técnico atual da RARE para entrega ao cliente. Ele não substitui os guias operacionais detalhados; aponta para eles quando a execução depende de acesso a Vercel, Stripe, Redis/Upstash, Cloudflare R2, Melhor Envio ou credenciais do cliente.
 
@@ -46,6 +47,8 @@ Fora do escopo desta auditoria:
 - Alteração de banco de produção.
 - Acesso à Vercel API.
 
+Atualização posterior: a versão de evidências operacionais adiciona a migration aditiva `20260606182000_operational_evidence`. Ela deve ser aplicada com `npx prisma migrate deploy` no banco correto antes de registrar evidências em produção; se a tabela ainda não existir, `/admin/readiness` degrada com aviso sanitizado e mantém venda aberta bloqueada.
+
 ## 3. Melhorias implementadas
 
 | Área | Implementação | Arquivos principais | Status | Como validar |
@@ -65,6 +68,7 @@ Fora do escopo desta auditoria:
 | Produto ativo exige peso/dimensões | Admin bloqueia ativação de produto incompleto para frete real. | `src/lib/admin-catalog-issues.ts`, telas Admin de produto/catálogo | Preparado no código | Tentar ativar produto incompleto no Admin staging |
 | Pendências do catálogo no Admin | Admin mostra problemas de estoque, variação, mídia, dimensões e categorias vazias. | `src/lib/admin-catalog-issues.ts`, Admin dashboard | Preparado no código | Abrir Admin e revisar pendências |
 | Prontidão de Venda | `/admin/readiness` consolida bloqueios, warnings, dependências do cliente e ações. | `src/lib/admin-readiness.ts`, `src/app/admin/(protected)/readiness/page.tsx` | Preparado no código | Abrir `/admin/readiness` em staging |
+| Migration de evidências | Release atual adiciona tabela aditiva `OperationalEvidence` para homologação operacional manual. | `prisma/migrations/20260606182000_operational_evidence/migration.sql`, `docs/deploy-with-migrations.md` | Requer migrate deploy por ambiente | `npx prisma migrate status` e `npx prisma migrate deploy` |
 | Documentação de Vercel/handoff | Guias operacionais para envs, Redis, Stripe, smoke e handoff. | `docs/vercel-env-checklist.md`, `docs/client-handoff.md`, `docs/checkout-smoke-test.md`, `docs/rate-limit.md` | Preparado no código | Seguir checklist antes de liberar venda |
 
 ## 4. Validações executadas
@@ -73,6 +77,7 @@ Comandos locais esperados antes de qualquer release:
 
 ```powershell
 npm run lint
+npx prisma migrate status
 npm run typecheck
 npm test
 npm run build
@@ -137,6 +142,7 @@ Bloqueios atuais:
 - Estoque e reserva precisam ser validados no fluxo real de checkout test-mode.
 - Cliente precisa decidir se `CHECKOUT_ENABLED` fica ativo em Production antes da homologação.
 - Produção precisa ser revalidada após cada redeploy ou alteração de env.
+- Releases com migrations precisam de `npx prisma migrate deploy` no banco correto; não usar `prisma migrate dev` em produção.
 
 Venda aberta não deve ser liberada apenas com build/test/smoke público. A evidência mínima de checkout precisa incluir Stripe test mode, webhook assinado, pedido pago no Admin e estoque/reserva corretos.
 
@@ -154,6 +160,7 @@ Venda aberta não deve ser liberada apenas com build/test/smoke público. A evid
 
 - [ ] Subir todos os commits para `origin/main`.
 - [ ] Aguardar deploy da Vercel.
+- [ ] Aplicar migrations pendentes com `npx prisma migrate deploy` no banco correto.
 - [ ] Configurar `RATE_LIMIT_DRIVER=redis`.
 - [ ] Configurar `UPSTASH_REDIS_REST_URL`.
 - [ ] Configurar `UPSTASH_REDIS_REST_TOKEN`.
@@ -228,6 +235,7 @@ Se o guard bloquear por falta de envs seguras, o comportamento está correto. Co
 ## 12. Links úteis
 
 - [Checklist de variáveis da Vercel](./vercel-env-checklist.md)
+- [Deploy com migrations](./deploy-with-migrations.md)
 - [Handoff técnico do cliente](./client-handoff.md)
 - [Checkout Stripe test-mode smoke](./checkout-smoke-test.md)
 - [Rate limit em produção](./rate-limit.md)

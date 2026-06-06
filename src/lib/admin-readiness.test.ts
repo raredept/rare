@@ -197,6 +197,18 @@ describe("admin readiness", () => {
     expect(report.finalStatus).toBe("blocked_for_open_sales");
   });
 
+  it("blocks open sales when operational evidence storage is not migrated", () => {
+    const report = build({
+      operationalEvidenceRows: [],
+      operationalEvidenceStorageAvailable: false,
+    });
+    const item = report.items.find((current) => current.id === "operational-evidence-storage");
+
+    expect(item).toEqual(expect.objectContaining({ severity: "blocked", blocksOpenSales: true, blocksStaging: false }));
+    expect(item?.description).toContain("Tabela de evidências ainda não aplicada");
+    expect(report.finalStatus).toBe("blocked_for_open_sales");
+  });
+
   it("removes the evidence blocker when Stripe evidence is passed with the rest of the checklist", () => {
     const report = build();
     const item = report.items.find((current) => current.id === "operational-evidence-required");

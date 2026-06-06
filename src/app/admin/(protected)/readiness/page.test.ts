@@ -157,4 +157,23 @@ describe("AdminReadinessPage", () => {
     expect(html).not.toContain(process.env.MELHOR_ENVIO_TOKEN);
     expect(html).not.toContain("sk_test_value_that_must_not_render");
   });
+
+  it("renders a sanitized fallback when operational evidence table is not migrated", async () => {
+    mocks.prisma.operationalEvidence.findMany.mockRejectedValueOnce({
+      code: "P2021",
+      message: 'The table "OperationalEvidence" does not exist.',
+    });
+    const { default: AdminReadinessPage } = await import("@/app/admin/(protected)/readiness/page");
+    process.env = { ...process.env, NODE_ENV: "production" };
+    const element = await AdminReadinessPage();
+    const html = renderToStaticMarkup(element as ReactElement);
+
+    expect(html).toContain("Tabela de evidências ainda não aplicada");
+    expect(html).toContain("Tabela de evidências pendente");
+    expect(html).toContain("Pronto para homologacao; bloqueado para venda aberta");
+    expect(html).toContain("Aplique a migration");
+    expect(html).not.toContain("does not exist");
+    expect(html).not.toContain("P2021");
+    expect(html).not.toContain(process.env.DATABASE_URL);
+  });
 });

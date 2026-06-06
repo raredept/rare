@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { withAdminActionRefresh } from "@/lib/admin-action-refresh";
-import { parseOperationalEvidenceInput } from "@/lib/admin-operational-evidence";
+import {
+  isOperationalEvidenceStorageUnavailableError,
+  operationalEvidenceStorageUnavailableMessage,
+  parseOperationalEvidenceInput,
+} from "@/lib/admin-operational-evidence";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -41,30 +45,38 @@ export async function saveOperationalEvidenceAction(formData: FormData) {
   const evidence = parsed.data;
   const checkedAt = evidence.status === "pending" ? null : new Date();
 
-  await prisma.operationalEvidence.upsert({
-    where: {
-      key_environment: {
+  try {
+    await prisma.operationalEvidence.upsert({
+      where: {
+        key_environment: {
+          key: evidence.key,
+          environment: evidence.environment,
+        },
+      },
+      update: {
+        status: evidence.status,
+        checkedAt,
+        checkedByLabel: evidence.checkedByLabel,
+        notes: evidence.notes,
+        evidenceReference: evidence.evidenceReference,
+      },
+      create: {
         key: evidence.key,
         environment: evidence.environment,
+        status: evidence.status,
+        checkedAt,
+        checkedByLabel: evidence.checkedByLabel,
+        notes: evidence.notes,
+        evidenceReference: evidence.evidenceReference,
       },
-    },
-    update: {
-      status: evidence.status,
-      checkedAt,
-      checkedByLabel: evidence.checkedByLabel,
-      notes: evidence.notes,
-      evidenceReference: evidence.evidenceReference,
-    },
-    create: {
-      key: evidence.key,
-      environment: evidence.environment,
-      status: evidence.status,
-      checkedAt,
-      checkedByLabel: evidence.checkedByLabel,
-      notes: evidence.notes,
-      evidenceReference: evidence.evidenceReference,
-    },
-  });
+    });
+  } catch (error) {
+    if (isOperationalEvidenceStorageUnavailableError(error)) {
+      redirectWithEvidenceMessage({ error: operationalEvidenceStorageUnavailableMessage });
+    }
+
+    throw error;
+  }
 
   revalidatePath("/admin/readiness");
   redirectWithEvidenceMessage({ success: "evidence-saved" });

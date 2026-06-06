@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildOperationalEvidenceReport,
   expectedOperationalEvidence,
+  isOperationalEvidenceStorageUnavailableError,
+  operationalEvidenceStorageUnavailableMessage,
   parseOperationalEvidenceInput,
   sanitizeOperationalEvidenceDisplayText,
   type StoredOperationalEvidence,
@@ -103,5 +105,21 @@ describe("admin operational evidence", () => {
       expect.objectContaining({ status: "pending", missingForOpenSales: true }),
     );
     expect(report.openSalesBlockedCount).toBe(expectedOperationalEvidence.length - 1);
+  });
+
+  it("marks storage as unavailable without marking evidence as approved", () => {
+    const report = buildOperationalEvidenceReport([], { storageAvailable: false });
+
+    expect(report.storageAvailable).toBe(false);
+    expect(report.storageWarning).toBe(operationalEvidenceStorageUnavailableMessage);
+    expect(report.openSalesReady).toBe(false);
+    expect(report.openSalesBlockedCount).toBe(expectedOperationalEvidence.length);
+    expect(report.items.every((item) => item.status === "pending")).toBe(true);
+  });
+
+  it("recognizes Prisma missing table errors without matching arbitrary errors", () => {
+    expect(isOperationalEvidenceStorageUnavailableError({ code: "P2021", message: "Table does not exist" })).toBe(true);
+    expect(isOperationalEvidenceStorageUnavailableError({ code: "P2022", message: "Column does not exist" })).toBe(true);
+    expect(isOperationalEvidenceStorageUnavailableError(new Error("database connection failed"))).toBe(false);
   });
 });

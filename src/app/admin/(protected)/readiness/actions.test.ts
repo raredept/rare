@@ -95,6 +95,22 @@ describe("operational evidence admin actions", () => {
     expect(mocks.prisma.operationalEvidence.upsert).not.toHaveBeenCalled();
   });
 
+  it("redirects with a friendly message when operational evidence table is unavailable", async () => {
+    mocks.prisma.operationalEvidence.upsert.mockRejectedValueOnce({
+      code: "P2021",
+      message: 'The table "OperationalEvidence" does not exist.',
+    });
+    const { saveOperationalEvidenceAction } = await import("@/app/admin/(protected)/readiness/actions");
+
+    await expect(saveOperationalEvidenceAction(buildEvidenceFormData())).rejects.toThrow(/^NEXT_REDIRECT:/);
+
+    const redirectUrl = mocks.redirect.mock.calls[0]?.[0] ?? "";
+    const decodedRedirectUrl = decodeURIComponent(redirectUrl.replace(/\+/g, " "));
+    expect(decodedRedirectUrl).toContain("Tabela de evidências ainda não aplicada");
+    expect(decodedRedirectUrl).not.toContain("does not exist");
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+
   it("does not persist when admin authentication fails", async () => {
     mocks.requireAdmin.mockRejectedValueOnce(new Error("unauthorized"));
     const { saveOperationalEvidenceAction } = await import("@/app/admin/(protected)/readiness/actions");

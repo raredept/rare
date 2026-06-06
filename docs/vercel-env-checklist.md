@@ -7,6 +7,7 @@ Este documento é o checklist operacional para configurar a RARE na Vercel. Ele 
 - Este documento não contém secrets reais. Os exemplos com `...` indicam apenas formato.
 - O cliente deve preencher os valores reais no painel da Vercel, nunca em commit, WhatsApp ou chat aberto.
 - Depois de adicionar ou alterar envs na Vercel, faça redeploy do ambiente afetado.
+- Se a release incluir migration Prisma, siga também [deploy-with-migrations.md](./deploy-with-migrations.md) e use `npx prisma migrate deploy` no banco correto.
 - Preview/Staging deve usar Stripe test mode.
 - Production só deve usar Stripe live quando a venda aberta estiver autorizada.
 - Redis/Upstash precisa ser criado fora do projeto e depois conectado via envs.

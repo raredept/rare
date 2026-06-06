@@ -27,6 +27,7 @@ O desenvolvedor não tinha acesso direto à Vercel, Redis/Upstash, Stripe Dashbo
 | Smoke público | Smoke público local criado. | Preparado no código | `npm run smoke -- https://raredept.com.br`. |
 | Pendências do catálogo | Admin mostra pendências de catálogo. | Preparado no código | Abrir painel Admin em staging. |
 | Prontidão de venda | Admin mostra bloqueios, warnings, ações e evidências operacionais manuais/sanitizadas para go-live. | Preparado no código | Abrir `/admin/readiness` no Admin e preencher evidências sem secrets. |
+| Migration de evidências | Tabela aditiva `OperationalEvidence` registra evidências sem misturar com configurações da loja. | Requer `migrate deploy` por ambiente | Seguir [docs/deploy-with-migrations.md](./deploy-with-migrations.md). |
 
 Nota: `WebSite/SearchAction` fica como melhoria futura quando houver uma página de busca canônica estável. Um domínio/CDN dedicado para imagens sociais também pode ser avaliado depois, se o cliente quiser controlar previews por campanha.
 
@@ -44,10 +45,12 @@ Nota de mídia: `next/image` não foi aplicado amplamente porque o catálogo ace
 - Banco isolado de staging.
 - Banco production separado, nunca usado para smoke.
 - `CRON_SECRET` para liberação de reservas expiradas.
+- Migration `OperationalEvidence` aplicada com `npx prisma migrate deploy` no banco correto antes de registrar evidências.
 
 ## 4. O que ainda bloqueia venda aberta
 
 - O Admin deve mostrar `/admin/readiness` sem bloqueios de venda aberta.
+- A tabela `OperationalEvidence` precisa existir no ambiente; se não existir, o Admin mostra warning sanitizado e mantém venda aberta bloqueada.
 - As evidências operacionais críticas em `/admin/readiness` devem estar aprovadas ou justificadas como não aplicáveis.
 - Produção precisa estar atualizada com os commits mais recentes.
 - Redis/Upstash precisa estar configurado e compartilhado.
@@ -68,6 +71,7 @@ Nota de evidências: `/admin/readiness` diferencia configuração presente de ho
 Comandos PowerShell:
 
 ```powershell
+npx prisma migrate status
 npm run smoke -- https://raredept.com.br
 curl.exe -I https://raredept.com.br/robots.txt
 curl.exe -I https://raredept.com.br/sitemap.xml
@@ -101,6 +105,7 @@ Depois do guard aprovado, execute o fluxo manual em Stripe test mode, com banco 
 
 - [ ] Vercel Production com envs revisadas.
 - [ ] Vercel Preview/Staging com envs separadas.
+- [ ] `npx prisma migrate deploy` aplicado no banco correto para criar `OperationalEvidence`.
 - [ ] Redis/Upstash ativo em produção.
 - [ ] `/api/health` sem `status: "error"`.
 - [ ] R2 ativo e uploads carregando em domínio público.
@@ -124,6 +129,7 @@ Depois do guard aprovado, execute o fluxo manual em Stripe test mode, com banco 
 - Não commitar `.env`.
 - Não usar `sk_live_` em staging/local.
 - Não usar banco de produção para smoke.
+- Não usar `prisma migrate dev` nem shadow DB de produção em Production.
 - Não desativar verificação de assinatura do webhook.
 - Não ativar checkout live antes da homologação.
 - Não trocar R2 por outro storage sem nova validação.

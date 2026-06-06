@@ -6,6 +6,7 @@ import {
 } from "@/lib/admin-catalog-issues";
 import {
   buildOperationalEvidenceReport,
+  operationalEvidenceStorageUnavailableMessage,
   type StoredOperationalEvidence,
 } from "@/lib/admin-operational-evidence";
 import { isCheckoutEnabled, validateEnvironment } from "@/lib/env";
@@ -90,6 +91,7 @@ export type BuildAdminReadinessInput = {
   settings: ReadinessStoreSettings | null;
   documentation?: Partial<ReadinessDocumentationInput>;
   mediaAuditEntries?: MediaVariantAuditEntry[];
+  operationalEvidenceStorageAvailable?: boolean;
   operationalEvidenceRows?: StoredOperationalEvidence[];
 };
 
@@ -498,8 +500,29 @@ function addMediaItems(items: ReadinessItem[], entries: MediaVariantAuditEntry[]
   });
 }
 
-function addOperationalEvidenceItems(items: ReadinessItem[], rows: StoredOperationalEvidence[] | undefined) {
-  const report = buildOperationalEvidenceReport(rows ?? []);
+function addOperationalEvidenceItems(
+  items: ReadinessItem[],
+  rows: StoredOperationalEvidence[] | undefined,
+  storageAvailable: boolean,
+) {
+  const report = buildOperationalEvidenceReport(rows ?? [], { storageAvailable });
+
+  if (!storageAvailable) {
+    addItem(items, {
+      id: "operational-evidence-storage",
+      area: "evidence",
+      title: "Tabela de evidências pendente",
+      severity: "blocked",
+      description: operationalEvidenceStorageUnavailableMessage,
+      impact: "O Admin continua carregando, mas não é possível comprovar homologação operacional neste ambiente.",
+      recommendedAction: "Aplicar npx prisma migrate deploy no banco correto e reabrir /admin/readiness.",
+      docsPath: "docs/deploy-with-migrations.md",
+      blocksOpenSales: true,
+      blocksStaging: false,
+      dependsOnClient: true,
+    });
+    return;
+  }
 
   if (!report.openSalesReady) {
     addItem(items, {
@@ -779,7 +802,11 @@ export function buildAdminReadiness(input: BuildAdminReadinessInput): ReadinessR
   addCheckoutItems(items, env);
   addStorageItems(items, env);
   addMediaItems(items, input.mediaAuditEntries);
-  addOperationalEvidenceItems(items, input.operationalEvidenceRows);
+  addOperationalEvidenceItems(
+    items,
+    input.operationalEvidenceRows,
+    input.operationalEvidenceStorageAvailable ?? true,
+  );
   addShippingItems(items, env, input.settings);
   addCatalogItems(items, input.products, input.categories);
   addSeoAndSecurityItems(items);

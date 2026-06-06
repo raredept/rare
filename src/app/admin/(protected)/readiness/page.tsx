@@ -14,10 +14,13 @@ import {
 } from "@/lib/admin-readiness";
 import {
   buildOperationalEvidenceReport,
+  isOperationalEvidenceStorageUnavailableError,
+  operationalEvidenceStorageUnavailableMessage,
   operationalEvidenceEnvironments,
   operationalEvidenceStatuses,
   type OperationalEvidenceItem,
   type OperationalEvidenceStatus,
+  type StoredOperationalEvidence,
 } from "@/lib/admin-operational-evidence";
 import {
   buildBannerMediaVariantAuditEntries,
@@ -50,7 +53,7 @@ type AdminReadinessPageProps = {
 
 export default async function AdminReadinessPage({ searchParams }: AdminReadinessPageProps = {}) {
   const params = (await searchParams) ?? {};
-  const [settings, products, categories, banners, operationalEvidenceRows] = await Promise.all([
+  const [settings, products, categories, banners, operationalEvidenceStorage] = await Promise.all([
     prisma.storeSettings.findUnique({
       where: { id: "store" },
       select: {
@@ -101,22 +104,11 @@ export default async function AdminReadinessPage({ searchParams }: AdminReadines
         mobileImageUrl: true,
       },
     }),
-    prisma.operationalEvidence.findMany({
-      orderBy: [{ updatedAt: "desc" }],
-      select: {
-        key: true,
-        status: true,
-        environment: true,
-        checkedAt: true,
-        checkedByLabel: true,
-        notes: true,
-        evidenceReference: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    }),
+    getOperationalEvidenceStorage(),
   ]);
-  const operationalEvidenceReport = buildOperationalEvidenceReport(operationalEvidenceRows);
+  const operationalEvidenceReport = buildOperationalEvidenceReport(operationalEvidenceStorage.rows, {
+    storageAvailable: operationalEvidenceStorage.available,
+  });
 
   const report = buildAdminReadiness({
     settings,
@@ -126,7 +118,8 @@ export default async function AdminReadinessPage({ searchParams }: AdminReadines
       ...buildProductMediaVariantAuditEntries(products),
       ...buildBannerMediaVariantAuditEntries(banners),
     ],
-    operationalEvidenceRows,
+    operationalEvidenceRows: operationalEvidenceStorage.rows,
+    operationalEvidenceStorageAvailable: operationalEvidenceStorage.available,
     documentation: getDocumentationStatus(),
   });
   const groupedItems = groupReadinessItems(report.items);
@@ -230,6 +223,11 @@ function OperationalEvidenceSection({
           {error}
         </div>
       ) : null}
+      {!report.storageAvailable ? (
+        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-black text-amber-800" role="alert">
+          {report.storageWarning ?? operationalEvidenceStorageUnavailableMessage}
+        </div>
+      ) : null}
       {success === "evidence-saved" ? (
         <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-700">
           Evidência salva.
@@ -238,7 +236,7 @@ function OperationalEvidenceSection({
 
       <div className="mt-5 grid gap-4">
         {report.items.map((item) => (
-          <OperationalEvidenceCard key={item.key} item={item} />
+          <OperationalEvidenceCard key={item.key} item={item} storageAvailable={report.storageAvailable} />
         ))}
       </div>
     </section>
@@ -261,7 +259,13 @@ function EvidenceCounter({ label, value, tone }: { label: string; value: number;
   );
 }
 
-function OperationalEvidenceCard({ item }: { item: OperationalEvidenceItem }) {
+function OperationalEvidenceCard({
+  item,
+  storageAvailable,
+}: {
+  item: OperationalEvidenceItem;
+  storageAvailable: boolean;
+}) {
   return (
     <article className="rounded-lg border border-neutral-200 bg-neutral-50 p-4">
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
@@ -298,7 +302,7 @@ function OperationalEvidenceCard({ item }: { item: OperationalEvidenceItem }) {
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block">
               <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Status</span>
-              <select name="status" defaultValue={item.status} className="admin-input">
+              <select name="status" defaultValue={item.status} className="admin-input" disabled={!storageAvailable}>
                 {operationalEvidenceStatuses.map((status) => (
                   <option key={status} value={status}>
                     {getEvidenceStatusLabel(status)}
@@ -308,7 +312,7 @@ function OperationalEvidenceCard({ item }: { item: OperationalEvidenceItem }) {
             </label>
             <label className="block">
               <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Ambiente</span>
-              <select name="environment" defaultValue={item.environment} className="admin-input">
+              <select name="environment" defaultValue={item.environment} className="admin-input" disabled={!storageAvailable}>
                 {operationalEvidenceEnvironments.map((environment) => (
                   <option key={environment} value={environment}>
                     {environment}
@@ -319,7 +323,13 @@ function OperationalEvidenceCard({ item }: { item: OperationalEvidenceItem }) {
           </div>
           <label className="block">
             <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Responsável/label</span>
-            <input name="checkedByLabel" defaultValue={item.checkedByLabel ?? ""} maxLength={80} className="admin-input" />
+            <input
+              name="checkedByLabel"
+              defaultValue={item.checkedByLabel ?? ""}
+              maxLength={80}
+              className="admin-input"
+              disabled={!storageAvailable}
+            />
           </label>
           <label className="block">
             <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Referência segura</span>
@@ -329,17 +339,26 @@ function OperationalEvidenceCard({ item }: { item: OperationalEvidenceItem }) {
               maxLength={180}
               placeholder="Ex.: Vercel logs 2026-06-06 03:00"
               className="admin-input"
+              disabled={!storageAvailable}
             />
           </label>
           <label className="block">
             <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Observação sanitizada</span>
-            <textarea name="notes" defaultValue={item.notes ?? ""} rows={3} maxLength={500} className="admin-input" />
+            <textarea
+              name="notes"
+              defaultValue={item.notes ?? ""}
+              rows={3}
+              maxLength={500}
+              className="admin-input"
+              disabled={!storageAvailable}
+            />
           </label>
           <p className="text-xs font-semibold leading-5 text-neutral-500">
             Não salve secrets, tokens, URLs assinadas, CPF, e-mail real, cartão, payload Stripe/webhook ou dados pessoais.
           </p>
           <AdminSubmitButton
-            idleLabel="Salvar evidência"
+            disabled={!storageAvailable}
+            idleLabel={storageAvailable ? "Salvar evidência" : "Aplique a migration"}
             pendingLabel="Salvando..."
             className="h-10 w-full rounded-lg bg-black px-4 text-xs font-black uppercase tracking-wide text-white"
           />
@@ -347,6 +366,36 @@ function OperationalEvidenceCard({ item }: { item: OperationalEvidenceItem }) {
       </div>
     </article>
   );
+}
+
+async function getOperationalEvidenceStorage(): Promise<{
+  available: boolean;
+  rows: StoredOperationalEvidence[];
+}> {
+  try {
+    const rows = await prisma.operationalEvidence.findMany({
+      orderBy: [{ updatedAt: "desc" }],
+      select: {
+        key: true,
+        status: true,
+        environment: true,
+        checkedAt: true,
+        checkedByLabel: true,
+        notes: true,
+        evidenceReference: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return { available: true, rows };
+  } catch (error) {
+    if (isOperationalEvidenceStorageUnavailableError(error)) {
+      return { available: false, rows: [] };
+    }
+
+    throw error;
+  }
 }
 
 function EvidenceField({ code = false, label, value }: { code?: boolean; label: string; value: string }) {

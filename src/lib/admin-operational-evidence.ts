@@ -65,6 +65,8 @@ export type OperationalEvidenceReport = {
   notApplicable: number;
   openSalesBlockedCount: number;
   openSalesReady: boolean;
+  storageAvailable: boolean;
+  storageWarning: string | null;
 };
 
 export type OperationalEvidenceInput = {
@@ -80,6 +82,11 @@ type SensitivePattern = {
   label: string;
   pattern: RegExp;
 };
+
+const missingOperationalEvidenceTableCodes = new Set(["P2021", "P2022"]);
+
+export const operationalEvidenceStorageUnavailableMessage =
+  "Tabela de evidências ainda não aplicada neste ambiente. Aplique a migration OperationalEvidence antes de registrar evidências.";
 
 const sensitivePatterns: SensitivePattern[] = [
   { label: "Stripe secret key", pattern: /\bsk_(?:live|test)_[A-Za-z0-9_]+/i },
@@ -277,7 +284,25 @@ export function parseOperationalEvidenceInput(input: unknown) {
   return operationalEvidenceInputSchema.safeParse(input);
 }
 
-export function buildOperationalEvidenceReport(rows: StoredOperationalEvidence[] = []): OperationalEvidenceReport {
+export function isOperationalEvidenceStorageUnavailableError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+
+  const code = "code" in error && typeof error.code === "string" ? error.code : null;
+  if (code && missingOperationalEvidenceTableCodes.has(code)) return true;
+
+  const message = "message" in error && typeof error.message === "string" ? error.message.toLowerCase() : "";
+  return Boolean(
+    message &&
+      (message.includes("operationalevidence") || message.includes("operational evidence")) &&
+      (message.includes("does not exist") || message.includes("not exist") || message.includes("relation") || message.includes("table")),
+  );
+}
+
+export function buildOperationalEvidenceReport(
+  rows: StoredOperationalEvidence[] = [],
+  options: { storageAvailable?: boolean } = {},
+): OperationalEvidenceReport {
+  const storageAvailable = options.storageAvailable ?? true;
   const latestByKey = new Map<string, StoredOperationalEvidence>();
 
   for (const row of rows) {
@@ -324,5 +349,7 @@ export function buildOperationalEvidenceReport(rows: StoredOperationalEvidence[]
     notApplicable,
     openSalesBlockedCount,
     openSalesReady: openSalesBlockedCount === 0,
+    storageAvailable,
+    storageWarning: storageAvailable ? null : operationalEvidenceStorageUnavailableMessage,
   };
 }
