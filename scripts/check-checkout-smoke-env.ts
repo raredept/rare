@@ -6,7 +6,7 @@ const result = validateCheckoutSmokeEnvironment();
 console.log("Checkout smoke guard");
 console.log(`- Stripe mode: ${result.stripeMode}`);
 console.log(`- NODE_ENV: ${result.nodeEnv}`);
-console.log(`- APP_ENV/VERCEL_ENV: ${result.appEnvironment}`);
+console.log(`- APP_ENV/RAILWAY_ENVIRONMENT_NAME: ${result.appEnvironment}`);
 console.log(`- App origin: ${result.appUrlOrigin}`);
 console.log(`- Webhook origin: ${result.webhookUrlOrigin}`);
 console.log(`- Database target: ${result.databaseTarget}`);

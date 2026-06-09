@@ -8,13 +8,13 @@ describe("security headers", () => {
       NEXT_PUBLIC_APP_URL: "https://www.raredept.com.br",
       R2_PUBLIC_BASE_URL: "https://media.rare.example/products?token=must-not-leak",
       STORAGE_PUBLIC_BASE_URL: "/uploads",
-      VERCEL_URL: "rare-preview.vercel.app",
+      RAILWAY_PUBLIC_DOMAIN: "rare-staging.up.railway.app",
     };
 
     expect(getPublicAppOrigins(env)).toEqual([
       "https://raredept.com.br",
       "https://www.raredept.com.br",
-      "https://rare-preview.vercel.app",
+      "https://rare-staging.up.railway.app",
     ]);
     expect(getPublicAssetOrigins(env)).toEqual(["https://media.rare.example", "https://*.r2.dev"]);
 

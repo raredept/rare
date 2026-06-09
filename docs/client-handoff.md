@@ -2,11 +2,11 @@
 
 ## 1. Resumo executivo
 
-O projeto está tecnicamente preparado para staging/homologação. Várias pendências do relatório foram resolvidas no código, mas venda aberta ainda depende de configuração real do cliente na Vercel, Redis/Upstash, Stripe, R2, Melhor Envio e bancos isolados.
+O projeto está tecnicamente preparado para staging/homologação. Várias pendências do relatório foram resolvidas no código, mas venda aberta ainda depende de configuração real do cliente na Railway, Redis/Upstash, Stripe, R2, Melhor Envio e bancos isolados.
 
 O estado e o checklist de evidências mais recentes estão em [docs/full-project-readiness-audit.md](./full-project-readiness-audit.md). A auditoria de 2026-06-04 permanece apenas como histórico.
 
-O desenvolvedor não tinha acesso direto à Vercel, Redis/Upstash, Stripe Dashboard e algumas credenciais do cliente. Por isso, a etapa final precisa ser executada pelo cliente ou por quem tenha acesso aos painéis.
+O desenvolvedor não tinha acesso direto à Railway, Redis/Upstash, Stripe Dashboard e algumas credenciais do cliente. Por isso, a etapa final precisa ser executada pelo cliente ou por quem tenha acesso aos painéis.
 
 ## 2. O que foi corrigido
 
@@ -35,7 +35,8 @@ Nota de mídia: `next/image` não foi aplicado amplamente porque o catálogo ace
 
 ## 3. O que o cliente precisa configurar
 
-- Variáveis da Vercel conforme [docs/vercel-env-checklist.md](./vercel-env-checklist.md).
+- Variáveis da Railway conforme [docs/railway-env-checklist.md](./railway-env-checklist.md).
+- Serviço web Railway com `railway.json`; serviço cron separado com Config File Path `/railway.cron.json` ou start/schedule configurados manualmente no painel.
 - Redis/Upstash REST para rate limit compartilhado.
 - Stripe test mode em Preview/Staging.
 - Stripe live futuramente, somente em Production e após aprovação.
@@ -60,11 +61,12 @@ Nota de mídia: `next/image` não foi aplicado amplamente porque o catálogo ace
 - Estoque/reserva precisa ser validado.
 - Expiração/cancelamento precisa liberar reserva.
 - A cron de liberação de reservas precisa ter execução comprovada.
+- Durante a transição, `vercel.json` permanece como rollback temporário até Railway passar smoke e domínio final.
 - Produtos ativos precisam ter peso e dimensões reais.
 - Produção online precisa passar no smoke público.
 - O cliente precisa autorizar formalmente a produção limitada e a venda aberta.
 
-Nota de evidências: `/admin/readiness` diferencia configuração presente de homologação comprovada. Os registros são manuais e sanitizados; servem como checklist operacional, não substituem logs reais da Vercel, Stripe, Redis ou R2. Não salvar secrets, tokens, URLs assinadas, cartão, CPF real, e-mail real, payload Stripe/webhook ou dados pessoais.
+Nota de evidências: `/admin/readiness` diferencia configuração presente de homologação comprovada. Os registros são manuais e sanitizados; servem como checklist operacional, não substituem logs reais da Railway, Stripe, Redis ou R2. Não salvar secrets, tokens, URLs assinadas, cartão, CPF real, e-mail real, payload Stripe/webhook ou dados pessoais.
 
 ## 5. Como validar depois do deploy
 
@@ -103,8 +105,8 @@ Depois do guard aprovado, execute o fluxo manual em Stripe test mode, com banco 
 
 ## 7. Checklist de go-live
 
-- [ ] Vercel Production com envs revisadas.
-- [ ] Vercel Preview/Staging com envs separadas.
+- [ ] Railway Production com envs revisadas.
+- [ ] Railway Staging/Homologação com envs separadas.
 - [ ] `npx prisma migrate deploy` aplicado no banco correto para criar `OperationalEvidence`.
 - [ ] Redis/Upstash ativo em produção.
 - [ ] `/api/health` sem `status: "error"`.

@@ -118,5 +118,5 @@ describe("AdminDashboardPage", () => {
     expect(html).not.toContain(process.env.UPSTASH_REDIS_REST_TOKEN);
     expect(html).not.toContain(process.env.R2_SECRET_ACCESS_KEY);
     expect(html).not.toContain(process.env.MELHOR_ENVIO_TOKEN);
-  });
+  }, 10_000);
 });

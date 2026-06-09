@@ -4,7 +4,12 @@ type Header = {
 };
 
 type PublicEnv = Record<string, string | undefined> &
-  Partial<Record<"APP_URL" | "NEXT_PUBLIC_APP_URL" | "R2_PUBLIC_BASE_URL" | "STORAGE_PUBLIC_BASE_URL" | "VERCEL_URL", string>>;
+  Partial<
+    Record<
+      "APP_URL" | "NEXT_PUBLIC_APP_URL" | "R2_PUBLIC_BASE_URL" | "STORAGE_PUBLIC_BASE_URL" | "RAILWAY_PUBLIC_DOMAIN",
+      string
+    >
+  >;
 
 const canonicalAppOrigins = ["https://raredept.com.br", "https://www.raredept.com.br"];
 const publicR2Sources = ["https://*.r2.dev"];
@@ -29,14 +34,19 @@ function toHttpOrigin(value: string | undefined) {
   }
 }
 
-function toVercelOrigin(value: string | undefined) {
+function toHostOrigin(value: string | undefined) {
   const trimmed = value?.trim();
   if (!trimmed) return null;
   return toHttpOrigin(trimmed.startsWith("http://") || trimmed.startsWith("https://") ? trimmed : `https://${trimmed}`);
 }
 
 export function getPublicAppOrigins(env: PublicEnv = process.env) {
-  return unique([...canonicalAppOrigins, toHttpOrigin(env.APP_URL), toHttpOrigin(env.NEXT_PUBLIC_APP_URL), toVercelOrigin(env.VERCEL_URL)]);
+  return unique([
+    ...canonicalAppOrigins,
+    toHttpOrigin(env.APP_URL),
+    toHttpOrigin(env.NEXT_PUBLIC_APP_URL),
+    toHostOrigin(env.RAILWAY_PUBLIC_DOMAIN),
+  ]);
 }
 
 export function getPublicAssetOrigins(env: PublicEnv = process.env) {

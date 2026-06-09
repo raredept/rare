@@ -77,7 +77,7 @@ export type ReadinessStoreSettings = {
 };
 
 export type ReadinessDocumentationInput = {
-  vercelEnvChecklistExists: boolean;
+  railwayEnvChecklistExists: boolean;
   clientHandoffExists: boolean;
   checkoutSmokeTestExists: boolean;
   smokeScriptExists: boolean;
@@ -120,7 +120,7 @@ const severityOrder: Record<ReadinessSeverity, number> = {
 };
 
 const defaultDocumentation: ReadinessDocumentationInput = {
-  vercelEnvChecklistExists: true,
+  railwayEnvChecklistExists: true,
   clientHandoffExists: true,
   checkoutSmokeTestExists: true,
   smokeScriptExists: true,
@@ -157,7 +157,7 @@ function isProductionRuntime(env: Record<string, string | undefined>) {
 }
 
 function getAppEnvironment(env: Record<string, string | undefined>) {
-  return clean(env.APP_ENV ?? env.VERCEL_ENV)?.toLowerCase() ?? "not-set";
+  return clean(env.APP_ENV ?? env.RAILWAY_ENVIRONMENT_NAME)?.toLowerCase() ?? "not-set";
 }
 
 function isProductionSalesEnvironment(env: Record<string, string | undefined>) {
@@ -262,8 +262,8 @@ function addEnvironmentItems(items: ReadinessItem[], env: Record<string, string 
       severity: "blocked",
       description: `Existem ${environmentErrors.length} configuracao(oes) obrigatoria(s) pendente(s) no ambiente.`,
       impact: "Admin, banco ou URLs canonicas podem falhar sem essa configuracao.",
-      recommendedAction: "Configurar as variaveis pendentes na Vercel ou no ambiente isolado correto e fazer redeploy.",
-      docsPath: "docs/vercel-env-checklist.md",
+      recommendedAction: "Configurar as variaveis pendentes na Railway ou no ambiente isolado correto e fazer redeploy.",
+      docsPath: "docs/railway-env-checklist.md",
       blocksOpenSales: true,
       blocksStaging: true,
       dependsOnClient: true,
@@ -279,7 +279,7 @@ function addEnvironmentItems(items: ReadinessItem[], env: Record<string, string 
     description: "Banco, URL da aplicacao e sessao do Admin nao apresentam erro critico nos checks sanitizados.",
     impact: "A base minima para operar o Admin esta presente.",
     recommendedAction: "Manter envs separadas entre staging e production.",
-    docsPath: "docs/vercel-env-checklist.md",
+    docsPath: "docs/railway-env-checklist.md",
     blocksOpenSales: false,
     blocksStaging: false,
     dependsOnClient: false,
@@ -313,8 +313,8 @@ function addRateLimitItems(items: ReadinessItem[], env: Record<string, string | 
     severity: production ? "blocked" : "warning",
     description: `Driver configurado: ${status.configuredDriver}; driver ativo: ${status.activeDriver}; compartilhado: ${status.shared ? "sim" : "nao"}. Credenciais REST presentes: URL ${status.redisRestUrlConfigured ? "sim" : "nao"}, token ${status.redisRestTokenConfigured ? "sim" : "nao"}.`,
     impact: "Protecao contra abuso fica inconsistente em multiplas instancias quando o driver ativo e memory.",
-    recommendedAction: "Configurar RATE_LIMIT_DRIVER=redis e credenciais Redis/Upstash REST na Vercel; depois fazer redeploy.",
-    docsPath: "docs/vercel-env-checklist.md",
+    recommendedAction: "Configurar RATE_LIMIT_DRIVER=redis e credenciais Redis/Upstash REST na Railway; depois fazer redeploy.",
+    docsPath: "docs/railway-env-checklist.md",
     blocksOpenSales: production,
     blocksStaging: false,
     dependsOnClient: true,
@@ -387,7 +387,7 @@ function addCheckoutItems(items: ReadinessItem[], env: Record<string, string | u
         : stripeMode === "live"
           ? "Usar live mode apenas em Production depois do smoke test mode aprovado."
           : "Configurar a chave secreta Stripe no ambiente correto sem expor o valor.",
-    docsPath: "docs/vercel-env-checklist.md",
+    docsPath: "docs/railway-env-checklist.md",
     blocksOpenSales: stripeSeverity === "blocked",
     blocksStaging: stripeSeverity === "blocked" && stripeMode !== "test",
     dependsOnClient: stripeSeverity === "blocked",
@@ -422,9 +422,9 @@ function addStorageItems(items: ReadinessItem[], env: Record<string, string | un
       title: "Storage persistente",
       severity: "ok",
       description: "Cloudflare R2 esta selecionado e as credenciais obrigatorias estao presentes.",
-      impact: "Uploads do Admin podem persistir fora do filesystem temporario da Vercel.",
+      impact: "Uploads do Admin podem persistir fora do filesystem temporario do container Railway.",
       recommendedAction: "Validar upload de imagem/banner em staging antes de venda aberta.",
-      docsPath: "docs/vercel-env-checklist.md",
+      docsPath: "docs/railway-env-checklist.md",
       blocksOpenSales: false,
       blocksStaging: false,
       dependsOnClient: false,
@@ -439,9 +439,9 @@ function addStorageItems(items: ReadinessItem[], env: Record<string, string | un
       title: "Storage persistente",
       severity: production ? "blocked" : "warning",
       description: "Storage local esta ativo.",
-      impact: "Uploads locais nao persistem corretamente em producao na Vercel.",
+      impact: "Uploads locais nao persistem corretamente em producao no container Railway.",
       recommendedAction: "Configurar STORAGE_DRIVER=r2 e credenciais Cloudflare R2 antes de venda aberta.",
-      docsPath: "docs/vercel-env-checklist.md",
+      docsPath: "docs/railway-env-checklist.md",
       blocksOpenSales: production,
       blocksStaging: false,
       dependsOnClient: true,
@@ -457,7 +457,7 @@ function addStorageItems(items: ReadinessItem[], env: Record<string, string | un
     description: `Configuracao de storage incompleta: ${Math.max(1, storageErrors.length)} item(ns) pendente(s).`,
     impact: "Uploads podem falhar ou nao ficar publicos.",
     recommendedAction: "Completar configuracao R2 no ambiente correto e fazer redeploy.",
-    docsPath: "docs/vercel-env-checklist.md",
+    docsPath: "docs/railway-env-checklist.md",
     blocksOpenSales: true,
     blocksStaging: true,
     dependsOnClient: true,
@@ -633,9 +633,9 @@ function addShippingItems(items: ReadinessItem[], env: Record<string, string | u
       ? `Frete esta em modo ${provider}.`
       : `Frete precisa de revisao: ${missing.join(", ") || "configuracao incompleta"}.`,
     impact: legacyProvider ? "Modo manual/fixo e provisório para venda aberta." : "Cotacao real pode falhar ou usar fallback operacional.",
-    recommendedAction: "Configurar Melhor Envio com token valido e CEP de origem em Settings/Vercel.",
+    recommendedAction: "Configurar Melhor Envio com token valido e CEP de origem em Settings/Railway.",
     adminHref: "/admin/settings",
-    docsPath: "docs/vercel-env-checklist.md",
+    docsPath: "docs/railway-env-checklist.md",
     blocksOpenSales: blocked,
     blocksStaging: false,
     dependsOnClient: true,
@@ -754,7 +754,7 @@ function addSeoAndSecurityItems(items: ReadinessItem[]) {
 
 function addDocumentationItems(items: ReadinessItem[], documentation: ReadinessDocumentationInput) {
   const missingDocs = [
-    ["docs/vercel-env-checklist.md", documentation.vercelEnvChecklistExists],
+    ["docs/railway-env-checklist.md", documentation.railwayEnvChecklistExists],
     ["docs/client-handoff.md", documentation.clientHandoffExists],
     ["docs/checkout-smoke-test.md", documentation.checkoutSmokeTestExists],
   ].filter(([, exists]) => !exists);
@@ -768,8 +768,8 @@ function addDocumentationItems(items: ReadinessItem[], documentation: ReadinessD
     area: "documentation",
     title: "Documentacao operacional",
     severity: missingDocs.length ? "warning" : "ok",
-    description: missingDocs.length ? `Documentos ausentes: ${missingDocs.map(([name]) => name).join(", ")}.` : "Checklist Vercel, handoff e checkout smoke estao presentes.",
-    impact: "Cliente precisa dos guias para configurar Vercel, Redis, Stripe, R2 e Melhor Envio.",
+    description: missingDocs.length ? `Documentos ausentes: ${missingDocs.map(([name]) => name).join(", ")}.` : "Checklist Railway, handoff e checkout smoke estao presentes.",
+    impact: "Cliente precisa dos guias para configurar Railway, Redis, Stripe, R2 e Melhor Envio.",
     recommendedAction: "Usar os documentos locais como referencia de configuracao e go-live.",
     docsPath: "docs/client-handoff.md",
     blocksOpenSales: false,

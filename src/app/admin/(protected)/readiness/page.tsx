@@ -337,7 +337,7 @@ function OperationalEvidenceCard({
               name="evidenceReference"
               defaultValue={item.evidenceReference ?? ""}
               maxLength={180}
-              placeholder="Ex.: Vercel logs 2026-06-06 03:00"
+              placeholder="Ex.: Railway logs 2026-06-06 03:00"
               className="admin-input"
               disabled={!storageAvailable}
             />
@@ -449,7 +449,7 @@ function getDocumentationStatus() {
   const scripts = packageJson.scripts as Record<string, string | undefined>;
 
   return {
-    vercelEnvChecklistExists: existsSync(path.join(process.cwd(), "docs", "vercel-env-checklist.md")),
+    railwayEnvChecklistExists: existsSync(path.join(process.cwd(), "docs", "railway-env-checklist.md")),
     clientHandoffExists: existsSync(path.join(process.cwd(), "docs", "client-handoff.md")),
     checkoutSmokeTestExists: existsSync(path.join(process.cwd(), "docs", "checkout-smoke-test.md")),
     smokeScriptExists: Boolean(scripts.smoke),

@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 import { getSecurityHeaders } from "./src/lib/security-headers";
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   experimental: {
     serverActions: {
       bodySizeLimit: "6mb",

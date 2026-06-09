@@ -128,11 +128,10 @@ describe("admin uploads route", () => {
     expect(routeMocks.saveUploadedImage).not.toHaveBeenCalled();
   });
 
-  it("returns a controlled 413 before parsing oversized Vercel function payloads", async () => {
-    process.env.VERCEL = "1";
+  it("returns a controlled 413 before parsing oversized server-routed upload payloads", async () => {
     const request = new Request("http://localhost/api/admin/uploads", {
       method: "POST",
-      headers: { "content-length": String(5 * 1024 * 1024) },
+      headers: { "content-length": String(41 * 1024 * 1024) },
       body: "oversized",
     });
 

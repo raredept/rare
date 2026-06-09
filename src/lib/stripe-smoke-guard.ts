@@ -77,7 +77,7 @@ export function validateCheckoutSmokeEnvironment(env: SmokeEnv = process.env) {
   const webhookUrl = parseHttpUrl(env.CHECKOUT_SMOKE_WEBHOOK_URL ?? env.STRIPE_WEBHOOK_URL);
   const databaseUrl = parseDatabaseUrl(env.DATABASE_URL);
   const stripeMode = getStripeSecretKeyMode(env.STRIPE_SECRET_KEY);
-  const appEnvironment = clean(env.APP_ENV ?? env.VERCEL_ENV)?.toLowerCase();
+  const appEnvironment = clean(env.APP_ENV ?? env.RAILWAY_ENVIRONMENT_NAME)?.toLowerCase();
   const nodeEnv = clean(env.NODE_ENV)?.toLowerCase() ?? "development";
   const allowProductionUrl = clean(env.CHECKOUT_SMOKE_ALLOW_PRODUCTION_URL)?.toLowerCase() === "true";
   const allowRemoteDatabase = clean(env.CHECKOUT_SMOKE_ALLOW_REMOTE_DATABASE)?.toLowerCase() === "true";
@@ -129,7 +129,7 @@ export function validateCheckoutSmokeEnvironment(env: SmokeEnv = process.env) {
       issues,
       "error",
       "NODE_ENV",
-      "NODE_ENV=production requires APP_ENV or VERCEL_ENV to be staging, preview, test or homologacao for checkout smoke.",
+      "NODE_ENV=production requires APP_ENV or RAILWAY_ENVIRONMENT_NAME to be staging, preview, test or homologacao for checkout smoke.",
     );
   }
 

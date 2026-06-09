@@ -54,17 +54,27 @@ const optionalUrlText = z
   .optional()
   .transform((value) => value || undefined);
 
+function toAllowedOrigin(value: string | undefined) {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  const originSource = trimmed.startsWith("http://") || trimmed.startsWith("https://") ? trimmed : `https://${trimmed}`;
+
+  try {
+    return new URL(originSource).origin;
+  } catch {
+    return null;
+  }
+}
+
 function getAllowedHrefOrigins() {
-  const configuredOrigins = [process.env.APP_URL, process.env.NEXT_PUBLIC_APP_URL, process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined]
-    .map((value) => value?.trim())
-    .filter((value): value is string => Boolean(value))
-    .flatMap((value) => {
-      try {
-        return [new URL(value).origin];
-      } catch {
-        return [];
-      }
-    });
+  const configuredOrigins = [
+    process.env.APP_URL,
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.RAILWAY_PUBLIC_DOMAIN,
+  ].flatMap((value) => {
+    const origin = toAllowedOrigin(value);
+    return origin ? [origin] : [];
+  });
 
   return new Set([...defaultAllowedHrefOrigins, ...configuredOrigins]);
 }

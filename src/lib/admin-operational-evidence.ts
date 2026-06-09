@@ -120,7 +120,7 @@ export const expectedOperationalEvidence: OperationalEvidenceDefinition[] = [
     description: "Health sem warning de rate limit em memoria no ambiente de producao.",
     defaultEnvironment: "production",
     recommendedAction: "Validar /api/health depois do redeploy com RATE_LIMIT_DRIVER=redis.",
-    docsPath: "docs/vercel-env-checklist.md",
+    docsPath: "docs/railway-env-checklist.md",
     blocksOpenSales: true,
   },
   {
@@ -180,7 +180,7 @@ export const expectedOperationalEvidence: OperationalEvidenceDefinition[] = [
   {
     key: "expired_inventory_cron",
     title: "Cron de reservas validada",
-    description: "Logs da Vercel ou execucao controlada comprovaram a liberacao de reservas expiradas.",
+    description: "Logs da Railway ou execucao controlada comprovaram a liberacao de reservas expiradas.",
     defaultEnvironment: "staging",
     recommendedAction: "Validar logs da cron protegida sem chamar a rota em producao sem autorizacao.",
     docsPath: "docs/client-handoff.md",

@@ -72,12 +72,7 @@ const publicExtensionByMimeType = new Map([
 function getConfiguredMaxMb(variable: string, fallback: number) {
   const maxMb = Number(process.env[variable] ?? fallback);
   const configuredMaxMb = Number.isFinite(maxMb) && maxMb > 0 ? Math.max(1, maxMb) : fallback;
-
-  if (process.env.VERCEL === "1") {
-    return Math.min(configuredMaxMb, SERVER_ROUTED_UPLOAD_LIMIT_MB);
-  }
-
-  return configuredMaxMb;
+  return Math.min(configuredMaxMb, SERVER_ROUTED_UPLOAD_LIMIT_MB);
 }
 
 export function getMaxUploadSizeMb(mimeType?: string) {

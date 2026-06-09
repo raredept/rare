@@ -52,7 +52,7 @@ O guard falha quando detecta:
 - `STRIPE_SECRET_KEY` ausente, placeholder ou live (`sk_live_`/`rk_live_`);
 - `STRIPE_WEBHOOK_SECRET` ausente ou placeholder;
 - `CHECKOUT_ENABLED=false`;
-- `APP_ENV`, `VERCEL_ENV` ou `NODE_ENV` incompatível com local/staging/preview/test;
+- `APP_ENV`, `RAILWAY_ENVIRONMENT_NAME` ou `NODE_ENV` incompatível com local/staging/preview/test;
 - `APP_URL` ou webhook apontando para `raredept.com.br` sem confirmacao explicita;
 - `DATABASE_URL` ausente, placeholder, remota sem confirmacao ou com marcador de producao/live.
 

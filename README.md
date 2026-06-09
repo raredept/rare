@@ -44,7 +44,7 @@ npm run shipping:dimensions:audit
 ## Uploads do Admin
 
 O storage persistente recomendado para produção é Cloudflare R2 com `STORAGE_DRIVER=r2`.
-O Admin usa `POST /api/admin/uploads`: o navegador envia o arquivo para o domínio da aplicação e a Vercel Function grava no R2 com credenciais server-side. Isso evita upload direto do navegador para o bucket.
+O Admin usa `POST /api/admin/uploads`: o navegador envia o arquivo para o domínio da aplicação e o servidor Next na Railway grava no R2 com credenciais server-side. Isso evita upload direto do navegador para o bucket.
 
 Limite atual: 4 MB por arquivo. Imagens estáticas elegíveis preservam o original e podem gerar thumbnail 640 e medium 1200 em WEBP. GIF e MP4 permanecem sem processamento. O presign direto de até 100 MB não gera variantes.
 
@@ -54,12 +54,14 @@ Detalhes: [docs/media-optimization.md](docs/media-optimization.md).
 
 Use estes documentos para entrega ao cliente e homologação:
 
-- [Checklist de variáveis da Vercel](docs/vercel-env-checklist.md)
+- [Checklist de variáveis da Railway](docs/railway-env-checklist.md)
 - [Handoff técnico do cliente](docs/client-handoff.md)
 - [Auditoria atual de prontidão](docs/full-project-readiness-audit.md)
 - [Auditoria final de release de 2026-06-04 (histórico)](docs/final-release-audit.md)
 - [Checkout Stripe test-mode smoke](docs/checkout-smoke-test.md)
 - [Rate limit em produção](docs/rate-limit.md)
+
+Railway usa dois serviços: o web com [railway.json](railway.json) e a cron de reservas com [railway.cron.json](railway.cron.json). No serviço cron, aponte o Config File Path para `/railway.cron.json`; se o painel não usar esse arquivo, configure manualmente o start command `npm run cron:release-expired` e o schedule `0 3 * * *`.
 
 Smoke público pós-deploy:
 
@@ -78,4 +80,4 @@ npm run checkout
 npm run checkout:smoke
 ```
 
-O procedimento completo e canônico de Stripe test mode fica em [docs/checkout-smoke-test.md](docs/checkout-smoke-test.md). A evidência e o checklist atuais de prontidão ficam em [docs/full-project-readiness-audit.md](docs/full-project-readiness-audit.md). Venda aberta continua bloqueada até Redis/Upstash compartilhado estar ativo, o smoke Stripe test mode validar webhook assinado, pedido pago no Admin, estoque e reservas, a cron de liberação ser comprovada e o cliente autorizar formalmente o go-live.
+O procedimento completo e canônico de Stripe test mode fica em [docs/checkout-smoke-test.md](docs/checkout-smoke-test.md). A evidência e o checklist atuais de prontidão ficam em [docs/full-project-readiness-audit.md](docs/full-project-readiness-audit.md). Venda aberta continua bloqueada até Redis/Upstash compartilhado estar ativo, o smoke Stripe test mode validar webhook assinado, pedido pago no Admin, estoque e reservas, a cron Railway de liberação ser comprovada e o cliente autorizar formalmente o go-live.

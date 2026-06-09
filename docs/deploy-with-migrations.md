@@ -18,8 +18,8 @@ Este guia cobre releases que incluem migrations Prisma. A versão com `Operation
 1. Confirmar que o backup ou snapshot do banco do ambiente existe.
 2. Conferir que `DATABASE_URL` aponta para o banco correto do ambiente.
 3. Rodar `npx prisma migrate status`.
-4. Aplicar migrations pendentes com `npx prisma migrate deploy`.
-5. Fazer deploy do código na Vercel, caso o deploy ainda não tenha ocorrido.
+4. Em Railway, confirmar que o servico web usa `preDeployCommand` com `npx prisma migrate deploy`.
+5. Fazer deploy do código na Railway, caso o deploy ainda não tenha ocorrido.
 6. Abrir `/admin/readiness` com sessão Admin.
 7. Rodar `npm run smoke -- https://raredept.com.br` depois do deploy oficial.
 
@@ -47,6 +47,8 @@ Use em produção apenas depois de confirmar o ambiente:
 npx prisma migrate status
 npx prisma migrate deploy
 ```
+
+Na Railway, o `buildCommand` deve continuar sendo apenas `npm run build`. Migrations nao devem rodar dentro do build; devem rodar no pre-deploy para que uma falha de migration impeça o novo deploy de servir trafego.
 
 Não use em produção:
 

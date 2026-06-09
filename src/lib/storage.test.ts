@@ -88,8 +88,7 @@ describe("storage helpers", () => {
     ).toBe("Falha ao processar ou armazenar a mídia.");
   });
 
-  it("caps configured upload limits to the Vercel function payload-safe size", () => {
-    process.env.VERCEL = "1";
+  it("caps configured upload limits to the server-routed operational size", () => {
     process.env.MAX_UPLOAD_SIZE_MB = "5";
     process.env.MAX_GIF_UPLOAD_SIZE_MB = "10";
     process.env.MAX_VIDEO_UPLOAD_SIZE_MB = "30";

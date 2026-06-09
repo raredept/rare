@@ -2,6 +2,11 @@
 
 Data da auditoria: 2026-06-06.
 
+> Documento histórico pré-migração de hospedagem. Para a operação atual na
+> Railway, use [railway-env-checklist.md](./railway-env-checklist.md) e
+> [deploy-with-migrations.md](./deploy-with-migrations.md). As evidências abaixo
+> que citam Vercel descrevem o estado observado na data da auditoria.
+
 Escopo: código local, Git, documentação, scripts, testes, banco local, Admin, APIs, checkout, frete, SEO, segurança, mídia, catálogo, deploy e o site público `https://raredept.com.br`.
 
 Restrições respeitadas nesta auditoria:

@@ -4,9 +4,10 @@ Data desta consolidação: 2026-06-04.
 
 > Documento histórico. A referência atual de prontidão e o checklist de evidências
 > estão em [full-project-readiness-audit.md](./full-project-readiness-audit.md).
-> Para releases com migrations, use também [deploy-with-migrations.md](./deploy-with-migrations.md).
+> Para a operação atual na Railway, use [railway-env-checklist.md](./railway-env-checklist.md)
+> e [deploy-with-migrations.md](./deploy-with-migrations.md).
 
-Este relatório consolida o estado técnico atual da RARE para entrega ao cliente. Ele não substitui os guias operacionais detalhados; aponta para eles quando a execução depende de acesso a Vercel, Stripe, Redis/Upstash, Cloudflare R2, Melhor Envio ou credenciais do cliente.
+Este relatório consolida o estado técnico observado na data da auditoria. Ele não substitui os guias operacionais atuais; para a migração de hospedagem, a referência vigente é Railway, Stripe, Redis/Upstash, Cloudflare R2, Melhor Envio e credenciais do cliente.
 
 ## 1. Resumo executivo
 
@@ -19,7 +20,7 @@ Recomendação objetiva:
 - Produção limitada: pendente de Redis/Upstash em produção, `/api/health` sem bloqueios críticos e smoke público pós-deploy.
 - Venda aberta: bloqueada até concluir smoke Stripe test-mode real com webhook assinado, confirmar pedido pago no Admin e validar baixa de estoque/reserva.
 
-O desenvolvedor não tem acesso direto aos painéis do cliente. A liberação final depende de quem opera Vercel, Redis/Upstash, Stripe Dashboard, Cloudflare R2, Melhor Envio e bancos isolados.
+O desenvolvedor não tem acesso direto aos painéis do cliente. A liberação final depende de quem opera Railway, Redis/Upstash, Stripe Dashboard, Cloudflare R2, Melhor Envio e bancos isolados.
 
 ## 2. Escopo da auditoria
 
@@ -45,7 +46,7 @@ Fora do escopo desta auditoria:
 - Migration.
 - Alteração de schema.
 - Alteração de banco de produção.
-- Acesso à Vercel API.
+- Acesso à Railway API.
 
 Atualização posterior: a versão de evidências operacionais adiciona a migration aditiva `20260606182000_operational_evidence`. Ela deve ser aplicada com `npx prisma migrate deploy` no banco correto antes de registrar evidências em produção; se a tabela ainda não existir, `/admin/readiness` degrada com aviso sanitizado e mantém venda aberta bloqueada.
 
@@ -64,12 +65,12 @@ Atualização posterior: a versão de evidências operacionais adiciona a migrat
 | JSON-LD | Organization, Product e BreadcrumbList foram validados sem duplicação. | `src/lib/structured-data.tsx`, páginas de home/produto/categoria | Preparado no código | Inspecionar HTML das rotas públicas e rodar `npm test` |
 | SEO/OG/canonical | Canonical absoluto, Open Graph, Twitter Cards e fallback seguro de imagem social. | `src/lib/seo.ts`, `src/app/layout.tsx`, páginas públicas do storefront | Preparado no código | Inspecionar head das rotas públicas e rodar `npm test -- seo` |
 | Checkout smoke guard | Guard bloqueia live key, domínio de produção sem confirmação, env de produção e banco suspeito. | `scripts/check-checkout-smoke-env.ts`, `src/lib/stripe-smoke-guard.ts`, `docs/checkout-smoke-test.md` | Preparado no código | `npm run checkout` ou `npm run checkout:smoke` em ambiente seguro |
-| Storage local seguro | Upload local foi endurecido contra traversal e produção deve usar R2. | `src/lib/storage.ts`, `src/app/uploads/[...path]/route.ts`, `docs/vercel-env-checklist.md` | Preparado no código; R2 depende do cliente | `npm run build` e validação de upload em staging/Admin |
+| Storage local seguro | Upload local foi endurecido contra traversal e produção deve usar R2. | `src/lib/storage.ts`, `src/app/uploads/[...path]/route.ts`, `docs/railway-env-checklist.md` | Preparado no código; R2 depende do cliente | `npm run build` e validação de upload em staging/Admin |
 | Produto ativo exige peso/dimensões | Admin bloqueia ativação de produto incompleto para frete real. | `src/lib/admin-catalog-issues.ts`, telas Admin de produto/catálogo | Preparado no código | Tentar ativar produto incompleto no Admin staging |
 | Pendências do catálogo no Admin | Admin mostra problemas de estoque, variação, mídia, dimensões e categorias vazias. | `src/lib/admin-catalog-issues.ts`, Admin dashboard | Preparado no código | Abrir Admin e revisar pendências |
 | Prontidão de Venda | `/admin/readiness` consolida bloqueios, warnings, dependências do cliente e ações. | `src/lib/admin-readiness.ts`, `src/app/admin/(protected)/readiness/page.tsx` | Preparado no código | Abrir `/admin/readiness` em staging |
 | Migration de evidências | Release atual adiciona tabela aditiva `OperationalEvidence` para homologação operacional manual. | `prisma/migrations/20260606182000_operational_evidence/migration.sql`, `docs/deploy-with-migrations.md` | Requer migrate deploy por ambiente | `npx prisma migrate status` e `npx prisma migrate deploy` |
-| Documentação de Vercel/handoff | Guias operacionais para envs, Redis, Stripe, smoke e handoff. | `docs/vercel-env-checklist.md`, `docs/client-handoff.md`, `docs/checkout-smoke-test.md`, `docs/rate-limit.md` | Preparado no código | Seguir checklist antes de liberar venda |
+| Documentação Railway/handoff | Guias operacionais para envs, Redis, Stripe, smoke e handoff. | `docs/railway-env-checklist.md`, `docs/client-handoff.md`, `docs/checkout-smoke-test.md`, `docs/rate-limit.md` | Preparado no código | Seguir checklist antes de liberar venda |
 
 ## 4. Validações executadas
 
@@ -124,7 +125,7 @@ Estado online verificado nesta auditoria para `https://raredept.com.br`:
 - Warning conhecido: produção ainda usa `RATE_LIMIT_DRIVER=memory`, sem Redis/Upstash compartilhado.
 - Health indicou `checkoutEnabled: true`; se venda aberta ainda não estiver autorizada, o cliente deve avaliar `CHECKOUT_ENABLED=false` em Production até homologar Stripe.
 
-Após qualquer mudança de env na Vercel, faça redeploy e rode novamente:
+Após qualquer mudança de env na Railway, faça redeploy e rode novamente:
 
 ```powershell
 npm run smoke -- https://raredept.com.br
@@ -151,7 +152,7 @@ Venda aberta não deve ser liberada apenas com build/test/smoke público. A evid
 | Ambiente/uso | Status | Motivo |
 | --- | --- | --- |
 | Desenvolvimento local | OK | Testes e build locais validam a base; warnings de env local são esperados quando secrets reais não existem. |
-| Staging/homologação | Pronto, desde que envs sejam configuradas | Código e documentação estão prontos; cliente precisa configurar Vercel Preview/Staging, banco isolado, Stripe test, webhook test, R2, frete e Redis. |
+| Staging/homologação | Pronto, desde que envs sejam configuradas | Código e documentação estão prontos; cliente precisa configurar Railway Staging, banco isolado, Stripe test, webhook test, R2, frete e Redis. |
 | Produção online atual | Funcional com warning | Smoke público informado sem `FAIL`, mas `/api/health` segue `ok_with_warnings` por rate limit `memory`. |
 | Produção limitada | Pendente | Requer Redis/Upstash compartilhado, health sem bloqueios críticos e smoke público pós-deploy. |
 | Venda aberta | Bloqueada | Requer smoke Stripe test-mode real, webhook assinado, pedido pago no Admin, estoque/reserva validados e aprovação do cliente. |
@@ -159,7 +160,7 @@ Venda aberta não deve ser liberada apenas com build/test/smoke público. A evid
 ## 8. Checklist do cliente
 
 - [ ] Subir todos os commits para `origin/main`.
-- [ ] Aguardar deploy da Vercel.
+- [ ] Aguardar deploy da Railway.
 - [ ] Aplicar migrations pendentes com `npx prisma migrate deploy` no banco correto.
 - [ ] Configurar `RATE_LIMIT_DRIVER=redis`.
 - [ ] Configurar `UPSTASH_REDIS_REST_URL`.
@@ -234,7 +235,7 @@ Se o guard bloquear por falta de envs seguras, o comportamento está correto. Co
 
 ## 12. Links úteis
 
-- [Checklist de variáveis da Vercel](./vercel-env-checklist.md)
+- [Checklist de variáveis da Railway](./railway-env-checklist.md)
 - [Deploy com migrations](./deploy-with-migrations.md)
 - [Handoff técnico do cliente](./client-handoff.md)
 - [Checkout Stripe test-mode smoke](./checkout-smoke-test.md)

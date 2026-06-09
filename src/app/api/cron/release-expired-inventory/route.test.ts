@@ -51,7 +51,7 @@ describe("release expired inventory cron route", () => {
     expect(cronMocks.releaseExpiredReservations).not.toHaveBeenCalled();
   });
 
-  it("releases expired reservations when Vercel Cron sends the bearer secret", async () => {
+  it("releases expired reservations when Railway Cron sends the bearer secret", async () => {
     const response = await GET(request("cron-secret-with-more-than-32-characters") as never);
     const body = await response.json();
     const serialized = JSON.stringify(body);

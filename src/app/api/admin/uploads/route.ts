@@ -2,14 +2,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { rateLimit } from "@/lib/rate-limit";
 import {
-  getMaxAcceptedUploadBytes,
   getPublicUploadErrorMessage,
   normalizeUploadContext,
   saveUploadedImage,
 } from "@/lib/storage";
 import {
   SERVER_ROUTED_UPLOAD_LIMIT_BYTES,
-  VERCEL_FUNCTION_PAYLOAD_LIMIT_BYTES,
   serverRoutedUploadLimitMessage,
 } from "@/lib/upload-limits";
 
@@ -19,11 +17,7 @@ export const dynamic = "force-dynamic";
 const maxFilesPerRequest = 10;
 
 function getMaxRequestBytes() {
-  if (process.env.VERCEL === "1") {
-    return VERCEL_FUNCTION_PAYLOAD_LIMIT_BYTES;
-  }
-
-  return getMaxAcceptedUploadBytes() * maxFilesPerRequest;
+  return SERVER_ROUTED_UPLOAD_LIMIT_BYTES * maxFilesPerRequest;
 }
 
 export async function POST(request: NextRequest) {

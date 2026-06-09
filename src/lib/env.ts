@@ -305,7 +305,7 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
       issues,
       "error",
       "STORAGE_DRIVER",
-      "STORAGE_DRIVER=local nao persiste uploads na Vercel. Use STORAGE_DRIVER=r2 com Cloudflare R2 em producao.",
+      "STORAGE_DRIVER=local nao persiste uploads em container de producao. Use STORAGE_DRIVER=r2 com Cloudflare R2 em producao.",
     );
   } else if (!production && storageDriver === "local") {
     addIssue(issues, "warning", "STORAGE_DRIVER", "Storage local serve apenas para desenvolvimento.");

@@ -41,7 +41,8 @@ staging-*.png
 .env*.local
 !.env.example
 
-# vercel
+# local platform metadata
+.railway
 .vercel
 
 # typescript

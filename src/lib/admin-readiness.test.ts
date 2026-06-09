@@ -78,7 +78,7 @@ function build(overrides: Partial<BuildAdminReadinessInput> = {}) {
     products: [product()],
     categories: [category()],
     documentation: {
-      vercelEnvChecklistExists: true,
+      railwayEnvChecklistExists: true,
       clientHandoffExists: true,
       checkoutSmokeTestExists: true,
       smokeScriptExists: true,

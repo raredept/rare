@@ -2,10 +2,13 @@
   "name": "rare",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node .next/standalone/server.js",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -24,6 +27,7 @@
     "catalog:remap-legacy-bags": "tsx scripts/remap-legacy-bags-subcategory.ts",
     "admin:create": "tsx scripts/create-admin.ts",
     "inventory:release-expired": "tsx scripts/release-expired-reservations.ts",
+    "cron:release-expired": "node scripts/call-release-expired-cron.mjs",
     "shipping:dimensions:audit": "tsx scripts/audit-product-shipping-dimensions.ts",
     "media:variants:audit": "tsx scripts/audit-media-variants.ts",
     "postinstall": "prisma generate"

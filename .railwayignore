@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+.next
+.railway
+node_modules
+output
+coverage
+*.log
+smoke-*.png
+staging-*.png
+V1_*_REPORT.md
+V1_*_CHECKLIST.md
+AUDIT_REPORT.md
+HOMOLOGATION_REPORT.md
+QA_AUDIT_REPORT.md
+STRIPE_READINESS_REPORT.md
