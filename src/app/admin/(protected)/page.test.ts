@@ -10,6 +10,9 @@ const mocks = vi.hoisted(() => ({
     order: {
       findMany: vi.fn(),
     },
+    adminNotification: {
+      findMany: vi.fn(),
+    },
     productVariant: {
       findMany: vi.fn(),
     },
@@ -70,6 +73,7 @@ beforeEach(() => {
     manualShippingInCents: 0,
   });
   mocks.prisma.order.findMany.mockResolvedValue([]);
+  mocks.prisma.adminNotification.findMany.mockResolvedValue([]);
   mocks.prisma.productVariant.findMany.mockResolvedValue([]);
   mocks.prisma.product.findMany.mockResolvedValue([
     {
@@ -108,6 +112,7 @@ describe("AdminDashboardPage", () => {
 
     expect(html).toContain("Pendencias do catalogo");
     expect(html).toContain("Prontidão de Venda");
+    expect(html).toContain("Notificacoes recentes");
     expect(html).toContain("Produto sem midia sem midia principal");
     expect(html).toContain('href="/admin/products/prod-no-media/edit"');
     expect(html).toContain("Bags ativa sem produtos");

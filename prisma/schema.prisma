@@ -35,14 +35,15 @@ enum InventoryMovementType {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  passwordHash String
-  role         UserRole @default(ADMIN)
-  active       Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                     String                  @id @default(cuid())
+  name                   String
+  email                  String                  @unique
+  passwordHash           String
+  role                   UserRole                @default(ADMIN)
+  active                 Boolean                 @default(true)
+  adminPushSubscriptions AdminPushSubscription[]
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
 }
 
 model Customer {
@@ -202,6 +203,7 @@ model Order {
   paidAt                  DateTime?
   items                   OrderItem[]
   inventoryMovements      InventoryMovement[]
+  adminNotifications      AdminNotification[]
   createdAt               DateTime            @default(now())
   updatedAt               DateTime            @updatedAt
 
@@ -210,6 +212,41 @@ model Order {
   @@index([customerId, createdAt])
   @@index([customerEmailSnapshot])
   @@index([stripePaymentIntentId])
+}
+
+model AdminNotification {
+  id        String    @id @default(cuid())
+  type      String
+  title     String
+  body      String
+  href      String?
+  orderId   String?
+  order     Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  dedupeKey String?   @unique
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([readAt, createdAt])
+  @@index([orderId])
+}
+
+model AdminPushSubscription {
+  id             String    @id @default(cuid())
+  userId         String?
+  user           User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  endpoint       String    @unique
+  p256dh         String
+  auth           String
+  userAgent      String?
+  active         Boolean   @default(true)
+  lastNotifiedAt DateTime?
+  failedAt       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([userId, active])
+  @@index([active, updatedAt])
 }
 
 model OrderItem {

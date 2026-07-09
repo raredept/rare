@@ -4,11 +4,13 @@ import { logoutAction } from "@/app/admin/(protected)/actions";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { AdminToast } from "@/components/admin/admin-toast";
 import { requireAdmin } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const admin = await requireAdmin();
+  const unreadNotifications = await prisma.adminNotification.count({ where: { readAt: null } });
 
   return (
     <div className="admin-dark min-h-screen bg-[#050505] text-neutral-100">
@@ -21,7 +23,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           <span className="mt-1 block text-[10px] font-black uppercase tracking-[0.22em] text-neutral-500">Admin</span>
         </Link>
         <nav className="mt-8 grid gap-2">
-          <AdminNav />
+          <AdminNav unreadNotifications={unreadNotifications} />
         </nav>
         <form action={logoutAction} className="absolute bottom-5 left-5 right-5">
           <button
@@ -41,7 +43,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
               <p className="text-sm font-semibold text-neutral-300">{admin.email}</p>
             </div>
             <div className="scrollbar-none flex gap-2 overflow-x-auto lg:hidden">
-              <AdminNav compact />
+              <AdminNav compact unreadNotifications={unreadNotifications} />
             </div>
           </div>
         </header>

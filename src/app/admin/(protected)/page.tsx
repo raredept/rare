@@ -9,7 +9,7 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
-  const [orders, variants, catalogProducts, catalogCategories, customers, settings, recentOrders] = await Promise.all([
+  const [orders, variants, catalogProducts, catalogCategories, customers, settings, recentOrders, recentNotifications] = await Promise.all([
     prisma.order.findMany({
       select: {
         id: true,
@@ -90,6 +90,18 @@ export default async function AdminDashboardPage() {
         customer: { select: { name: true, email: true } },
       },
     }),
+    prisma.adminNotification.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      select: {
+        id: true,
+        title: true,
+        body: true,
+        href: true,
+        readAt: true,
+        createdAt: true,
+      },
+    }),
   ]);
 
   const activeProductRows = catalogProducts.filter((product) => product.active);
@@ -154,6 +166,43 @@ export default async function AdminDashboardPage() {
       </div>
 
       <ReadinessSummaryCard report={readinessReport} />
+
+      <section className="mt-8 rounded-lg border border-neutral-200 bg-white p-5">
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-lg font-black text-neutral-950">Notificacoes recentes</h2>
+          <Link href="/admin/notifications" className="text-xs font-black uppercase tracking-wide text-neutral-600 hover:text-black">
+            Ver todas
+          </Link>
+        </div>
+        <div className="mt-4 divide-y divide-neutral-200">
+          {recentNotifications.length ? (
+            recentNotifications.map((notification) => (
+              <div key={notification.id} className="grid gap-3 py-3 text-sm md:grid-cols-[110px_1fr_90px] md:items-center">
+                <span
+                  className={`w-fit rounded-full border px-2 py-1 text-[10px] font-black uppercase ${
+                    notification.readAt
+                      ? "border-neutral-200 bg-neutral-50 text-neutral-500"
+                      : "border-amber-200 bg-amber-50 text-amber-700"
+                  }`}
+                >
+                  {notification.readAt ? "Lida" : "Nova"}
+                </span>
+                <div>
+                  <p className="font-black text-neutral-950">{notification.title}</p>
+                  <p className="mt-1 font-semibold text-neutral-500">{notification.body}</p>
+                </div>
+                {notification.href ? (
+                  <Link href={notification.href} className="rounded-lg border border-neutral-300 px-3 py-2 text-center text-xs font-black">
+                    Abrir
+                  </Link>
+                ) : null}
+              </div>
+            ))
+          ) : (
+            <p className="py-8 text-sm font-semibold text-neutral-500">Nenhuma notificacao registrada ainda.</p>
+          )}
+        </div>
+      </section>
 
       <section className="mt-8 rounded-lg border border-neutral-200 bg-white p-5">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">

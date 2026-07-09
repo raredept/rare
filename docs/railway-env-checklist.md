@@ -48,6 +48,9 @@ A Railway injeta variaveis de sistema como `PORT`, `RAILWAY_ENVIRONMENT_NAME` e,
 | `UPSTASH_REDIS_REST_TOKEN` / `REDIS_REST_TOKEN` | `...` | Sim com Redis | Token REST; nao expor. |
 | `STRIPE_SECRET_KEY` | `sk_live_...` | Sim quando checkout ativo | Live so em Production autorizada. |
 | `STRIPE_WEBHOOK_SECRET` | `whsec_...` | Sim quando checkout ativo | Webhook live separado para `/api/stripe/webhook`. |
+| `NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY` | `B...` | Sim para notificacoes mobile | Chave publica gerada por `npm run webpush:keys`; vai para o browser. |
+| `WEB_PUSH_VAPID_PRIVATE_KEY` | `...` | Sim para notificacoes mobile | Secret server-side; nunca expor no browser/chat. |
+| `WEB_PUSH_CONTACT` | `mailto:contato@raredept.com.br` | Recomendado | Subject VAPID usado pelo envio Web Push. |
 | `STORAGE_DRIVER` | `r2` | Sim | Production deve usar Cloudflare R2. |
 | `R2_ACCOUNT_ID` / `R2_BUCKET` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | `...` | Sim com R2 | Credenciais do bucket de producao. |
 | `R2_PUBLIC_BASE_URL` ou `STORAGE_PUBLIC_BASE_URL` | `https://...` | Sim com R2 | URL publica absoluta dos uploads. |
@@ -58,6 +61,14 @@ A Railway injeta variaveis de sistema como `PORT`, `RAILWAY_ENVIRONMENT_NAME` e,
 | `CRON_SECRET` | `...32+ caracteres...` | Sim | O mesmo valor deve existir no servico cron. |
 
 Variaveis opcionais/operacionais: `RATE_LIMIT_REDIS_PREFIX`, `STRIPE_PAYMENT_METHOD_TYPES`, `STRIPE_PRICE_CURRENCY`, `MAX_UPLOAD_SIZE_MB`, `MAX_GIF_UPLOAD_SIZE_MB`, `MAX_VIDEO_UPLOAD_SIZE_MB`, `ALLOW_LOCAL_STORAGE_IN_PRODUCTION`, `MELHOR_ENVIO_BASE_URL`, `MELHOR_ENVIO_SERVICES`, `MELHOR_ENVIO_USER_AGENT`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `CONFIRM_PRODUCTION_SEED` e `CONFIRM_PRODUCTION_ADMIN`.
+
+Para notificacoes no celular, gere um par VAPID fora do commit:
+
+```powershell
+npm run webpush:keys
+```
+
+Configure a chave publica em `NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY` e a privada em `WEB_PUSH_VAPID_PRIVATE_KEY` no servico web da Railway. Depois do redeploy, entre no Admin pelo celular em HTTPS, abra `/admin/notifications` e toque em `Ativar neste celular`. iPhone exige que o site esteja instalado na tela inicial para receber Web Push.
 
 ## 4. Envs para Staging/Homologacao
 
@@ -73,6 +84,7 @@ Use um ambiente Railway separado para homologacao. Nunca use Stripe live nem ban
 | `STRIPE_SECRET_KEY` | `sk_test_...` | Sim para checkout smoke | Nunca usar `sk_live_`. |
 | `STRIPE_WEBHOOK_SECRET` | `whsec_...` | Sim para checkout smoke | Webhook test proprio. |
 | `CHECKOUT_SMOKE_WEBHOOK_URL` | `https://rare-staging.up.railway.app/api/stripe/webhook` | Recomendado | `STRIPE_WEBHOOK_URL` tambem e aceito pelo guard. |
+| `NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY` / `WEB_PUSH_VAPID_PRIVATE_KEY` | `...` | Recomendado | Use chaves proprias de staging se quiser testar push sem misturar dispositivos de producao. |
 | `CHECKOUT_SMOKE_ALLOW_REMOTE_DATABASE` | `true` | Condicional | Use so depois de confirmar que o DB remoto nao e producao. |
 | `STORAGE_DRIVER` | `r2` | Recomendado | Homologa uploads persistentes. |
 | `CRON_SECRET` | `...32+ caracteres...` | Recomendado | Necessario para validar expiracao/cancelamento operacional. |
@@ -134,10 +146,11 @@ Railway nao resolve automaticamente o warning `RATE_LIMIT_DRIVER=memory`. O codi
 6. Validar upload Admin/R2 em staging.
 7. Validar frete Melhor Envio em staging.
 8. Validar Stripe test mode e webhook test apontando para o dominio Railway.
-9. So depois apontar `raredept.com.br` para Railway.
-10. Atualizar `APP_URL`, `NEXT_PUBLIC_APP_URL`, webhook Stripe e `CRON_TARGET_URL` para `https://raredept.com.br`.
-11. Redeploy.
-12. Rodar smoke final no dominio oficial.
+9. Validar `/admin/notifications` e ativar Web Push em pelo menos um celular Admin.
+10. So depois apontar `raredept.com.br` para Railway.
+11. Atualizar `APP_URL`, `NEXT_PUBLIC_APP_URL`, webhook Stripe e `CRON_TARGET_URL` para `https://raredept.com.br`.
+12. Redeploy.
+13. Rodar smoke final no dominio oficial.
 
 ## 9. Rollback temporario
 

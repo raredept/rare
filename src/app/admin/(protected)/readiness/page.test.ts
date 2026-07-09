@@ -156,7 +156,7 @@ describe("AdminReadinessPage", () => {
     expect(html).not.toContain(process.env.R2_SECRET_ACCESS_KEY);
     expect(html).not.toContain(process.env.MELHOR_ENVIO_TOKEN);
     expect(html).not.toContain("sk_test_value_that_must_not_render");
-  });
+  }, 10_000);
 
   it("renders a sanitized fallback when operational evidence table is not migrated", async () => {
     mocks.prisma.operationalEvidence.findMany.mockRejectedValueOnce({

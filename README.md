@@ -20,6 +20,7 @@ Aplicação e-commerce da RARE com storefront público, catálogo de produtos, c
 - Checkout server-side com validação de estoque, preço e frete
 - Conta de cliente com cadastro, login, endereços e pedidos
 - Admin protegido com dashboard, produtos, categorias, clientes, pedidos e configurações
+- Notificações Admin de vendas aprovadas, com Web Push para celular cadastrado
 - Upload administrativo server-side para R2, com limite seguro de 4 MB por arquivo
 - Webhook Stripe com validação de assinatura e idempotência
 - Healthcheck e scripts de readiness
@@ -81,3 +82,5 @@ npm run checkout:smoke
 ```
 
 O procedimento completo e canônico de Stripe test mode fica em [docs/checkout-smoke-test.md](docs/checkout-smoke-test.md). A evidência e o checklist atuais de prontidão ficam em [docs/full-project-readiness-audit.md](docs/full-project-readiness-audit.md). Venda aberta continua bloqueada até Redis/Upstash compartilhado estar ativo, o smoke Stripe test mode validar webhook assinado, pedido pago no Admin, estoque e reservas, a cron Railway de liberação ser comprovada e o cliente autorizar formalmente o go-live.
+
+Para notificações no celular, gere chaves com `npm run webpush:keys`, configure `NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY` e `WEB_PUSH_VAPID_PRIVATE_KEY` na Railway, faça redeploy e ative o dispositivo em `/admin/notifications`.

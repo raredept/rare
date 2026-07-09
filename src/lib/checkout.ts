@@ -24,6 +24,7 @@ import { getStripe, normalizePaymentMethodTypes } from "@/lib/stripe";
 import { checkoutRequestSchema } from "@/lib/validators";
 import { makeOrderNumber } from "@/lib/slug";
 import { releasableReservationStatuses, shouldReleaseReservationOnStatusChange } from "@/lib/order-status";
+import { notifyAdminsOfPaidOrder } from "@/lib/admin-notifications";
 
 type CheckoutSessionCreateParams = NonNullable<Parameters<Stripe["checkout"]["sessions"]["create"]>[0]>;
 type CheckoutLineItem = NonNullable<CheckoutSessionCreateParams["line_items"]>[number];
@@ -191,6 +192,20 @@ async function findOrderForPaymentIntent(tx: Prisma.TransactionClient, paymentIn
       items: true,
     },
   });
+}
+
+async function notifyPaidOrderIfNeeded(result: { status: string; orderId?: string }) {
+  if (result.status !== "paid" || !result.orderId) return;
+
+  try {
+    await notifyAdminsOfPaidOrder(result.orderId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown admin notification error.";
+    console.error("[admin-notifications] paid order notification failed", {
+      orderId: result.orderId,
+      message: message.replace(/[a-z]+:\/\/\S+/gi, "[redacted-url]"),
+    });
+  }
 }
 
 async function finalizePaidOrder(
@@ -691,7 +706,7 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
 }
 
 export async function processStripeCheckoutEvent(eventId: string, eventType: string, session: Stripe.Checkout.Session) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const alreadyProcessed = await tx.stripeEvent.findUnique({ where: { id: eventId } });
     if (alreadyProcessed) {
       return { status: "already_processed" as const };
@@ -751,6 +766,9 @@ export async function processStripeCheckoutEvent(eventId: string, eventType: str
       movementReason: "Pagamento confirmado pela Stripe",
     });
   });
+
+  await notifyPaidOrderIfNeeded(result);
+  return result;
 }
 
 export async function processStripePaymentIntentEvent(
@@ -758,7 +776,7 @@ export async function processStripePaymentIntentEvent(
   eventType: string,
   paymentIntent: Stripe.PaymentIntent,
 ) {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const alreadyProcessed = await tx.stripeEvent.findUnique({ where: { id: eventId } });
     if (alreadyProcessed) {
       return { status: "already_processed" as const };
@@ -802,4 +820,7 @@ export async function processStripePaymentIntentEvent(
 
     return { status: "ignored" as const };
   });
+
+  await notifyPaidOrderIfNeeded(result);
+  return result;
 }

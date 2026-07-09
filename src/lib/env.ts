@@ -143,6 +143,26 @@ export function getStripeWebhookSecret() {
   return webhookSecret;
 }
 
+export function getWebPushVapidPublicKey(env: Record<string, string | undefined> = process.env) {
+  const publicKey = clean(env.NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY);
+  return publicKey && !hasPlaceholderValue(publicKey) ? publicKey : null;
+}
+
+export function getWebPushConfig(env: Record<string, string | undefined> = process.env) {
+  const publicKey = getWebPushVapidPublicKey(env);
+  const privateKey = clean(env.WEB_PUSH_VAPID_PRIVATE_KEY);
+
+  if (!publicKey || !privateKey || hasPlaceholderValue(privateKey)) {
+    return null;
+  }
+
+  return {
+    publicKey,
+    privateKey,
+    subject: clean(env.WEB_PUSH_CONTACT) ?? "mailto:contato@raredept.com.br",
+  };
+}
+
 export function getStorageDriver(env: Record<string, string | undefined> = process.env): StorageDriver {
   const rawDriver = (clean(env.STORAGE_DRIVER) ?? clean(env.UPLOAD_DRIVER) ?? "local").toLowerCase();
   if (rawDriver === "local" || rawDriver === "r2") {
@@ -295,6 +315,34 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
       env.STRIPE_WEBHOOK_SECRET,
       "STRIPE_WEBHOOK_SECRET is required to confirm paid orders from Stripe.",
       webhookLevel,
+    );
+  }
+
+  const webPushPublicKey = clean(env.NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY);
+  const webPushPrivateKey = clean(env.WEB_PUSH_VAPID_PRIVATE_KEY);
+  if (production) {
+    if (!webPushPublicKey || hasPlaceholderValue(webPushPublicKey)) {
+      addIssue(
+        issues,
+        "warning",
+        "NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY",
+        "Configure VAPID public key to enable Admin mobile sale notifications.",
+      );
+    }
+    if (!webPushPrivateKey || hasPlaceholderValue(webPushPrivateKey)) {
+      addIssue(
+        issues,
+        "warning",
+        "WEB_PUSH_VAPID_PRIVATE_KEY",
+        "Configure VAPID private key to send Admin mobile sale notifications.",
+      );
+    }
+  } else if (Boolean(webPushPublicKey) !== Boolean(webPushPrivateKey)) {
+    addIssue(
+      issues,
+      "warning",
+      "WEB_PUSH_VAPID",
+      "Configure both NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY and WEB_PUSH_VAPID_PRIVATE_KEY for Web Push.",
     );
   }
 
