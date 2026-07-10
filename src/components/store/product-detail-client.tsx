@@ -330,7 +330,7 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
   }
 
   return (
-    <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(380px,480px)] lg:gap-16">
+    <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(340px,400px)] lg:gap-10 xl:grid-cols-[minmax(0,700px)_minmax(360px,420px)] xl:gap-14">
       <section className="min-w-0">
         <div
           ref={imageFrameRef}
@@ -458,13 +458,13 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
 
       <aside className="lg:sticky lg:top-36 lg:self-start">
         <p className="text-xs font-black uppercase tracking-[0.24em] text-neutral-500">Produto RARE</p>
-        <h1 className="mt-3 text-3xl font-black tracking-tight text-neutral-950 lg:text-5xl">{product.title}</h1>
+        <h1 className="mt-3 text-3xl font-black tracking-tight text-neutral-950 lg:text-4xl">{product.title}</h1>
         {mainDescription ? (
-          <p className="mt-5 max-w-xl whitespace-pre-line text-base font-semibold leading-7 text-neutral-600">{mainDescription}</p>
+          <p className="mt-4 max-w-xl whitespace-pre-line text-sm font-semibold leading-6 text-neutral-600">{mainDescription}</p>
         ) : null}
-        <p className="mt-5 whitespace-nowrap text-3xl font-black text-success lg:text-4xl">{formatMoney(product.priceInCents)}</p>
+        <p className="mt-4 whitespace-nowrap text-3xl font-black text-success lg:text-3xl">{formatMoney(product.priceInCents)}</p>
 
-        <div className="mt-8 space-y-5 rounded-lg border border-neutral-200 bg-white p-5">
+        <div className="mt-6 space-y-4 rounded-lg border border-neutral-200 bg-white p-4">
           <label className="block">
             <span className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-neutral-500">Tamanho</span>
             <select
