@@ -1,7 +1,7 @@
 import { createElement, createRef, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { ProductDetailClient, ProductImageZoomDialog } from "@/components/store/product-detail-client";
+import { calculateProductLensPosition, ProductDetailClient, ProductImageZoomDialog } from "@/components/store/product-detail-client";
 import { formatMoney } from "@/lib/money";
 
 vi.mock("next/link", () => ({
@@ -34,6 +34,25 @@ function countOccurrences(value: string, pattern: string) {
 }
 
 describe("ProductDetailClient", () => {
+  it("keeps the magnifying lens inside the image and clamps its zoom background at the edges", () => {
+    const position = calculateProductLensPosition(
+      { clientX: 500, clientY: 300 },
+      { left: 100, top: 100, width: 800, height: 1000 },
+    );
+
+    expect(position.left).toBe(296);
+    expect(position.top).toBe(96);
+    expect(position.backgroundPositionX).toBeCloseTo(74.67, 2);
+    expect(position.backgroundPositionY).toBeCloseTo(26.4, 3);
+
+    expect(
+      calculateProductLensPosition(
+        { clientX: 100, clientY: 100 },
+        { left: 100, top: 100, width: 800, height: 1000 },
+      ),
+    ).toMatchObject({ left: 0, top: 0, backgroundPositionX: 0, backgroundPositionY: 0 });
+  });
+
   it("renders product trust signals, stock copy, policy links, and media fallback", () => {
     const html = renderToStaticMarkup(
       createElement(ProductDetailClient, {
@@ -95,10 +114,10 @@ describe("ProductDetailClient", () => {
     const descriptionIndex = html.indexOf("Descrição completa.");
     const priceIndex = html.indexOf(formatMoney(product.priceInCents));
 
-    expect(html).toContain("md:cursor-zoom-in");
+    expect(html).toContain("cursor-zoom-in");
     expect(html).toContain("motion-safe:md:group-hover:scale-[1.08]");
     expect(html).toContain('aria-label="Ampliar imagem do produto"');
-    expect(html).toContain("md:inline-flex");
+    expect(html).toContain("Passe o mouse para ampliar");
     expect(html).toContain('loading="eager"');
     expect(html).toContain('fetchPriority="high"');
     expect(html).not.toContain("absolute inset-2");

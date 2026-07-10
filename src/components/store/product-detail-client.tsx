@@ -2,7 +2,7 @@
 
 import { ChevronLeft, ChevronRight, CircleHelp, Loader2, Maximize2, PackageCheck, RotateCcw, ShieldCheck, Truck, X } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useCart, useCartDrawer } from "@/components/store/cart-context";
 import { ProductMedia } from "@/components/store/product-media";
@@ -54,6 +54,32 @@ type ProductImageZoomDialogProps = {
   onPrevious: () => void;
   onNext: () => void;
 };
+
+const productLensSize = 208;
+const productLensZoomFactor = 2.5;
+
+type ProductLensFrame = Pick<DOMRect, "left" | "top" | "width" | "height">;
+
+export function calculateProductLensPosition(
+  event: Pick<MouseEvent<HTMLDivElement>, "clientX" | "clientY">,
+  frame: ProductLensFrame,
+  lensSize = productLensSize,
+  zoomFactor = productLensZoomFactor,
+) {
+  const pointerX = Math.max(0, Math.min(frame.width, event.clientX - frame.left));
+  const pointerY = Math.max(0, Math.min(frame.height, event.clientY - frame.top));
+  const maxLeft = Math.max(0, frame.width - lensSize);
+  const maxTop = Math.max(0, frame.height - lensSize);
+  const overflowWidth = Math.max(1, frame.width * (zoomFactor - 1));
+  const overflowHeight = Math.max(1, frame.height * (zoomFactor - 1));
+
+  return {
+    left: Math.max(0, Math.min(maxLeft, pointerX - lensSize / 2)),
+    top: Math.max(0, Math.min(maxTop, pointerY - lensSize / 2)),
+    backgroundPositionX: Math.max(0, Math.min(100, ((pointerX * zoomFactor - lensSize / 2) / overflowWidth) * 100)),
+    backgroundPositionY: Math.max(0, Math.min(100, ((pointerY * zoomFactor - lensSize / 2) / overflowHeight) * 100)),
+  };
+}
 
 export function ProductImageZoomDialog({
   productTitle,
@@ -142,6 +168,8 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
   const { openCart } = useCartDrawer();
   const [imageIndex, setImageIndex] = useState(0);
   const [zoomImageIndex, setZoomImageIndex] = useState<number | null>(null);
+  const [lensPosition, setLensPosition] = useState<ReturnType<typeof calculateProductLensPosition> | null>(null);
+  const imageFrameRef = useRef<HTMLDivElement | null>(null);
   const zoomTriggerRef = useRef<HTMLButtonElement | null>(null);
   const zoomCloseRef = useRef<HTMLButtonElement | null>(null);
   const purchasableVariants = product.variants.filter((variant) => variant.active);
@@ -161,6 +189,7 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
   const mainMediaType = image ? getProductMediaTypeFromUrl(image.url) : null;
   const mainVideoPoster = image && mainMediaType === "video" ? getProductVideoPoster(product.images, image.url) : undefined;
   const mainMediaCanZoom = image ? isZoomableProductMediaUrl(image.url) : false;
+  const showProductLens = mainMediaCanZoom && mainMediaType !== "video";
   const zoomableImageIndexes = useMemo(
     () => product.images.flatMap((media, index) => (isZoomableProductMediaUrl(media.url) ? [index] : [])),
     [product.images],
@@ -256,6 +285,11 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
     openCart();
   }
 
+  function handleImageMouseMove(event: MouseEvent<HTMLDivElement>) {
+    if (!showProductLens || !imageFrameRef.current) return;
+    setLensPosition(calculateProductLensPosition(event, imageFrameRef.current.getBoundingClientRect()));
+  }
+
   async function calculateShipping() {
     if (!selectedVariant) {
       setShippingError("Escolha uma variação para calcular o frete.");
@@ -299,8 +333,12 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
     <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(380px,480px)] lg:gap-16">
       <section className="min-w-0">
         <div
+          ref={imageFrameRef}
+          onMouseMove={handleImageMouseMove}
+          onMouseEnter={handleImageMouseMove}
+          onMouseLeave={() => setLensPosition(null)}
           className={`relative aspect-[4/5] overflow-hidden rounded-lg border border-neutral-200 bg-white p-2 shadow-[0_18px_55px_rgba(15,23,42,0.08)] ${
-            mainMediaCanZoom ? "group md:cursor-zoom-in" : ""
+            mainMediaCanZoom ? "group cursor-zoom-in" : ""
           }`}
         >
           {image ? (
@@ -327,17 +365,35 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
               ref={zoomTriggerRef}
               type="button"
               onClick={() => setZoomImageIndex(imageIndex)}
-              className="absolute right-3 top-3 z-10 hidden h-10 w-10 items-center justify-center rounded-full bg-black/70 text-white shadow-[0_10px_30px_rgba(15,23,42,0.22)] backdrop-blur-sm transition hover:bg-black/80 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 focus-visible:ring-offset-white md:inline-flex md:cursor-zoom-in"
+              className="absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/70 text-white shadow-[0_10px_30px_rgba(15,23,42,0.22)] backdrop-blur-sm transition hover:bg-black/80 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 focus-visible:ring-offset-white md:cursor-zoom-in"
               aria-label="Ampliar imagem do produto"
             >
               <Maximize2 className="h-4 w-4" aria-hidden="true" />
             </button>
           ) : null}
+          {showProductLens && lensPosition ? (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute z-10 hidden rounded-full border-4 border-white/95 bg-no-repeat shadow-[0_12px_35px_rgba(15,23,42,0.38)] lg:block"
+              style={{
+                width: productLensSize,
+                height: productLensSize,
+                left: lensPosition.left,
+                top: lensPosition.top,
+                backgroundImage: `url(${image.url})`,
+                backgroundSize: `${productLensZoomFactor * 100}% ${productLensZoomFactor * 100}%`,
+                backgroundPosition: `${lensPosition.backgroundPositionX}% ${lensPosition.backgroundPositionY}%`,
+              }}
+            />
+          ) : null}
           {product.images.length > 1 ? (
             <>
               <button
                 type="button"
-                onClick={() => setImageIndex((current) => (current === 0 ? product.images.length - 1 : current - 1))}
+                onClick={() => {
+                  setLensPosition(null);
+                  setImageIndex((current) => (current === 0 ? product.images.length - 1 : current - 1));
+                }}
                 className="absolute left-4 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-neutral-950 shadow transition-[background-color,box-shadow,transform] duration-150 hover:bg-white hover:shadow-md active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
                 aria-label="Imagem anterior"
               >
@@ -345,7 +401,10 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
               </button>
               <button
                 type="button"
-                onClick={() => setImageIndex((current) => (current + 1) % product.images.length)}
+                onClick={() => {
+                  setLensPosition(null);
+                  setImageIndex((current) => (current + 1) % product.images.length);
+                }}
                 className="absolute right-4 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-neutral-950 shadow transition-[background-color,box-shadow,transform] duration-150 hover:bg-white hover:shadow-md active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
                 aria-label="Próxima imagem"
               >
@@ -365,7 +424,10 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
                   className={`relative aspect-square overflow-hidden rounded-lg border bg-white p-1 transition-[border-color,box-shadow,transform] duration-150 hover:border-neutral-950/40 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 ${
                     index === imageIndex ? "border-neutral-950 shadow-[0_10px_30px_rgba(15,23,42,0.12)]" : "border-neutral-200"
                   }`}
-                  onClick={() => setImageIndex(index)}
+                  onClick={() => {
+                    setLensPosition(null);
+                    setImageIndex(index);
+                  }}
                   aria-label={`Selecionar ${getProductMediaLabel(mediaType).toLowerCase()} ${index + 1}`}
                 >
                   <ProductMedia
@@ -386,6 +448,11 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
               );
             })}
           </div>
+        ) : null}
+        {showProductLens ? (
+          <p className="mt-3 hidden text-center text-xs font-black uppercase tracking-[0.16em] text-neutral-400 lg:block">
+            Passe o mouse para ampliar · clique para abrir
+          </p>
         ) : null}
       </section>
 
