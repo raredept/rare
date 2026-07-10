@@ -68,7 +68,7 @@ describe("health route readiness", () => {
     const body = await response.json();
     const serialized = JSON.stringify(body);
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(200);
     expect(body.app.ok).toBe(true);
     expect(body.database.ok).toBe(false);
     expect(body.environment.shipping.env).toEqual({
@@ -271,7 +271,8 @@ describe("health route readiness", () => {
     const response = await GET();
     const body = await response.json();
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(200);
+    expect(body.status).toBe("error");
     expect(body.configuration.errors).toEqual(
       expect.arrayContaining([expect.objectContaining({ variable: "MELHOR_ENVIO_TOKEN" })]),
     );
@@ -280,7 +281,7 @@ describe("health route readiness", () => {
     );
   });
 
-  it("returns 503 when checkout is enabled but Stripe secrets are absent", async () => {
+  it("returns 200 when checkout is enabled but Stripe secrets are absent", async () => {
     process.env.DATABASE_URL = "postgresql://rare:password@localhost:5432/rare_test";
     process.env.STRIPE_SECRET_KEY = "";
     process.env.STRIPE_WEBHOOK_SECRET = "";
@@ -290,7 +291,7 @@ describe("health route readiness", () => {
     const body = await response.json();
     const serialized = JSON.stringify(body);
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(200);
     expect(body.status).toBe("error");
     expect(body.database.ok).toBe(true);
     expect(body.configuration.ok).toBe(false);
@@ -311,7 +312,7 @@ describe("health route readiness", () => {
     const response = await GET();
     const body = await response.json();
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(200);
     expect(body.status).toBe("error");
     expect(body.database.ok).toBe(false);
     expect(body.configuration.ok).toBe(true);

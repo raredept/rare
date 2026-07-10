@@ -214,7 +214,6 @@ export async function GET() {
   const operationalWarnings = storeSettingsShipping.warnings.map((message) => ({ scope: "shipping.storeSettings", message }));
   const status: HealthStatus =
     env.ok && database.ok ? (env.warnings.length || operationalWarnings.length ? "ok_with_warnings" : "ok") : "error";
-  const httpStatus = status === "error" ? 503 : 200;
 
   return response(
     {
@@ -254,6 +253,6 @@ export async function GET() {
       },
       timestamp: new Date().toISOString(),
     },
-    httpStatus,
+    200,
   );
 }
