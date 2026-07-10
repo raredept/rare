@@ -56,7 +56,7 @@ type ProductImageZoomDialogProps = {
 };
 
 const productLensSize = 208;
-const productLensZoomFactor = 2.5;
+const productLensZoomFactor = 2.1;
 
 type ProductLensFrame = Pick<DOMRect, "left" | "top" | "width" | "height">;
 
