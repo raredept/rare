@@ -64,22 +64,26 @@ export function calculateProductLensPosition(
   event: Pick<MouseEvent<HTMLDivElement>, "clientX" | "clientY">,
   frame: ProductLensFrame,
   lensSize = productLensSize,
-  zoomFactor = productLensZoomFactor,
 ) {
   const pointerX = Math.max(0, Math.min(frame.width, event.clientX - frame.left));
   const pointerY = Math.max(0, Math.min(frame.height, event.clientY - frame.top));
   const maxLeft = Math.max(0, frame.width - lensSize);
   const maxTop = Math.max(0, frame.height - lensSize);
-  const overflowWidth = Math.max(1, frame.width * (zoomFactor - 1));
-  const overflowHeight = Math.max(1, frame.height * (zoomFactor - 1));
 
   return {
     left: Math.max(0, Math.min(maxLeft, pointerX - lensSize / 2)),
     top: Math.max(0, Math.min(maxTop, pointerY - lensSize / 2)),
-    backgroundPositionX: Math.max(0, Math.min(100, ((pointerX * zoomFactor - lensSize / 2) / overflowWidth) * 100)),
-    backgroundPositionY: Math.max(0, Math.min(100, ((pointerY * zoomFactor - lensSize / 2) / overflowHeight) * 100)),
+    pointerX,
+    pointerY,
   };
 }
+
+type ProductLensPosition = ReturnType<typeof calculateProductLensPosition> & {
+  imageOffsetLeft: number;
+  imageOffsetTop: number;
+  imageWidth: number;
+  imageHeight: number;
+};
 
 export function ProductImageZoomDialog({
   productTitle,
@@ -168,8 +172,9 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
   const { openCart } = useCartDrawer();
   const [imageIndex, setImageIndex] = useState(0);
   const [zoomImageIndex, setZoomImageIndex] = useState<number | null>(null);
-  const [lensPosition, setLensPosition] = useState<ReturnType<typeof calculateProductLensPosition> | null>(null);
+  const [lensPosition, setLensPosition] = useState<ProductLensPosition | null>(null);
   const imageFrameRef = useRef<HTMLDivElement | null>(null);
+  const mainImageRef = useRef<HTMLImageElement | null>(null);
   const zoomTriggerRef = useRef<HTMLButtonElement | null>(null);
   const zoomCloseRef = useRef<HTMLButtonElement | null>(null);
   const purchasableVariants = product.variants.filter((variant) => variant.active);
@@ -287,7 +292,18 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
 
   function handleImageMouseMove(event: MouseEvent<HTMLDivElement>) {
     if (!showProductLens || !imageFrameRef.current) return;
-    setLensPosition(calculateProductLensPosition(event, imageFrameRef.current.getBoundingClientRect()));
+    const imageElement = mainImageRef.current;
+    const imageFrame = imageElement ?? imageFrameRef.current;
+    const imageRect = imageFrame.getBoundingClientRect();
+    const wrapperRect = imageFrameRef.current.getBoundingClientRect();
+    const position = calculateProductLensPosition(event, imageRect);
+    setLensPosition({
+      ...position,
+      imageOffsetLeft: imageRect.left - wrapperRect.left,
+      imageOffsetTop: imageRect.top - wrapperRect.top,
+      imageWidth: imageRect.width,
+      imageHeight: imageRect.height,
+    });
   }
 
   async function calculateShipping() {
@@ -350,6 +366,7 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
               poster={mainVideoPoster}
               preload={mainMediaType === "video" ? "metadata" : undefined}
               priority
+              imageRef={mainImageRef}
               placeholderLabel="Mídia indisponível"
               className={`store-product-image h-full w-full rounded-lg object-cover ${
                 mainMediaCanZoom
@@ -374,17 +391,27 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
           {showProductLens && lensPosition ? (
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute z-10 hidden rounded-full border-4 border-white/95 bg-no-repeat shadow-[0_12px_35px_rgba(15,23,42,0.38)] lg:block"
+              className="pointer-events-none absolute z-10 hidden overflow-hidden rounded-full border-4 border-white/95 bg-neutral-200 shadow-[0_12px_35px_rgba(15,23,42,0.38)] lg:block"
               style={{
                 width: productLensSize,
                 height: productLensSize,
-                left: lensPosition.left,
-                top: lensPosition.top,
-                backgroundImage: `url(${image.url})`,
-                backgroundSize: `${productLensZoomFactor * 100}% ${productLensZoomFactor * 100}%`,
-                backgroundPosition: `${lensPosition.backgroundPositionX}% ${lensPosition.backgroundPositionY}%`,
+                left: lensPosition.imageOffsetLeft + lensPosition.left,
+                top: lensPosition.imageOffsetTop + lensPosition.top,
               }}
-            />
+            >
+              <img
+                src={image.url}
+                alt=""
+                draggable={false}
+                className="pointer-events-none absolute max-w-none object-cover"
+                style={{
+                  width: lensPosition.imageWidth * productLensZoomFactor,
+                  height: lensPosition.imageHeight * productLensZoomFactor,
+                  left: productLensSize / 2 - lensPosition.pointerX * productLensZoomFactor,
+                  top: productLensSize / 2 - lensPosition.pointerY * productLensZoomFactor,
+                }}
+              />
+            </div>
           ) : null}
           {product.images.length > 1 ? (
             <>

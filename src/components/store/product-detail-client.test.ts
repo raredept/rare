@@ -34,7 +34,7 @@ function countOccurrences(value: string, pattern: string) {
 }
 
 describe("ProductDetailClient", () => {
-  it("keeps the magnifying lens inside the image and clamps its zoom background at the edges", () => {
+  it("keeps the magnifying lens inside the image and exposes the exact pointer coordinates", () => {
     const position = calculateProductLensPosition(
       { clientX: 500, clientY: 300 },
       { left: 100, top: 100, width: 800, height: 1000 },
@@ -42,15 +42,15 @@ describe("ProductDetailClient", () => {
 
     expect(position.left).toBe(296);
     expect(position.top).toBe(96);
-    expect(position.backgroundPositionX).toBeCloseTo(74.67, 2);
-    expect(position.backgroundPositionY).toBeCloseTo(26.4, 3);
+    expect(position.pointerX).toBe(400);
+    expect(position.pointerY).toBe(200);
 
     expect(
       calculateProductLensPosition(
         { clientX: 100, clientY: 100 },
         { left: 100, top: 100, width: 800, height: 1000 },
       ),
-    ).toMatchObject({ left: 0, top: 0, backgroundPositionX: 0, backgroundPositionY: 0 });
+    ).toMatchObject({ left: 0, top: 0, pointerX: 0, pointerY: 0 });
   });
 
   it("renders product trust signals, stock copy, policy links, and media fallback", () => {

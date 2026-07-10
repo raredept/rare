@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 import { ProductMediaPlaceholder } from "@/components/store/product-media-placeholder";
 import {
   getProductMediaRenderPlan,
@@ -18,6 +18,7 @@ type ProductMediaProps = {
   poster?: string;
   preload?: "none" | "metadata" | "auto";
   priority?: boolean;
+  imageRef?: RefObject<HTMLImageElement | null>;
 };
 
 export function ProductMedia({
@@ -30,6 +31,7 @@ export function ProductMedia({
   poster,
   preload,
   priority,
+  imageRef,
 }: ProductMediaProps) {
   const [failed, setFailed] = useState(false);
   const renderPlan = getProductMediaRenderPlan(media, context, { priority });
@@ -57,6 +59,7 @@ export function ProductMedia({
 
   return (
     <img
+      ref={imageRef}
       src={renderPlan.src}
       srcSet={renderPlan.srcSet}
       alt={alt}
