@@ -74,6 +74,12 @@ export default async function CustomerOrderDetailPage({ params }: CustomerOrderD
                 <span>Subtotal</span>
                 <span className="whitespace-nowrap">{formatMoney(order.subtotalInCents)}</span>
               </div>
+              {order.discountInCents > 0 ? (
+                <div className="flex justify-between text-emerald-700">
+                  <span>Cupom {order.couponCode ?? ""}</span>
+                  <span className="whitespace-nowrap">- {formatMoney(order.discountInCents)}</span>
+                </div>
+              ) : null}
               <div className="flex justify-between">
                 <span>Frete</span>
                 <span className="whitespace-nowrap">{formatMoney(order.shippingInCents)}</span>

@@ -192,6 +192,8 @@ model Order {
   city                    String?
   state                   String?
   subtotalInCents         Int
+  couponCode              String?
+  discountInCents         Int                 @default(0)
   shippingInCents         Int                 @default(0)
   totalInCents            Int
   status                  OrderStatus         @default(pending)

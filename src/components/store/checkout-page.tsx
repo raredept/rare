@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CartPageClient } from "@/components/store/cart-page-client";
 import { getCurrentCustomer } from "@/lib/customer-auth";
+import { FIRST_ORDER_COUPON_CODE, FIRST_ORDER_COUPON_PERCENT, paidOrderStatuses } from "@/lib/coupons";
 import { isValidCpf, maskCpf } from "@/lib/cpf";
 import { prisma } from "@/lib/prisma";
 import { getStoreSettings } from "@/lib/settings";
@@ -36,6 +37,12 @@ export async function StoreCheckoutPage({ searchParams }: StoreCheckoutPageProps
     },
   });
   const selectedAddressId = address && addresses.some((item) => item.id === address) ? address : addresses[0]?.id ?? "";
+  const paidOrderCount = await prisma.order.count({
+    where: {
+      customerId: customer.id,
+      status: { in: [...paidOrderStatuses] },
+    },
+  });
 
   return (
     <CartPageClient
@@ -58,6 +65,11 @@ export async function StoreCheckoutPage({ searchParams }: StoreCheckoutPageProps
         shippingInstructions: settings.shippingInstructions,
       }}
       shippingConfig={getShippingPublicConfig(settings)}
+      welcomeCoupon={
+        paidOrderCount === 0
+          ? { code: FIRST_ORDER_COUPON_CODE, percentOff: FIRST_ORDER_COUPON_PERCENT }
+          : null
+      }
     />
   );
 }

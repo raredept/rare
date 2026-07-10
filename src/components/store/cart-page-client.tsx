@@ -9,6 +9,7 @@ import { ProductMediaPlaceholder } from "@/components/store/product-media-placeh
 import { formatCep, parseCep } from "@/lib/cep";
 import { formatCpf, isValidCpf, normalizeCpf } from "@/lib/cpf";
 import { formatMoney } from "@/lib/money";
+import { calculatePercentDiscountInCents } from "@/lib/coupons";
 import { calculateProvisionalShipping, type ProvisionalShippingSettings } from "@/lib/shipping";
 
 type CheckoutAddress = {
@@ -45,6 +46,7 @@ type CartPageClientProps = {
     provider: string;
     originCepConfigured: boolean;
   };
+  welcomeCoupon?: { code: string; percentOff: number } | null;
 };
 
 type ShippingQuoteOption = {
@@ -164,7 +166,7 @@ function formatCheckoutMessage(message: string) {
   return message;
 }
 
-export function CartPageClient({ customer, addresses, initialSelectedAddressId, shippingSettings, shippingConfig }: CartPageClientProps) {
+export function CartPageClient({ customer, addresses, initialSelectedAddressId, shippingSettings, shippingConfig, welcomeCoupon }: CartPageClientProps) {
   const { items, subtotalInCents, updateQuantity, removeItem } = useCart();
   const [selectedAddressId, setSelectedAddressId] = useState(initialSelectedAddressId);
   const [shippingOptions, setShippingOptions] = useState<ShippingQuoteOption[]>([]);
@@ -223,6 +225,8 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
     ? selectedShippingOption?.amountCents ?? 0
     : legacyShippingPreview.result?.shippingInCents ?? 0;
   const totalInCents = subtotalInCents + shippingInCents;
+  const discountInCents = welcomeCoupon ? calculatePercentDiscountInCents(subtotalInCents, welcomeCoupon.percentOff) : 0;
+  const discountedTotalInCents = totalInCents - discountInCents;
 
   const checkoutPayload = useMemo(
     () => {
@@ -243,6 +247,7 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
           : {
               selectedShippingMethod: legacyShippingPreview.result?.shippingMethod,
             }),
+        couponCode: welcomeCoupon?.code,
       };
     },
     [
@@ -254,6 +259,7 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
       selectedShippingOption?.provider,
       selectedShippingOption?.service,
       shippingConfig.enabled,
+      welcomeCoupon?.code,
     ],
   );
 
@@ -527,6 +533,16 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
         <div className="space-y-6">
           <CartItems items={items} updateQuantity={updateQuantity} removeItem={removeItem} />
 
+          {welcomeCoupon ? (
+            <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-5">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Cupom de boas-vindas</p>
+              <h2 className="mt-2 text-lg font-black text-neutral-950">Você ganhou 10% na primeira compra</h2>
+              <p className="mt-2 text-sm font-semibold leading-6 text-emerald-900">
+                Cupom <span className="font-black tracking-wide">{welcomeCoupon.code}</span> aplicado automaticamente após o cadastro.
+              </p>
+            </section>
+          ) : null}
+
           <section className="rounded-lg border border-neutral-200 bg-white p-5">
             <div className="flex items-center gap-2">
               <UserRound className="h-5 w-5 text-neutral-700" />
@@ -714,6 +730,12 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
                     : "A calcular"}
               </span>
             </div>
+            {discountInCents > 0 ? (
+              <div className="flex justify-between gap-4 text-emerald-700">
+                <span>Cupom {welcomeCoupon?.code}</span>
+                <span className="whitespace-nowrap">- {formatMoney(discountInCents)}</span>
+              </div>
+            ) : null}
             {selectedShippingOption?.destinationCep || legacyShippingPreview.result?.shippingCep ? (
               <div className="flex justify-between gap-4 text-xs text-neutral-500">
                 <span>CEP</span>
@@ -752,7 +774,7 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
             <div className="border-t border-neutral-200 pt-4">
               <div className="flex justify-between gap-4 text-xl font-black text-neutral-950">
                 <span>Total</span>
-                <span className="whitespace-nowrap">{formatMoney(totalInCents)}</span>
+                <span className="whitespace-nowrap">{formatMoney(discountedTotalInCents)}</span>
               </div>
             </div>
           </div>

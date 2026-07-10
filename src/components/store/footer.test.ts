@@ -16,7 +16,7 @@ const categories = [
 
 describe("StoreFooter", () => {
   it("renders ecommerce footer links for categories, service, institutional pages, and contact", () => {
-    const html = renderToStaticMarkup(createElement(StoreFooter, { categories }) as ReactElement);
+    const html = renderToStaticMarkup(createElement(StoreFooter, { categories, whatsappNumber: "5511999999999" }) as ReactElement);
 
     expect(html).toContain("RARE");
     expect(html).toContain('href="/categoria/tudo"');
@@ -29,5 +29,7 @@ describe("StoreFooter", () => {
     expect(html).toContain("Privacidade e termos");
     expect(html).toContain("suporte@raredept.com.br");
     expect(html).toContain("Pagamento via Pix ou cartão disponível no checkout");
+    expect(html).toContain('href="https://www.instagram.com/raredept/"');
+    expect(html).toContain('href="https://wa.me/5511999999999"');
   });
 });

@@ -25,6 +25,7 @@ import { checkoutRequestSchema } from "@/lib/validators";
 import { makeOrderNumber } from "@/lib/slug";
 import { releasableReservationStatuses, shouldReleaseReservationOnStatusChange } from "@/lib/order-status";
 import { notifyAdminsOfPaidOrder } from "@/lib/admin-notifications";
+import { getFirstOrderCouponDiscount, paidOrderStatuses } from "@/lib/coupons";
 
 type CheckoutSessionCreateParams = NonNullable<Parameters<Stripe["checkout"]["sessions"]["create"]>[0]>;
 type CheckoutLineItem = NonNullable<CheckoutSessionCreateParams["line_items"]>[number];
@@ -402,6 +403,15 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
     throw new Error(checkoutRequiresCpfMessage);
   }
 
+  const paidOrderCount = parsed.couponCode
+    ? await prisma.order.count({
+        where: {
+          customerId: checkoutCustomer.id,
+          status: { in: [...paidOrderStatuses] },
+        },
+      })
+    : 0;
+
   const customerAddresses: CustomerAddressForCheckout[] = await prisma.customerAddress.findMany({
     where: { customerId: checkoutCustomer.id },
     orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
@@ -473,6 +483,11 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
     });
 
     const subtotalInCents = orderItems.reduce((sum, item) => sum + item.totalInCents, 0);
+    const coupon = getFirstOrderCouponDiscount({
+      code: parsed.couponCode,
+      subtotalInCents,
+      paidOrderCount,
+    });
     const quoteEnabled = isShippingEnabled(settings);
     const shipping = quoteEnabled
       ? await (async () => {
@@ -552,11 +567,13 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
         orderNumber: makeOrderNumber(),
         ...checkoutCustomerData,
         subtotalInCents,
+        couponCode: coupon.code,
+        discountInCents: coupon.discountInCents,
         shippingInCents: shipping.shippingInCents,
         shippingMethodSnapshot: shipping.shippingMethod,
         shippingCepSnapshot: shipping.shippingCep,
         shippingQuoteSnapshot: shipping.shippingQuoteSnapshot as Prisma.InputJsonObject | undefined,
-        totalInCents: subtotalInCents + shipping.shippingInCents,
+        totalInCents: subtotalInCents - coupon.discountInCents + shipping.shippingInCents,
         status: "awaiting_payment",
         reservationExpiresAt,
         items: {
@@ -610,17 +627,45 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
 
   const paymentMethodTypes = normalizePaymentMethodTypes();
   const appUrl = getAppUrl();
-  const lineItems: CheckoutLineItem[] = order.items.map((item) => ({
-    quantity: item.quantity,
-    price_data: {
-      currency: "brl",
-      unit_amount: item.unitPriceInCents,
-      product_data: {
-        name: `${item.productTitleSnapshot} - ${item.sizeSnapshot}`,
-        images: [toAbsoluteUrl(item.product?.images[0]?.url)].filter(Boolean) as string[],
-      },
-    },
-  }));
+  const orderDiscountInCents = order.discountInCents ?? 0;
+  const lineItems: CheckoutLineItem[] =
+    orderDiscountInCents <= 0
+      ? order.items.map((item) => ({
+          quantity: item.quantity,
+          price_data: {
+            currency: "brl",
+            unit_amount: item.unitPriceInCents,
+            product_data: {
+              name: `${item.productTitleSnapshot} - ${item.sizeSnapshot}`,
+              images: [toAbsoluteUrl(item.product?.images[0]?.url)].filter(Boolean) as string[],
+            },
+          },
+        }))
+      : (() => {
+          let remainingDiscountInCents = orderDiscountInCents;
+          return order.items.map((item, index) => {
+            const itemDiscountInCents =
+              index === order.items.length - 1
+                ? remainingDiscountInCents
+                : Math.min(
+                    remainingDiscountInCents,
+                    Math.floor((orderDiscountInCents * item.totalInCents) / order.subtotalInCents),
+                  );
+            remainingDiscountInCents -= itemDiscountInCents;
+
+            return {
+              quantity: 1,
+              price_data: {
+                currency: "brl",
+                unit_amount: item.totalInCents - itemDiscountInCents,
+                product_data: {
+                  name: `${item.productTitleSnapshot} - ${item.sizeSnapshot}${item.quantity > 1 ? ` (x${item.quantity})` : ""}`,
+                  images: [toAbsoluteUrl(item.product?.images[0]?.url)].filter(Boolean) as string[],
+                },
+              },
+            };
+          });
+        })();
 
   try {
     const stripe = getStripe();

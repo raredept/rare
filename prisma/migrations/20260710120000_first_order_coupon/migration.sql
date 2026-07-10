@@ -1,0 +1,3 @@
+ALTER TABLE "Order"
+ADD COLUMN "couponCode" TEXT,
+ADD COLUMN "discountInCents" INTEGER NOT NULL DEFAULT 0;

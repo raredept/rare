@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AtSign, MessageCircle } from "lucide-react";
 import { virtualCatalogCategories } from "@/lib/catalog-categories";
 
 type FooterCategory = {
@@ -9,6 +10,7 @@ type FooterCategory = {
 
 type StoreFooterProps = {
   categories: FooterCategory[];
+  whatsappNumber?: string | null;
 };
 
 const serviceLinks = [
@@ -49,7 +51,7 @@ function FooterNavList({
   );
 }
 
-export function StoreFooter({ categories }: StoreFooterProps) {
+export function StoreFooter({ categories, whatsappNumber }: StoreFooterProps) {
   const year = new Date().getFullYear();
   const categoryLinks = [
     ...virtualCatalogCategories.map((category) => ({
@@ -63,6 +65,10 @@ export function StoreFooter({ categories }: StoreFooterProps) {
       label: category.name,
     })),
   ];
+  const whatsappDigits = whatsappNumber?.replace(/\D/g, "");
+  const whatsappHref = whatsappDigits
+    ? `https://wa.me/${whatsappDigits}`
+    : "https://wa.me/?text=Olá%2C%20quero%20falar%20com%20a%20RARE.";
 
   return (
     <footer className="border-t border-white/10 bg-black text-white">
@@ -79,6 +85,16 @@ export function StoreFooter({ categories }: StoreFooterProps) {
               suporte@raredept.com.br
             </a>
             <p>Atendimento direto para dúvidas, pedidos e pós-compra.</p>
+          </div>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <a href="https://www.instagram.com/raredept/" target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/20 px-4 text-sm font-black text-white transition hover:border-white hover:bg-white hover:text-black">
+              <AtSign className="h-4 w-4" aria-hidden="true" />
+              Instagram
+            </a>
+            <a href={whatsappHref} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/20 px-4 text-sm font-black text-white transition hover:border-white hover:bg-white hover:text-black">
+              <MessageCircle className="h-4 w-4" aria-hidden="true" />
+              WhatsApp
+            </a>
           </div>
         </div>
 

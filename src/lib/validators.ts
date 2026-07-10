@@ -115,6 +115,7 @@ export const checkoutRequestSchema = z.object({
   shippingOptionService: z.string().trim().max(80).optional(),
   shippingDestinationCep: cepSchema.optional(),
   selectedShippingMethod: z.string().trim().max(80).optional(),
+  couponCode: z.string().trim().max(40).optional(),
 });
 
 export const customerRegisterSchema = z

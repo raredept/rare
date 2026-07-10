@@ -5,11 +5,12 @@ import { StoreFooter } from "@/components/store/footer";
 import { StoreHeader } from "@/components/store/header";
 import { RouteProgress } from "@/components/store/route-progress";
 import { getNavigationCategories } from "@/lib/storefront";
+import { getStoreSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
 export default async function StoreLayout({ children }: { children: ReactNode }) {
-  const categories = await getNavigationCategories();
+  const [categories, settings] = await Promise.all([getNavigationCategories(), getStoreSettings()]);
 
   return (
     <CartProvider>
@@ -20,7 +21,7 @@ export default async function StoreLayout({ children }: { children: ReactNode })
         <StoreHeader categories={categories} />
         <CartDrawer />
         <main className="flex-1 bg-neutral-50">{children}</main>
-        <StoreFooter categories={categories} />
+        <StoreFooter categories={categories} whatsappNumber={settings.whatsappNumber} />
       </div>
     </CartProvider>
   );
