@@ -87,6 +87,9 @@ algum item falhar. Uma execução parcial pode ser repetida: variantes existente
 são sobrescritas, e a referência do banco usa comparação com a URL anterior para
 evitar perder uma edição administrativa concorrente.
 
+SIGINT/SIGTERM interrompem a seleção depois do item corrente, imprimem resumo com
+`interrupted=true` e usam exit code 130/143. Isso permite parar um lote sem iniciar o próximo item.
+
 URLs legadas com querystring ou fragmento não são processadas automaticamente,
 pois podem ser assinadas. GIF, MP4, SVG e imagens pequenas ou sem ganho de tamanho
 continuam usando o original.

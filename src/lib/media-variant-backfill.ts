@@ -32,6 +32,7 @@ export type MediaBackfillSummary = {
   skipped: number;
   failed: number;
   createdVariants: number;
+  interrupted: boolean;
 };
 
 export type MediaBackfillPlan = {
@@ -158,6 +159,7 @@ export async function runMediaVariantBackfill(options: {
   process: (candidate: MediaBackfillCandidate) => Promise<MediaBackfillProcessResult>;
   updateReference: (candidate: MediaBackfillCandidate, markedUrl: string) => Promise<void>;
   log?: (message: string) => void;
+  signal?: AbortSignal;
 }) {
   const summary: MediaBackfillSummary = {
     selected: 0,
@@ -167,10 +169,15 @@ export async function runMediaVariantBackfill(options: {
     skipped: 0,
     failed: 0,
     createdVariants: 0,
+    interrupted: false,
   };
   const log = options.log ?? (() => undefined);
 
   for await (const candidate of options.candidates) {
+    if (options.signal?.aborted) {
+      summary.interrupted = true;
+      break;
+    }
     if (summary.selected >= options.limit) break;
 
     const plan = planMediaVariantBackfill(candidate.url);
@@ -211,6 +218,11 @@ export async function runMediaVariantBackfill(options: {
       summary.failed += 1;
       const reason = getSafeMediaBackfillFailureReason(error);
       log(`[${summary.selected}/${options.limit}] failed ${label} reason=${reason}`);
+    }
+
+    if (options.signal?.aborted) {
+      summary.interrupted = true;
+      break;
     }
   }
 

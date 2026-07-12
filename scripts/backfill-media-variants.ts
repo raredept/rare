@@ -7,17 +7,9 @@ import {
   type MediaBackfillCandidate,
 } from "../src/lib/media-variant-backfill";
 import { createConfiguredMediaBackfillStorage } from "../src/lib/media-variant-backfill-storage";
+import { assertProductionMediaBackfillAuthorized, parseMediaBackfillArgs } from "../src/lib/media-backfill-cli";
 
-const DEFAULT_LIMIT = 10;
-const MAX_LIMIT = 100;
-const DEFAULT_MAX_SOURCE_MB = 25;
 const PAGE_SIZE = 50;
-
-type Args = {
-  limit: number;
-  dryRun: boolean;
-  maxSourceBytes: number;
-};
 
 function sanitizeFatalError(error: unknown) {
   const message = error instanceof Error ? error.message : "Media variant backfill failed.";
@@ -27,37 +19,6 @@ function sanitizeFatalError(error: unknown) {
     .replace(/\b(?:sk_(?:live|test)|whsec|Bearer)[A-Za-z0-9_.-]+/gi, "[redacted-token]");
 }
 
-function getArgumentValue(argv: string[], name: string) {
-  const inline = argv.find((argument) => argument.startsWith(`${name}=`));
-  if (inline) return inline.slice(name.length + 1);
-  const index = argv.indexOf(name);
-  return index >= 0 ? argv[index + 1] : undefined;
-}
-
-export function parseMediaBackfillArgs(argv: string[], env: NodeJS.ProcessEnv = process.env): Args {
-  const applying = argv.includes("--apply");
-  if (applying && argv.includes("--dry-run")) {
-    throw new Error("Use --dry-run ou --apply, nunca os dois juntos.");
-  }
-
-  const rawLimit = getArgumentValue(argv, "--limit") ?? String(DEFAULT_LIMIT);
-  const limit = Number(rawLimit);
-  if (!Number.isInteger(limit) || limit < 1 || limit > MAX_LIMIT) {
-    throw new Error(`--limit deve ser um inteiro entre 1 e ${MAX_LIMIT}.`);
-  }
-
-  const rawMaxSourceMb = env.MEDIA_BACKFILL_MAX_SOURCE_MB ?? String(DEFAULT_MAX_SOURCE_MB);
-  const maxSourceMb = Number(rawMaxSourceMb);
-  if (!Number.isFinite(maxSourceMb) || maxSourceMb <= 0 || maxSourceMb > 100) {
-    throw new Error("MEDIA_BACKFILL_MAX_SOURCE_MB deve ser um número entre 0 e 100.");
-  }
-
-  return {
-    limit,
-    dryRun: !applying,
-    maxSourceBytes: Math.floor(maxSourceMb * 1024 * 1024),
-  };
-}
 
 function isEligible(url: string) {
   return planMediaVariantBackfill(url).eligible;
@@ -127,18 +88,17 @@ async function updateReference(candidate: MediaBackfillCandidate, markedUrl: str
   if (result.count !== 1) throw new Error("media-reference-changed-concurrently");
 }
 
-function assertProductionApplyAuthorized(args: Args, env: NodeJS.ProcessEnv = process.env) {
-  const environment = (env.APP_ENV ?? env.NODE_ENV ?? "development").toLowerCase();
-  if (!args.dryRun && environment === "production" && env.MEDIA_BACKFILL_ALLOW_PRODUCTION !== "true") {
-    throw new Error(
-      "Backfill em produção bloqueado. Exige autorização explícita e MEDIA_BACKFILL_ALLOW_PRODUCTION=true somente durante a execução aprovada.",
-    );
-  }
-}
-
 async function main() {
   const args = parseMediaBackfillArgs(process.argv.slice(2));
-  assertProductionApplyAuthorized(args);
+  assertProductionMediaBackfillAuthorized(args);
+  const abortController = new AbortController();
+  let interruptedSignal: NodeJS.Signals | null = null;
+  const interrupt = (signal: NodeJS.Signals) => {
+    interruptedSignal = signal;
+    abortController.abort();
+  };
+  process.once("SIGINT", interrupt);
+  process.once("SIGTERM", interrupt);
 
   console.log("Media variant backfill");
   console.log(`Mode: ${args.dryRun ? "dry-run (default, no writes)" : "apply"}`);
@@ -159,11 +119,15 @@ async function main() {
     process: processCandidate,
     updateReference,
     log: console.log,
+    signal: abortController.signal,
   });
 
   console.log("Summary:");
   console.log(JSON.stringify(summary));
-  if (summary.failed > 0) process.exitCode = 1;
+  if (interruptedSignal) process.exitCode = interruptedSignal === "SIGINT" ? 130 : 143;
+  else if (summary.failed > 0) process.exitCode = 1;
+  process.removeListener("SIGINT", interrupt);
+  process.removeListener("SIGTERM", interrupt);
 }
 
 main()

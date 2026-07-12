@@ -146,4 +146,54 @@ describe("media variant backfill", () => {
       "source-exceeds-configured-size-limit",
     );
   });
+
+  it.each([
+    ["original missing", Object.assign(new Error("missing"), { code: "ENOENT" })],
+    ["source too large", new Error("source-exceeds-configured-size-limit")],
+    ["corrupted image", new Error("corrupted-image")],
+  ])("contains an individual %s failure without updating the reference", async (_label, failure) => {
+    const { storage } = createStorage();
+    vi.mocked(storage.read).mockRejectedValueOnce(failure);
+    const updateReference = vi.fn();
+    const summary = await runMediaVariantBackfill({
+      candidates: candidates([candidate]),
+      limit: 1,
+      dryRun: false,
+      process: createMediaVariantBackfillProcessor(storage, { maxSourceBytes: 10 }),
+      updateReference,
+    });
+    expect(summary.failed).toBe(1);
+    expect(updateReference).not.toHaveBeenCalled();
+  });
+
+  it("reports interruption after the current item and does not start the next one", async () => {
+    const controller = new AbortController();
+    const second = { ...candidate, id: "image-2", url: "/uploads/products/second.jpg" };
+    const process = vi.fn(async () => {
+      controller.abort();
+      return { status: "skipped" as const, reason: "source-not-eligible-for-variants" };
+    });
+    const summary = await runMediaVariantBackfill({
+      candidates: candidates([candidate, second]),
+      limit: 2,
+      dryRun: false,
+      process,
+      updateReference: vi.fn(),
+      signal: controller.signal,
+    });
+    expect(summary.interrupted).toBe(true);
+    expect(process).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not mark completion when the database reference changed concurrently", async () => {
+    const updateReference = vi.fn(async () => { throw new Error("media-reference-changed-concurrently"); });
+    const summary = await runMediaVariantBackfill({
+      candidates: candidates([candidate]),
+      limit: 1,
+      dryRun: false,
+      process: vi.fn(async () => ({ status: "complete" as const, markedUrl: "marked", createdVariants: 2, existingVariants: 0 })),
+      updateReference,
+    });
+    expect(summary).toEqual(expect.objectContaining({ completed: 0, failed: 1 }));
+  });
 });
