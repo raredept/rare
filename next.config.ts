@@ -11,6 +11,12 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.raredept.com.br" }],
+        destination: "https://raredept.com.br/:path*",
+        permanent: true,
+      },
+      {
         source: "/cart",
         destination: "/finalizar-compra",
         permanent: false,
