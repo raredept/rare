@@ -12,6 +12,11 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:a11y": "playwright test tests/e2e/accessibility.spec.ts",
+    "test:keyboard": "playwright test tests/e2e/keyboard.spec.ts",
+    "check:links": "playwright test tests/e2e/links.spec.ts --project=chromium-desktop",
+    "lighthouse": "node scripts/run-lighthouse.mjs",
     "app:check": "tsx scripts/check-readiness.ts",
     "checkout": "npm run checkout:smoke",
     "checkout:smoke": "npm run checkout:smoke:guard",
@@ -56,6 +61,8 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.0",
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/pg": "^8.20.0",
@@ -64,6 +71,7 @@
     "@types/web-push": "^3.6.4",
     "eslint": "^9",
     "eslint-config-next": "^16.2.10",
+    "lighthouse": "^12.6.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.0",
     "typescript": "^5",
