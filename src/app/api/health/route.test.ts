@@ -131,9 +131,11 @@ describe("health route readiness", () => {
       checked: true,
       configuredDriver: "redis",
       activeDriver: "redis",
+      activeTransport: "rest",
       shared: true,
       redisRestUrlConfigured: true,
       redisRestTokenConfigured: true,
+      redisTcpUrlConfigured: false,
       warnings: [],
     });
     expect(body.configuration.warnings).not.toEqual(

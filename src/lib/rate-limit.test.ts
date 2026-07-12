@@ -12,6 +12,7 @@ beforeEach(() => {
     UPSTASH_REDIS_REST_TOKEN: "",
     REDIS_REST_URL: "",
     REDIS_REST_TOKEN: "",
+    REDIS_URL: "",
   };
   resetRateLimitMemoryForTests();
 });
@@ -49,6 +50,7 @@ describe("rate limit driver", () => {
       expect.objectContaining({
         configuredDriver: "memory",
         activeDriver: "memory",
+        activeTransport: "memory",
         shared: false,
         warnings: [],
       }),
@@ -82,9 +84,11 @@ describe("rate limit driver", () => {
       expect.objectContaining({
         configuredDriver: "redis",
         activeDriver: "memory",
+        activeTransport: "memory",
         shared: false,
         redisRestUrlConfigured: false,
         redisRestTokenConfigured: false,
+        redisTcpUrlConfigured: false,
       }),
     );
     expect(status.warnings).toEqual(expect.arrayContaining([expect.stringContaining("Falling back to memory")]));
@@ -112,6 +116,7 @@ describe("rate limit driver", () => {
       expect.objectContaining({
         configuredDriver: "redis",
         activeDriver: "redis",
+        activeTransport: "rest",
         shared: true,
         redisRestUrlConfigured: true,
         redisRestTokenConfigured: true,
@@ -123,5 +128,25 @@ describe("rate limit driver", () => {
     expect(headers.Authorization).toBe("Bearer configured-redis-token");
     expect(body[0]).toBe("EVAL");
     expect(JSON.stringify(body)).not.toContain("cliente@example.com");
+  });
+
+  it("selects the Redis TCP driver when REDIS_URL is configured", () => {
+    process.env = {
+      ...process.env,
+      NODE_ENV: "production",
+      RATE_LIMIT_DRIVER: "redis",
+      REDIS_URL: "redis://default:secret@redis.railway.internal:6379",
+    };
+
+    expect(getRateLimitStatus()).toEqual(
+      expect.objectContaining({
+        configuredDriver: "redis",
+        activeDriver: "redis",
+        activeTransport: "tcp",
+        shared: true,
+        redisTcpUrlConfigured: true,
+        warnings: [],
+      }),
+    );
   });
 });

@@ -1,5 +1,12 @@
 import { createHash } from "node:crypto";
-import { getRateLimitStatus, getRedisRestConfig, type RateLimitDriver, type RedisRestConfig } from "@/lib/rate-limit-config";
+import { createClient, type RedisClientType } from "redis";
+import {
+  getRateLimitStatus,
+  getRedisRestConfig,
+  getRedisTcpConfig,
+  type RateLimitDriver,
+  type RedisRestConfig,
+} from "@/lib/rate-limit-config";
 
 export { getRateLimitStatus } from "@/lib/rate-limit-config";
 export type { RateLimitDriver, RateLimitStatus } from "@/lib/rate-limit-config";
@@ -14,6 +21,9 @@ export type RateLimitResult = {
 
 const buckets = new Map<string, { count: number; resetAt: number }>();
 let lastSharedDriverFailureLogAt = 0;
+let redisTcpClient: RedisClientType | null = null;
+let redisTcpClientUrl: string | null = null;
+let redisTcpConnectPromise: Promise<RedisClientType> | null = null;
 
 const redisRateLimitScript = `
 local current = redis.call("INCR", KEYS[1])
@@ -112,6 +122,64 @@ async function redisRateLimit(key: string, limit: number, windowMs: number, conf
   };
 }
 
+async function getConnectedRedisTcpClient(url: string) {
+  if (redisTcpClientUrl !== url) {
+    redisTcpClient?.destroy();
+    redisTcpClient = null;
+    redisTcpConnectPromise = null;
+    redisTcpClientUrl = url;
+  }
+
+  if (redisTcpClient?.isReady) return redisTcpClient;
+  if (redisTcpConnectPromise) return redisTcpConnectPromise;
+
+  const client = createClient({
+    url,
+    socket: {
+      connectTimeout: 2_000,
+      reconnectStrategy: false,
+    },
+  });
+  client.on("error", () => undefined);
+  redisTcpClient = client;
+  redisTcpConnectPromise = client
+    .connect()
+    .then(() => client)
+    .catch((error) => {
+      client.destroy();
+      redisTcpClient = null;
+      redisTcpConnectPromise = null;
+      throw error;
+    });
+
+  return redisTcpConnectPromise;
+}
+
+async function redisTcpRateLimit(key: string, limit: number, windowMs: number, url: string, prefix: string): Promise<RateLimitResult> {
+  const now = Date.now();
+  const client = await getConnectedRedisTcpClient(url);
+  const result = await client.eval(redisRateLimitScript, {
+    keys: [getRedisKey(key, prefix)],
+    arguments: [String(windowMs)],
+  });
+
+  if (!Array.isArray(result) || result.length < 2) {
+    throw new Error("Invalid shared rate limit response.");
+  }
+
+  const count = numberFromRedisValue(result[0]);
+  const ttl = numberFromRedisValue(result[1]);
+  const resetAt = now + (ttl > 0 ? ttl : windowMs);
+
+  return {
+    ok: count <= limit,
+    remaining: Math.max(0, limit - count),
+    resetAt,
+    driver: "redis",
+    shared: true,
+  };
+}
+
 function logSharedDriverFallback() {
   const now = Date.now();
   if (now - lastSharedDriverFailureLogAt < 60_000) return;
@@ -125,17 +193,24 @@ export async function rateLimit(key: string, limit: number, windowMs: number): P
   const status = getRateLimitStatus();
 
   if (status.activeDriver === "redis") {
-    const redis = getRedisRestConfig();
-    if (redis.url && redis.token) {
-      try {
+    try {
+      if (status.activeTransport === "rest") {
+        const redis = getRedisRestConfig();
+        if (!redis.url || !redis.token) throw new Error("Redis REST configuration unavailable.");
         return await redisRateLimit(key, normalizedLimit, normalizedWindowMs, {
           url: redis.url,
           token: redis.token,
           prefix: redis.prefix,
         });
-      } catch {
-        logSharedDriverFallback();
       }
+
+      if (status.activeTransport === "tcp") {
+        const redis = getRedisTcpConfig();
+        if (!redis.url) throw new Error("Redis TCP configuration unavailable.");
+        return await redisTcpRateLimit(key, normalizedLimit, normalizedWindowMs, redis.url, redis.prefix);
+      }
+    } catch {
+      logSharedDriverFallback();
     }
   }
 
@@ -145,4 +220,8 @@ export async function rateLimit(key: string, limit: number, windowMs: number): P
 export function resetRateLimitMemoryForTests() {
   buckets.clear();
   lastSharedDriverFailureLogAt = 0;
+  redisTcpClient?.destroy();
+  redisTcpClient = null;
+  redisTcpClientUrl = null;
+  redisTcpConnectPromise = null;
 }

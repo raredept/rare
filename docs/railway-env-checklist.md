@@ -4,7 +4,7 @@ Este documento e o checklist operacional para configurar a RARE na Railway. Ele 
 
 ## 1. Avisos importantes
 
-- O banco atual continua sendo o Neon. Mantenha a URL do Neon em `DATABASE_URL`.
+- O banco oficial de Production e o Postgres gerenciado pela Railway. O servico web usa a referencia `${{Postgres.DATABASE_URL}}`.
 - O cliente deve preencher valores reais em **Railway > Service > Variables**, nunca em commit, WhatsApp ou chat aberto.
 - Depois de adicionar ou alterar envs na Railway, faca redeploy do ambiente afetado.
 - Releases com migrations usam `npx prisma migrate deploy`; o servico web executa isso como `preDeployCommand` em `railway.json`.
@@ -40,12 +40,13 @@ A Railway injeta variaveis de sistema como `PORT`, `RAILWAY_ENVIRONMENT_NAME` e,
 | `APP_ENV` | `production` | Sim | Use `production` somente no ambiente Production. |
 | `APP_URL` | `https://raredept.com.br` | Sim | URL canonica server-side. |
 | `NEXT_PUBLIC_APP_URL` | `https://raredept.com.br` | Sim | URL publica enviada ao browser. |
-| `DATABASE_URL` | `postgresql://...neon...` | Sim | Banco Neon de producao; nao reutilizar em staging/smoke. |
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` | Sim | Banco Postgres Railway de producao; nao reutilizar em staging/smoke. |
 | `ADMIN_SESSION_SECRET` | `...32+ caracteres...` | Sim | `AUTH_SECRET` tambem e aceito como alias. |
 | `CHECKOUT_ENABLED` | `false` | Sim | Alterar para `true` so depois da homologacao aprovada. |
 | `RATE_LIMIT_DRIVER` | `redis` | Sim para venda aberta | `memory` gera warning e nao e compartilhado entre replicas. |
+| `REDIS_URL` | `${{Redis.REDIS_URL}}` | Sim com Redis Railway | Conexao TCP privada com o Redis do projeto. |
 | `UPSTASH_REDIS_REST_URL` / `REDIS_REST_URL` | `https://...` | Sim com Redis | URL REST HTTPS. |
-| `UPSTASH_REDIS_REST_TOKEN` / `REDIS_REST_TOKEN` | `...` | Sim com Redis | Token REST; nao expor. |
+| `UPSTASH_REDIS_REST_TOKEN` / `REDIS_REST_TOKEN` | `...` | Sim somente com Redis REST | Token REST; nao expor. |
 | `STRIPE_SECRET_KEY` | `sk_live_...` | Sim quando checkout ativo | Live so em Production autorizada. |
 | `STRIPE_WEBHOOK_SECRET` | `whsec_...` | Sim quando checkout ativo | Webhook live separado para `/api/stripe/webhook`. |
 | `NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY` | `B...` | Sim para notificacoes mobile | Chave publica gerada por `npm run webpush:keys`; vai para o browser. |
@@ -79,7 +80,7 @@ Use um ambiente Railway separado para homologacao. Nunca use Stripe live nem ban
 | `APP_ENV` | `staging` | Sim | O guard aceita `staging`, `stage`, `preview`, `test` ou `homologacao`. |
 | `APP_URL` | `https://rare-staging.up.railway.app` | Sim | Deve apontar para a URL testada. |
 | `NEXT_PUBLIC_APP_URL` | `https://rare-staging.up.railway.app` | Sim | Deve bater com `APP_URL`. |
-| `DATABASE_URL` | `postgresql://...staging-isolado...` | Sim | Banco Neon isolado ou outro Postgres de staging. |
+| `DATABASE_URL` | `postgresql://...staging-isolado...` | Sim | Postgres isolado de staging; nunca referenciar o banco de Production. |
 | `CHECKOUT_ENABLED` | `true` | Sim para homologar checkout | Usar apenas com Stripe test mode. |
 | `STRIPE_SECRET_KEY` | `sk_test_...` | Sim para checkout smoke | Nunca usar `sk_live_`. |
 | `STRIPE_WEBHOOK_SECRET` | `whsec_...` | Sim para checkout smoke | Webhook test proprio. |
@@ -134,7 +135,7 @@ Resultados esperados:
 
 ## 7. Redis/rate limit
 
-Railway nao resolve automaticamente o warning `RATE_LIMIT_DRIVER=memory`. O codigo atual usa Redis REST/Upstash (`UPSTASH_REDIS_REST_URL`/`TOKEN` ou `REDIS_REST_URL`/`TOKEN`). Um Redis Railway TCP puro nao atende esse driver sem implementacao nova, entao a recomendacao segura para esta migracao e manter Upstash REST ou outro Redis com API REST compativel.
+O codigo aceita o Redis TCP da Railway por `REDIS_URL` e tambem Redis REST/Upstash. Em Production, use `RATE_LIMIT_DRIVER=redis` com `${{Redis.REDIS_URL}}`; REST continua disponivel como alternativa e tem prioridade quando as duas configuracoes estiverem presentes.
 
 ## 8. Dominio e cutover
 

@@ -33,12 +33,9 @@ const secretLeakRules: Array<{ label: string; pattern: RegExp }> = [
   { label: "Stripe live secret key", pattern: /\bsk_live_[A-Za-z0-9_=-]+/ },
   { label: "Stripe test secret key", pattern: /\bsk_test_[A-Za-z0-9_=-]+/ },
   { label: "Stripe webhook secret", pattern: /\bwhsec_[A-Za-z0-9_=-]+/ },
-  { label: "DATABASE_URL marker", pattern: /\bDATABASE_URL\b/i },
-  { label: "STRIPE_SECRET marker", pattern: /\bSTRIPE_SECRET(?:_KEY)?\b/i },
-  { label: "R2_SECRET marker", pattern: /\bR2_SECRET(?:_ACCESS_KEY)?\b/i },
-  { label: "UPSTASH_REDIS_REST_TOKEN marker", pattern: /\bUPSTASH_REDIS_REST_TOKEN\b/i },
-  { label: "MELHOR_ENVIO token marker", pattern: /\bMELHOR_ENVIO_(?:TOKEN|ACCESS_TOKEN)\b/i },
-  { label: "Bearer token marker", pattern: /\bBearer\b/i },
+  { label: "PostgreSQL connection URL", pattern: /\bpostgres(?:ql)?:\/\/[^\s"'<>]+/i },
+  { label: "Redis connection URL", pattern: /\brediss?:\/\/[^\s"'<>]+/i },
+  { label: "Bearer credential", pattern: /\bBearer\s+[A-Za-z0-9._~+\/-]{12,}=*/i },
 ];
 
 function add(checks: PublicSmokeCheck[], status: PublicSmokeStatus, label: string, message: string) {

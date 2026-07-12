@@ -146,4 +146,40 @@ describe("public site smoke", () => {
     expect(report).toContain("Stripe live secret key");
     expect(report).not.toContain(leakedSecret);
   });
+
+  it("allows sanitized health messages that mention missing variable names", async () => {
+    const result = await runPublicSiteSmoke({
+      baseUrl: "https://raredept.com.br",
+      fetchImpl: createFetchMock({
+        healthBody: JSON.stringify({
+          status: "ok_with_warnings",
+          configuration: {
+            warnings: [
+              { variable: "STRIPE_SECRET_KEY", message: "STRIPE_SECRET_KEY is not configured." },
+              { variable: "UPSTASH_REDIS_REST_TOKEN", message: "Redis token is not configured." },
+              { variable: "MELHOR_ENVIO_TOKEN", message: "Shipping token is not configured." },
+            ],
+          },
+        }),
+      }),
+      timeoutMs: 1000,
+    });
+
+    expect(result.checks.filter((check) => check.label.startsWith("leak:"))).toEqual([]);
+    expect(summarizePublicSmokeResult(result).failures).toBe(0);
+  });
+
+  it("fails when a database connection URL is exposed", async () => {
+    const result = await runPublicSiteSmoke({
+      baseUrl: "https://raredept.com.br",
+      fetchImpl: createFetchMock({
+        healthBody: JSON.stringify({ status: "ok", database: "postgresql://user:password@db.example/rare" }),
+      }),
+      timeoutMs: 1000,
+    });
+
+    expect(result.checks).toContainEqual(
+      expect.objectContaining({ status: "FAIL", label: "leak:/api/health", message: expect.stringContaining("PostgreSQL connection URL") }),
+    );
+  });
 });

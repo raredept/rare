@@ -313,7 +313,7 @@ function addRateLimitItems(items: ReadinessItem[], env: Record<string, string | 
     severity: production ? "blocked" : "warning",
     description: `Driver configurado: ${status.configuredDriver}; driver ativo: ${status.activeDriver}; compartilhado: ${status.shared ? "sim" : "nao"}. Credenciais REST presentes: URL ${status.redisRestUrlConfigured ? "sim" : "nao"}, token ${status.redisRestTokenConfigured ? "sim" : "nao"}.`,
     impact: "Protecao contra abuso fica inconsistente em multiplas instancias quando o driver ativo e memory.",
-    recommendedAction: "Configurar RATE_LIMIT_DRIVER=redis e credenciais Redis/Upstash REST na Railway; depois fazer redeploy.",
+    recommendedAction: "Configurar RATE_LIMIT_DRIVER=redis com REDIS_URL da Railway ou credenciais Redis REST/Upstash; depois fazer redeploy.",
     docsPath: "docs/railway-env-checklist.md",
     blocksOpenSales: production,
     blocksStaging: false,

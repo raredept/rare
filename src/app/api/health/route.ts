@@ -232,9 +232,11 @@ export async function GET() {
           checked: true,
           configuredDriver: rateLimit.configuredDriver,
           activeDriver: rateLimit.activeDriver,
+          activeTransport: rateLimit.activeTransport,
           shared: rateLimit.shared,
           redisRestUrlConfigured: rateLimit.redisRestUrlConfigured,
           redisRestTokenConfigured: rateLimit.redisRestTokenConfigured,
+          redisTcpUrlConfigured: rateLimit.redisTcpUrlConfigured,
           warnings: rateLimit.warnings,
         },
         shipping: {

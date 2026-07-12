@@ -72,7 +72,7 @@ $env:SITE_URL="https://raredept.com.br"
 npm run smoke
 ```
 
-O smoke público valida rotas públicas, `robots.txt`, `sitemap.xml`, 404s, `/api/health`, headers de segurança e vazamentos óbvios de secrets. Ele não altera dados, não chama checkout real e não cria pedidos. `FAIL` bloqueia a validação; `WARNING` indica pendência operacional, como `RATE_LIMIT_DRIVER=memory` enquanto Redis/Upstash ainda não estiver configurado.
+O smoke público valida rotas públicas, `robots.txt`, `sitemap.xml`, 404s, `/api/health`, headers de segurança e vazamentos de valores sensíveis. Ele não altera dados, não chama checkout real e não cria pedidos. `FAIL` bloqueia a validação; `WARNING` indica pendência operacional, como rate limit não compartilhado ou integrações externas ainda não homologadas.
 
 Antes de qualquer checkout de homologação, rode:
 
