@@ -19,9 +19,10 @@ type ProductCardProps = {
     variants: { stock: number; reservedStock: number; active: boolean }[];
   };
   commerce?: StorefrontCommerceState;
+  priority?: boolean;
 };
 
-export function ProductCard({ product, commerce }: ProductCardProps) {
+export function ProductCard({ product, commerce, priority = false }: ProductCardProps) {
   const commerceState = commerce ?? buildStorefrontCommerceState(true);
   const { primary: image, hover: hoverImage } = getProductCardMediaPair(product.images);
   const availableStock = product.variants
@@ -42,6 +43,7 @@ export function ProductCard({ product, commerce }: ProductCardProps) {
               media={image}
               alt={image.alt}
               context="card"
+              priority={priority}
               placeholderLabel="Mídia indisponível"
               className="store-product-image h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.035] group-active:scale-[1.015]"
             />

@@ -33,12 +33,13 @@ describe("ProductCard", () => {
       }) as ReactElement,
     );
 
-    expect(html).toContain("/uploads/products/front.webp");
-    expect(html).toContain("/uploads/products/back.webp");
+    expect(html).toContain(encodeURIComponent("/uploads/products/front.webp"));
+    expect(html).toContain(encodeURIComponent("/uploads/products/back.webp"));
     expect(html).toContain("store-product-hover-image");
     expect(html).toContain('loading="lazy"');
     expect(html).toContain('decoding="async"');
-    expect(html).not.toContain("srcSet=");
+    expect(html).toContain("srcSet=");
+    expect(html).toContain("/_next/image?url=");
   });
 
   it("does not render hover media when the second sorted media is video", () => {
@@ -54,8 +55,8 @@ describe("ProductCard", () => {
       }) as ReactElement,
     );
 
-    expect(html).toContain("/uploads/products/front.webp");
-    expect(html).not.toContain("/uploads/products/spin.mp4");
+    expect(html).toContain(encodeURIComponent("/uploads/products/front.webp"));
+    expect(html).not.toContain(encodeURIComponent("/uploads/products/spin.mp4"));
     expect(html).not.toContain("store-product-hover-image");
   });
 
@@ -73,9 +74,9 @@ describe("ProductCard", () => {
       }) as ReactElement,
     );
 
-    expect(html).toContain("/uploads/products/front.webp");
-    expect(html).toContain("/uploads/products/back.webp");
-    expect(html).not.toContain("/uploads/products/spin.mp4");
+    expect(html).toContain(encodeURIComponent("/uploads/products/front.webp"));
+    expect(html).toContain(encodeURIComponent("/uploads/products/back.webp"));
+    expect(html).not.toContain(encodeURIComponent("/uploads/products/spin.mp4"));
     expect(html).toContain("store-product-hover-image");
   });
 
@@ -92,8 +93,8 @@ describe("ProductCard", () => {
       }) as ReactElement,
     );
 
-    expect(html).toContain("/uploads/products/front.avif");
-    expect(html).not.toContain("/uploads/products/spin.gif");
+    expect(html).toContain(encodeURIComponent("/uploads/products/front.avif"));
+    expect(html).not.toContain(encodeURIComponent("/uploads/products/spin.gif"));
   });
 
   it("keeps the no-image fallback when a product has no card image", () => {

@@ -57,7 +57,7 @@ export default function ExchangesAndReturnsPage() {
             key={item.title}
             className="grid gap-4 border-b border-neutral-200 py-8 last:border-b-0 sm:grid-cols-[5rem_1fr] sm:gap-8 sm:py-10"
           >
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-neutral-400 sm:pt-1">
+            <p className="text-xs font-black uppercase tracking-[0.28em] text-neutral-600 sm:pt-1">
               {String(index + 1).padStart(2, "0")}
             </p>
             <div>
@@ -69,7 +69,7 @@ export default function ExchangesAndReturnsPage() {
       </section>
 
       <section className="mt-14 rounded-lg bg-black px-6 py-8 text-white sm:px-8 sm:py-10 lg:px-10">
-        <p className="text-xs font-black uppercase tracking-[0.28em] text-white/45">Atendimento</p>
+        <p className="text-xs font-black uppercase tracking-[0.28em] text-white/65">Atendimento</p>
         <h2 className="mt-4 max-w-2xl text-3xl font-black tracking-tight sm:text-4xl">
           Precisa solicitar uma troca ou devolução?
         </h2>

@@ -54,9 +54,9 @@ describe("storefront product media rendering", () => {
       }) as ReactElement,
     );
 
-    expect(html).toContain("/uploads/products/look.webp");
-    expect(html).not.toContain("/uploads/products/look.gif");
-    expect(html).not.toContain("/uploads/products/look.mp4");
+    expect(html).toContain(encodeURIComponent("/uploads/products/look.webp"));
+    expect(html).not.toContain(encodeURIComponent("/uploads/products/look.gif"));
+    expect(html).not.toContain(encodeURIComponent("/uploads/products/look.mp4"));
   });
 
   it("uses the visual fallback for product cards when only video media exists", () => {

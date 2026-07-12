@@ -153,6 +153,17 @@ export function shouldRenderProductMediaAsVideo(url: string) {
   return getProductMediaTypeFromUrl(url) === "video";
 }
 
+export function canOptimizeProductImageWithNext(plan: ProductImageRenderPlan, context: ProductMediaContext) {
+  const src = plan.src.trim();
+  return (
+    context !== "zoom" &&
+    plan.mediaType === "image" &&
+    !plan.srcSet &&
+    src.startsWith("/") &&
+    !src.startsWith("//")
+  );
+}
+
 function getResponsiveImageCandidates(media: ProductMediaAsset) {
   const baseType = getProductMediaTypeFromUrl(media.url);
   const candidates = [...(media.variants ?? []), ...getGeneratedMediaVariantsFromUrl(media.url)]

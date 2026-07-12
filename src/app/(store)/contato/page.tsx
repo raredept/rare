@@ -26,8 +26,8 @@ export default async function ContactPage() {
         <article className="rounded-lg border border-neutral-200 bg-white p-6">
           <p className="text-xs font-black uppercase tracking-[0.22em] text-neutral-500">Canais oficiais</p>
           <div className="mt-5 flex flex-wrap gap-3">
-            <a href="https://www.instagram.com/raredept/" target="_blank" rel="noreferrer" className="store-button-secondary gap-2"><AtSign className="h-4 w-4" /> Instagram</a>
-            {whatsappDigits ? <a href={`https://wa.me/${whatsappDigits}`} target="_blank" rel="noreferrer" className="store-button-primary gap-2"><MessageCircle className="h-4 w-4" /> WhatsApp</a> : null}
+            <a href="https://www.instagram.com/raredept/" target="_blank" rel="noopener noreferrer" className="store-button-secondary gap-2"><AtSign className="h-4 w-4" /> Instagram</a>
+            {whatsappDigits ? <a href={`https://wa.me/${whatsappDigits}`} target="_blank" rel="noopener noreferrer" className="store-button-primary gap-2"><MessageCircle className="h-4 w-4" /> WhatsApp</a> : null}
           </div>
           <p className="mt-4 text-sm font-semibold leading-6 text-neutral-500">
             Informe nome, pedido se houver, produto e uma descrição objetiva da solicitação.

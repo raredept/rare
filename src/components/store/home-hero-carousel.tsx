@@ -42,7 +42,11 @@ function usePrefersReducedMotion() {
 
 function HomeHeroPlaceholder({ label = "Banner RARE" }: { label?: string }) {
   return (
-    <div className="store-home-hero-placeholder flex h-full w-full items-center justify-center bg-neutral-950 text-white" aria-label={label}>
+    <div
+      className="store-home-hero-placeholder flex h-full w-full items-center justify-center bg-neutral-950 text-white"
+      role="img"
+      aria-label={label}
+    >
       <div className="hidden text-center md:block">
         <p className="text-4xl font-black tracking-[0.24em] sm:text-6xl">RARE</p>
         <div className="mx-auto mt-5 h-px w-20 bg-white/25" />

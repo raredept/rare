@@ -23,7 +23,7 @@
   --color-border: var(--border);
   --color-success: var(--success);
   --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-mono: var(--font-geist-mono, ui-monospace);
 }
 
 body {
@@ -266,10 +266,6 @@ textarea {
 
 .store-loading-shell {
   animation: rare-loading-pulse 950ms ease-in-out infinite alternate;
-}
-
-.store-product-card {
-  will-change: transform;
 }
 
 .store-product-image {

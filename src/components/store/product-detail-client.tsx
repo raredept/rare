@@ -52,6 +52,7 @@ type ProductImageZoomDialogProps = {
   zoomableImageCount: number;
   hasZoomNavigation: boolean;
   closeRef: RefObject<HTMLButtonElement | null>;
+  dialogRef?: RefObject<HTMLDivElement | null>;
   onClose: () => void;
   onPrevious: () => void;
   onNext: () => void;
@@ -94,18 +95,20 @@ export function ProductImageZoomDialog({
   zoomableImageCount,
   hasZoomNavigation,
   closeRef,
+  dialogRef,
   onClose,
   onPrevious,
   onNext,
 }: ProductImageZoomDialogProps) {
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label={`Imagem ampliada de ${productTitle}`}
       className="fixed inset-0 z-[90] h-dvh overflow-hidden bg-neutral-950/92 px-4 py-4 text-white backdrop-blur-sm sm:px-6"
     >
-      <button type="button" className="absolute inset-0 cursor-zoom-out" onClick={onClose} aria-label="Fechar zoom da imagem" />
+      <button type="button" tabIndex={-1} className="absolute inset-0 cursor-zoom-out" onClick={onClose} aria-label="Fechar zoom da imagem" />
       <div className="relative z-10 flex h-full min-h-0 flex-col">
         <div className="flex justify-end">
           <button
@@ -180,6 +183,7 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
   const mainImageRef = useRef<HTMLImageElement | null>(null);
   const zoomTriggerRef = useRef<HTMLButtonElement | null>(null);
   const zoomCloseRef = useRef<HTMLButtonElement | null>(null);
+  const zoomDialogRef = useRef<HTMLDivElement | null>(null);
   const purchasableVariants = product.variants.filter((variant) => variant.active);
   const firstAvailableVariant =
     purchasableVariants.find((variant) => getAvailableStock(variant.stock, variant.reservedStock) > 0) ?? purchasableVariants[0];
@@ -244,6 +248,28 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
         event.preventDefault();
         closeZoom();
         return;
+      }
+
+      if (event.key === "Tab" && zoomDialogRef.current) {
+        const focusable = Array.from(
+          zoomDialogRef.current.querySelectorAll<HTMLElement>(
+            "a[href],button:not([disabled]):not([tabindex='-1']),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex='-1'])",
+          ),
+        );
+        const first = focusable[0];
+        const last = focusable.at(-1);
+
+        if (first && last && event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+          return;
+        }
+
+        if (first && last && !event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+          return;
+        }
       }
 
       if (!hasZoomNavigation) return;
@@ -480,7 +506,7 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
           </div>
         ) : null}
         {showProductLens ? (
-          <p className="mt-3 hidden text-center text-xs font-black uppercase tracking-[0.16em] text-neutral-400 lg:block">
+          <p className="mt-3 hidden text-center text-xs font-black uppercase tracking-[0.16em] text-neutral-600 lg:block">
             Passe o mouse para ampliar · clique para abrir
           </p>
         ) : null}
@@ -514,7 +540,7 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
                     setShippingOptions([]);
                     setShippingError(null);
                   }}
-                  className={`relative min-h-11 min-w-12 rounded-md border px-4 text-sm font-black transition ${selected ? "border-black bg-black text-white" : "border-neutral-300 bg-white text-neutral-950 hover:border-black"} disabled:cursor-not-allowed disabled:border-neutral-200 disabled:bg-neutral-100 disabled:text-neutral-400 disabled:line-through`}
+                  className={`relative min-h-11 min-w-12 rounded-md border px-4 text-sm font-black transition ${selected ? "border-black bg-black text-white" : "border-neutral-300 bg-white text-neutral-950 hover:border-black"} disabled:cursor-not-allowed disabled:border-neutral-300 disabled:bg-neutral-100 disabled:text-neutral-600 disabled:line-through`}
                 >{variant.size}</button>;
               })}
             </div>
@@ -523,10 +549,10 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
           <div>
             <p className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-neutral-500">Quantidade</p>
             <div className="flex flex-wrap items-center gap-3">
-              <div className="flex h-12 items-center rounded-md border border-neutral-300">
-                <button type="button" onClick={() => setQuantity((current) => Math.max(1, current - 1))} disabled={quantity <= 1 || soldOut} className="flex h-12 w-12 items-center justify-center disabled:text-neutral-300" aria-label="Diminuir quantidade"><Minus className="h-4 w-4" /></button>
+              <div className="flex h-12 items-center rounded-md border border-neutral-300" role="group" aria-label="Controle de quantidade">
+                <button type="button" onClick={() => setQuantity((current) => Math.max(1, current - 1))} disabled={quantity <= 1 || soldOut} className="flex h-12 w-12 items-center justify-center disabled:text-neutral-500" aria-label="Diminuir quantidade"><Minus className="h-4 w-4" /></button>
                 <span className="w-10 text-center text-sm font-black" aria-live="polite">{quantity}</span>
-                <button type="button" onClick={() => setQuantity((current) => Math.min(availableStock, current + 1))} disabled={quantity >= availableStock || soldOut} className="flex h-12 w-12 items-center justify-center disabled:text-neutral-300" aria-label="Aumentar quantidade"><Plus className="h-4 w-4" /></button>
+                <button type="button" onClick={() => setQuantity((current) => Math.min(availableStock, current + 1))} disabled={quantity >= availableStock || soldOut} className="flex h-12 w-12 items-center justify-center disabled:text-neutral-500" aria-label="Aumentar quantidade"><Plus className="h-4 w-4" /></button>
               </div>
               {selectedVariant ? <span className="text-sm font-bold text-neutral-500">{availableStock} {availableStock === 1 ? "unidade disponível" : "unidades disponíveis"}</span> : null}
             </div>
@@ -543,12 +569,12 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
 
           {!commerceState.checkoutEnabled ? <p className="rounded-md bg-neutral-100 px-4 py-3 text-sm font-semibold leading-6 text-neutral-600">O catálogo continua disponível. Fale com a RARE para consultar esta peça; nenhum pagamento será solicitado pela loja agora.</p> : null}
 
-          {feedback ? <p className="text-sm font-bold text-success">{feedback}</p> : null}
+          {feedback ? <p className="text-sm font-bold text-success" role="status" aria-live="polite">{feedback}</p> : null}
 
           <a
             href={whatsappUrl}
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
             className="flex h-12 w-full items-center justify-center rounded-lg border border-success px-6 text-sm font-black uppercase tracking-[0.14em] text-success transition-[background-color,box-shadow,transform] duration-150 hover:bg-green-50 hover:shadow-[0_10px_30px_rgba(22,128,60,0.1)] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success"
           >
             Fale com a RARE pelo WhatsApp
@@ -662,6 +688,7 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
               zoomableImageCount={zoomableImageIndexes.length}
               hasZoomNavigation={hasZoomNavigation}
               closeRef={zoomCloseRef}
+              dialogRef={zoomDialogRef}
               onClose={closeZoom}
               onPrevious={showPreviousZoomImage}
               onNext={showNextZoomImage}

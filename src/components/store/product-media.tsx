@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, type RefObject } from "react";
+import Image from "next/image";
 import { ProductMediaPlaceholder } from "@/components/store/product-media-placeholder";
 import {
   getProductMediaRenderPlan,
+  canOptimizeProductImageWithNext,
   type ProductMediaAsset,
   type ProductMediaContext,
 } from "@/lib/product-media";
@@ -52,6 +54,26 @@ export function ProductMedia({
         loop={!controls}
         poster={poster}
         preload={preload ?? (controls ? "metadata" : "none")}
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+
+  if (canOptimizeProductImageWithNext(renderPlan, context)) {
+    const eager = renderPlan.fetchPriority === "high";
+    return (
+      <Image
+        ref={imageRef}
+        src={renderPlan.src}
+        alt={alt}
+        width={renderPlan.width}
+        height={renderPlan.height}
+        sizes={renderPlan.sizes}
+        quality={75}
+        loading={eager ? "eager" : renderPlan.loading}
+        decoding={renderPlan.decoding}
+        fetchPriority={renderPlan.fetchPriority}
+        className={className}
         onError={() => setFailed(true)}
       />
     );

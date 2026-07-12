@@ -40,7 +40,7 @@ function FooterNavList({
 }) {
   return (
     <nav aria-label={label}>
-      <p className="text-xs font-black uppercase tracking-[0.22em] text-white/45">{label}</p>
+      <p className="text-xs font-black uppercase tracking-[0.22em] text-white/65">{label}</p>
       <div className="mt-4 grid gap-1">
         {links.map((link) => (
           <Link key={link.id ?? link.href} href={link.href} className={footerLinkClass}>
@@ -89,11 +89,11 @@ export function StoreFooter({ categories, whatsappNumber, commerce }: StoreFoote
             <p>Atendimento direto para dúvidas sobre peças, disponibilidade e pedidos.</p>
           </div>
           <div className="mt-6 flex flex-wrap gap-3">
-            <a href="https://www.instagram.com/raredept/" target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/20 px-4 text-sm font-black text-white transition hover:border-white hover:bg-white hover:text-black">
+            <a href="https://www.instagram.com/raredept/" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/20 px-4 text-sm font-black text-white transition hover:border-white hover:bg-white hover:text-black">
               <AtSign className="h-4 w-4" aria-hidden="true" />
               Instagram
             </a>
-            {whatsappDigits ? <a href={whatsappHref} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/20 px-4 text-sm font-black text-white transition hover:border-white hover:bg-white hover:text-black">
+            {whatsappDigits ? <a href={whatsappHref} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/20 px-4 text-sm font-black text-white transition hover:border-white hover:bg-white hover:text-black">
               <MessageCircle className="h-4 w-4" aria-hidden="true" />
               WhatsApp
             </a> : null}
@@ -106,7 +106,7 @@ export function StoreFooter({ categories, whatsappNumber, commerce }: StoreFoote
       </div>
 
       <div className="border-t border-white/10">
-        <div className="mx-auto flex max-w-[1440px] flex-col gap-3 px-4 py-5 text-xs font-bold uppercase tracking-[0.16em] text-white/45 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8 xl:px-10">
+        <div className="mx-auto flex max-w-[1440px] flex-col gap-3 px-4 py-5 text-xs font-bold uppercase tracking-[0.16em] text-white/65 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8 xl:px-10">
           <p>© {year} RARE</p>
           <p>{commerceState.checkoutEnabled ? "Pagamento e envio confirmados durante o checkout." : "Catálogo disponível · compras temporariamente pausadas."}</p>
         </div>
