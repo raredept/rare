@@ -1,4 +1,5 @@
 import { buildPageMetadata } from "@/lib/seo";
+import { getStorefrontCommerceState } from "@/lib/storefront-commerce";
 
 export const metadata = buildPageMetadata({
   title: "Privacidade e termos",
@@ -6,14 +7,10 @@ export const metadata = buildPageMetadata({
   path: "/privacidade-e-termos",
 });
 
-const terms = [
+const baseTerms = [
   {
     title: "Dados de compra",
     text: "Dados informados na loja são usados para processar pedidos, entrega, atendimento e comunicações relacionadas à compra.",
-  },
-  {
-    title: "Pagamento",
-    text: "O pagamento é conduzido pelo provedor oficial de checkout. A RARE não solicita dados completos de cartão por atendimento direto.",
   },
   {
     title: "Conta e pedidos",
@@ -26,6 +23,12 @@ const terms = [
 ];
 
 export default function PrivacyAndTermsPage() {
+  const commerce = getStorefrontCommerceState();
+  const terms = [
+    baseTerms[0],
+    { title: "Pagamento", text: commerce.checkoutEnabled ? "O pagamento é conduzido pelo provedor oficial da loja. A RARE não solicita dados completos de cartão por atendimento direto." : "O checkout está temporariamente pausado. A loja não solicitará pagamento enquanto essa condição permanecer." },
+    ...baseTerms.slice(1),
+  ];
   return (
     <div className="mx-auto max-w-4xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
       <section className="max-w-3xl">

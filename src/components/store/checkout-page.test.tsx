@@ -48,6 +48,7 @@ vi.mock("@/lib/shipping", () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv("CHECKOUT_ENABLED", "true");
   checkoutPageMocks.getStoreSettings.mockResolvedValue({
     shippingMode: "fixed",
     manualShippingInCents: 0,
@@ -61,6 +62,16 @@ beforeEach(() => {
 });
 
 describe("StoreCheckoutPage", () => {
+  it("blocks the checkout UI before loading customer or shipping data when disabled", async () => {
+    vi.stubEnv("CHECKOUT_ENABLED", "false");
+    const element = await StoreCheckoutPage({ searchParams: Promise.resolve({}) });
+    const html = renderToStaticMarkup(element);
+
+    expect(html).toContain("Compras temporariamente pausadas");
+    expect(html).toContain("Nenhum pagamento será solicitado");
+    expect(checkoutPageMocks.getCurrentCustomer).not.toHaveBeenCalled();
+    expect(checkoutPageMocks.getStoreSettings).not.toHaveBeenCalled();
+  });
   it("asks anonymous customers to log in or create an account with checkout next links", async () => {
     checkoutPageMocks.getCurrentCustomer.mockResolvedValueOnce(null);
 

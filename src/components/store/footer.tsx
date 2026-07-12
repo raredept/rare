@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AtSign, MessageCircle } from "lucide-react";
 import { virtualCatalogCategories } from "@/lib/catalog-categories";
+import { buildStorefrontCommerceState, type StorefrontCommerceState } from "@/lib/storefront-commerce";
 
 type FooterCategory = {
   id: string;
@@ -11,13 +12,13 @@ type FooterCategory = {
 type StoreFooterProps = {
   categories: FooterCategory[];
   whatsappNumber?: string | null;
+  commerce?: StorefrontCommerceState;
 };
 
-const serviceLinks = [
+const baseServiceLinks = [
   { href: "/trocas-e-devolucoes", label: "Trocas e devoluções" },
   { href: "/minha-conta", label: "Minha conta" },
   { href: "/minha-conta/pedidos", label: "Meus pedidos" },
-  { href: "/finalizar-compra", label: "Finalizar compra" },
 ];
 
 const institutionalLinks = [
@@ -51,7 +52,8 @@ function FooterNavList({
   );
 }
 
-export function StoreFooter({ categories, whatsappNumber }: StoreFooterProps) {
+export function StoreFooter({ categories, whatsappNumber, commerce }: StoreFooterProps) {
+  const commerceState = commerce ?? buildStorefrontCommerceState(true);
   const year = new Date().getFullYear();
   const categoryLinks = [
     ...virtualCatalogCategories.map((category) => ({
@@ -69,6 +71,9 @@ export function StoreFooter({ categories, whatsappNumber }: StoreFooterProps) {
   const whatsappHref = whatsappDigits
     ? `https://wa.me/${whatsappDigits}`
     : "https://wa.me/?text=Olá%2C%20quero%20falar%20com%20a%20RARE.";
+  const serviceLinks = commerceState.checkoutEnabled
+    ? [...baseServiceLinks, { href: "/finalizar-compra", label: "Finalizar compra" }]
+    : baseServiceLinks;
 
   return (
     <footer className="border-t border-white/10 bg-black text-white">
@@ -81,20 +86,17 @@ export function StoreFooter({ categories, whatsappNumber }: StoreFooterProps) {
             A RARE reúne peças importadas, drops limitados e uma seleção feita para quem não quer se vestir igual a todo mundo.
           </p>
           <div className="mt-6 grid gap-2 text-sm font-bold text-white/70">
-            <a href="mailto:suporte@raredept.com.br" className={footerLinkClass}>
-              suporte@raredept.com.br
-            </a>
-            <p>Atendimento direto para dúvidas, pedidos e pós-compra.</p>
+            <p>Atendimento direto para dúvidas sobre peças, disponibilidade e pedidos.</p>
           </div>
           <div className="mt-6 flex flex-wrap gap-3">
             <a href="https://www.instagram.com/raredept/" target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/20 px-4 text-sm font-black text-white transition hover:border-white hover:bg-white hover:text-black">
               <AtSign className="h-4 w-4" aria-hidden="true" />
               Instagram
             </a>
-            <a href={whatsappHref} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/20 px-4 text-sm font-black text-white transition hover:border-white hover:bg-white hover:text-black">
+            {whatsappDigits ? <a href={whatsappHref} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/20 px-4 text-sm font-black text-white transition hover:border-white hover:bg-white hover:text-black">
               <MessageCircle className="h-4 w-4" aria-hidden="true" />
               WhatsApp
-            </a>
+            </a> : null}
           </div>
         </div>
 
@@ -106,7 +108,7 @@ export function StoreFooter({ categories, whatsappNumber }: StoreFooterProps) {
       <div className="border-t border-white/10">
         <div className="mx-auto flex max-w-[1440px] flex-col gap-3 px-4 py-5 text-xs font-bold uppercase tracking-[0.16em] text-white/45 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8 xl:px-10">
           <p>© {year} RARE</p>
-          <p>Pagamento via Pix ou cartão disponível no checkout. Envio para todo o Brasil.</p>
+          <p>{commerceState.checkoutEnabled ? "Pagamento e envio confirmados durante o checkout." : "Catálogo disponível · compras temporariamente pausadas."}</p>
         </div>
       </div>
     </footer>

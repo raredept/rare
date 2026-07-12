@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useCart, useCartDrawer, type CartItem } from "@/components/store/cart-context";
 import { ProductMediaPlaceholder } from "@/components/store/product-media-placeholder";
 import { formatMoney } from "@/lib/money";
+import { buildStorefrontCommerceState, type StorefrontCommerceState } from "@/lib/storefront-commerce";
 
 const focusableSelector = [
   "a[href]",
@@ -17,7 +18,7 @@ const focusableSelector = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(",");
 
-export function CartDrawer() {
+export function CartDrawer({ commerce = buildStorefrontCommerceState(true) }: { commerce?: StorefrontCommerceState }) {
   const { items, count, subtotalInCents, updateQuantity, removeItem } = useCart();
   const { isOpen, closeCart } = useCartDrawer();
   const pathname = usePathname();
@@ -137,9 +138,7 @@ export function CartDrawer() {
                 <ShoppingBag className="h-6 w-6 text-white/70" />
               </div>
               <p className="mt-5 text-xl font-black tracking-tight">Sua seleção ainda está vazia.</p>
-              <p className="mt-3 text-sm font-semibold leading-6 text-white/55">
-                Adicione uma peça para revisar aqui antes de finalizar a compra.
-              </p>
+              <p className="mt-3 text-sm font-semibold leading-6 text-white/55">Guarde aqui as peças que você quer acompanhar.</p>
             </div>
           </div>
         )}
@@ -149,15 +148,19 @@ export function CartDrawer() {
             <span className="text-sm font-bold text-white/60">Subtotal</span>
             <span className="whitespace-nowrap text-xl font-black">{drawerTotal}</span>
           </div>
-          <p className="mt-2 text-xs font-semibold leading-5 text-white/45">Frete e prazo são calculados ao finalizar a compra.</p>
+          <p className="mt-2 text-xs font-semibold leading-5 text-white/45">
+            {commerce.checkoutEnabled ? "Frete e prazo são calculados ao finalizar a compra." : "O catálogo segue aberto, mas as compras estão temporariamente pausadas."}
+          </p>
           <div className="mt-5 grid gap-3">
-            <Link
-              href="/finalizar-compra"
-              onClick={closeCart}
-              className="flex min-h-12 items-center justify-center rounded-lg bg-white px-5 text-xs font-black uppercase tracking-[0.16em] text-black transition-[background-color,transform] duration-150 hover:bg-neutral-200 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-            >
-              Finalizar compra
-            </Link>
+            {commerce.checkoutEnabled ? (
+              <Link href="/finalizar-compra" onClick={closeCart} className="flex min-h-12 items-center justify-center rounded-md bg-white px-5 text-xs font-black uppercase tracking-[0.16em] text-black transition-[background-color,transform] duration-150 hover:bg-neutral-200 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70">
+                {commerce.checkoutActionLabel}
+              </Link>
+            ) : (
+              <button type="button" disabled className="flex min-h-12 items-center justify-center rounded-md bg-white/10 px-5 text-xs font-black uppercase tracking-[0.13em] text-white/50">
+                {commerce.checkoutActionLabel}
+              </button>
+            )}
             <button
               type="button"
               onClick={closeCart}

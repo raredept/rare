@@ -6,12 +6,17 @@ import { isValidCpf, maskCpf } from "@/lib/cpf";
 import { prisma } from "@/lib/prisma";
 import { getStoreSettings } from "@/lib/settings";
 import { getEffectiveFixedShippingInCents, getEffectiveFreeShippingThresholdInCents, getShippingPublicConfig } from "@/lib/shipping";
+import { getStorefrontCommerceState } from "@/lib/storefront-commerce";
 
 type StoreCheckoutPageProps = {
   searchParams: Promise<{ address?: string }>;
 };
 
 export async function StoreCheckoutPage({ searchParams }: StoreCheckoutPageProps) {
+  const commerce = getStorefrontCommerceState();
+  if (!commerce.checkoutEnabled) {
+    return <CheckoutUnavailable />;
+  }
   const [{ address }, settings, customer] = await Promise.all([searchParams, getStoreSettings(), getCurrentCustomer()]);
 
   if (!customer) {
@@ -71,6 +76,22 @@ export async function StoreCheckoutPage({ searchParams }: StoreCheckoutPageProps
           : null
       }
     />
+  );
+}
+
+function CheckoutUnavailable() {
+  return (
+    <div className="store-shell py-14 text-center lg:py-20">
+      <section className="mx-auto max-w-xl border-y border-neutral-200 px-4 py-12">
+        <p className="store-section-label">Catálogo RARE</p>
+        <h1 className="mt-4 text-3xl font-black tracking-tight text-neutral-950 sm:text-4xl">Compras temporariamente pausadas</h1>
+        <p className="mx-auto mt-4 max-w-md text-sm font-semibold leading-6 text-neutral-600">Você pode continuar explorando as peças e consultar disponibilidade com o atendimento. Nenhum pagamento será solicitado pela loja agora.</p>
+        <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+          <Link href="/categoria/tudo" className="store-button-primary">Explorar catálogo</Link>
+          <Link href="/contato" className="store-button-secondary">Falar com a RARE</Link>
+        </div>
+      </section>
+    </div>
   );
 }
 

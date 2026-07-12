@@ -160,7 +160,7 @@ function formatShippingError(message: string) {
 
 function formatCheckoutMessage(message: string) {
   if (message === "Checkout temporariamente indisponível." || message.includes("Checkout temporariamente indisponível")) {
-    return "Estamos finalizando o checkout da loja. Chame a RARE no WhatsApp para concluir seu pedido por enquanto.";
+    return "O checkout está temporariamente pausado. Consulte a RARE para verificar disponibilidade.";
   }
 
   return message;

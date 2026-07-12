@@ -2,6 +2,7 @@ import { createElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CartDrawer } from "@/components/store/cart-drawer";
+import { buildStorefrontCommerceState } from "@/lib/storefront-commerce";
 
 const cartMocks = vi.hoisted(() => ({
   state: {
@@ -110,5 +111,13 @@ describe("CartDrawer", () => {
     expect(html).toContain("Remover");
     expect(html).toContain("R$");
     expect(html).toContain("399,80");
+  });
+
+  it("keeps checkout unavailable without linking to an incomplete flow", () => {
+    cartMocks.state.isOpen = true;
+    const html = renderToStaticMarkup(createElement(CartDrawer, { commerce: buildStorefrontCommerceState(false) }) as ReactElement);
+    expect(html).toContain("Compras temporariamente pausadas");
+    expect(html).not.toContain('href="/finalizar-compra"');
+    expect(html).not.toContain("Frete e prazo são calculados ao finalizar");
   });
 });

@@ -108,7 +108,7 @@ export default async function CustomerOrderDetailPage({ params }: CustomerOrderD
                 ))}
               </div>
             ) : (
-              <p className="mt-3 text-sm font-medium text-neutral-500">Endereço será confirmado no atendimento ou pelo checkout.</p>
+              <p className="mt-3 text-sm font-medium text-neutral-500">Endereço não registrado neste pedido. Consulte o atendimento para confirmar.</p>
             )}
           </section>
 

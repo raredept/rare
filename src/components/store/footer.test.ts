@@ -2,6 +2,7 @@ import { createElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { StoreFooter } from "@/components/store/footer";
+import { buildStorefrontCommerceState } from "@/lib/storefront-commerce";
 
 vi.mock("next/link", () => ({
   default: ({ href, children, ...props }: { href: string; children: ReactNode }) =>
@@ -27,9 +28,17 @@ describe("StoreFooter", () => {
     expect(html).toContain("Sobre a RARE");
     expect(html).toContain("Política de envio");
     expect(html).toContain("Privacidade e termos");
-    expect(html).toContain("suporte@raredept.com.br");
-    expect(html).toContain("Pagamento via Pix ou cartão disponível no checkout");
+    expect(html).not.toContain("suporte@raredept.com.br");
+    expect(html).toContain("Pagamento e envio confirmados durante o checkout");
     expect(html).toContain('href="https://www.instagram.com/raredept/"');
     expect(html).toContain('href="https://wa.me/5511999999999"');
+  });
+
+  it("hides checkout links and payment promises while purchases are paused", () => {
+    const html = renderToStaticMarkup(createElement(StoreFooter, { categories, commerce: buildStorefrontCommerceState(false) }) as ReactElement);
+    expect(html).not.toContain('href="/finalizar-compra"');
+    expect(html).not.toContain("Pix ou cartão");
+    expect(html).toContain("compras temporariamente pausadas");
+    expect(html).not.toContain("WhatsApp");
   });
 });

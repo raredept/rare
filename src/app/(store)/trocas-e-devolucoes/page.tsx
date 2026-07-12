@@ -1,4 +1,5 @@
 import { buildPageMetadata } from "@/lib/seo";
+import Link from "next/link";
 
 export const metadata = buildPageMetadata({
   title: "Trocas e Devoluções",
@@ -11,7 +12,7 @@ const policyParagraphs = [
   "Para aprovação da troca ou devolução, o produto deve estar sem sinais de uso, com etiquetas e embalagem original.",
   "Trocas por tamanho poderão ser realizadas mediante disponibilidade em estoque.",
   "Produto com defeito passa por análise antes da troca ou reembolso.",
-  "Para solicitar uma troca ou devolução, entre em contato pelo WhatsApp ou e-mail de suporte.",
+  "Para solicitar uma troca ou devolução, use um dos canais oficiais publicados na página de contato.",
 ];
 
 const policyItems = [
@@ -73,9 +74,9 @@ export default function ExchangesAndReturnsPage() {
           Precisa solicitar uma troca ou devolução?
         </h2>
         <p className="mt-5 max-w-2xl text-base font-semibold leading-8 text-white/65">
-          Antes de enviar o produto, fale com o atendimento da RARE pelo WhatsApp ou pelo e-mail de suporte. Assim a
-          equipe registra a solicitação, orienta a análise e confirma os próximos passos.
+          Antes de enviar o produto, fale com a RARE por um canal oficial. Assim a equipe registra a solicitação, orienta a análise e confirma os próximos passos.
         </p>
+        <Link href="/contato" className="mt-6 inline-flex min-h-11 items-center border-b border-white text-xs font-black uppercase tracking-[0.16em]">Ver canais de atendimento</Link>
       </section>
     </div>
   );

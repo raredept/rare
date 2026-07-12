@@ -1,17 +1,14 @@
 import Link from "next/link";
 import { buildPageMetadata } from "@/lib/seo";
+import { getStorefrontCommerceState } from "@/lib/storefront-commerce";
 
 export const metadata = buildPageMetadata({
   title: "Política de envio",
-  description: "Como a RARE trata frete, prazo e endereço de entrega no checkout.",
+  description: "Como a RARE trata frete, prazo e endereço de entrega.",
   path: "/politica-de-envio",
 });
 
-const shippingItems = [
-  {
-    title: "Frete e prazo",
-    text: "Frete e prazo são calculados no checkout com base no CEP e no endereço de entrega informados.",
-  },
+const baseShippingItems = [
   {
     title: "Endereço",
     text: "Confira CEP, rua, número, bairro, cidade e estado antes de finalizar o pedido.",
@@ -23,13 +20,18 @@ const shippingItems = [
 ];
 
 export default function ShippingPolicyPage() {
+  const commerce = getStorefrontCommerceState();
+  const shippingItems = [
+    { title: "Frete e prazo", text: commerce.checkoutEnabled ? "Frete e prazo são calculados durante a finalização com base no CEP e no endereço informado." : "Com as compras pausadas, a consulta de frete não representa uma oferta ativa. A operação será confirmada quando o checkout voltar." },
+    ...baseShippingItems,
+  ];
   return (
     <div className="mx-auto max-w-4xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
       <section className="max-w-3xl">
         <p className="text-xs font-black uppercase tracking-[0.28em] text-neutral-500">Entrega</p>
         <h1 className="mt-5 text-4xl font-black tracking-tight text-neutral-950 sm:text-5xl lg:text-6xl">Política de envio</h1>
         <p className="mt-6 max-w-2xl text-base font-semibold leading-8 text-neutral-600 sm:text-lg">
-          A RARE trabalha com cálculo de frete no checkout e validação dos dados de entrega antes da finalização.
+          {commerce.checkoutEnabled ? "A RARE valida frete e dados de entrega antes da conclusão do pedido." : "O catálogo segue disponível, mas a operação de compra e envio está temporariamente pausada."}
         </p>
       </section>
 

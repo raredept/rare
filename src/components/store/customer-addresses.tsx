@@ -91,7 +91,7 @@ function AddressFields({ address, state }: { address?: Address; state?: Customer
   );
 }
 
-export function CustomerAddresses({ addresses, pageError }: { addresses: Address[]; pageError?: string }) {
+export function CustomerAddresses({ addresses, pageError, checkoutEnabled = true }: { addresses: Address[]; pageError?: string; checkoutEnabled?: boolean }) {
   const [state, formAction, pending] = useActionState<CustomerActionState, FormData>(createCustomerAddressAction, {});
 
   return (
@@ -137,12 +137,7 @@ export function CustomerAddresses({ addresses, pageError }: { addresses: Address
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Link
-                    href={`/finalizar-compra?address=${encodeURIComponent(address.id)}`}
-                    className="rounded-lg border border-neutral-300 px-3 py-2 text-xs font-black"
-                  >
-                    Usar no checkout
-                  </Link>
+                  {checkoutEnabled ? <Link href={`/finalizar-compra?address=${encodeURIComponent(address.id)}`} className="rounded-lg border border-neutral-300 px-3 py-2 text-xs font-black">Usar no checkout</Link> : null}
                   {!address.isDefault ? (
                     <form action={setDefaultCustomerAddressAction}>
                       <input type="hidden" name="id" value={address.id} />
