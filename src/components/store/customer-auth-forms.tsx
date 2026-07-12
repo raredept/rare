@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import {
   loginCustomerAction,
   registerCustomerAction,
@@ -10,7 +11,22 @@ import {
 import { formatCpf } from "@/lib/cpf";
 
 function FieldError({ errors }: { errors?: string[] }) {
-  return errors?.length ? <p className="mt-1 text-sm font-semibold text-red-700">{errors[0]}</p> : null;
+  return errors?.length ? <p className="mt-2 text-sm font-semibold text-red-700" role="alert">{errors[0]}</p> : null;
+}
+
+function PasswordField({ name, label, autoComplete }: { name: string; label: string; autoComplete: string }) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <label className="block">
+      <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-neutral-700">{label}</span>
+      <span className="relative block">
+        <input name={name} type={visible ? "text" : "password"} required autoComplete={autoComplete} minLength={name.includes("password") && autoComplete === "new-password" ? 8 : undefined} className="store-input pr-12" />
+        <button type="button" onClick={() => setVisible((current) => !current)} className="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100 hover:text-neutral-950" aria-label={visible ? `Ocultar ${label.toLowerCase()}` : `Mostrar ${label.toLowerCase()}`}>
+          {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        </button>
+      </span>
+    </label>
+  );
 }
 
 export function CustomerLoginForm({ next }: { next?: string }) {
@@ -20,20 +36,17 @@ export function CustomerLoginForm({ next }: { next?: string }) {
     <form action={formAction} className="mt-8 space-y-4">
       <input type="hidden" name="next" value={next ?? ""} />
       <label className="block">
-        <span className="mb-2 block text-sm font-black uppercase tracking-wide text-neutral-700">E-mail</span>
-        <input name="email" type="email" required autoComplete="email" className="admin-input h-12" />
+        <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-neutral-700">E-mail</span>
+        <input name="email" type="email" required autoComplete="email" className="store-input" />
       </label>
-      <label className="block">
-        <span className="mb-2 block text-sm font-black uppercase tracking-wide text-neutral-700">Senha</span>
-        <input name="password" type="password" required autoComplete="current-password" className="admin-input h-12" />
-      </label>
-      {state.error ? <p className="text-sm font-semibold text-red-700">{state.error}</p> : null}
+      <PasswordField name="password" label="Senha" autoComplete="current-password" />
+      {state.error ? <p className="rounded-md bg-red-50 px-4 py-3 text-sm font-semibold text-red-700" role="alert">{state.error}</p> : null}
       <button
         type="submit"
         disabled={pending}
-        className="h-12 w-full rounded-lg bg-black text-sm font-black uppercase tracking-wide text-white disabled:bg-neutral-500"
+        className="store-button-primary w-full"
       >
-        {pending ? "Entrando..." : "Entrar"}
+        {pending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Entrando</> : "Entrar"}
       </button>
       <p className="text-center text-sm font-semibold text-neutral-600">
         Ainda não tem cadastro?{" "}
@@ -53,23 +66,23 @@ export function CustomerRegisterForm({ next }: { next?: string }) {
     <form action={formAction} className="mt-8 space-y-4">
       <input type="hidden" name="next" value={next ?? ""} />
       <label className="block">
-        <span className="mb-2 block text-sm font-black uppercase tracking-wide text-neutral-700">Nome</span>
-        <input name="name" required autoComplete="name" className="admin-input h-12" />
+        <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-neutral-700">Nome</span>
+        <input name="name" required autoComplete="name" className="store-input" />
         <FieldError errors={state.fieldErrors?.name} />
       </label>
       <label className="block">
-        <span className="mb-2 block text-sm font-black uppercase tracking-wide text-neutral-700">E-mail</span>
-        <input name="email" type="email" required autoComplete="email" className="admin-input h-12" />
+        <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-neutral-700">E-mail</span>
+        <input name="email" type="email" required autoComplete="email" className="store-input" />
         <FieldError errors={state.fieldErrors?.email} />
       </label>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block">
-          <span className="mb-2 block text-sm font-black uppercase tracking-wide text-neutral-700">Telefone</span>
-          <input name="phone" autoComplete="tel" className="admin-input h-12" />
+          <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-neutral-700">Telefone</span>
+          <input name="phone" autoComplete="tel" className="store-input" />
           <FieldError errors={state.fieldErrors?.phone} />
         </label>
         <label className="block">
-          <span className="mb-2 block text-sm font-black uppercase tracking-wide text-neutral-700">CPF</span>
+          <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-neutral-700">CPF</span>
           <input
             name="cpf"
             value={cpf}
@@ -79,28 +92,20 @@ export function CustomerRegisterForm({ next }: { next?: string }) {
             autoComplete="off"
             maxLength={14}
             placeholder="000.000.000-00"
-            className="admin-input h-12"
+            className="store-input"
           />
           <FieldError errors={state.fieldErrors?.cpf} />
         </label>
       </div>
-      <label className="block">
-        <span className="mb-2 block text-sm font-black uppercase tracking-wide text-neutral-700">Senha</span>
-        <input name="password" type="password" required autoComplete="new-password" minLength={8} className="admin-input h-12" />
-        <FieldError errors={state.fieldErrors?.password} />
-      </label>
-      <label className="block">
-        <span className="mb-2 block text-sm font-black uppercase tracking-wide text-neutral-700">Confirmar senha</span>
-        <input name="passwordConfirmation" type="password" required autoComplete="new-password" minLength={8} className="admin-input h-12" />
-        <FieldError errors={state.fieldErrors?.passwordConfirmation} />
-      </label>
-      {state.error ? <p className="text-sm font-semibold text-red-700">{state.error}</p> : null}
+      <div><PasswordField name="password" label="Senha" autoComplete="new-password" /><FieldError errors={state.fieldErrors?.password} /></div>
+      <div><PasswordField name="passwordConfirmation" label="Confirmar senha" autoComplete="new-password" /><FieldError errors={state.fieldErrors?.passwordConfirmation} /></div>
+      {state.error ? <p className="rounded-md bg-red-50 px-4 py-3 text-sm font-semibold text-red-700" role="alert">{state.error}</p> : null}
       <button
         type="submit"
         disabled={pending}
-        className="h-12 w-full rounded-lg bg-black text-sm font-black uppercase tracking-wide text-white disabled:bg-neutral-500"
+        className="store-button-primary w-full"
       >
-        {pending ? "Criando..." : "Criar conta"}
+        {pending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Criando</> : "Criar conta"}
       </button>
       <p className="text-center text-sm font-semibold text-neutral-600">
         Já tem cadastro?{" "}

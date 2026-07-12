@@ -2,12 +2,14 @@ import { redirect } from "next/navigation";
 import { CustomerRegisterForm } from "@/components/store/customer-auth-forms";
 import { getCurrentCustomer } from "@/lib/customer-auth";
 import { buildNoIndexMetadata } from "@/lib/seo";
+import { CustomerAuthShell } from "@/components/store/customer-auth-shell";
+import { getStorefrontCommerceState } from "@/lib/storefront-commerce";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = buildNoIndexMetadata({
   title: "Criar cadastro | RARE",
-  description: "Crie sua conta RARE para comprar e acompanhar pedidos com segurança.",
+  description: "Crie sua conta RARE para organizar seus dados e acompanhar pedidos.",
   path: "/cadastro",
 });
 
@@ -21,15 +23,11 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
   if (customer) {
     redirect("/minha-conta");
   }
+  const commerce = getStorefrontCommerceState();
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-12 lg:px-8">
-      <p className="text-xs font-black uppercase tracking-[0.2em] text-neutral-500">Conta RARE</p>
-      <h1 className="mt-2 text-3xl font-black text-neutral-950">Criar cadastro</h1>
-      <p className="mt-3 text-sm font-medium text-neutral-500">
-        Informe seus dados para finalizar compras com segurança. O CPF é obrigatório para emissão e envio do pedido.
-      </p>
+    <CustomerAuthShell wide eyebrow="Conta RARE" title="Criar cadastro" description={commerce.checkoutEnabled ? "Informe seus dados para concluir pedidos e acompanhar cada etapa. O CPF é necessário para emissão e envio." : "Crie sua conta para organizar dados, endereços e acompanhar pedidos anteriores. As compras estão temporariamente pausadas."}>
       <CustomerRegisterForm next={next} />
-    </div>
+    </CustomerAuthShell>
   );
 }

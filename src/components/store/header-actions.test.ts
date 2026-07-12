@@ -19,6 +19,7 @@ vi.mock("next/link", () => ({
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),
+  usePathname: () => "/",
 }));
 
 vi.mock("@/components/store/cart-context", () => ({
@@ -43,8 +44,8 @@ describe("HeaderUtilities", () => {
 
     const html = renderToStaticMarkup(createElement(HeaderUtilities) as ReactElement);
 
-    expect(html).toContain("Carrinho com 3 item(s)");
-    expect(html).toContain("3 item(s) no carrinho");
+    expect(html).toContain("Carrinho com 3 itens");
+    expect(html).toContain("3 itens no carrinho");
     expect(html).toContain("data-cart-trigger");
     expect(html).toContain('aria-haspopup="dialog"');
     expect(html).toContain('aria-expanded="false"');

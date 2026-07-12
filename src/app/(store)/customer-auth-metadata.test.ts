@@ -28,7 +28,7 @@ describe("customer auth page metadata", () => {
     const { metadata: registerMetadata } = await import("@/app/(store)/cadastro/page");
 
     expect(registerMetadata.title).toEqual({ absolute: "Criar cadastro | RARE" });
-    expect(registerMetadata.description).toBe("Crie sua conta RARE para comprar e acompanhar pedidos com segurança.");
+    expect(registerMetadata.description).toBe("Crie sua conta RARE para organizar seus dados e acompanhar pedidos.");
     expect(registerMetadata.robots).toEqual({ index: false, follow: false });
     expect(registerMetadata.alternates).toEqual({ canonical: absoluteUrl("/cadastro") });
   });
