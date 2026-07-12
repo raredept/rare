@@ -398,3 +398,32 @@ export async function getProductBySlug(slug: string) {
     include: productInclude,
   });
 }
+
+export async function getPublicSitemapCatalogData() {
+  const [categories, products] = await Promise.all([
+    prisma.category.findMany({
+      where: { active: true },
+      select: { slug: true, updatedAt: true },
+    }),
+    prisma.product.findMany({
+      where: { active: true },
+      orderBy: [{ updatedAt: "desc" }],
+      select: {
+        slug: true,
+        updatedAt: true,
+        featured: true,
+        category: { select: { slug: true } },
+        subcategory: { select: { slug: true } },
+      },
+    }),
+  ]);
+  const categorySlugsWithProducts = new Set(
+    products.flatMap((product) => [product.category?.slug, product.subcategory?.slug].filter((slug): slug is string => Boolean(slug))),
+  );
+
+  return {
+    categories: categories.filter((category) => categorySlugsWithProducts.has(category.slug)),
+    products,
+    hasFeaturedProducts: products.some((product) => product.featured),
+  };
+}

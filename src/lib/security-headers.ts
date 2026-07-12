@@ -76,16 +76,17 @@ export function buildContentSecurityPolicyReportOnly(env: PublicEnv = process.en
   return directives.map(([directive, sources]) => `${directive} ${sources.join(" ")}`).join("; ");
 }
 
-export function getSecurityHeaders(env: PublicEnv = process.env): Header[] {
-  // CSP is intentionally Report-Only while Next/React inline runtime styles/scripts
-  // and product JSON-LD do not have nonces or hashes. Switch the key to
-  // Content-Security-Policy after report data confirms enforcement is clean.
+export function getSecurityHeaders(): Header[] {
+  // A CSP is intentionally not emitted yet. The previous report-only policy had
+  // no report endpoint and was incompatible with Next/React inline runtime code,
+  // so it produced browser noise without protection or actionable telemetry.
+  // Keep buildContentSecurityPolicyReportOnly as the compatibility blueprint for
+  // a future nonce/hash-based rollout with a real reporting endpoint.
   return [
     { key: "X-Content-Type-Options", value: "nosniff" },
     { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
     { key: "X-Frame-Options", value: "DENY" },
     { key: "Strict-Transport-Security", value: "max-age=63072000" },
     { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-    { key: "Content-Security-Policy-Report-Only", value: buildContentSecurityPolicyReportOnly(env) },
   ];
 }

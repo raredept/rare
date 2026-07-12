@@ -1,7 +1,5 @@
 import type { MetadataRoute } from "next";
-import { virtualCatalogCategories } from "@/lib/catalog-categories";
-import { isVariantPurchasable } from "@/lib/stock";
-import { getNavigationCategories, getProducts } from "@/lib/storefront";
+import { getPublicSitemapCatalogData } from "@/lib/storefront";
 
 export const dynamic = "force-dynamic";
 
@@ -32,11 +30,6 @@ function getBaseSitemapEntries(): MetadataRoute.Sitemap {
       changeFrequency: "weekly" as const,
       priority: route.priority,
     })),
-    ...virtualCatalogCategories.map((category) => ({
-      url: canonicalUrl(`/categoria/${encodeURIComponent(category.slug)}`),
-      changeFrequency: "daily" as const,
-      priority: 0.7,
-    })),
   ];
 }
 
@@ -44,19 +37,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseEntries = getBaseSitemapEntries();
 
   try {
-    const [categories, products] = await Promise.all([getNavigationCategories(), getProducts()]);
-    const publicCategories = categories.flatMap((category) => [category, ...category.children]);
-    const publicProducts = products.filter((product) => product.variants.some((variant) => isVariantPurchasable(variant)));
+    const { categories, products, hasFeaturedProducts } = await getPublicSitemapCatalogData();
+    const virtualEntries: MetadataRoute.Sitemap = [
+      ...(products.length ? [{ url: canonicalUrl("/categoria/tudo"), changeFrequency: "daily" as const, priority: 0.7 }] : []),
+      ...(hasFeaturedProducts ? [{ url: canonicalUrl("/categoria/destaques"), changeFrequency: "daily" as const, priority: 0.7 }] : []),
+    ];
 
     return dedupeSitemapEntries([
       ...baseEntries,
-      ...publicCategories.map((category) => ({
+      ...virtualEntries,
+      ...categories.map((category) => ({
         url: canonicalUrl(`/categoria/${encodeURIComponent(category.slug)}`),
         lastModified: category.updatedAt,
         changeFrequency: "daily" as const,
         priority: 0.7,
       })),
-      ...publicProducts.map((product) => ({
+      ...products.map((product) => ({
         url: canonicalUrl(`/produto/${encodeURIComponent(product.slug)}`),
         lastModified: product.updatedAt,
         changeFrequency: "daily" as const,

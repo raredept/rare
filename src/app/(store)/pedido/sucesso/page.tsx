@@ -4,6 +4,14 @@ import { ClearCartOnSuccess } from "@/components/store/clear-cart-on-success";
 import { formatMoney } from "@/lib/money";
 import { formatOrderStatus } from "@/lib/order-display";
 import { prisma } from "@/lib/prisma";
+import { buildNoIndexMetadata } from "@/lib/seo";
+import { getStorefrontCommerceState } from "@/lib/storefront-commerce";
+
+export const metadata = buildNoIndexMetadata({
+  title: "Status do pedido | RARE",
+  description: "Consulte o estado de uma tentativa de pedido RARE.",
+  path: "/pedido/sucesso",
+});
 
 type OrderSuccessPageProps = {
   searchParams: Promise<{ session_id?: string }>;
@@ -14,6 +22,17 @@ function isValidCheckoutSessionId(value: string | undefined) {
 }
 
 export default async function OrderSuccessPage({ searchParams }: OrderSuccessPageProps) {
+  const commerce = getStorefrontCommerceState();
+  if (!commerce.checkoutEnabled) {
+    return (
+      <OrderSuccessShell eyebrow="Catálogo RARE" title="As compras estão temporariamente pausadas.">
+        <p className="mt-4 text-neutral-600">
+          Nenhum pagamento será solicitado pela loja enquanto o checkout estiver desligado. O catálogo e os canais de atendimento continuam disponíveis.
+        </p>
+      </OrderSuccessShell>
+    );
+  }
+
   const { session_id: sessionId } = await searchParams;
 
   if (!isValidCheckoutSessionId(sessionId)) {

@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import OrderSuccessPage from "@/app/(store)/pedido/sucesso/page";
 
 const successMocks = vi.hoisted(() => ({
@@ -19,6 +19,15 @@ vi.mock("@/components/store/clear-cart-on-success", () => ({
 }));
 
 describe("OrderSuccessPage", () => {
+  beforeEach(() => {
+    vi.stubEnv("CHECKOUT_ENABLED", "true");
+    successMocks.prisma.order.findUnique.mockReset();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("handles a missing session_id without confirming or clearing the cart", async () => {
     const element = await OrderSuccessPage({ searchParams: Promise.resolve({}) });
     const html = renderToStaticMarkup(element);
@@ -51,5 +60,18 @@ describe("OrderSuccessPage", () => {
         totalInCents: true,
       },
     });
+  });
+
+  it("does not promise or inspect payment while checkout is paused", async () => {
+    vi.stubEnv("CHECKOUT_ENABLED", "false");
+    const element = await OrderSuccessPage({
+      searchParams: Promise.resolve({ session_id: "cs_test_knownSession123" }),
+    });
+    const html = renderToStaticMarkup(element);
+
+    expect(html).toContain("As compras estão temporariamente pausadas.");
+    expect(html).toContain("Nenhum pagamento será solicitado");
+    expect(html).not.toContain("Stripe");
+    expect(successMocks.prisma.order.findUnique).not.toHaveBeenCalled();
   });
 });

@@ -26,7 +26,6 @@ type CapturedResponse = {
 };
 
 const securityHeaderNames = getSecurityHeaders().map((header) => header.key);
-const cspReportOnlyHeader = "Content-Security-Policy-Report-Only";
 const forbiddenSitemapPathPrefixes = ["/admin", "/api", "/checkout", "/minha-conta", "/pedido", "/pedidos"];
 
 const secretLeakRules: Array<{ label: string; pattern: RegExp }> = [
@@ -139,11 +138,6 @@ function checkSecurityHeaders(checks: PublicSmokeCheck[], response: CapturedResp
     }
   }
 
-  if (response.headers.get(cspReportOnlyHeader)?.trim()) {
-    add(checks, "OK", "security:csp-report-only", "CSP Report-Only presente.");
-  } else {
-    add(checks, "FAIL", "security:csp-report-only", "Content-Security-Policy-Report-Only ausente.");
-  }
 }
 
 function decodeXmlEntities(value: string) {

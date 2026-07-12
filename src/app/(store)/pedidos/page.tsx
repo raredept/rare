@@ -1,4 +1,11 @@
 import Link from "next/link";
+import { buildNoIndexMetadata } from "@/lib/seo";
+
+export const metadata = buildNoIndexMetadata({
+  title: "Pedidos | RARE",
+  description: "Acompanhe pedidos vinculados à sua conta RARE.",
+  path: "/pedidos",
+});
 
 export default function CustomerOrdersPage() {
   return (

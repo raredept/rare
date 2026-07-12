@@ -24,7 +24,7 @@ function urlBase64ToUint8Array(value: string) {
 }
 
 async function getCurrentSubscription() {
-  const registration = await navigator.serviceWorker.register("/admin-push-sw.js");
+  const registration = await navigator.serviceWorker.register("/admin-push-sw.js", { scope: "/admin/" });
   return {
     registration,
     subscription: await registration.pushManager.getSubscription(),

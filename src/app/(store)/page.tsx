@@ -2,10 +2,9 @@ import { ArrowRight, Headphones, PackageSearch, RotateCcw, ShieldCheck, Sparkles
 import Link from "next/link";
 import { HomeHeroCarousel } from "@/components/store/home-hero-carousel";
 import { ProductCard } from "@/components/store/product-card";
-import { getAppUrl } from "@/lib/env";
 import { getHomeBannerSlidesForStore } from "@/lib/home-banners";
-import { buildPageMetadata } from "@/lib/seo";
-import { buildOrganizationJsonLd, JsonLdScript } from "@/lib/structured-data";
+import { buildPageMetadata, RARE_DEFAULT_SITE_URL } from "@/lib/seo";
+import { buildOrganizationJsonLd, buildWebsiteJsonLd, JsonLdScript } from "@/lib/structured-data";
 import { getFeaturedProducts, getHomeCategoryTiles, getProducts, getRecentProducts, type HomeCategoryTile, type StorefrontProduct } from "@/lib/storefront";
 import { getStorefrontCommerceState, type StorefrontCommerceState } from "@/lib/storefront-commerce";
 
@@ -49,7 +48,7 @@ function getTrustItems(commerce: StorefrontCommerceState) {
 ] as const;
 }
 
-function ProductGrid({ products, commerce, columns = "featured" }: { products: StorefrontProduct[]; commerce: StorefrontCommerceState; columns?: "featured" | "recent" }) {
+function ProductGrid({ products, commerce, columns = "featured", priorityFirst = false }: { products: StorefrontProduct[]; commerce: StorefrontCommerceState; columns?: "featured" | "recent"; priorityFirst?: boolean }) {
   const gridClass =
     columns === "featured"
       ? "grid grid-cols-2 gap-x-3 gap-y-8 sm:gap-x-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 xl:gap-x-8"
@@ -57,8 +56,8 @@ function ProductGrid({ products, commerce, columns = "featured" }: { products: S
 
   return (
     <div className={`${gridClass} lg:gap-x-6 lg:gap-y-10`}>
-      {products.map((product) => (
-        <ProductCard key={product.id} product={product} commerce={commerce} />
+      {products.map((product, index) => (
+        <ProductCard key={product.id} product={product} commerce={commerce} priority={priorityFirst && index === 0} />
       ))}
     </div>
   );
@@ -168,11 +167,14 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     getRecentProducts({ limit: 4 }),
   ]);
   const selectedFeaturedProducts = featuredProducts.slice(0, 5);
-  const organizationJsonLd = buildOrganizationJsonLd(getAppUrl());
+  const appUrl = RARE_DEFAULT_SITE_URL;
+  const organizationJsonLd = buildOrganizationJsonLd(appUrl);
+  const websiteJsonLd = buildWebsiteJsonLd(appUrl);
 
   return (
     <div className="store-shell pb-12 pt-5 lg:pb-16 lg:pt-8">
       <JsonLdScript id="rare-organization-json-ld" data={organizationJsonLd} />
+      <JsonLdScript id="rare-website-json-ld" data={websiteJsonLd} />
       <h1 className="sr-only">RARE — streetwear importado e drops selecionados</h1>
       <HomeHeroCarousel slides={heroSlides} />
 
@@ -185,7 +187,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           action={{ href: "/categoria/destaques", label: "Ver todos os destaques" }}
         />
         {selectedFeaturedProducts.length ? (
-          <ProductGrid products={selectedFeaturedProducts} commerce={commerce} />
+          <ProductGrid products={selectedFeaturedProducts} commerce={commerce} priorityFirst />
         ) : (
           <div className="rounded-lg border border-dashed border-neutral-300 px-6 py-12 text-center">
             <h3 className="text-lg font-black text-neutral-950">Nenhum destaque ativo no momento.</h3>
@@ -211,7 +213,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       ) : null}
 
       <section className="store-home-section mt-12 overflow-hidden rounded-lg bg-black px-6 py-10 text-white sm:px-8 lg:mt-16 lg:px-10 lg:py-12">
-        <p className="text-xs font-black uppercase tracking-[0.26em] text-white/45">Drop RARE</p>
+        <p className="text-xs font-black uppercase tracking-[0.26em] text-white/65">Drop RARE</p>
         <div className="mt-5 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl">
             <h2 className="text-3xl font-black tracking-tight sm:text-4xl lg:text-5xl">Estoque limitado. Escolha sem pressa, mas não deixa passar.</h2>
@@ -247,7 +249,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <h3 className="text-lg font-black tracking-tight text-neutral-950">Acessórios por tipo</h3>
-                <p className="mt-1 text-sm font-semibold text-neutral-500">Bags, bonés, cuecas, meias, óculos e relógios para fechar o visual.</p>
+                <p className="mt-1 text-sm font-semibold text-neutral-600">Bags, bonés, cuecas, meias, óculos e relógios para fechar o visual.</p>
               </div>
               <Link href="/categoria/acessorios" className="text-xs font-black uppercase tracking-[0.16em] text-neutral-700 hover:text-neutral-950">
                 Ver acessórios

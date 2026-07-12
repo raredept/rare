@@ -16,6 +16,9 @@ type ProductJsonLdInput = {
   priceInCents: number;
   inStock: boolean;
   url: string;
+  brand?: string | null;
+  sku?: string | null;
+  checkoutEnabled: boolean;
 };
 
 function absoluteUrl(appUrl: string, path: string) {
@@ -38,6 +41,21 @@ export function buildOrganizationJsonLd(appUrl: string): JsonLdObject {
     name: "RARE",
     url: appUrl,
     logo: `${appUrl}/brand/rare-logo.png`,
+    sameAs: ["https://www.instagram.com/raredept/"],
+  };
+}
+
+export function buildWebsiteJsonLd(appUrl: string): JsonLdObject {
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "RARE",
+    url: appUrl,
+    potentialAction: {
+      "@type": "SearchAction",
+      target: `${appUrl}/?q={search_term_string}`,
+      "query-input": "required name=search_term_string",
+    },
   };
 }
 
@@ -61,12 +79,17 @@ export function buildProductJsonLd(input: ProductJsonLdInput): JsonLdObject {
     name: input.name,
     description: input.description ?? undefined,
     image: input.imageUrls,
-    offers: {
-      "@type": "Offer",
-      priceCurrency: "BRL",
-      price: (input.priceInCents / 100).toFixed(2),
-      availability: input.inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
-      url: input.url,
-    },
+    url: input.url,
+    sku: input.sku ?? undefined,
+    brand: input.brand ? { "@type": "Brand", name: input.brand } : undefined,
+    offers: input.checkoutEnabled
+      ? {
+          "@type": "Offer",
+          priceCurrency: "BRL",
+          price: (input.priceInCents / 100).toFixed(2),
+          availability: input.inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+          url: input.url,
+        }
+      : undefined,
   };
 }

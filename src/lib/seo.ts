@@ -64,6 +64,19 @@ function isProductionEnv(env: EnvLike) {
   return clean(env.NODE_ENV) === "production";
 }
 
+export function isPublicIndexingEnabled(env: EnvLike = process.env) {
+  if (!isProductionEnv(env)) return false;
+  const configured = clean(env.APP_URL) ?? clean(env.NEXT_PUBLIC_APP_URL);
+  if (!configured) return true;
+
+  try {
+    const hostname = new URL(configured).hostname.toLowerCase();
+    return hostname === "raredept.com.br" || hostname === "www.raredept.com.br";
+  } catch {
+    return false;
+  }
+}
+
 function isLocalHostname(hostname: string) {
   const normalized = hostname.toLowerCase();
   if (normalized === "localhost" || normalized === "::1" || normalized === "0.0.0.0") return true;
@@ -94,6 +107,7 @@ export function sanitizeMetadataText(value: string | null | undefined, fallback 
 }
 
 export function getPublicBaseUrl(env: EnvLike = process.env) {
+  if (isProductionEnv(env)) return RARE_DEFAULT_SITE_URL;
   const configured = clean(env.APP_URL) ?? clean(env.NEXT_PUBLIC_APP_URL);
   const fallback = isDevelopmentEnv(env) ? RARE_LOCAL_SITE_URL : RARE_DEFAULT_SITE_URL;
   if (!configured) return fallback;
@@ -240,7 +254,10 @@ export function buildRootMetadata(env: EnvLike = process.env): Metadata {
     icons: {
       icon: "/brand/favicon.ico",
       shortcut: "/brand/favicon.ico",
+      apple: "/brand/rare-icon-192.png",
     },
+    manifest: "/manifest.webmanifest",
+    robots: isPublicIndexingEnabled(env) ? undefined : { index: false, follow: false },
   };
 }
 

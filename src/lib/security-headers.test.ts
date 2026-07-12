@@ -58,5 +58,6 @@ describe("security headers", () => {
     expect(serialized).not.toContain("r2_secret_value_that_must_not_leak");
     expect(serialized).not.toContain("postgres://user:password@db.example/rare");
     expect(serialized).not.toContain("admin_session_secret_that_must_not_leak");
+    expect(headers.some((header) => header.key.startsWith("Content-Security-Policy"))).toBe(false);
   });
 });

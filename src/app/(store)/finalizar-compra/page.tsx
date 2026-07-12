@@ -1,15 +1,13 @@
-import type { Metadata } from "next";
 import { StoreCheckoutPage } from "@/components/store/checkout-page";
+import { buildNoIndexMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Finalizar compra",
+export const metadata = buildNoIndexMetadata({
+  title: "Finalizar compra | RARE",
   description: "Finalize sua compra com dados de contato, entrega e resumo do pedido na RARE.",
-  alternates: {
-    canonical: "/finalizar-compra",
-  },
-};
+  path: "/finalizar-compra",
+});
 
 type FinalizarCompraPageProps = {
   searchParams: Promise<{ address?: string; checkout?: string }>;

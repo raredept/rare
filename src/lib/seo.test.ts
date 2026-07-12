@@ -6,6 +6,7 @@ import {
   buildPageMetadata,
   buildProductMetadata,
   getPublicBaseUrl,
+  isPublicIndexingEnabled,
   getSocialImageForProduct,
   isSafePublicSocialImageUrl,
   RARE_DEFAULT_SITE_URL,
@@ -33,6 +34,9 @@ describe("public SEO helpers", () => {
       "https://raredept.com.br",
     );
     expect(absoluteUrl("/categoria/tudo?q=camiseta", productionEnv)).toBe("https://raredept.com.br/categoria/tudo");
+    expect(getPublicBaseUrl({ NODE_ENV: "production", APP_URL: "https://rare-preview.up.railway.app" })).toBe(RARE_DEFAULT_SITE_URL);
+    expect(isPublicIndexingEnabled({ NODE_ENV: "production", APP_URL: "https://raredept.com.br" })).toBe(true);
+    expect(isPublicIndexingEnabled({ NODE_ENV: "production", APP_URL: "https://rare-preview.up.railway.app" })).toBe(false);
   });
 
   it("builds complete base metadata for public pages", () => {

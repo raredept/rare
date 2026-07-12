@@ -24,9 +24,9 @@ export function StoreNotFoundPage({
   return (
     <section className="mx-auto flex min-h-[58vh] max-w-[1440px] items-center px-4 py-14 sm:px-6 lg:px-8 xl:px-10">
       <div className="max-w-2xl">
-        <p className="text-xs font-black uppercase tracking-[0.24em] text-neutral-500">{eyebrow}</p>
+        <p className="text-xs font-black uppercase tracking-[0.24em] text-neutral-600">{eyebrow}</p>
         <h1 className="mt-4 text-4xl font-black tracking-tight text-neutral-950 sm:text-5xl lg:text-6xl">{title}</h1>
-        <p className="mt-5 max-w-xl text-sm font-semibold leading-6 text-neutral-500 sm:text-base">{description}</p>
+        <p className="mt-5 max-w-xl text-sm font-semibold leading-6 text-neutral-600 sm:text-base">{description}</p>
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
           <Link
             href={primaryAction.href}

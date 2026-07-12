@@ -23,7 +23,12 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const targetUrl = new URL(event.notification.data?.url || "/admin/notifications", self.location.origin).href;
+  const fallbackUrl = new URL("/admin/notifications", self.location.origin);
+  const candidateUrl = new URL(event.notification.data?.url || fallbackUrl.pathname, self.location.origin);
+  const targetUrl =
+    candidateUrl.origin === self.location.origin && candidateUrl.pathname.startsWith("/admin/")
+      ? candidateUrl.href
+      : fallbackUrl.href;
 
   event.waitUntil(
     clients

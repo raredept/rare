@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ProductCard } from "@/components/store/product-card";
-import { getAppUrl } from "@/lib/env";
-import { buildCategoryMetadata } from "@/lib/seo";
+import { buildCategoryMetadata, RARE_DEFAULT_SITE_URL } from "@/lib/seo";
 import { buildBreadcrumbListJsonLd, JsonLdScript } from "@/lib/structured-data";
 import { getCategoryPageData, type StorefrontProduct } from "@/lib/storefront";
 import { getStorefrontCommerceState, type StorefrontCommerceState } from "@/lib/storefront-commerce";
@@ -26,11 +25,11 @@ export async function generateMetadata({ params }: Pick<CategoryPageProps, "para
   return buildCategoryMetadata(pageData);
 }
 
-function ProductGrid({ products, commerce }: { products: StorefrontProduct[]; commerce: StorefrontCommerceState }) {
+function ProductGrid({ products, commerce, priorityFirst = false }: { products: StorefrontProduct[]; commerce: StorefrontCommerceState; priorityFirst?: boolean }) {
   return (
     <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:gap-x-5 md:grid-cols-3 lg:grid-cols-4 lg:gap-x-6 lg:gap-y-10 xl:grid-cols-5 xl:gap-x-8">
-      {products.map((product) => (
-        <ProductCard key={product.id} product={product} commerce={commerce} />
+      {products.map((product, index) => (
+        <ProductCard key={product.id} product={product} commerce={commerce} priority={priorityFirst && index === 0} />
       ))}
     </div>
   );
@@ -91,7 +90,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
     ? pageData.sections.reduce((total, section) => total + section.total, 0)
     : pageData.products.length;
 
-  const breadcrumbJsonLd = buildBreadcrumbListJsonLd(getAppUrl(), [
+  const breadcrumbJsonLd = buildBreadcrumbListJsonLd(RARE_DEFAULT_SITE_URL, [
     { name: "Início", path: "/" },
     { name: pageData.title, path: `/categoria/${slug}` },
   ]);
@@ -117,7 +116,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
       {pageData.kind === "grouped" ? (
         pageData.sections.length ? (
           <div className="grid gap-12 lg:gap-14">
-            {pageData.sections.map((section) => (
+            {pageData.sections.map((section, sectionIndex) => (
               <section key={section.slug} className="store-catalog-section border-b border-neutral-200 pb-10 last:border-b-0 last:pb-0">
                 <div className="mb-5 flex items-end justify-between gap-4">
                   <div>
@@ -133,7 +132,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
                     {section.hasMore ? "Ver todos" : "Ver categoria"}
                   </Link>
                 </div>
-                <ProductGrid products={section.products} commerce={commerce} />
+                <ProductGrid products={section.products} commerce={commerce} priorityFirst={sectionIndex === 0} />
               </section>
             ))}
           </div>
@@ -145,7 +144,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
           />
         )
       ) : pageData.products.length ? (
-        <ProductGrid products={pageData.products} commerce={commerce} />
+        <ProductGrid products={pageData.products} commerce={commerce} priorityFirst />
       ) : pageData.kind === "featured" ? (
         <EmptyState
           title="Nenhum destaque ativo no momento."

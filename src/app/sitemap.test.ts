@@ -2,13 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import sitemap from "@/app/sitemap";
 
 const mocks = vi.hoisted(() => ({
-  getNavigationCategories: vi.fn(),
-  getProducts: vi.fn(),
+  getPublicSitemapCatalogData: vi.fn(),
 }));
 
 vi.mock("@/lib/storefront", () => ({
-  getNavigationCategories: mocks.getNavigationCategories,
-  getProducts: mocks.getProducts,
+  getPublicSitemapCatalogData: mocks.getPublicSitemapCatalogData,
 }));
 
 describe("sitemap metadata route", () => {
@@ -16,47 +14,22 @@ describe("sitemap metadata route", () => {
     vi.clearAllMocks();
   });
 
-  it("lists canonical public static, category, and available product URLs", async () => {
+  it("lists canonical public static, category, and active product URLs", async () => {
     const categoryUpdatedAt = new Date("2026-05-30T10:00:00.000Z");
     const childUpdatedAt = new Date("2026-05-31T10:00:00.000Z");
     const productUpdatedAt = new Date("2026-06-01T10:00:00.000Z");
 
-    mocks.getNavigationCategories.mockResolvedValueOnce([
-      {
-        id: "cat-camisetas",
-        name: "Camisetas",
-        slug: "camisetas",
-        updatedAt: categoryUpdatedAt,
-        children: [
-          {
-            id: "cat-bags",
-            name: "Bags",
-            slug: "bags",
-            updatedAt: childUpdatedAt,
-          },
-        ],
-      },
-    ]);
-    mocks.getProducts.mockResolvedValueOnce([
-      {
-        id: "prod-available",
-        slug: "camiseta-rare",
-        updatedAt: productUpdatedAt,
-        variants: [{ active: true, stock: 2, reservedStock: 1 }],
-      },
-      {
-        id: "prod-sold-out",
-        slug: "jaqueta-esgotada",
-        updatedAt: productUpdatedAt,
-        variants: [{ active: true, stock: 1, reservedStock: 1 }],
-      },
-      {
-        id: "prod-inactive-variant",
-        slug: "bone-indisponivel",
-        updatedAt: productUpdatedAt,
-        variants: [{ active: false, stock: 3, reservedStock: 0 }],
-      },
-    ]);
+    mocks.getPublicSitemapCatalogData.mockResolvedValueOnce({
+      categories: [
+        { slug: "camisetas", updatedAt: categoryUpdatedAt },
+        { slug: "bags", updatedAt: childUpdatedAt },
+      ],
+      products: [
+        { slug: "camiseta-rare", updatedAt: productUpdatedAt, featured: true },
+        { slug: "jaqueta-esgotada", updatedAt: productUpdatedAt, featured: false },
+      ],
+      hasFeaturedProducts: true,
+    });
 
     const entries = await sitemap();
     const urls = entries.map((entry) => entry.url);
@@ -73,10 +46,9 @@ describe("sitemap metadata route", () => {
       "https://raredept.com.br/categoria/camisetas",
       "https://raredept.com.br/categoria/bags",
       "https://raredept.com.br/produto/camiseta-rare",
+      "https://raredept.com.br/produto/jaqueta-esgotada",
     ]));
     expect(urls).not.toEqual(expect.arrayContaining([
-      "https://raredept.com.br/produto/jaqueta-esgotada",
-      "https://raredept.com.br/produto/bone-indisponivel",
       "https://raredept.com.br/admin",
       "https://raredept.com.br/api",
       "https://raredept.com.br/finalizar-compra",
@@ -88,8 +60,7 @@ describe("sitemap metadata route", () => {
 
   it("falls back to non-sensitive public routes when database reads fail", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    mocks.getNavigationCategories.mockRejectedValueOnce(new Error("postgres://secret@example.invalid"));
-    mocks.getProducts.mockResolvedValueOnce([]);
+    mocks.getPublicSitemapCatalogData.mockRejectedValueOnce(new Error("DATABASE_URL must remain private"));
 
     const entries = await sitemap();
     const urls = entries.map((entry) => entry.url);
@@ -97,9 +68,9 @@ describe("sitemap metadata route", () => {
     expect(urls).toEqual(expect.arrayContaining([
       "https://raredept.com.br",
       "https://raredept.com.br/sobre",
-      "https://raredept.com.br/categoria/tudo",
     ]));
-    expect(urls).not.toEqual(expect.arrayContaining(["postgres://secret@example.invalid"]));
+    expect(urls).not.toContain("https://raredept.com.br/categoria/tudo");
+    expect(urls).not.toEqual(expect.arrayContaining(["DATABASE_URL must remain private"]));
     expect(consoleError).toHaveBeenCalledWith("Failed to build public sitemap.");
 
     consoleError.mockRestore();

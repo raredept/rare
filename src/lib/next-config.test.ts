@@ -18,16 +18,12 @@ describe("next config redirects", () => {
 });
 
 describe("next config security headers", () => {
-  it("sets CSP report-only and preserves the existing security headers", async () => {
+  it("preserves enforceable security headers without emitting an unactionable report-only CSP", async () => {
     const headersConfig = await nextConfig.headers?.();
     const globalHeaders = headersConfig?.find((entry) => entry.source === "/(.*)")?.headers ?? [];
     const headers = new Map(globalHeaders.map((header) => [header.key.toLowerCase(), header.value]));
 
-    expect(headers.get("content-security-policy-report-only")).toContain("default-src 'self'");
-    expect(headers.get("content-security-policy-report-only")).toContain("frame-ancestors 'none'");
-    expect(headers.get("content-security-policy-report-only")).toContain("https://checkout.stripe.com");
-    expect(headers.get("content-security-policy-report-only")).toContain("https://js.stripe.com");
-    expect(headers.get("content-security-policy-report-only")).toContain("https://*.r2.dev");
+    expect(headers.has("content-security-policy-report-only")).toBe(false);
     expect(headers.has("content-security-policy")).toBe(false);
     expect(headers.get("x-frame-options")).toBe("DENY");
     expect(headers.get("x-content-type-options")).toBe("nosniff");

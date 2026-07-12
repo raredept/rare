@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ProductDetailClient } from "@/components/store/product-detail-client";
-import { getAppUrl } from "@/lib/env";
 import { isProductVideoUrl } from "@/lib/product-media";
-import { buildProductMetadata } from "@/lib/seo";
+import { buildProductMetadata, RARE_DEFAULT_SITE_URL } from "@/lib/seo";
 import { getStoreSettings } from "@/lib/settings";
 import { buildBreadcrumbListJsonLd, buildProductJsonLd, JsonLdScript } from "@/lib/structured-data";
 import { getProductBySlug } from "@/lib/storefront";
@@ -35,7 +34,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   const settings = await getStoreSettings();
   const commerce = getStorefrontCommerceState();
-  const appUrl = getAppUrl();
+  const appUrl = RARE_DEFAULT_SITE_URL;
   const productUrl = `${appUrl}/produto/${product.slug}`;
   const productJsonLd = buildProductJsonLd({
     name: product.title,
@@ -46,6 +45,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
     priceInCents: product.priceInCents,
     inStock: product.variants.some((variant) => variant.stock - variant.reservedStock > 0),
     url: productUrl,
+    brand: product.brand,
+    sku: product.variants.find((variant) => variant.active && variant.sku)?.sku,
+    checkoutEnabled: commerce.checkoutEnabled,
   });
   const productCategories: Array<{ name: string; slug: string }> = [];
   for (const category of [product.category, product.subcategory]) {
