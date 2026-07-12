@@ -230,7 +230,7 @@ describe("shipping quote route", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
     quoteMocks.getStoreSettings.mockResolvedValueOnce({
-      shippingMode: "fixed",
+      shippingMode: "melhor_envio",
       originCep: "31170-350",
       fixedShippingInCents: 2500,
       manualShippingInCents: 0,
@@ -324,7 +324,7 @@ describe("shipping quote route", () => {
   it("returns a clear Melhor Envio configuration error without falling back to manual quotes", async () => {
     vi.stubEnv("SHIPPING_PROVIDER", "melhor_envio");
     quoteMocks.getStoreSettings.mockResolvedValueOnce({
-      shippingMode: "manual",
+      shippingMode: "melhor_envio",
       originCep: "31170350",
       fixedShippingInCents: 0,
       manualShippingInCents: 0,
@@ -347,7 +347,7 @@ describe("shipping quote route", () => {
     vi.stubEnv("MELHOR_ENVIO_CLIENT_ID", "client-id");
     vi.stubEnv("MELHOR_ENVIO_CLIENT_SECRET", "client-secret");
     quoteMocks.getStoreSettings.mockResolvedValueOnce({
-      shippingMode: "manual",
+      shippingMode: "melhor_envio",
       originCep: "31170350",
       fixedShippingInCents: 0,
       manualShippingInCents: 0,

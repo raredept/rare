@@ -150,10 +150,11 @@ describe("shipping domain", () => {
     ).toThrow("Configure um valor de frete fixo para habilitar o checkout.");
   });
 
-  it("uses SHIPPING_PROVIDER when configured and rejects missing real-provider credentials cleanly", async () => {
+  it("requires the Admin provider selection even when SHIPPING_PROVIDER is configured", async () => {
     vi.stubEnv("SHIPPING_PROVIDER", "correios");
 
-    expect(getConfiguredShippingProvider({ shippingMode: "manual" })).toBe("correios");
+    expect(getConfiguredShippingProvider({ shippingMode: "manual" })).toBe("manual");
+    expect(getConfiguredShippingProvider({ shippingMode: "future_provider" })).toBe("correios");
     await expect(
       getShippingQuotes({
         provider: "correios",
@@ -417,5 +418,38 @@ describe("shipping domain", () => {
         package: buildPackageFromCart([packageItem()]),
       }),
     ).rejects.not.toThrow("melhor-token-value-that-must-not-leak");
+  });
+
+  it("uses a bounded timeout and maps network failures to a safe error", async () => {
+    vi.stubEnv("MELHOR_ENVIO_TOKEN", "test-token");
+    vi.stubEnv("MELHOR_ENVIO_TIMEOUT_MS", "2500");
+    const fetchMock = vi.fn<typeof fetch>(async () => {
+      throw new Error("provider URL and token must never escape");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      getShippingQuotes({
+        provider: "melhor_envio",
+        originCep: "31170350",
+        destinationCep: "01001000",
+        package: buildPackageFromCart([packageItem()]),
+      }),
+    ).rejects.toThrow("Frete indisponível no momento. Tente novamente em alguns instantes.");
+    expect((fetchMock.mock.calls[0][1] as RequestInit).signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("rejects invalid environment selection instead of silently using production", async () => {
+    vi.stubEnv("MELHOR_ENVIO_TOKEN", "test-token");
+    vi.stubEnv("MELHOR_ENVIO_ENV", "staging");
+
+    await expect(
+      getShippingQuotes({
+        provider: "melhor_envio",
+        originCep: "31170350",
+        destinationCep: "01001000",
+        package: buildPackageFromCart([packageItem()]),
+      }),
+    ).rejects.toThrow("MELHOR_ENVIO_ENV deve ser production ou sandbox.");
   });
 });

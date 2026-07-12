@@ -39,6 +39,13 @@ export function AdminPushSubscriptionControl({ publicKey, activeSubscriptionCoun
     if (typeof window === "undefined") return null;
     return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
   }, []);
+  const iosInstallRequired = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const standalone = window.matchMedia("(display-mode: standalone)").matches ||
+      ("standalone" in navigator && Boolean((navigator as Navigator & { standalone?: boolean }).standalone));
+    return ios && !standalone;
+  }, []);
   const canUsePush = Boolean(publicKey && pushSupport);
   const displayStatus: PushStatus = !publicKey ? "not_configured" : pushSupport === false ? "unsupported" : status;
 
@@ -110,11 +117,12 @@ export function AdminPushSubscriptionControl({ publicKey, activeSubscriptionCoun
     try {
       const { subscription } = await getCurrentSubscription();
       if (subscription) {
-        await fetch("/api/admin/push-subscriptions", {
+        const response = await fetch("/api/admin/push-subscriptions", {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ endpoint: subscription.endpoint }),
         });
+        if (!response.ok) throw new Error("subscription removal failed");
         await subscription.unsubscribe();
       }
 
@@ -146,7 +154,11 @@ export function AdminPushSubscriptionControl({ publicKey, activeSubscriptionCoun
           </p>
           {message ? <p className="mt-2 text-sm font-semibold text-neutral-700">{message}</p> : null}
           {displayStatus === "unsupported" ? (
-            <p className="mt-2 text-sm font-semibold text-red-700">Este navegador nao oferece suporte a Web Push.</p>
+            <p className="mt-2 text-sm font-semibold text-red-700">
+              {iosInstallRequired
+                ? "No iPhone, instale a RARE na Tela de Início e abra o app instalado para ativar o Web Push."
+                : "Este navegador nao oferece suporte a Web Push."}
+            </p>
           ) : null}
           {displayStatus === "denied" ? (
             <p className="mt-2 text-sm font-semibold text-red-700">A permissao foi bloqueada no navegador deste dispositivo.</p>

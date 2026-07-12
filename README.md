@@ -40,6 +40,7 @@ npm run smoke -- https://raredept.com.br
 npm run checkout:smoke
 npm run inventory:release-expired
 npm run shipping:dimensions:audit
+npm run media:variants:backfill -- --limit=10 --dry-run
 ```
 
 ## Uploads do Admin
@@ -61,6 +62,10 @@ Use estes documentos para entrega ao cliente e homologação:
 - [Auditoria final de release de 2026-06-04 (histórico)](docs/final-release-audit.md)
 - [Checkout Stripe test-mode smoke](docs/checkout-smoke-test.md)
 - [Rate limit em produção](docs/rate-limit.md)
+- [Homologação do Melhor Envio](docs/melhor-envio-homologation.md)
+- [E-mail transacional e DNS](docs/transactional-email.md)
+- [Auditoria conservadora de dependências](docs/dependency-security-audit.md)
+- [Pendências externas](docs/external-pending-actions.md)
 
 Railway usa dois serviços: o web com [railway.json](railway.json) e a cron de reservas com [railway.cron.json](railway.cron.json). No serviço cron, aponte o Config File Path para `/railway.cron.json`; se o painel não usar esse arquivo, configure manualmente o start command `npm run cron:release-expired` e o schedule `0 3 * * *`.
 

@@ -403,6 +403,7 @@ describe("createCheckoutSession", () => {
           },
         },
       }),
+      { idempotencyKey: "rare-checkout-session:order_1" },
     );
   });
 
@@ -475,6 +476,7 @@ describe("createCheckoutSession", () => {
           }),
         },
       }),
+      { idempotencyKey: "rare-checkout-session:order_1" },
     );
     expect(JSON.stringify(mocks.stripeSessionsCreate.mock.calls[0][0].metadata)).not.toContain("12345678909");
     expect(JSON.stringify(mocks.stripeSessionsCreate.mock.calls[0][0].payment_intent_data?.metadata)).not.toContain(
@@ -518,6 +520,16 @@ describe("createCheckoutSession", () => {
     process.env.SHIPPING_PROVIDER = "melhor_envio";
     process.env.SHIPPING_ORIGIN_CEP = "22041001";
     process.env.MELHOR_ENVIO_TOKEN = "test-token";
+    mocks.getStoreSettings.mockResolvedValueOnce({
+      checkoutReservationMinutes: 30,
+      checkoutRequiresAddress: true,
+      shippingMode: "melhor_envio",
+      originCep: "01001000",
+      fixedShippingInCents: 0,
+      manualShippingInCents: 0,
+      freeShippingMinInCents: null,
+      freeShippingThresholdInCents: null,
+    });
     const fetchMock = vi.fn<typeof fetch>(async () =>
       new Response(
         JSON.stringify([{ id: 1, name: "PAC", custom_price: "44.90", custom_delivery_time: 5, company: { name: "Correios" } }]),
@@ -589,12 +601,23 @@ describe("createCheckoutSession", () => {
           }),
         ],
       }),
+      { idempotencyKey: "rare-checkout-session:order_1" },
     );
   });
 
   it("rejects a Melhor Envio option that no longer exists in the backend quote", async () => {
     process.env.SHIPPING_PROVIDER = "melhor_envio";
     process.env.MELHOR_ENVIO_TOKEN = "test-token";
+    mocks.getStoreSettings.mockResolvedValueOnce({
+      checkoutReservationMinutes: 30,
+      checkoutRequiresAddress: true,
+      shippingMode: "melhor_envio",
+      originCep: "01001000",
+      fixedShippingInCents: 0,
+      manualShippingInCents: 0,
+      freeShippingMinInCents: null,
+      freeShippingThresholdInCents: null,
+    });
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response(JSON.stringify([{ id: 1, name: "PAC", price: "20.00", delivery_time: 5 }]), { status: 200 })),
@@ -616,6 +639,16 @@ describe("createCheckoutSession", () => {
   it("blocks checkout when Melhor Envio quote fails", async () => {
     process.env.SHIPPING_PROVIDER = "melhor_envio";
     process.env.MELHOR_ENVIO_TOKEN = "test-token";
+    mocks.getStoreSettings.mockResolvedValueOnce({
+      checkoutReservationMinutes: 30,
+      checkoutRequiresAddress: true,
+      shippingMode: "melhor_envio",
+      originCep: "01001000",
+      fixedShippingInCents: 0,
+      manualShippingInCents: 0,
+      freeShippingMinInCents: null,
+      freeShippingThresholdInCents: null,
+    });
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ message: "temporary" }), { status: 500 })));
 
     await expect(

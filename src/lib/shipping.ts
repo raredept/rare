@@ -8,6 +8,7 @@ export const DEFAULT_SHIPPING_ORIGIN_CEP = "31170350";
 export const MELHOR_ENVIO_DEFAULT_PRODUCTION_BASE_URL = "https://www.melhorenvio.com.br";
 export const MELHOR_ENVIO_DEFAULT_SANDBOX_BASE_URL = "https://sandbox.melhorenvio.com.br";
 export const MELHOR_ENVIO_DEFAULT_SERVICES = "1,2";
+export const MELHOR_ENVIO_DEFAULT_TIMEOUT_MS = 8_000;
 
 export type ShippingProvider = (typeof shippingProviders)[number];
 export type ShippingMode = (typeof shippingModes)[number];
@@ -170,6 +171,10 @@ export function isShippingEnabled(settings?: ProvisionalShippingSettings | null)
 }
 
 export function getConfiguredShippingProvider(settings?: ProvisionalShippingSettings | null): ShippingProvider {
+  const mode = normalizeShippingMode(settings?.shippingMode);
+  const modeProvider = normalizeShippingProvider(mode);
+  if (modeProvider) return modeProvider;
+
   const envProvider = clean(process.env.SHIPPING_PROVIDER);
   if (envProvider) {
     const provider = normalizeShippingProvider(envProvider);
@@ -179,13 +184,11 @@ export function getConfiguredShippingProvider(settings?: ProvisionalShippingSett
     return provider;
   }
 
-  const mode = normalizeShippingMode(settings?.shippingMode);
-  if (normalizeShippingProvider(mode)) return mode as ShippingProvider;
   return "manual";
 }
 
 export function isFixedShippingModeActive(settings?: ProvisionalShippingSettings | null) {
-  return normalizeShippingMode(settings?.shippingMode) === "fixed" && !clean(process.env.SHIPPING_PROVIDER);
+  return normalizeShippingMode(settings?.shippingMode) === "fixed";
 }
 
 export function getConfiguredShippingOriginCep(settings?: ProvisionalShippingSettings | null) {
@@ -546,11 +549,28 @@ function getMelhorEnvioToken() {
 
 export function getMelhorEnvioBaseUrl() {
   const configured = clean(process.env.MELHOR_ENVIO_BASE_URL);
-  if (configured) return configured.replace(/\/$/, "");
+  if (configured) {
+    try {
+      const url = new URL(configured);
+      if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error();
+      return configured.replace(/\/$/, "");
+    } catch {
+      throw new Error("MELHOR_ENVIO_BASE_URL inválida.");
+    }
+  }
 
   const env = clean(process.env.MELHOR_ENVIO_ENV)?.toLowerCase();
   if (env === "sandbox") return MELHOR_ENVIO_DEFAULT_SANDBOX_BASE_URL;
+  if (env && env !== "production") throw new Error("MELHOR_ENVIO_ENV deve ser production ou sandbox.");
   return MELHOR_ENVIO_DEFAULT_PRODUCTION_BASE_URL;
+}
+
+function getMelhorEnvioTimeoutMs() {
+  const configured = Number(clean(process.env.MELHOR_ENVIO_TIMEOUT_MS) ?? MELHOR_ENVIO_DEFAULT_TIMEOUT_MS);
+  if (!Number.isInteger(configured) || configured < 1_000 || configured > 30_000) {
+    throw new Error("MELHOR_ENVIO_TIMEOUT_MS deve estar entre 1000 e 30000.");
+  }
+  return configured;
 }
 
 function getMelhorEnvioUserAgent() {
@@ -690,16 +710,22 @@ export async function getMelhorEnvioShippingQuotes(request: ShippingQuoteRequest
   }
   const baseUrl = getMelhorEnvioBaseUrl();
   const endpoint = `${baseUrl}/api/v2/me/shipment/calculate`;
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      "User-Agent": getMelhorEnvioUserAgent(),
-    },
-    body: JSON.stringify(buildMelhorEnvioPayload(request, originCep, destinationCep)),
-  });
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "User-Agent": getMelhorEnvioUserAgent(),
+      },
+      body: JSON.stringify(buildMelhorEnvioPayload(request, originCep, destinationCep)),
+      signal: AbortSignal.timeout(getMelhorEnvioTimeoutMs()),
+    });
+  } catch {
+    throw new Error("Frete indisponível no momento. Tente novamente em alguns instantes.");
+  }
 
   let body: unknown = null;
   try {

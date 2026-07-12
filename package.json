@@ -32,6 +32,7 @@
     "cron:release-expired": "node scripts/call-release-expired-cron.mjs",
     "shipping:dimensions:audit": "tsx scripts/audit-product-shipping-dimensions.ts",
     "media:variants:audit": "tsx scripts/audit-media-variants.ts",
+    "media:variants:backfill": "tsx scripts/backfill-media-variants.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -42,7 +43,7 @@
     "bcryptjs": "^3.0.3",
     "jose": "^6.2.3",
     "lucide-react": "^1.14.0",
-    "next": "16.2.6",
+    "next": "^16.2.10",
     "pg": "^8.20.0",
     "prisma": "^7.8.0",
     "react": "19.2.4",
@@ -61,10 +62,14 @@
     "@types/react-dom": "^19",
     "@types/web-push": "^3.6.4",
     "eslint": "^9",
-    "eslint-config-next": "16.2.6",
+    "eslint-config-next": "^16.2.10",
     "tailwindcss": "^4",
-    "tsx": "^4.21.0",
+    "tsx": "^4.23.0",
     "typescript": "^5",
-    "vitest": "^4.1.6"
+    "vitest": "^4.1.10"
+  },
+  "overrides": {
+    "@hono/node-server": "1.19.13",
+    "postcss": "^8.5.10"
   }
 }

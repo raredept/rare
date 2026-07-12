@@ -52,14 +52,51 @@ O presign R2 permanece disponível até 100 MB e não foi alterado. Como o arqui
 
 Use o upload server-routed de até 4 MB para imagens estáticas que precisam de variantes. Preserve o presign para arquivos grandes e MP4. Um processamento assíncrono posterior pode ser avaliado no futuro, mas não faz parte do fluxo atual.
 
-## Mídia antiga
+## Backfill de mídia antiga
 
-Não existe reprocessamento automático do R2. Para mídia antiga pesada, as opções são:
+O backfill manual reutiliza o mesmo gerador `sharp` do upload oficial. Ele processa
+uma mídia por vez, cria somente variantes ausentes com escrita condicional e só
+atualiza a URL já existente no banco depois de confirmar thumbnail e medium. O
+original não é copiado, renomeado, sobrescrito ou removido, e nenhum novo registro
+de mídia é criado.
 
-1. Reenviar manualmente a imagem pelo Admin.
-2. Criar futuramente um job explícito, auditável e executado primeiro em staging.
+O modo padrão é `dry-run`, sem leitura ou escrita no storage e sem alteração no banco:
 
-Até isso ocorrer, o fallback continua sendo a URL original.
+```bash
+npm run media:variants:backfill -- --limit=10 --dry-run
+```
+
+Também é aceito omitir `--dry-run`, pois ele é o padrão seguro. O limite deve ficar
+entre 1 e 100 e controla quantas mídias elegíveis são selecionadas. A consulta usa
+paginação; o catálogo inteiro não é carregado em memória.
+
+Para homologar em staging isolado:
+
+```bash
+npm run media:variants:backfill -- --limit=10 --apply
+```
+
+Em produção, `--apply` continua bloqueado até que uma execução tenha autorização
+explícita e receba temporariamente `MEDIA_BACKFILL_ALLOW_PRODUCTION=true`. Não deixe
+essa variável ativa depois do lote. `MEDIA_BACKFILL_MAX_SOURCE_MB` (padrão 25) limita
+o tamanho de um único original carregado em memória.
+
+O job continua após falha individual, mostra somente o tipo, o identificador do
+registro e um código de erro sanitizado (nunca a URL ou credenciais) e termina com código diferente de zero se
+algum item falhar. Uma execução parcial pode ser repetida: variantes existentes não
+são sobrescritas, e a referência do banco usa comparação com a URL anterior para
+evitar perder uma edição administrativa concorrente.
+
+URLs legadas com querystring ou fragmento não são processadas automaticamente,
+pois podem ser assinadas. GIF, MP4, SVG e imagens pequenas ou sem ganho de tamanho
+continuam usando o original.
+
+### Escolha operacional
+
+O formato recomendado é script manual em lotes, não cron recorrente nem rota Admin.
+O volume é finito, o processo escreve no storage e no banco e deve ser acompanhado
+primeiro em staging. Uma cron permanente aumentaria o risco operacional sem benefício;
+uma rota Admin exigiria fila, estado e controles adicionais para sobreviver a timeout.
 
 ## Homologação de variantes em staging
 
@@ -106,6 +143,7 @@ O comando abaixo lista produtos, banners e mídias sem alterar banco, storage ou
 
 ```bash
 npm run media:variants:audit
+npm run media:variants:backfill -- --limit=10 --dry-run
 ```
 
 O modo padrão é somente leitura: consulta o banco configurado, não chama R2, não faz HEAD remoto, não apaga mídia, não substitui URL e não gera variantes. URLs com querystring ou aparência de assinatura são mascaradas no console.

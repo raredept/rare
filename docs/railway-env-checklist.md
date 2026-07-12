@@ -58,10 +58,10 @@ A Railway injeta variaveis de sistema como `PORT`, `RAILWAY_ENVIRONMENT_NAME` e,
 | `SHIPPING_PROVIDER` | `melhor_envio` | Sim para frete real | Provider principal da RARE. |
 | `SHIPPING_ORIGIN_CEP` | `31170350` | Condicional | Fallback; `StoreSettings.originCep` tem prioridade. |
 | `MELHOR_ENVIO_TOKEN` ou `MELHOR_ENVIO_ACCESS_TOKEN` | `...` | Sim com Melhor Envio | CLIENT_ID/SECRET sozinhos nao bastam. |
-| `MELHOR_ENVIO_ENV` | `production` | Sim com Melhor Envio real | Valores aceitos: `production` ou `sandbox`. |
+| `MELHOR_ENVIO_ENV` | `production` | Sim com Melhor Envio real | Valores aceitos: `production` ou `sandbox`; valores invalidos bloqueiam a cotacao. |
 | `CRON_SECRET` | `...32+ caracteres...` | Sim | O mesmo valor deve existir no servico cron. |
 
-Variaveis opcionais/operacionais: `RATE_LIMIT_REDIS_PREFIX`, `STRIPE_PAYMENT_METHOD_TYPES`, `STRIPE_PRICE_CURRENCY`, `MAX_UPLOAD_SIZE_MB`, `MAX_GIF_UPLOAD_SIZE_MB`, `MAX_VIDEO_UPLOAD_SIZE_MB`, `ALLOW_LOCAL_STORAGE_IN_PRODUCTION`, `MELHOR_ENVIO_BASE_URL`, `MELHOR_ENVIO_SERVICES`, `MELHOR_ENVIO_USER_AGENT`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `CONFIRM_PRODUCTION_SEED` e `CONFIRM_PRODUCTION_ADMIN`.
+Variaveis opcionais/operacionais: `RATE_LIMIT_REDIS_PREFIX`, `STRIPE_PAYMENT_METHOD_TYPES`, `STRIPE_PRICE_CURRENCY`, `MAX_UPLOAD_SIZE_MB`, `MAX_GIF_UPLOAD_SIZE_MB`, `MAX_VIDEO_UPLOAD_SIZE_MB`, `ALLOW_LOCAL_STORAGE_IN_PRODUCTION`, `MELHOR_ENVIO_BASE_URL`, `MELHOR_ENVIO_SERVICES`, `MELHOR_ENVIO_USER_AGENT`, `MELHOR_ENVIO_TIMEOUT_MS`, `MEDIA_BACKFILL_MAX_SOURCE_MB`, `MEDIA_BACKFILL_ALLOW_PRODUCTION`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `CONFIRM_PRODUCTION_SEED` e `CONFIRM_PRODUCTION_ADMIN`.
 
 Para notificacoes no celular, gere um par VAPID fora do commit:
 

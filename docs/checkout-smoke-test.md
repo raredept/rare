@@ -7,6 +7,7 @@ Este guia homologa o checkout da RARE com Stripe em test mode. Ele nao deve ser 
 - Cliente autenticado consegue chegar em `/finalizar-compra`.
 - Carrinho do navegador usa `rare_store_cart`, mas o backend recalcula produto, preco, estoque, frete e total.
 - `/api/checkout` exige sessao de cliente, CPF valido, endereco quando configurado e `CHECKOUT_ENABLED=true`.
+- A criação da Checkout Session usa idempotency key derivada do pedido; preços, desconto e frete são sempre recalculados no servidor.
 - `createCheckoutSession()` cria pedido `awaiting_payment`, reserva estoque em `ProductVariant.reservedStock`, cria movimento `reserve` e cria Stripe Checkout Session.
 - O webhook `POST /api/stripe/webhook` exige `stripe-signature` e `STRIPE_WEBHOOK_SECRET`.
 - `checkout.session.completed` pago ou `payment_intent.succeeded` move pedido para `paid`, baixa `stock`, baixa `reservedStock` e cria movimento `sale`.

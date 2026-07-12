@@ -412,6 +412,14 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
     if (melhorEnvioBaseUrl && !isHttpUrl(melhorEnvioBaseUrl)) {
       addIssue(issues, "error", "MELHOR_ENVIO_BASE_URL", "MELHOR_ENVIO_BASE_URL must be an absolute http(s) URL.");
     }
+
+    const melhorEnvioTimeoutMs = clean(env.MELHOR_ENVIO_TIMEOUT_MS);
+    if (melhorEnvioTimeoutMs) {
+      const timeout = Number(melhorEnvioTimeoutMs);
+      if (!Number.isInteger(timeout) || timeout < 1000 || timeout > 30000) {
+        addIssue(issues, "error", "MELHOR_ENVIO_TIMEOUT_MS", "MELHOR_ENVIO_TIMEOUT_MS must be between 1000 and 30000.");
+      }
+    }
   }
 
   const errors = issues.filter((issue) => issue.level === "error");

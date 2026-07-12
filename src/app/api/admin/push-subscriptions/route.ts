@@ -7,10 +7,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const pushSubscriptionSchema = z.object({
-  endpoint: z.url(),
+  endpoint: z.url().max(2048),
   keys: z.object({
-    p256dh: z.string().min(1),
-    auth: z.string().min(1),
+    p256dh: z.string().min(1).max(512),
+    auth: z.string().min(1).max(512),
   }),
 });
 
@@ -61,7 +61,7 @@ export async function DELETE(request: NextRequest) {
   const { response } = await requireApiAdmin();
   if (response) return response;
 
-  const parsed = z.object({ endpoint: z.url() }).safeParse(await request.json().catch(() => null));
+  const parsed = z.object({ endpoint: z.url().max(2048) }).safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid push subscription" }, { status: 400 });
   }

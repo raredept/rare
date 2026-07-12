@@ -721,7 +721,9 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
       sessionParams.customer_email = checkoutEmail;
     }
 
-    const session = await stripe.checkout.sessions.create(sessionParams);
+    const session = await stripe.checkout.sessions.create(sessionParams, {
+      idempotencyKey: `rare-checkout-session:${order.id}`,
+    });
 
     await prisma.order.update({
       where: { id: order.id },
