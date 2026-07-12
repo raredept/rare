@@ -74,4 +74,3 @@ Interromper imediatamente se houver:
 - CSP não é emitida neste ciclo. A política `Report-Only` anterior não tinha endpoint de relatório e era incompatível com scripts/estilos inline do runtime Next/React, gerando ruído no WebKit sem proteção. Uma CSP futura exige nonces/hashes, endpoint de relatório e homologação de imagens, fontes, Stripe, analytics, PWA e Push.
 - O service worker existente atende apenas Push administrativo e usa escopo `/admin/`; não existe cache offline do storefront.
 - Preview/staging, dispositivo iPhone real, DNS e deploy de produção não fazem parte da validação local.
-
