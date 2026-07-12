@@ -5,6 +5,7 @@ import { getAvailableStock } from "@/lib/stock";
 import { ProductCardHoverImage } from "@/components/store/product-card-hover-image";
 import { ProductMedia } from "@/components/store/product-media";
 import { ProductMediaPlaceholder } from "@/components/store/product-media-placeholder";
+import { buildStorefrontCommerceState, type StorefrontCommerceState } from "@/lib/storefront-commerce";
 
 type ProductCardProps = {
   product: {
@@ -17,9 +18,11 @@ type ProductCardProps = {
     images: Array<ProductMediaAsset & { alt: string }>;
     variants: { stock: number; reservedStock: number; active: boolean }[];
   };
+  commerce?: StorefrontCommerceState;
 };
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ product, commerce }: ProductCardProps) {
+  const commerceState = commerce ?? buildStorefrontCommerceState(true);
   const { primary: image, hover: hoverImage } = getProductCardMediaPair(product.images);
   const availableStock = product.variants
     .filter((variant) => variant.active)
@@ -31,7 +34,7 @@ export function ProductCard({ product }: ProductCardProps) {
     <article className="group h-full min-w-0">
       <Link
         href={`/produto/${product.slug}`}
-        className="store-product-card flex h-full cursor-pointer flex-col rounded-lg border border-neutral-200 bg-white p-2 transition-[border-color,box-shadow,transform] duration-200 ease-out hover:-translate-y-1 hover:border-neutral-950/30 hover:shadow-[0_20px_50px_rgba(15,23,42,0.1)] active:translate-y-0 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
+        className="store-product-card flex h-full cursor-pointer flex-col border-b border-neutral-200 bg-transparent pb-4 transition-[border-color,transform] duration-200 ease-out hover:-translate-y-1 hover:border-neutral-950 active:translate-y-0 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
       >
         <div className="relative aspect-[4/5] overflow-hidden rounded-lg bg-neutral-100">
           {image ? (
@@ -52,7 +55,7 @@ export function ProductCard({ product }: ProductCardProps) {
             </span>
           ) : null}
         </div>
-        <div className="flex flex-1 flex-col px-1 pb-2 pt-3 sm:pt-4">
+        <div className="flex flex-1 flex-col px-0.5 pt-3 sm:pt-4">
           <p className="line-clamp-1 text-[10px] font-black uppercase tracking-[0.18em] text-neutral-500 sm:tracking-[0.2em]">
             {categoryName}
           </p>
@@ -60,11 +63,11 @@ export function ProductCard({ product }: ProductCardProps) {
             {product.title}
           </h2>
           <div className="mt-auto flex min-w-0 flex-col gap-1 pt-3">
-            <p className="whitespace-nowrap text-[1rem] font-black leading-tight text-success sm:text-lg sm:leading-none">
+            <p className="whitespace-nowrap text-[1rem] font-black leading-tight text-neutral-950 sm:text-lg sm:leading-none">
               {formatMoney(product.priceInCents)}
             </p>
             <p className="whitespace-nowrap text-[10px] font-bold uppercase leading-4 tracking-wide text-neutral-500 sm:text-xs">
-              3x sem juros
+              {commerceState.checkoutEnabled ? "3x sem juros" : "Consulte disponibilidade"}
             </p>
           </div>
         </div>

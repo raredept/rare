@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   getFeaturedProducts: vi.fn(),
   getRecentProducts: vi.fn(),
   getHomeCategoryTiles: vi.fn(),
+  checkoutEnabled: true,
 }));
 
 vi.mock("@/components/store/home-hero-carousel", () => ({
@@ -23,6 +24,7 @@ vi.mock("@/components/store/product-card", () => ({
 
 vi.mock("@/lib/env", () => ({
   getAppUrl: mocks.getAppUrl,
+  isCheckoutEnabled: () => mocks.checkoutEnabled,
 }));
 
 vi.mock("@/lib/storefront", () => ({
@@ -63,6 +65,7 @@ function getJsonLdScripts(html: string) {
 describe("store home page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.checkoutEnabled = true;
     mocks.getAppUrl.mockReturnValue("https://raredept.com.br");
     mocks.getProducts.mockResolvedValue([product("busca-1", "Resultado mock")]);
     mocks.getFeaturedProducts.mockResolvedValue([
@@ -96,6 +99,16 @@ describe("store home page", () => {
         },
       ],
     });
+  });
+
+  it("removes active payment promises when checkout is disabled", async () => {
+    mocks.checkoutEnabled = false;
+    const element = await HomePage({ searchParams: Promise.resolve({}) });
+    const html = renderToStaticMarkup(element as ReactElement);
+
+    expect(html).toContain("Catálogo disponível");
+    expect(html).toContain("Nenhum pagamento será solicitado");
+    expect(html).not.toContain("Pagamento por Pix ou cartão no checkout da loja");
   });
 
   it("renders the editorial home with hero, featured products, recent products, categories, final trust block, and catalog CTA", async () => {

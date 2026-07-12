@@ -26,6 +26,7 @@ vi.mock("@/components/store/product-card", () => ({
 
 vi.mock("@/lib/env", () => ({
   getAppUrl: mocks.getAppUrl,
+  isCheckoutEnabled: () => true,
 }));
 
 vi.mock("@/lib/storefront", () => ({

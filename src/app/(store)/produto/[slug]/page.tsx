@@ -7,6 +7,8 @@ import { buildProductMetadata } from "@/lib/seo";
 import { getStoreSettings } from "@/lib/settings";
 import { buildBreadcrumbListJsonLd, buildProductJsonLd, JsonLdScript } from "@/lib/structured-data";
 import { getProductBySlug } from "@/lib/storefront";
+import { getStorefrontCommerceState } from "@/lib/storefront-commerce";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +34,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   if (!product) notFound();
 
   const settings = await getStoreSettings();
+  const commerce = getStorefrontCommerceState();
   const appUrl = getAppUrl();
   const productUrl = `${appUrl}/produto/${product.slug}`;
   const productJsonLd = buildProductJsonLd({
@@ -57,15 +60,21 @@ export default async function ProductPage({ params }: ProductPageProps) {
   ]);
 
   return (
-    <div className="mx-auto max-w-[1240px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+    <div className="mx-auto max-w-[1240px] px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
       <JsonLdScript id="rare-product-json-ld" data={productJsonLd} />
       <JsonLdScript id="rare-product-breadcrumb-json-ld" data={breadcrumbJsonLd} />
+      <nav aria-label="Breadcrumb" className="scrollbar-none mb-6 flex items-center gap-2 overflow-x-auto whitespace-nowrap text-xs font-bold text-neutral-500">
+        <Link href="/" className="hover:text-neutral-950">Início</Link><span aria-hidden="true">/</span>
+        {productCategories.map((category) => <span key={category.slug} className="contents"><Link href={`/categoria/${category.slug}`} className="hover:text-neutral-950">{category.name}</Link><span aria-hidden="true">/</span></span>)}
+        <span aria-current="page" className="truncate text-neutral-700">{product.title}</span>
+      </nav>
       <ProductDetailClient
         key={product.id}
         product={product}
         productUrl={productUrl}
         whatsappNumber={settings.whatsappNumber}
         whatsappMessage={settings.whatsappDefaultMessage}
+        commerce={commerce}
       />
     </div>
   );

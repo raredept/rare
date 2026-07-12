@@ -2,6 +2,7 @@ import { createElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { ProductCard } from "@/components/store/product-card";
+import { buildStorefrontCommerceState } from "@/lib/storefront-commerce";
 
 vi.mock("next/link", () => ({
   default: ({ href, children, ...props }: { href: string; children: ReactNode }) =>
@@ -153,5 +154,14 @@ describe("ProductCard", () => {
     expect(html).toContain(
       'srcSet="/uploads/products/2026/06/id-front-rare-v1-thumbnail.webp 640w, /uploads/products/2026/06/id-front-rare-v1-medium.webp 1200w"',
     );
+  });
+
+  it("replaces installment copy with an availability message while checkout is paused", () => {
+    const html = renderToStaticMarkup(createElement(ProductCard, {
+      product: { ...baseProduct, images: [] },
+      commerce: buildStorefrontCommerceState(false),
+    }) as ReactElement);
+    expect(html).toContain("Consulte disponibilidade");
+    expect(html).not.toContain("3x sem juros");
   });
 });

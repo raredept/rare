@@ -1,4 +1,4 @@
-import { ArrowRight, CreditCard, Headphones, RotateCcw, ShieldCheck, Sparkles, Truck } from "lucide-react";
+import { ArrowRight, Headphones, PackageSearch, RotateCcw, ShieldCheck, Sparkles, Truck } from "lucide-react";
 import Link from "next/link";
 import { HomeHeroCarousel } from "@/components/store/home-hero-carousel";
 import { ProductCard } from "@/components/store/product-card";
@@ -7,6 +7,7 @@ import { getHomeBannerSlidesForStore } from "@/lib/home-banners";
 import { buildPageMetadata } from "@/lib/seo";
 import { buildOrganizationJsonLd, JsonLdScript } from "@/lib/structured-data";
 import { getFeaturedProducts, getHomeCategoryTiles, getProducts, getRecentProducts, type HomeCategoryTile, type StorefrontProduct } from "@/lib/storefront";
+import { getStorefrontCommerceState, type StorefrontCommerceState } from "@/lib/storefront-commerce";
 
 export const dynamic = "force-dynamic";
 
@@ -21,20 +22,13 @@ type HomePageProps = {
   searchParams: Promise<{ q?: string }>;
 };
 
-const trustItems = [
+function getTrustItems(commerce: StorefrontCommerceState) {
+  return [
+  { title: commerce.checkoutStatusTitle, text: commerce.checkoutStatusText, icon: commerce.checkoutEnabled ? ShieldCheck : PackageSearch },
+  { title: commerce.paymentTitle, text: commerce.paymentText, icon: Headphones },
   {
-    title: "Compra segura",
-    text: "Ambiente protegido e fluxo oficial para finalizar o pedido.",
-    icon: ShieldCheck,
-  },
-  {
-    title: "Pix e cartão",
-    text: "Pagamento por Pix ou cartão no checkout da loja.",
-    icon: CreditCard,
-  },
-  {
-    title: "Envio para todo o Brasil",
-    text: "Frete e prazo calculados com CEP antes da finalização.",
+    title: commerce.checkoutEnabled ? "Envio para todo o Brasil" : "Operação de envio pausada",
+    text: commerce.checkoutEnabled ? "Frete e prazo calculados com CEP antes da finalização." : "Condições de envio voltarão a ser exibidas quando as compras forem reabertas.",
     icon: Truck,
   },
   {
@@ -52,9 +46,10 @@ const trustItems = [
     text: "Política pública com regras claras para análise e solicitação.",
     icon: RotateCcw,
   },
-];
+] as const;
+}
 
-function ProductGrid({ products, columns = "featured" }: { products: StorefrontProduct[]; columns?: "featured" | "recent" }) {
+function ProductGrid({ products, commerce, columns = "featured" }: { products: StorefrontProduct[]; commerce: StorefrontCommerceState; columns?: "featured" | "recent" }) {
   const gridClass =
     columns === "featured"
       ? "grid grid-cols-2 gap-x-3 gap-y-8 sm:gap-x-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 xl:gap-x-8"
@@ -63,7 +58,7 @@ function ProductGrid({ products, columns = "featured" }: { products: StorefrontP
   return (
     <div className={`${gridClass} lg:gap-x-6 lg:gap-y-10`}>
       {products.map((product) => (
-        <ProductCard key={product.id} product={product} />
+        <ProductCard key={product.id} product={product} commerce={commerce} />
       ))}
     </div>
   );
@@ -124,7 +119,7 @@ function CategoryTile({ tile }: { tile: HomeCategoryTile }) {
   );
 }
 
-function SearchResults({ products, query }: { products: StorefrontProduct[]; query: string }) {
+function SearchResults({ products, query, commerce }: { products: StorefrontProduct[]; query: string; commerce: StorefrontCommerceState }) {
   return (
     <div className="mx-auto max-w-[1440px] px-4 pb-10 pt-6 sm:px-6 lg:px-8 lg:pb-14 lg:pt-8 xl:px-10">
       <section className="mb-10 flex flex-col gap-4 border-b border-neutral-200 pb-8 lg:mb-12 lg:flex-row lg:items-end lg:justify-between">
@@ -138,7 +133,7 @@ function SearchResults({ products, query }: { products: StorefrontProduct[]; que
       </section>
 
       {products.length ? (
-        <ProductGrid products={products} />
+        <ProductGrid products={products} commerce={commerce} />
       ) : (
         <div className="rounded-lg border border-dashed border-neutral-300 px-6 py-16 text-center">
           <h2 className="text-lg font-black text-neutral-950">Nada encontrado por aqui.</h2>
@@ -157,12 +152,13 @@ function SearchResults({ products, query }: { products: StorefrontProduct[]; que
 
 export default async function HomePage({ searchParams }: HomePageProps) {
   const { q } = await searchParams;
+  const commerce = getStorefrontCommerceState();
   const searchQuery = q?.trim() ?? "";
   const isSearch = Boolean(searchQuery);
 
   if (isSearch) {
     const products = await getProducts({ query: searchQuery });
-    return <SearchResults products={products} query={searchQuery} />;
+    return <SearchResults products={products} query={searchQuery} commerce={commerce} />;
   }
 
   const [heroSlides, categoryTiles, featuredProducts, recentProducts] = await Promise.all([
@@ -175,8 +171,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const organizationJsonLd = buildOrganizationJsonLd(getAppUrl());
 
   return (
-    <div className="mx-auto max-w-[1440px] px-4 pb-10 pt-6 sm:px-6 lg:px-8 lg:pb-14 lg:pt-8 xl:px-10">
+    <div className="store-shell pb-12 pt-5 lg:pb-16 lg:pt-8">
       <JsonLdScript id="rare-organization-json-ld" data={organizationJsonLd} />
+      <h1 className="sr-only">RARE — streetwear importado e drops selecionados</h1>
       <HomeHeroCarousel slides={heroSlides} />
 
       <section className="store-home-section mt-12 lg:mt-16" aria-labelledby="home-featured-title">
@@ -188,7 +185,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           action={{ href: "/categoria/destaques", label: "Ver todos os destaques" }}
         />
         {selectedFeaturedProducts.length ? (
-          <ProductGrid products={selectedFeaturedProducts} />
+          <ProductGrid products={selectedFeaturedProducts} commerce={commerce} />
         ) : (
           <div className="rounded-lg border border-dashed border-neutral-300 px-6 py-12 text-center">
             <h3 className="text-lg font-black text-neutral-950">Nenhum destaque ativo no momento.</h3>
@@ -209,7 +206,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             description="Peças recém adicionadas ao catálogo."
             action={{ href: "/categoria/tudo", label: "Ver catálogo completo" }}
           />
-          <ProductGrid products={recentProducts} columns="recent" />
+          <ProductGrid products={recentProducts} commerce={commerce} columns="recent" />
         </section>
       ) : null}
 
@@ -274,17 +271,19 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         ) : null}
       </section>
 
-      <section className="store-home-section mt-12 grid gap-3 sm:grid-cols-2 lg:mt-16 lg:grid-cols-3" aria-label="Benefícios da loja">
-        {trustItems.map((item) => {
+      <section className="store-home-section mt-12 border-y border-neutral-200 py-8 lg:mt-16" aria-label="Informações da loja">
+        <div className="grid gap-x-8 gap-y-7 sm:grid-cols-2 lg:grid-cols-3">
+        {getTrustItems(commerce).map((item) => {
           const Icon = item.icon;
           return (
-            <article key={item.title} className="rounded-lg border border-neutral-200 bg-white p-5">
+            <article key={item.title} className="grid grid-cols-[24px_1fr] gap-4">
               <Icon className="h-5 w-5 text-success" aria-hidden="true" />
-              <h3 className="mt-4 text-base font-black text-neutral-950">{item.title}</h3>
-              <p className="mt-2 text-sm font-semibold leading-6 text-neutral-500">{item.text}</p>
+              <div><h3 className="text-sm font-black text-neutral-950">{item.title}</h3>
+              <p className="mt-1 text-sm font-semibold leading-6 text-neutral-500">{item.text}</p></div>
             </article>
           );
         })}
+        </div>
       </section>
     </div>
   );

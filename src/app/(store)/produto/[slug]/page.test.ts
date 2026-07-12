@@ -42,6 +42,7 @@ vi.mock("@/components/store/product-detail-client", () => ({
 
 vi.mock("@/lib/env", () => ({
   getAppUrl: mocks.getAppUrl,
+  isCheckoutEnabled: () => true,
 }));
 
 vi.mock("@/lib/product-media", async (importOriginal) => {

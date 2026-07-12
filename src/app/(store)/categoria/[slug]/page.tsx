@@ -6,6 +6,7 @@ import { getAppUrl } from "@/lib/env";
 import { buildCategoryMetadata } from "@/lib/seo";
 import { buildBreadcrumbListJsonLd, JsonLdScript } from "@/lib/structured-data";
 import { getCategoryPageData, type StorefrontProduct } from "@/lib/storefront";
+import { getStorefrontCommerceState, type StorefrontCommerceState } from "@/lib/storefront-commerce";
 
 export const dynamic = "force-dynamic";
 
@@ -25,11 +26,11 @@ export async function generateMetadata({ params }: Pick<CategoryPageProps, "para
   return buildCategoryMetadata(pageData);
 }
 
-function ProductGrid({ products }: { products: StorefrontProduct[] }) {
+function ProductGrid({ products, commerce }: { products: StorefrontProduct[]; commerce: StorefrontCommerceState }) {
   return (
     <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:gap-x-5 md:grid-cols-3 lg:grid-cols-4 lg:gap-x-6 lg:gap-y-10 xl:grid-cols-5 xl:gap-x-8">
       {products.map((product) => (
-        <ProductCard key={product.id} product={product} />
+        <ProductCard key={product.id} product={product} commerce={commerce} />
       ))}
     </div>
   );
@@ -85,6 +86,10 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   const pageData = await getCategoryPageData(slug, { query: q });
 
   if (!pageData) notFound();
+  const commerce = getStorefrontCommerceState();
+  const totalProducts = pageData.kind === "grouped"
+    ? pageData.sections.reduce((total, section) => total + section.total, 0)
+    : pageData.products.length;
 
   const breadcrumbJsonLd = buildBreadcrumbListJsonLd(getAppUrl(), [
     { name: "Início", path: "/" },
@@ -92,12 +97,21 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   ]);
 
   return (
-    <div className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6 lg:px-8 lg:py-14 xl:px-10">
+    <div className="store-shell py-8 lg:py-12">
       <JsonLdScript id="rare-category-breadcrumb-json-ld" data={breadcrumbJsonLd} />
-      <div className="mb-10 border-b border-neutral-200 pb-8">
+      <div className="mb-9 border-b border-neutral-200 pb-7">
+        <nav aria-label="Breadcrumb" className="mb-5 flex items-center gap-2 text-xs font-bold text-neutral-500">
+          <Link href="/" className="hover:text-neutral-950">Início</Link><span aria-hidden="true">/</span><span aria-current="page">{pageData.title}</span>
+        </nav>
         <p className="text-xs font-black uppercase tracking-[0.24em] text-neutral-500">{pageData.eyebrow}</p>
         <h1 className="mt-3 text-3xl font-black tracking-tight text-neutral-950 lg:text-5xl">{pageData.title}</h1>
         <p className="mt-4 max-w-2xl text-sm font-semibold leading-6 text-neutral-500">{pageData.description}</p>
+        <p className="mt-5 text-xs font-black uppercase tracking-[0.18em] text-neutral-700">{totalProducts} {totalProducts === 1 ? "produto" : "produtos"}</p>
+        <div className="scrollbar-none mt-6 flex gap-2 overflow-x-auto pb-1" aria-label="Atalhos do catálogo">
+          {[{href:"/categoria/tudo",label:"Tudo"},{href:"/categoria/destaques",label:"Destaques"},{href:"/categoria/camisetas",label:"Camisetas"},{href:"/categoria/jaquetas",label:"Jaquetas"},{href:"/categoria/acessorios",label:"Acessórios"}].map((item) => (
+            <Link key={item.href} href={item.href} className={`inline-flex min-h-10 shrink-0 items-center rounded-full border px-4 text-xs font-black uppercase tracking-[0.12em] ${item.href.endsWith(`/${slug}`) ? "border-black bg-black text-white" : "border-neutral-300 bg-white text-neutral-700 hover:border-black"}`}>{item.label}</Link>
+          ))}
+        </div>
       </div>
 
       {pageData.kind === "grouped" ? (
@@ -119,7 +133,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
                     {section.hasMore ? "Ver todos" : "Ver categoria"}
                   </Link>
                 </div>
-                <ProductGrid products={section.products} />
+                <ProductGrid products={section.products} commerce={commerce} />
               </section>
             ))}
           </div>
@@ -131,7 +145,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
           />
         )
       ) : pageData.products.length ? (
-        <ProductGrid products={pageData.products} />
+        <ProductGrid products={pageData.products} commerce={commerce} />
       ) : pageData.kind === "featured" ? (
         <EmptyState
           title="Nenhum destaque ativo no momento."

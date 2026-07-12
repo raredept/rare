@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, CircleHelp, Loader2, Maximize2, PackageCheck, RotateCcw, ShieldCheck, Truck, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, CircleHelp, Loader2, Maximize2, Minus, PackageCheck, Plus, RotateCcw, ShieldCheck, Truck, X } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type RefObject } from "react";
 import { createPortal } from "react-dom";
@@ -17,6 +17,7 @@ import {
   type ProductMediaAsset,
 } from "@/lib/product-media";
 import { getAvailableStock } from "@/lib/stock";
+import { buildStorefrontCommerceState, type StorefrontCommerceState } from "@/lib/storefront-commerce";
 
 type ProductDetailClientProps = {
   product: {
@@ -32,6 +33,7 @@ type ProductDetailClientProps = {
   productUrl: string;
   whatsappNumber?: string | null;
   whatsappMessage: string;
+  commerce?: StorefrontCommerceState;
 };
 
 type ShippingQuoteOption = {
@@ -167,7 +169,8 @@ function formatProductShippingError(message: string) {
   return message;
 }
 
-export function ProductDetailClient({ product, productUrl, whatsappNumber, whatsappMessage }: ProductDetailClientProps) {
+export function ProductDetailClient({ product, productUrl, whatsappNumber, whatsappMessage, commerce }: ProductDetailClientProps) {
+  const commerceState = commerce ?? buildStorefrontCommerceState(true);
   const { addItem } = useCart();
   const { openCart } = useCartDrawer();
   const [imageIndex, setImageIndex] = useState(0);
@@ -206,7 +209,7 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
   const soldOut = purchasableVariants.every((variant) => getAvailableStock(variant.stock, variant.reservedStock) <= 0);
   const fullDescription = product.description.trim();
   const shortDescription = product.shortDescription.trim();
-  const mainDescription = fullDescription || shortDescription;
+  const mainDescription = shortDescription || fullDescription;
 
   const selectedSize = selectedVariant?.size;
   const sizeText = selectedSize ? ` Tamanho: ${selectedSize}.` : "";
@@ -484,70 +487,61 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
       </section>
 
       <aside className="lg:sticky lg:top-36 lg:self-start">
-        <p className="text-xs font-black uppercase tracking-[0.24em] text-neutral-500">Produto RARE</p>
+        <p className="text-xs font-black uppercase tracking-[0.24em] text-neutral-500">Seleção RARE</p>
         <h1 className="mt-3 text-3xl font-black tracking-tight text-neutral-950 lg:text-4xl">{product.title}</h1>
         {mainDescription ? (
           <p className="mt-4 max-w-xl whitespace-pre-line text-sm font-semibold leading-6 text-neutral-600">{mainDescription}</p>
         ) : null}
-        <p className="mt-4 whitespace-nowrap text-3xl font-black text-success lg:text-3xl">{formatMoney(product.priceInCents)}</p>
+        <p className="mt-4 whitespace-nowrap text-3xl font-black text-neutral-950 lg:text-3xl">{formatMoney(product.priceInCents)}</p>
 
-        <div className="mt-6 space-y-4 rounded-lg border border-neutral-200 bg-white p-4">
-          <label className="block">
-            <span className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-neutral-500">Tamanho</span>
-            <select
-              value={variantId}
-              onChange={(event) => {
-                setVariantId(event.target.value);
-                setQuantity(1);
-                setFeedback(null);
-                setShippingOptions([]);
-                setShippingError(null);
-              }}
-              className="h-12 w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm font-bold outline-none transition focus:border-black"
-            >
+        <div className="mt-6 space-y-5 rounded-lg border border-neutral-200 bg-white p-5">
+          <fieldset>
+            <legend className="mb-3 block text-xs font-black uppercase tracking-[0.18em] text-neutral-500">Tamanho</legend>
+            <div className="flex flex-wrap gap-2">
               {purchasableVariants.map((variant) => {
                 const available = getAvailableStock(variant.stock, variant.reservedStock);
-                return (
-                  <option key={variant.id} value={variant.id} disabled={available <= 0}>
-                    {variant.size} {available <= 0 ? "(Esgotado)" : ""}
-                  </option>
-                );
+                const selected = variant.id === variantId;
+                return <button
+                  key={variant.id}
+                  type="button"
+                  disabled={available <= 0}
+                  aria-pressed={selected}
+                  aria-label={`${variant.size}${available <= 0 ? ", esgotado" : ""}`}
+                  onClick={() => {
+                    setVariantId(variant.id);
+                    setQuantity(1);
+                    setFeedback(null);
+                    setShippingOptions([]);
+                    setShippingError(null);
+                  }}
+                  className={`relative min-h-11 min-w-12 rounded-md border px-4 text-sm font-black transition ${selected ? "border-black bg-black text-white" : "border-neutral-300 bg-white text-neutral-950 hover:border-black"} disabled:cursor-not-allowed disabled:border-neutral-200 disabled:bg-neutral-100 disabled:text-neutral-400 disabled:line-through`}
+                >{variant.size}</button>;
               })}
-            </select>
-          </label>
+            </div>
+          </fieldset>
 
-          <label className="block">
-            <span className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-neutral-500">Quantidade</span>
-            <input
-              type="number"
-              min={1}
-              max={Math.max(1, availableStock)}
-              value={quantity}
-              disabled={soldOut || !selectedVariant || availableStock <= 0}
-              onChange={(event) => {
-                const nextQuantity = Number(event.target.value);
-                const maxQuantity = Math.max(1, availableStock);
-                setQuantity(Math.max(1, Math.min(maxQuantity, Number.isFinite(nextQuantity) ? nextQuantity : 1)));
-                setShippingOptions([]);
-                setShippingError(null);
-              }}
-              className="h-12 w-32 rounded-lg border border-neutral-300 px-3 text-sm font-bold outline-none transition focus:border-black disabled:bg-neutral-100 disabled:text-neutral-500"
-            />
-            {selectedVariant ? (
-              <span className="ml-3 text-sm font-bold text-neutral-500">
-                {availableStock} {availableStock === 1 ? "unidade disponível" : "unidades disponíveis"}
-              </span>
-            ) : null}
-          </label>
+          <div>
+            <p className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-neutral-500">Quantidade</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex h-12 items-center rounded-md border border-neutral-300">
+                <button type="button" onClick={() => setQuantity((current) => Math.max(1, current - 1))} disabled={quantity <= 1 || soldOut} className="flex h-12 w-12 items-center justify-center disabled:text-neutral-300" aria-label="Diminuir quantidade"><Minus className="h-4 w-4" /></button>
+                <span className="w-10 text-center text-sm font-black" aria-live="polite">{quantity}</span>
+                <button type="button" onClick={() => setQuantity((current) => Math.min(availableStock, current + 1))} disabled={quantity >= availableStock || soldOut} className="flex h-12 w-12 items-center justify-center disabled:text-neutral-300" aria-label="Aumentar quantidade"><Plus className="h-4 w-4" /></button>
+              </div>
+              {selectedVariant ? <span className="text-sm font-bold text-neutral-500">{availableStock} {availableStock === 1 ? "unidade disponível" : "unidades disponíveis"}</span> : null}
+            </div>
+          </div>
 
           <button
             type="button"
             onClick={addToCart}
-            disabled={soldOut || !selectedVariant || availableStock <= 0}
+            disabled={!commerceState.checkoutEnabled || soldOut || !selectedVariant || availableStock <= 0}
             className="h-12 w-full rounded-lg bg-black px-6 text-sm font-black uppercase tracking-[0.14em] text-white transition-[background-color,box-shadow,transform] duration-150 hover:bg-neutral-800 hover:shadow-[0_10px_30px_rgba(15,23,42,0.16)] active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-neutral-500 disabled:shadow-none"
           >
-            {soldOut || availableStock <= 0 ? "ESGOTADO" : "ADICIONAR AO CARRINHO"}
+            {!commerceState.checkoutEnabled ? commerceState.checkoutActionLabel : soldOut || availableStock <= 0 ? "ESGOTADO" : "ADICIONAR AO CARRINHO"}
           </button>
+
+          {!commerceState.checkoutEnabled ? <p className="rounded-md bg-neutral-100 px-4 py-3 text-sm font-semibold leading-6 text-neutral-600">O catálogo continua disponível. Fale com a RARE para consultar esta peça; nenhum pagamento será solicitado pela loja agora.</p> : null}
 
           {feedback ? <p className="text-sm font-bold text-success">{feedback}</p> : null}
 
@@ -563,6 +557,7 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
 
         <div className="mt-6 rounded-lg border border-neutral-200 bg-white p-5">
           <p className="text-sm font-black text-neutral-950">Frete e prazo</p>
+          {commerceState.checkoutEnabled ? <>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row">
             <input
               value={shippingCep}
@@ -605,6 +600,7 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
           <p className="mt-3 text-xs font-semibold leading-5 text-neutral-500">
             Frete e prazo podem variar conforme endereço e disponibilidade.
           </p>
+          </> : <p className="mt-3 text-sm font-semibold leading-6 text-neutral-600">A consulta automática está indisponível enquanto as compras estiverem pausadas. Fale com a RARE para tirar dúvidas gerais sobre envio.</p>}
           <Link href="/politica-de-envio" className="mt-3 inline-flex text-sm font-black text-neutral-950 underline underline-offset-4">
             Ver política de envio
           </Link>
@@ -614,15 +610,15 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
           <div className="flex items-start gap-3">
             <ShieldCheck className="mt-0.5 h-5 w-5 text-success" />
             <span>
-              <span className="block font-black text-neutral-950">Pagamento seguro no checkout</span>
-              <span className="mt-1 block font-semibold leading-6 text-neutral-600">Pix ou cartão disponíveis no checkout da loja.</span>
+              <span className="block font-black text-neutral-950">{commerceState.checkoutStatusTitle}</span>
+              <span className="mt-1 block font-semibold leading-6 text-neutral-600">{commerceState.checkoutStatusText}</span>
             </span>
           </div>
           <div className="flex items-start gap-3">
             <Truck className="mt-0.5 h-5 w-5 text-success" />
             <span>
-              <span className="block font-black text-neutral-950">Envio para todo o Brasil</span>
-              <span className="mt-1 block font-semibold leading-6 text-neutral-600">Frete e prazo são calculados no checkout com o CEP.</span>
+              <span className="block font-black text-neutral-950">{commerceState.checkoutEnabled ? "Envio para todo o Brasil" : "Consulta de envio"}</span>
+              <span className="mt-1 block font-semibold leading-6 text-neutral-600">{commerceState.checkoutEnabled ? "Frete e prazo dependem do CEP e da disponibilidade da operação." : "Condições de envio serão confirmadas quando a operação de compras voltar."}</span>
             </span>
           </div>
           <div className="flex items-start gap-3">
@@ -650,6 +646,13 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
           </div>
         </div>
       </aside>
+      {fullDescription && fullDescription !== mainDescription ? (
+        <section className="border-t border-neutral-200 pt-8 lg:col-span-2 lg:pt-10" aria-labelledby="product-details-title">
+          <p className="store-section-label">Sobre a peça</p>
+          <h2 id="product-details-title" className="mt-3 text-2xl font-black tracking-tight text-neutral-950">Detalhes do produto</h2>
+          <p className="mt-4 max-w-3xl whitespace-pre-line text-base font-semibold leading-8 text-neutral-600">{fullDescription}</p>
+        </section>
+      ) : null}
       {zoomedImage && typeof document !== "undefined"
         ? createPortal(
             <ProductImageZoomDialog

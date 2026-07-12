@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { calculateProductLensPosition, ProductDetailClient, ProductImageZoomDialog } from "@/components/store/product-detail-client";
 import { formatMoney } from "@/lib/money";
+import { buildStorefrontCommerceState } from "@/lib/storefront-commerce";
 
 vi.mock("next/link", () => ({
   default: ({ href, children, ...props }: { href: string; children: ReactNode }) =>
@@ -68,7 +69,7 @@ describe("ProductDetailClient", () => {
     expect(html).toContain("Frete e prazo");
     expect(html).toContain("Descrição completa.");
     expect(html).toContain('href="/politica-de-envio"');
-    expect(html).toContain("Pagamento seguro no checkout");
+    expect(html).toContain("Compra segura");
     expect(html).toContain("Estoque limitado");
     expect(html).toContain('href="/trocas-e-devolucoes"');
     expect(html).toContain("Troca e devolução em até 7 dias");
@@ -98,7 +99,7 @@ describe("ProductDetailClient", () => {
     expect(html).toContain("1 / 2");
   });
 
-  it("renders the main description below the title before the price without duplicating the lower details section", () => {
+  it("renders the summary near the price and moves the full description to a details section", () => {
     const html = renderToStaticMarkup(
       createElement(ProductDetailClient, {
         product: {
@@ -111,7 +112,7 @@ describe("ProductDetailClient", () => {
       }) as ReactElement,
     );
     const titleIndex = html.indexOf("<h1");
-    const descriptionIndex = html.indexOf("Descrição completa.");
+    const descriptionIndex = html.indexOf("Camiseta importada selecionada.");
     const priceIndex = html.indexOf(formatMoney(product.priceInCents));
 
     expect(html).toContain("cursor-zoom-in");
@@ -125,8 +126,21 @@ describe("ProductDetailClient", () => {
     expect(descriptionIndex).toBeGreaterThan(titleIndex);
     expect(priceIndex).toBeGreaterThan(descriptionIndex);
     expect(countOccurrences(html, "Descrição completa.")).toBe(1);
-    expect(html).not.toContain(">Detalhes<");
-    expect(html).not.toContain("Camiseta importada selecionada.");
+    expect(html).toContain("Detalhes do produto");
+    expect(html).toContain("Camiseta importada selecionada.");
+  });
+
+  it("disables purchase actions and removes payment promises when checkout is paused", () => {
+    const html = renderToStaticMarkup(createElement(ProductDetailClient, {
+      product,
+      productUrl: "https://raredept.com.br/produto/camiseta-rare",
+      whatsappMessage: "Tenho interesse.",
+      commerce: buildStorefrontCommerceState(false),
+    }) as ReactElement);
+    expect(html).toContain("Compras temporariamente pausadas");
+    expect(html).toContain("nenhum pagamento será solicitado");
+    expect(html).not.toContain("Pix ou cartão disponíveis");
+    expect(html).toContain("disabled");
   });
 
   it("falls back to the short description and does not render an empty description block", () => {
