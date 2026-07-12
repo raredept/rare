@@ -1,4 +1,5 @@
 import { isValidCep, normalizeCep as normalizeCepValue, parseCep } from "@/lib/cep";
+import { assessProductShippingReadiness, type ProductShippingField } from "@/lib/product-shipping-readiness";
 
 export const shippingProviders = ["manual", "correios", "melhor_envio", "frenet"] as const;
 export const shippingModes = ["disabled", "manual", "fixed", "future_provider", "correios", "melhor_envio", "frenet"] as const;
@@ -121,6 +122,7 @@ export const DEFAULT_PRODUCT_PACKAGE = {
   lengthCm: 35,
 } as const;
 export const DEFAULT_PRODUCT_PACKAGE_WEIGHT_GRAMS = 1000;
+export const AUTOMATIC_SHIPPING_DATA_ERROR = "Esse produto ainda precisa de peso e medidas para calcular o frete.";
 
 const disabledValues = new Set(["0", "false", "off", "disabled", "no"]);
 
@@ -331,14 +333,19 @@ export function buildPackageFromCart(items: ShippingPackageItem[]): ShippingPack
   const normalizedItems: ShippingPackage["items"] = [];
 
   for (const item of items) {
-    const itemUsedFallbackLength = !requirePositiveDimension(Number(item.lengthCm));
-    const itemUsedFallbackWidth = !requirePositiveDimension(Number(item.widthCm));
-    const itemUsedFallbackHeight = !requirePositiveDimension(Number(item.heightCm));
-    const itemUsedFallbackWeight = !requirePositiveDimension(Number(item.weightGrams));
-    const itemLengthCm = resolvePositiveInt(item.lengthCm, DEFAULT_PRODUCT_PACKAGE.lengthCm);
-    const itemWidthCm = resolvePositiveInt(item.widthCm, DEFAULT_PRODUCT_PACKAGE.widthCm);
-    const itemHeightCm = resolvePositiveInt(item.heightCm, DEFAULT_PRODUCT_PACKAGE.heightCm);
-    const itemWeightGrams = resolvePositiveInt(item.weightGrams, DEFAULT_PRODUCT_PACKAGE_WEIGHT_GRAMS);
+    const readiness = assessProductShippingReadiness(item);
+    const invalidFields = new Set(
+      readiness.issues.filter((issue) => issue.severity === "error").map((issue) => issue.field),
+    );
+    const invalid = (field: ProductShippingField) => invalidFields.has(field);
+    const itemUsedFallbackLength = invalid("lengthCm");
+    const itemUsedFallbackWidth = invalid("widthCm");
+    const itemUsedFallbackHeight = invalid("heightCm");
+    const itemUsedFallbackWeight = invalid("weightGrams");
+    const itemLengthCm = resolvePositiveInt(itemUsedFallbackLength ? null : item.lengthCm, DEFAULT_PRODUCT_PACKAGE.lengthCm);
+    const itemWidthCm = resolvePositiveInt(itemUsedFallbackWidth ? null : item.widthCm, DEFAULT_PRODUCT_PACKAGE.widthCm);
+    const itemHeightCm = resolvePositiveInt(itemUsedFallbackHeight ? null : item.heightCm, DEFAULT_PRODUCT_PACKAGE.heightCm);
+    const itemWeightGrams = resolvePositiveInt(itemUsedFallbackWeight ? null : item.weightGrams, DEFAULT_PRODUCT_PACKAGE_WEIGHT_GRAMS);
     const itemUsedFallbackDimensions = itemUsedFallbackLength || itemUsedFallbackWidth || itemUsedFallbackHeight;
 
     const quantity = Math.max(1, item.quantity);
@@ -478,7 +485,12 @@ export async function getManualShippingQuotes(request: ShippingQuoteRequest): Pr
 
   return {
     options,
-    warnings: ["Frete em modo manual/fallback. Ative um provedor real por variáveis de ambiente para produção."],
+    warnings: [
+      "Frete em modo manual/fallback. Ative um provedor real por variáveis de ambiente para produção.",
+      ...(request.package.usedFallback
+        ? ["Pacote calculado com fallback explícito porque há produto sem peso ou dimensões válidas."]
+        : []),
+    ],
   };
 }
 
@@ -778,6 +790,10 @@ export async function getFrenetShippingQuotes(): Promise<ShippingProviderResult>
 
 export async function getShippingQuotes(request: ShippingQuoteRequest): Promise<ShippingProviderResult> {
   const provider = request.provider ?? "manual";
+
+  if (provider !== "manual" && request.package.usedFallback) {
+    throw new Error(AUTOMATIC_SHIPPING_DATA_ERROR);
+  }
 
   if (provider === "manual") return getManualShippingQuotes(request);
   if (provider === "correios") return getCorreiosShippingQuotes();

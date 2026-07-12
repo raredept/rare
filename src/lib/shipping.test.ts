@@ -1,7 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  DEFAULT_PRODUCT_PACKAGE,
-  DEFAULT_PRODUCT_PACKAGE_WEIGHT_GRAMS,
   DEFAULT_SHIPPING_ORIGIN_CEP,
   buildPackageFromCart,
   calculateProvisionalShipping,
@@ -368,7 +366,7 @@ describe("shipping domain", () => {
     ).rejects.toThrow("Nenhuma opção de frete disponível para este CEP.");
   });
 
-  it("uses fallback package data in Melhor Envio payload when product dimensions are missing", async () => {
+  it("blocks Melhor Envio before any network call when product dimensions require fallback", async () => {
     vi.stubEnv("MELHOR_ENVIO_TOKEN", "test-token");
     const fetchMock = vi.fn<typeof fetch>(async () =>
       new Response(JSON.stringify([{ id: 1, name: "PAC", price: "20.00", delivery_time: 5 }]), { status: 200 }),
@@ -383,27 +381,20 @@ describe("shipping domain", () => {
         heightCm: null,
       }),
     ]);
-    const result = await getShippingQuotes({
+    await expect(getShippingQuotes({
       provider: "melhor_envio",
       originCep: "31170350",
       destinationCep: "01001000",
       package: pkg,
-    });
-    const payload = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    })).rejects.toThrow("Esse produto ainda precisa de peso e medidas para calcular o frete.");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 
-    expect(payload.products[0]).toMatchObject({
-      width: DEFAULT_PRODUCT_PACKAGE.widthCm,
-      height: DEFAULT_PRODUCT_PACKAGE.heightCm,
-      length: DEFAULT_PRODUCT_PACKAGE.lengthCm,
-      weight: DEFAULT_PRODUCT_PACKAGE_WEIGHT_GRAMS / 1000,
-    });
-    expect(result.warnings[0]).toContain("fallback controlado");
-    expect(result.options[0].raw).toEqual(
-      expect.objectContaining({
-        usedFallbackWeight: true,
-        usedFallbackDimensions: true,
-      }),
-    );
+  it("uses explicit fallback with a warning only in manual mode", async () => {
+    const pkg = buildPackageFromCart([packageItem({ weightGrams: -1, widthCm: 0 })]);
+    const result = await getManualShippingQuotes({ originCep: "01001000", destinationCep: "22041001", package: pkg });
+    expect(pkg.items[0]).toEqual(expect.objectContaining({ weightGrams: 1000, widthCm: 35, usedFallback: true }));
+    expect(result.warnings).toEqual(expect.arrayContaining([expect.stringContaining("fallback explícito")]));
   });
 
   it("does not leak the Melhor Envio token in thrown errors", async () => {

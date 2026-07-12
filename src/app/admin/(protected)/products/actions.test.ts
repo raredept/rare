@@ -236,6 +236,24 @@ describe("product admin actions", () => {
     );
   }, 60000);
 
+  it("accepts comma or point only when the submitted shipping value is still an integer", async () => {
+    const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
+    await expect(saveProductAction(null, buildProductFormData({ shippingData: { weightGrams: "500,0", heightCm: "8.0" } }))).rejects.toThrow(
+      /^NEXT_REDIRECT:\/admin\/products\/new\?success=product-created/,
+    );
+    expect(mocks.tx.product.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ weightGrams: 500, heightCm: 8 }),
+    }));
+  }, 60000);
+
+  it("returns a field-specific error and preserves shipping values after server validation", async () => {
+    const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
+    await expect(saveProductAction(null, buildProductFormData({ shippingData: { weightGrams: "-1" } }))).rejects.toThrow(
+      /error=Peso%20deve%20ser%20um%20n%C3%BAmero%20inteiro.*draft_weightGrams=-1.*draft_lengthCm=30.*draft_widthCm=24.*draft_heightCm=8/,
+    );
+    expect(mocks.tx.product.create).not.toHaveBeenCalled();
+  }, 60000);
+
   it("rejects activating a hidden product without weight and dimensions", async () => {
     mocks.prisma.product.findUnique.mockResolvedValueOnce({
       weightGrams: null,

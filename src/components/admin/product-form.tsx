@@ -4,6 +4,7 @@ import { ProductImageManager } from "@/components/admin/product-image-manager";
 import { sortProductFormCategoryOptions } from "@/lib/admin-category-options";
 import { formatMoney } from "@/lib/money";
 import type { ReactNode } from "react";
+import { PRODUCT_SHIPPING_LIMITS, type ProductShippingField } from "@/lib/product-shipping-readiness";
 
 type ProductFormProps = {
   product?: {
@@ -30,9 +31,10 @@ type ProductFormProps = {
   };
   categories: { id: string; name: string; parentId: string | null; active?: boolean }[];
   error?: string;
+  shippingDraft?: Partial<Record<ProductShippingField, string>>;
 };
 
-export function ProductForm({ product, categories, error }: ProductFormProps) {
+export function ProductForm({ product, categories, error, shippingDraft }: ProductFormProps) {
   const action = saveProductAction.bind(null, product?.id ?? null);
   const activeCategories = categories.filter((category) => category.active !== false);
   const topCategories = sortProductFormCategoryOptions(activeCategories.filter((category) => !category.parentId));
@@ -139,17 +141,17 @@ export function ProductForm({ product, categories, error }: ProductFormProps) {
             </p>
           </div>
           <Field label="Peso em gramas">
-            <input name="weightGrams" type="number" min={1} step={1} defaultValue={product?.weightGrams ?? ""} className="admin-input" />
+            <input name="weightGrams" type="number" min={1} max={PRODUCT_SHIPPING_LIMITS.weightGrams.max} step={1} inputMode="numeric" defaultValue={shippingDraft?.weightGrams ?? product?.weightGrams ?? ""} className="admin-input" />
           </Field>
           <div className="grid gap-3 sm:grid-cols-3">
             <Field label="Altura (cm)">
-              <input name="heightCm" type="number" min={1} step={1} defaultValue={product?.heightCm ?? ""} className="admin-input" />
+              <input name="heightCm" type="number" min={1} max={PRODUCT_SHIPPING_LIMITS.heightCm.max} step={1} inputMode="numeric" defaultValue={shippingDraft?.heightCm ?? product?.heightCm ?? ""} className="admin-input" />
             </Field>
             <Field label="Largura (cm)">
-              <input name="widthCm" type="number" min={1} step={1} defaultValue={product?.widthCm ?? ""} className="admin-input" />
+              <input name="widthCm" type="number" min={1} max={PRODUCT_SHIPPING_LIMITS.widthCm.max} step={1} inputMode="numeric" defaultValue={shippingDraft?.widthCm ?? product?.widthCm ?? ""} className="admin-input" />
             </Field>
             <Field label="Comprimento (cm)">
-              <input name="lengthCm" type="number" min={1} step={1} defaultValue={product?.lengthCm ?? ""} className="admin-input" />
+              <input name="lengthCm" type="number" min={1} max={PRODUCT_SHIPPING_LIMITS.lengthCm.max} step={1} inputMode="numeric" defaultValue={shippingDraft?.lengthCm ?? product?.lengthCm ?? ""} className="admin-input" />
             </Field>
           </div>
         </section>

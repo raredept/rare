@@ -10,6 +10,7 @@ import {
   normalizeShippingMode,
   normalizeShippingProvider,
 } from "@/lib/shipping";
+import { getProductShippingNotReadyWhere } from "@/lib/product-shipping-readiness-prisma";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -81,9 +82,9 @@ function getStoreSettingsShippingSummary(settings: StoreSettingsShippingRecord |
   }
 
   const mode = normalizeShippingMode(settings.shippingMode);
-  const fixedModeActive = mode === "fixed" && !clean(process.env.SHIPPING_PROVIDER);
+  const fixedModeActive = mode === "fixed";
   const provider = normalizeShippingProvider(mode) ?? (fixedModeActive ? "fixed" : mode === "disabled" ? null : "manual");
-  const effectiveProvider = normalizeShippingProvider(process.env.SHIPPING_PROVIDER) ?? (provider === "fixed" ? null : provider);
+  const effectiveProvider = provider === "fixed" ? null : provider;
   const enabled = mode !== "disabled";
   const originCepConfigured = Boolean(clean(process.env.SHIPPING_ORIGIN_CEP) || settings.originCep?.trim());
   const originCepFallbackActive = enabled && !fixedModeActive && !originCepConfigured;
@@ -182,16 +183,7 @@ export async function GET() {
       const activeProductsMissingDimensions = await prisma.product.count({
         where: {
           active: true,
-          OR: [
-            { weightGrams: null },
-            { lengthCm: null },
-            { widthCm: null },
-            { heightCm: null },
-            { weightGrams: { lte: 0 } },
-            { lengthCm: { lte: 0 } },
-            { widthCm: { lte: 0 } },
-            { heightCm: { lte: 0 } },
-          ],
+          ...getProductShippingNotReadyWhere(),
         },
       });
       productShippingDimensions = {
@@ -200,7 +192,7 @@ export async function GET() {
         activeProductsMissingDimensions,
         warnings: activeProductsMissingDimensions
           ? [
-              `${activeProductsMissingDimensions} active product(s) will use fallback shipping weight/dimensions until Admin data is completed.`,
+              `${activeProductsMissingDimensions} active product(s) are not ready for automatic shipping; manual modes use fallback until Admin data is completed.`,
             ]
           : [],
       };
@@ -251,6 +243,19 @@ export async function GET() {
         warnings: env.warnings.map((issue) => ({ variable: issue.variable, message: issue.message })),
       },
       operational: {
+        summary: {
+          checkout: env.checkoutEnabled ? "enabled" : "intentionally_disabled",
+          email: clean(process.env.EMAIL_DRIVER)?.toLowerCase() === "disabled" || !clean(process.env.EMAIL_DRIVER)
+            ? "intentionally_disabled"
+            : "configured",
+          melhorEnvio: storeSettingsShipping.effectiveProvider === "melhor_envio"
+            ? (getShippingEnvironmentSummary().melhorEnvio.tokenConfigured ? "configured" : "missing_required_configuration")
+            : "awaiting_explicit_activation",
+          catalogShippingData: productShippingDimensions.checked
+            ? { state: productShippingDimensions.activeProductsMissingDimensions ? "incomplete" : "ready", activeProductsNotReady: productShippingDimensions.activeProductsMissingDimensions }
+            : { state: "not_checked", activeProductsNotReady: null },
+          storage: env.storageDriver === "local" ? "local_development_only" : "persistent",
+        },
         warnings: operationalWarnings,
       },
       timestamp: new Date().toISOString(),

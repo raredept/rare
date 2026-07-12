@@ -10,13 +10,29 @@ import { requireAdmin } from "@/lib/auth";
 import { saveUploadedImage } from "@/lib/storage";
 import { ACTIVE_PRODUCT_SHIPPING_DATA_ERROR, hasCompleteProductShippingData, productFormSchema } from "@/lib/validators";
 import { slugify } from "@/lib/slug";
+import { PRODUCT_SHIPPING_LIMITS, type ProductShippingField } from "@/lib/product-shipping-readiness";
 
 function productFormPath(productId: string | null) {
   return productId ? `/admin/products/${productId}/edit` : "/admin/products/new";
 }
 
-function redirectWithProductFormError(productId: string | null, message: string): never {
-  redirect(withAdminActionRefresh(`${productFormPath(productId)}?error=${encodeURIComponent(message)}`));
+type ShippingDraft = Record<ProductShippingField, string>;
+
+function getShippingDraft(formData: FormData): ShippingDraft {
+  return {
+    weightGrams: getString(formData, "weightGrams").slice(0, 32),
+    lengthCm: getString(formData, "lengthCm").slice(0, 32),
+    widthCm: getString(formData, "widthCm").slice(0, 32),
+    heightCm: getString(formData, "heightCm").slice(0, 32),
+  };
+}
+
+function redirectWithProductFormError(productId: string | null, message: string, shippingDraft?: ShippingDraft): never {
+  const params = [`error=${encodeURIComponent(message)}`];
+  if (shippingDraft) {
+    for (const [field, value] of Object.entries(shippingDraft)) params.push(`draft_${field}=${encodeURIComponent(value)}`);
+  }
+  redirect(withAdminActionRefresh(`${productFormPath(productId)}?${params.join("&")}`));
 }
 
 function redirectWithProductsListError(message: string): never {
@@ -28,11 +44,22 @@ function getString(formData: FormData, key: string) {
   return typeof value === "string" ? value : "";
 }
 
-function parseOptionalPositiveInt(formData: FormData, key: string) {
-  const raw = getString(formData, key).trim();
-  if (!raw) return undefined;
-  const value = Number(raw);
-  return Number.isInteger(value) && value > 0 ? value : Number.NaN;
+function parseOptionalShippingInt(rawValue: string, field: ProductShippingField) {
+  const raw = rawValue.trim();
+  if (!raw) return { value: undefined };
+  const normalized = raw.replace(",", ".");
+  const value = Number(normalized);
+  const limit = PRODUCT_SHIPPING_LIMITS[field];
+  if (!Number.isFinite(value) || !Number.isInteger(value) || value < limit.min || value > limit.max) {
+    const labels: Record<ProductShippingField, string> = {
+      weightGrams: "Peso",
+      lengthCm: "Comprimento",
+      widthCm: "Largura",
+      heightCm: "Altura",
+    };
+    return { value: undefined, error: `${labels[field]} deve ser um número inteiro entre ${limit.min} e ${limit.max} ${limit.unit}.` };
+  }
+  return { value };
 }
 
 function parseOptionalFeaturedSortOrder(formData: FormData) {
@@ -163,11 +190,20 @@ export async function saveProductAction(productId: string | null, formData: Form
   const active = formData.get("active") === "on";
   const featured = formData.get("featured") === "on";
   const featuredSortOrder = featured ? parseOptionalFeaturedSortOrder(formData) : null;
+  const shippingDraft = getShippingDraft(formData);
+  const shippingFields = {
+    weightGrams: parseOptionalShippingInt(shippingDraft.weightGrams, "weightGrams"),
+    lengthCm: parseOptionalShippingInt(shippingDraft.lengthCm, "lengthCm"),
+    widthCm: parseOptionalShippingInt(shippingDraft.widthCm, "widthCm"),
+    heightCm: parseOptionalShippingInt(shippingDraft.heightCm, "heightCm"),
+  };
+  const shippingFieldError = Object.values(shippingFields).find((result) => result.error)?.error;
+  if (shippingFieldError) redirectWithProductFormError(productId, shippingFieldError, shippingDraft);
   const shippingData = {
-    weightGrams: parseOptionalPositiveInt(formData, "weightGrams"),
-    lengthCm: parseOptionalPositiveInt(formData, "lengthCm"),
-    widthCm: parseOptionalPositiveInt(formData, "widthCm"),
-    heightCm: parseOptionalPositiveInt(formData, "heightCm"),
+    weightGrams: shippingFields.weightGrams.value,
+    lengthCm: shippingFields.lengthCm.value,
+    widthCm: shippingFields.widthCm.value,
+    heightCm: shippingFields.heightCm.value,
   };
 
   if (typeof featuredSortOrder === "number" && Number.isNaN(featuredSortOrder)) {
@@ -175,7 +211,7 @@ export async function saveProductAction(productId: string | null, formData: Form
   }
 
   if (active && !hasCompleteProductShippingData(shippingData)) {
-    redirectWithProductFormError(productId, ACTIVE_PRODUCT_SHIPPING_DATA_ERROR);
+    redirectWithProductFormError(productId, ACTIVE_PRODUCT_SHIPPING_DATA_ERROR, shippingDraft);
   }
 
   const parsedResult = productFormSchema.safeParse({

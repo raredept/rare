@@ -259,6 +259,29 @@ describe("shipping quote route", () => {
     expect(body.options.map((option: { provider: string }) => option.provider)).not.toContain("manual");
   });
 
+  it("blocks automatic quotes for incomplete product shipping data before calling Melhor Envio", async () => {
+    vi.stubEnv("MELHOR_ENVIO_TOKEN", "test-token");
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+    quoteMocks.getStoreSettings.mockResolvedValueOnce({
+      shippingMode: "melhor_envio",
+      originCep: "31170350",
+      fixedShippingInCents: 0,
+      manualShippingInCents: 0,
+      freeShippingMinInCents: null,
+      freeShippingThresholdInCents: null,
+      checkoutRequiresAddress: true,
+    });
+    quoteMocks.prisma.productVariant.findMany.mockResolvedValueOnce([
+      variant({ product: { ...variant().product, weightGrams: null, widthCm: 0 } }),
+    ]);
+
+    const response = await POST(request(validBody) as never);
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "Esse produto ainda precisa de peso e medidas para calcular o frete." });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("uses the default store origin CEP for Melhor Envio when settings originCep is empty", async () => {
     vi.stubEnv("SHIPPING_PROVIDER", "melhor_envio");
     vi.stubEnv("MELHOR_ENVIO_TOKEN", "test-token");

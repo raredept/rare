@@ -29,7 +29,7 @@ token expirado deve ser renovado fora da aplicação e atualizado na Railway.
 3. Configurar as variáveis acima e fazer redeploy.
 4. No Admin de staging, confirmar CEP de origem e selecionar Melhor Envio explicitamente.
 5. Cotar CEPs válidos e inválidos com um item, múltiplos itens e quantidade maior que 1.
-6. Confirmar PAC/SEDEX, preço, prazo, fallback de dimensões e mensagem de indisponibilidade.
+6. Confirmar PAC/SEDEX, preço, prazo, bloqueio de produto sem dimensões e mensagem de indisponibilidade.
 7. Confirmar no checkout que a cotação é recalculada no servidor e não aceita preço do browser.
 8. Rodar testes, readiness e smoke antes de qualquer decisão de produção.
 
@@ -40,3 +40,6 @@ operacionalmente em 30 minutos e o checkout recalcula no backend.
 
 Não faça chamadas reais sem token válido e não ative o frete automático em Production
 antes da homologação manual e autorização do responsável.
+
+O provider automático nunca recebe pacote baseado em fallback. Produtos sem peso ou
+dimensões válidas devem ser corrigidos no Admin antes da cotação sandbox.

@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { hasCompleteProductShippingData, PRODUCT_SHIPPING_LIMITS } from "@/lib/product-shipping-readiness";
+export { hasCompleteProductShippingData } from "@/lib/product-shipping-readiness";
 import { isValidCep, parseCep } from "@/lib/cep";
 import { isValidCpf, normalizeCpf } from "@/lib/cpf";
 import { shippingModes } from "@/lib/shipping";
@@ -68,22 +70,7 @@ const optionalPositiveInt = (max: number) =>
 export const ACTIVE_PRODUCT_SHIPPING_DATA_ERROR =
   "Informe peso, altura, largura e comprimento maiores que 0 para ativar o produto.";
 
-type ProductShippingData = {
-  weightGrams?: number | null;
-  lengthCm?: number | null;
-  widthCm?: number | null;
-  heightCm?: number | null;
-};
-
 const productShippingFields = ["weightGrams", "lengthCm", "widthCm", "heightCm"] as const;
-
-function isPositiveInteger(value: number | null | undefined) {
-  return typeof value === "number" && Number.isInteger(value) && value > 0;
-}
-
-export function hasCompleteProductShippingData(data: ProductShippingData) {
-  return productShippingFields.every((field) => isPositiveInteger(data[field]));
-}
 
 export const checkoutAddressSchema = z.object({
   label: optionalTrimmed(40),
@@ -153,10 +140,10 @@ export const productFormSchema = z
     subcategoryId: z.string().optional(),
     priceInCents: z.number().int().min(50),
     compareAtPriceInCents: z.number().int().min(0).optional(),
-    weightGrams: optionalPositiveInt(100000),
-    lengthCm: optionalPositiveInt(1000),
-    widthCm: optionalPositiveInt(1000),
-    heightCm: optionalPositiveInt(1000),
+    weightGrams: optionalPositiveInt(PRODUCT_SHIPPING_LIMITS.weightGrams.max),
+    lengthCm: optionalPositiveInt(PRODUCT_SHIPPING_LIMITS.lengthCm.max),
+    widthCm: optionalPositiveInt(PRODUCT_SHIPPING_LIMITS.widthCm.max),
+    heightCm: optionalPositiveInt(PRODUCT_SHIPPING_LIMITS.heightCm.max),
     active: z.boolean(),
     featured: z.boolean(),
     featuredSortOrder: z.number().int().min(1).max(999999).nullable(),

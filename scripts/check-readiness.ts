@@ -10,6 +10,7 @@ import {
   normalizeShippingMode,
   normalizeShippingProvider,
 } from "../src/lib/shipping";
+import { getProductShippingNotReadyWhere } from "../src/lib/product-shipping-readiness-prisma";
 
 type CheckResult = {
   label: string;
@@ -59,25 +60,16 @@ async function checkDatabase() {
       prisma.product.count({
         where: {
           active: true,
-          OR: [
-            { weightGrams: null },
-            { lengthCm: null },
-            { widthCm: null },
-            { heightCm: null },
-            { weightGrams: { lte: 0 } },
-            { lengthCm: { lte: 0 } },
-            { widthCm: { lte: 0 } },
-            { heightCm: { lte: 0 } },
-          ],
+          ...getProductShippingNotReadyWhere(),
         },
       }),
     ]);
 
     const mode = normalizeShippingMode(settings?.shippingMode);
     const envProvider = normalizeShippingProvider(process.env.SHIPPING_PROVIDER);
-    const effectiveProvider = envProvider ?? normalizeShippingProvider(mode) ?? (mode === "fixed" ? "fixed" : mode === "disabled" ? null : "manual");
+    const effectiveProvider = normalizeShippingProvider(mode) ?? (mode === "future_provider" ? envProvider : mode === "fixed" ? "fixed" : null);
     const originCepConfigured = Boolean(process.env.SHIPPING_ORIGIN_CEP?.trim() || settings?.originCep?.trim());
-    if (mode === "fixed" && !envProvider) {
+    if (mode === "fixed") {
       add("shipping mode", true, "Frete fixo esta ativo como modo legado/provisorio; fluxo principal deve ser provider automatico.", true);
     }
     if (effectiveProvider === "melhor_envio") {
@@ -101,7 +93,7 @@ async function checkDatabase() {
       add(
         "shipping:dimensions",
         true,
-        `${activeProductsMissingDimensions} produto(s) ativo(s) usam fallback ${DEFAULT_PRODUCT_PACKAGE_WEIGHT_GRAMS}g e ${DEFAULT_PRODUCT_PACKAGE.heightCm}x${DEFAULT_PRODUCT_PACKAGE.widthCm}x${DEFAULT_PRODUCT_PACKAGE.lengthCm}cm.`,
+        `${activeProductsMissingDimensions} produto(s) ativo(s) nao estao prontos para frete automatico; modos manuais usam fallback ${DEFAULT_PRODUCT_PACKAGE_WEIGHT_GRAMS}g e ${DEFAULT_PRODUCT_PACKAGE.heightCm}x${DEFAULT_PRODUCT_PACKAGE.widthCm}x${DEFAULT_PRODUCT_PACKAGE.lengthCm}cm.`,
         true,
       );
     } else {

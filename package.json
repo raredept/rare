@@ -31,6 +31,7 @@
     "inventory:release-expired": "tsx scripts/release-expired-reservations.ts",
     "cron:release-expired": "node scripts/call-release-expired-cron.mjs",
     "shipping:dimensions:audit": "tsx scripts/audit-product-shipping-dimensions.ts",
+    "shipping:audit-products": "tsx scripts/audit-product-shipping-dimensions.ts",
     "media:variants:audit": "tsx scripts/audit-media-variants.ts",
     "media:variants:backfill": "tsx scripts/backfill-media-variants.ts",
     "postinstall": "prisma generate"

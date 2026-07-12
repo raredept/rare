@@ -53,4 +53,21 @@ describe("ProductForm", () => {
     expect(html).not.toContain("Bolsas/Bag");
     expect(html).toContain('<option value="cat-bags">Bags</option>');
   });
+
+  it("shows explicit units, operational limits and preserved shipping draft values", () => {
+    const html = renderToStaticMarkup(
+      createElement(ProductForm, {
+        categories: [],
+        shippingDraft: { weightGrams: "750", heightCm: "12", widthCm: "25", lengthCm: "30" },
+      }) as ReactElement,
+    );
+    expect(html).toContain("Peso em gramas");
+    expect(html).toContain("Altura (cm)");
+    expect(html).toContain('name="weightGrams"');
+    expect(html).toContain('max="100000"');
+    expect(html).toContain('value="750"');
+    expect(html).toContain('name="heightCm"');
+    expect(html).toContain('max="1000"');
+    expect(html).toContain('value="12"');
+  });
 });

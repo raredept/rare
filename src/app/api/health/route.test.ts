@@ -227,7 +227,7 @@ describe("health route readiness", () => {
     healthMocks.prisma.$queryRaw.mockResolvedValue([{ ok: 1 }]);
     healthMocks.prisma.product.count.mockResolvedValueOnce(2);
     healthMocks.prisma.storeSettings.findUnique.mockResolvedValueOnce({
-      shippingMode: "fixed",
+      shippingMode: "melhor_envio",
       originCep: null,
       fixedShippingInCents: 2500,
       manualShippingInCents: 0,
@@ -249,13 +249,13 @@ describe("health route readiness", () => {
     );
     expect(body.environment.shipping.storeSettings).toEqual(
       expect.objectContaining({
-        mode: "fixed",
-        provider: "manual",
+        mode: "melhor_envio",
+        provider: "melhor_envio",
         effectiveProvider: "melhor_envio",
         originCepFallbackActive: true,
         warnings: expect.arrayContaining([
           "Origin CEP missing; fallback 31170350 is active.",
-          "2 active product(s) will use fallback shipping weight/dimensions until Admin data is completed.",
+          "2 active product(s) are not ready for automatic shipping; manual modes use fallback until Admin data is completed.",
         ]),
       }),
     );
@@ -269,6 +269,14 @@ describe("health route readiness", () => {
     process.env.MELHOR_ENVIO_TOKEN = "";
     process.env.MELHOR_ENVIO_ACCESS_TOKEN = "";
     healthMocks.prisma.$queryRaw.mockResolvedValue([{ ok: 1 }]);
+    healthMocks.prisma.storeSettings.findUnique.mockResolvedValueOnce({
+      shippingMode: "melhor_envio",
+      originCep: "01001000",
+      fixedShippingInCents: 0,
+      manualShippingInCents: 0,
+      freeShippingMinInCents: null,
+      freeShippingThresholdInCents: null,
+    });
 
     const response = await GET();
     const body = await response.json();
@@ -304,6 +312,28 @@ describe("health route readiness", () => {
       ]),
     );
     expect(serialized).not.toContain("postgresql://rare:password@localhost:5432/rare_test");
+  });
+
+  it("classifies intentionally disabled integrations without returning HTTP failure", async () => {
+    process.env.DATABASE_URL = "postgresql://localhost:5432/rare_test";
+    process.env.CHECKOUT_ENABLED = "false";
+    process.env.STRIPE_SECRET_KEY = "";
+    process.env.STRIPE_WEBHOOK_SECRET = "";
+    process.env.EMAIL_DRIVER = "disabled";
+    process.env.SHIPPING_PROVIDER = "melhor_envio";
+    healthMocks.prisma.$queryRaw.mockResolvedValue([{ ok: 1 }]);
+    healthMocks.prisma.product.count.mockResolvedValueOnce(3);
+
+    const response = await GET();
+    const body = await response.json();
+    expect(response.status).toBe(200);
+    expect(body.status).not.toBe("error");
+    expect(body.operational.summary).toEqual(expect.objectContaining({
+      checkout: "intentionally_disabled",
+      email: "intentionally_disabled",
+      melhorEnvio: "awaiting_explicit_activation",
+      catalogShippingData: { state: "incomplete", activeProductsNotReady: 3 },
+    }));
   });
 
   it("returns 503 when the database check fails even if configuration is valid", async () => {
