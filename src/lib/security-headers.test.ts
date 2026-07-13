@@ -38,16 +38,7 @@ describe("security headers", () => {
   });
 
   it("does not expose configured server-side secrets in public headers", () => {
-    const headers = getSecurityHeaders({
-      APP_URL: "https://raredept.com.br",
-      NEXT_PUBLIC_APP_URL: "https://raredept.com.br",
-      R2_PUBLIC_BASE_URL: "https://media.rare.example",
-      STORAGE_PUBLIC_BASE_URL: "",
-      STRIPE_SECRET_KEY: "sk_test_secret_value_that_must_not_leak",
-      R2_SECRET_ACCESS_KEY: "r2_secret_value_that_must_not_leak",
-      DATABASE_URL: "postgres://user:password@db.example/rare",
-      ADMIN_SESSION_SECRET: "admin_session_secret_that_must_not_leak",
-    });
+    const headers = getSecurityHeaders();
     const serialized = JSON.stringify(headers);
 
     expect(serialized).not.toContain("STRIPE_SECRET_KEY");
