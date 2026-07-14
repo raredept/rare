@@ -106,14 +106,29 @@ headers deixar de aceitar env como argumento.
 
 ## Riscos conhecidos
 
-- remedição do alvo dos indicadores do carrossel ainda precisa de nova medição
-  Lighthouse completa;
-- cinco produtos não têm peso/dimensões suficientes para frete automático;
+- os indicadores do carrossel foram remedidos com acessibilidade Lighthouse 100 e
+  continuam cobertos pelo teste mobile dedicado;
+- os cinco produtos ativos não têm peso/dimensões suficientes para frete automático
+  (dez produtos no catálogo usam fallback);
 - CSP ausente por decisão consciente;
 - não existe cache offline do storefront;
 - shadow database local pode emitir warning de objetos extras;
 - storage local serve somente para desenvolvimento;
 - frete fixo e `vercel.json` são legados a confirmar, sem ativação comercial neste RC.
+
+## Evidência de validação local em 2026-07-14
+
+- `npm run release:check`: 16 etapas aprovadas, nenhuma falha; o guard manteve um
+  warning operacional para o cron legado em `vercel.json`.
+- Vitest: 92 arquivos e 516 testes aprovados.
+- Playwright completo: 117 testes aprovados e 6 skips condicionais revisados.
+- Axe dedicado: 40 testes aprovados e 2 skips condicionais revisados.
+- Links internos: 1 crawler aprovado; build standalone e browser bundle guard aprovados.
+- Lighthouse: acessibilidade e boas práticas 100 em todas as rotas; performance
+  mobile entre 86 e 99, desktop entre 98 e 99; SEO 100 nas rotas públicas e 69 em
+  login por `noindex` deliberado.
+- `npm audit`: zero vulnerabilidades; Prisma válido e 9 migrations atualizadas.
+- Auditoria de frete: 10 produtos analisados, todos em fallback; 5 estão ativos.
 
 ## Revisão dos skips condicionais
 
