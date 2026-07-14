@@ -48,12 +48,58 @@ Não afirmar compatibilidade real com iPhone apenas por WebKit; exige teste manu
 ## Rollback
 
 - Fazer rollback em erro 500 principal, hydration recorrente, flag comercial incorreta, canonical quebrado, violação crítica de acessibilidade, regressão severa de performance ou secret em bundle/log.
-- Selecionar o commit/deploy anterior conhecido e aprovado; não usar `git reset --hard` para preparar rollback local.
+- Âncora remota anterior ao lote, segundo o reflog local: `348c97a`. Ela é uma referência de código, não prova de qual deploy está atualmente servindo produção.
+- Base funcional auditada no início deste ciclo: `bd1adad`. Capturar o RC publicável com `git rev-parse HEAD` antes da autorização e registrar o deployment ID correspondente.
+- Selecionar o commit/deploy anterior conhecido e aprovado na plataforma; não usar `git reset --hard` para preparar rollback local.
 - Preferir imagem/deploy anterior da plataforma quando disponível.
 - Não reverter ou alterar banco se este deploy não mudou schema/dados.
 - Reconfirmar `CHECKOUT_ENABLED=false`, e-mail/frete/Push desabilitados após rollback.
 - Comunicar incidente sem payload financeiro, PII, tokens ou stack pública.
 - Reexecutar health, Home, catálogo, produto, login, carrinho pausado, canonical, console e logs.
+
+### Procedimento de rollback de aplicação
+
+1. Preservar logs e anotar hash, deployment ID, início do incidente e sintomas sem PII.
+2. Confirmar que não houve migration/data job. Este RC não cria migration destrutiva;
+   portanto, não executar rollback de banco, `db push`, restore ou edição manual.
+3. Selecionar o deploy anterior saudável na Railway e promover/reimplantar essa imagem.
+4. Se for necessário preparar um revert Git, criar commit novo que reverta os commits
+   problemáticos; não reescrever histórico compartilhado.
+5. Conferir `CHECKOUT_ENABLED=false`, `SHIPPING_ENABLED=false`, `EMAIL_DRIVER=disabled`,
+   ausência de Stripe live e bloqueio de backfill.
+6. Validar `/api/health`, driver Redis compartilhado, conexão PostgreSQL e storage sem
+   imprimir URLs/credenciais.
+7. Confirmar que a cron aponta para o serviço/alvo correto e não existe execução
+   paralela legada.
+8. Validar DNS/TLS e que `raredept.com.br` serve o hash revertido.
+9. Executar smoke pós-rollback somente após autorização para o ambiente.
+10. Registrar causa, impacto, decisão, hash anterior/novo e ação preventiva.
+
+Falha de Redis/cron não autoriza apontar para recursos de outro ambiente. Se a origem
+do incidente for configuração, restaurar a configuração conhecida do mesmo ambiente.
+
+## Plano de publicação futura
+
+Antes de qualquer push autorizado:
+
+```bash
+git fetch origin
+git status --short --branch
+git log --oneline --left-right origin/main...HEAD
+git diff --check origin/main..HEAD
+npm run release:check
+git log --oneline origin/main..HEAD
+```
+
+Se o remoto mudou, interromper e revisar. Depois de backup, rollback, hash e aprovação:
+
+```bash
+git push origin main
+```
+
+Não usar force. Aguardar o deploy concluir, confirmar o deployment ID/hash, executar
+smoke, health, logs, flags, domínio e QA manual. Reverter a aplicação se qualquer
+critério de NO-GO de `docs/storefront-go-no-go.md` aparecer.
 
 ## Critérios de interrupção
 

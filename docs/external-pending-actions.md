@@ -9,13 +9,15 @@ Criar no Cloudflare:
 
 - Tipo: `CNAME`
 - Nome: `www`
-- Destino: `ddlhpz66.up.railway.app`
+- Destino: usar o hostname exibido pela Railway no domínio customizado; não registrar
+  o valor específico neste documento.
 
 Se a Railway solicitar verificação:
 
 - Tipo: `TXT`
 - Nome: `_railway-verify.www`
-- Valor: `railway-verify=e555eaf310d04e9a6291dab0682cb4dd80213566ad37635f2316941362d83a12`
+- Valor: usar o valor TXT exibido pela Railway no momento da configuração; não
+  versionar o token de verificação.
 
 O redirect permanente por host continua definido em `next.config.ts`, de `www` para
 `https://raredept.com.br/:path*`. Depois da propagação, validar o CNAME com uma consulta

@@ -42,6 +42,8 @@ npm run inventory:release-expired
 npm run shipping:dimensions:audit
 npm run shipping:audit-products -- --format=json
 npm run media:variants:backfill -- --limit=10 --dry-run
+npm run smoke:release
+npm run release:check
 ```
 
 ## Uploads do Admin
@@ -69,6 +71,11 @@ Use estes documentos para entrega ao cliente e homologação:
 - [Pendências externas](docs/external-pending-actions.md)
 - [Prontidão de peso e dimensões](docs/product-shipping-readiness.md)
 - [Runbook de homologação em staging](docs/staging-homologation-runbook.md)
+- [Matriz de risco do release candidate](docs/storefront-release-risk-matrix.md)
+- [Matriz de variáveis por ambiente](docs/storefront-environment-matrix.md)
+- [Release notes do candidato](docs/releases/storefront-release-candidate.md)
+- [Critérios de go/no-go](docs/storefront-go-no-go.md)
+- [Plano futuro de CSP](docs/content-security-policy-plan.md)
 
 Railway usa dois serviços: o web com [railway.json](railway.json) e a cron de reservas com [railway.cron.json](railway.cron.json). No serviço cron, aponte o Config File Path para `/railway.cron.json`; se o painel não usar esse arquivo, configure manualmente o start command `npm run cron:release-expired` e o schedule `0 3 * * *`.
 

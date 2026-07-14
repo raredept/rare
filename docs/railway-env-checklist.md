@@ -43,6 +43,8 @@ A Railway injeta variaveis de sistema como `PORT`, `RAILWAY_ENVIRONMENT_NAME` e,
 | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` | Sim | Banco Postgres Railway de producao; nao reutilizar em staging/smoke. |
 | `ADMIN_SESSION_SECRET` | `...32+ caracteres...` | Sim | `AUTH_SECRET` tambem e aceito como alias. |
 | `CHECKOUT_ENABLED` | `false` | Sim | Alterar para `true` so depois da homologacao aprovada. |
+| `SHIPPING_ENABLED` | `false` | Sim neste RC | Impede cotacao automatica enquanto o checkout esta pausado. |
+| `EMAIL_DRIVER` | `disabled` | Sim neste RC | Nenhum provider real no release candidate. |
 | `RATE_LIMIT_DRIVER` | `redis` | Sim para venda aberta | `memory` gera warning e nao e compartilhado entre replicas. |
 | `REDIS_URL` | `${{Redis.REDIS_URL}}` | Sim com Redis Railway | Conexao TCP privada com o Redis do projeto. |
 | `UPSTASH_REDIS_REST_URL` / `REDIS_REST_URL` | `https://...` | Sim com Redis | URL REST HTTPS. |
@@ -71,9 +73,11 @@ npm run webpush:keys
 
 Configure a chave publica em `NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY` e a privada em `WEB_PUSH_VAPID_PRIVATE_KEY` no servico web da Railway. Depois do redeploy, entre no Admin pelo celular em HTTPS, abra `/admin/notifications` e toque em `Ativar neste celular`. iPhone exige que o site esteja instalado na tela inicial para receber Web Push.
 
-## 4. Envs para Staging/Homologacao
+## 4. Envs para preview/staging do release candidate
 
-Use um ambiente Railway separado para homologacao. Nunca use Stripe live nem banco de producao.
+Use um ambiente Railway separado. O preview deste RC e de catalogo, nao de checkout:
+Stripe, frete, e-mail, Push, cron e backfill permanecem desligados. Nunca use banco,
+Redis, storage, secret ou webhook de Production.
 
 | Variavel | Exemplo seguro | Obrigatoria? | Observacoes |
 | --- | --- | --- | --- |
@@ -81,14 +85,19 @@ Use um ambiente Railway separado para homologacao. Nunca use Stripe live nem ban
 | `APP_URL` | `https://rare-staging.up.railway.app` | Sim | Deve apontar para a URL testada. |
 | `NEXT_PUBLIC_APP_URL` | `https://rare-staging.up.railway.app` | Sim | Deve bater com `APP_URL`. |
 | `DATABASE_URL` | `postgresql://...staging-isolado...` | Sim | Postgres isolado de staging; nunca referenciar o banco de Production. |
-| `CHECKOUT_ENABLED` | `true` | Sim para homologar checkout | Usar apenas com Stripe test mode. |
-| `STRIPE_SECRET_KEY` | `sk_test_...` | Sim para checkout smoke | Nunca usar `sk_live_`. |
-| `STRIPE_WEBHOOK_SECRET` | `whsec_...` | Sim para checkout smoke | Webhook test proprio. |
-| `CHECKOUT_SMOKE_WEBHOOK_URL` | `https://rare-staging.up.railway.app/api/stripe/webhook` | Recomendado | `STRIPE_WEBHOOK_URL` tambem e aceito pelo guard. |
-| `NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY` / `WEB_PUSH_VAPID_PRIVATE_KEY` | `...` | Recomendado | Use chaves proprias de staging se quiser testar push sem misturar dispositivos de producao. |
-| `CHECKOUT_SMOKE_ALLOW_REMOTE_DATABASE` | `true` | Condicional | Use so depois de confirmar que o DB remoto nao e producao. |
-| `STORAGE_DRIVER` | `r2` | Recomendado | Homologa uploads persistentes. |
-| `CRON_SECRET` | `...32+ caracteres...` | Recomendado | Necessario para validar expiracao/cancelamento operacional. |
+| `CHECKOUT_ENABLED` | `false` | Sim | Somente `true` habilita; ausente tambem falha fechado. |
+| `SHIPPING_ENABLED` | `false` | Sim | A rota retorna antes de banco/provider. |
+| `SHIPPING_PROVIDER` | `manual` | Recomendado | Nenhum provider automatico no RC. |
+| `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | vazio | Nao | Nao configurar nem test nem live neste preview. |
+| `EMAIL_DRIVER` | `disabled` | Sim | Nenhum envio real. |
+| `NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY` / `WEB_PUSH_VAPID_PRIVATE_KEY` | vazio | Nao | Push real desabilitado. |
+| `STORAGE_DRIVER` | `r2` | Sim | Bucket/prefixo e credenciais isolados. |
+| `RATE_LIMIT_DRIVER` / `REDIS_URL` | `redis` / referencia isolada | Sim | Nunca apontar para Redis de Production. |
+| `CRON_SECRET` | distinto | Condicional | Servico cron deve ficar desligado; secret proprio evita reutilizacao. |
+
+Uma homologacao futura de Stripe/Melhor Envio deve usar outro laboratorio isolado,
+exclusivamente test/sandbox, seguindo `docs/staging-homologation-runbook.md` e o smoke
+guard. Ela nao deve alterar o preview seguro deste release candidate.
 
 ## 5. Cron de reservas
 

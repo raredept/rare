@@ -1,78 +1,154 @@
-# Runbook de homologação em staging
+# Runbook de preview e staging do release candidate
 
-## Preparação
+Este runbook prepara um ambiente de catálogo para revisão. Ele não autoriza mudança
+na Railway, DNS, checkout, pagamento, cotação, e-mail, Push, cron ou backfill. O modo
+obrigatório deste RC é `CHECKOUT_ENABLED=false` e `SHIPPING_ENABLED=false`.
 
-1. Criar ambiente/serviço Railway separado, sem alterar Production.
-2. Provisionar PostgreSQL e Redis separados; nunca referenciar os serviços de Production.
-3. Usar bucket separado ou prefixo exclusivo e credenciais próprias de staging.
-4. Configurar domínio/subdomínio separado e todas as variáveis isoladamente.
-5. Usar somente credenciais sandbox/test. Manter `CHECKOUT_ENABLED=false` inicialmente.
-6. Fazer backup antes de importar dados e registrar contagens para rollback.
+## 1. Modos que não devem ser confundidos
 
-## Dados
+| Modo | Objetivo | Escritas permitidas | Integrações |
+| --- | --- | --- | --- |
+| Preview por pull request | Revisar código, UI, SEO e acessibilidade | Nenhuma jornada intencional de escrita | Todas desabilitadas |
+| Staging do RC | QA persistente e smoke pós-deploy | Somente setup técnico previamente aprovado | Todas desabilitadas |
+| Laboratório futuro | Homologar Stripe/Melhor Envio/e-mail/Push | Somente dados sintéticos, sob autorização própria | Exclusivamente test/sandbox |
 
-- Copiar somente catálogo/configurações necessários.
-- Não copiar secrets, sessões, hashes de senha ou evidências operacionais sensíveis.
-- Clientes/pedidos, se indispensáveis, devem ser anonimizados antes da carga.
-- Validar contagens por tabela e uma amostra funcional após a importação.
-- Rollback: descartar o banco/bucket de staging ou restaurar o backup; nunca apontar
-  Production para recursos de staging.
+Habilitar checkout no laboratório futuro não aprova o RC atual e não deve ocorrer no
+mesmo ambiente usado para o preview seguro.
 
-## Peso, dimensões e frete
+## 2. Isolamento obrigatório
 
-1. Rodar `npm run shipping:audit-products -- --format=json`.
-2. Corrigir pelo Admin apenas a amostra de staging; não preencher automaticamente.
-3. Confirmar gramas/centímetros e revisar produtos com múltiplas variações.
-4. Exigir zero produtos ativos com `usesFallback=true` antes do frete automático.
+- Criar ambiente/serviço separado, sem alterar Production.
+- Provisionar PostgreSQL e Redis próprios; não usar referências de Production.
+- Usar bucket R2 próprio ou prefixo tecnicamente isolado, credenciais distintas e
+  política que impeça acesso ao prefixo de produção.
+- Usar URL, session secret, cron secret e demais secrets próprios.
+- Não reutilizar endpoint nem signing secret de webhook.
+- Manter `EMAIL_DRIVER=disabled`; não configurar SMTP/provider real.
+- Não configurar VAPID privada nem subscriptions reais.
+- Manter `CHECKOUT_ENABLED=false`, `SHIPPING_ENABLED=false` e provider manual.
+- Não iniciar serviço cron. Se for indispensável validar a configuração, usar alvo,
+  secret, banco e agenda exclusivos do staging.
+- Manter `MEDIA_BACKFILL_ALLOW_PRODUCTION=false`; não executar `--apply`.
+- Confirmar `noindex,nofollow` no HTML e `Disallow: /` em `robots.txt`.
+- Sitemap, se servido, deve conter somente URLs canônicas públicas e nunca Admin/API.
 
-## Backfill de mídias
+O preview não está isolado se qualquer recurso mutável aponta para o mesmo serviço,
+database, schema, namespace, bucket/prefixo ou credencial de Production.
 
-1. Executar `npm run media:variants:backfill -- --limit=10 --dry-run`.
-2. Revisar a amostra e confirmar banco/bucket corretos.
-3. Executar `--limit=1 --apply`, conferir original, duas variantes e URL persistida.
-4. Aumentar para 5, 10 e lotes maiores somente sem divergências.
-5. Interromper com Ctrl+C em erro repetido, referência concorrente, contagem inesperada,
-   objeto ausente ou diferença entre banco e storage.
-6. Nunca iniciar diretamente em Production.
+## 3. Dados
 
-## Melhor Envio
+Não copiar para preview/staging:
 
-- Configurar token sandbox, ambiente `sandbox`, origem válida e timeout.
-- Ativar `melhor_envio` explicitamente no Admin.
-- Testar CEP válido/inválido, PAC/SEDEX, item único, múltiplos itens e quantidade > 1.
-- Confirmar bloqueio antes da rede para produto sem medidas, timeout, resposta parcial
-  e indisponibilidade sem vazamento de token.
+- senhas ou hashes de senha;
+- tokens, secrets, sessões e cookies;
+- endereços completos, CPF, telefone e e-mail reais;
+- pedidos ou movimentos de estoque identificáveis;
+- payloads de pagamento/webhook;
+- subscriptions Push reais;
+- logs, traces, dumps ou evidências com dados pessoais;
+- objetos de storage privados ou URLs assinadas.
 
-## Stripe
+Preferir catálogo sintético ou um subconjunto público recriado. Se uma cópia parcial
+for indispensável, executar o processo fora do app e registrar:
 
-1. Usar exclusivamente `sk_test_...`, webhook test e banco isolado.
-2. Rodar o smoke guard antes de habilitar checkout em staging.
-3. Validar assinatura inválida, evento duplicado e evento fora de ordem.
-4. Homologar aprovado, recusado, cancelado e expirado; conferir `reserve`, `sale` e `release`.
-5. Nunca reutilizar endpoint, secret ou credencial live.
+1. origem e responsável autorizador;
+2. allowlist de tabelas/campos;
+3. transformação irreversível de identificadores;
+4. remoção de PII, tokens, sessões e relações com pedidos reais;
+5. validação de contagens e amostra sanitizada;
+6. prazo de retenção e descarte do ambiente.
 
-## E-mail
+Não usar seed, import, copy script ou backfill contra Production para preparar staging.
 
-- Usar provider sandbox/conta de teste, remetentes e Reply-To de staging.
-- Renderizar os cinco templates e simular falha do provider.
-- Confirmar que falha de e-mail não reverte pedido confirmado.
+## 4. Riscos de preview por pull request
 
-## Push
+| Risco | Efeito | Gate |
+| --- | --- | --- |
+| Banco de produção compartilhado | Cadastro, sessão, migration ou teste pode alterar dados reais | Bloqueador |
+| Redis de produção compartilhado | Colisão de rate limit, sessão ou namespace | Bloqueador |
+| Storage compartilhado | Upload/remoção pode afetar mídia pública | Bloqueador sem prefixo/credencial isolados |
+| Migration automática por PR | Schema muda antes de aprovação | Bloquear pre-deploy ou usar banco efêmero exclusivo |
+| Cron ativa | Libera reservas no ambiente errado | Bloqueador; serviço desligado |
+| Webhook real | Eventos de fornecedor chegam ao preview | Bloqueador; endpoint/secret ausentes |
+| Indexação | Conteúdo duplicado ou ambiente interno no Google | Bloqueador; `noindex` + robots |
+| Notificações | E-mail/Push chega a pessoas reais | Bloqueador; drivers/keys ausentes |
+| Cadastro público | Usuários reais entram no ambiente de teste | Restringir acesso e não divulgar URL |
 
-- Testar desktop, Android e PWA instalado na Tela de Início do iPhone.
-- Confirmar cadastro idempotente, remoção do dispositivo atual e desativação em 404/410.
-- Usar subscriptions e VAPID exclusivos de staging quando possível.
+Preview automatizado por PR não deve aplicar migration a um banco persistente
+compartilhado. Para schema compatível, use um banco efêmero por preview ou um staging
+controlado com promoção manual.
 
-## Aprovação para futura ativação
+## 5. Configuração mínima do RC
 
-- suíte, lint, typecheck, build, audit e smoke sem falhas;
-- zero produto ativo dependente de fallback de frete;
-- Redis compartilhado, cron e storage persistente comprovados;
-- Melhor Envio sandbox com PAC/SEDEX e cenários negativos aprovados;
-- Stripe test com assinatura, idempotência, estoque e expiração aprovados;
-- nenhum secret/live credential ou dado pessoal real em staging;
-- evidência registrada, rollback ensaiado e autorização formal do responsável.
+Usar a matriz em `docs/storefront-environment-matrix.md`. Antes do deploy, conferir
+somente presença/classificação, nunca imprimir valores:
 
-Interrompa e faça rollback diante de alteração no ambiente errado, segredo exposto,
-contagem divergente, baixa duplicada de estoque, webhook sem assinatura, mídia original
-ausente após operação ou qualquer chamada a credencial live.
+- URL própria e `APP_ENV=staging`/`preview`;
+- PostgreSQL, Redis e R2 isolados;
+- sessão Admin e cron secret distintos;
+- `CHECKOUT_ENABLED=false`;
+- `SHIPPING_ENABLED=false` e provider manual;
+- Stripe e Melhor Envio vazios;
+- `EMAIL_DRIVER=disabled`;
+- VAPID e subscriptions ausentes;
+- backfill/seed/bootstrap de produção bloqueados.
+
+## 6. Deploy e smoke
+
+1. Registrar `git rev-parse HEAD` e a divergência com o remoto.
+2. Executar `npm run release:check` localmente.
+3. Confirmar backup do ambiente de destino e rollback de aplicação.
+4. Publicar somente após autorização específica, sem alterar Production/DNS.
+5. Executar:
+
+   ```bash
+   npm run smoke:release -- --base-url=https://preview.example.com
+   ```
+
+6. Validar health, logs sanitizados e ausência de chamadas externas.
+7. Executar QA visual desktop/mobile, teclado e leitor de tela quando disponível.
+8. Registrar hash, URL, horário, responsável e resultados.
+
+O comando bloqueia `raredept.com.br` por padrão. Smoke de produção requer autorização
+separada e a opção consciente `--allow-production`.
+
+## 7. Peso, dimensões e mídia
+
+- Executar `npm run shipping:audit-products -- --format=json` somente leitura.
+- Os cinco produtos conhecidos sem medidas não bloqueiam o catálogo, mas bloqueiam a
+  futura ativação do frete automático.
+- Executar backfill apenas em dry-run se houver necessidade de auditoria:
+
+  ```bash
+  npm run media:variants:backfill -- --limit=10 --dry-run
+  ```
+
+- Não usar `--apply` neste RC.
+
+## 8. Homologações futuras, fora deste RC
+
+### Melhor Envio
+
+Usar token sandbox, origem válida, provider explicitamente selecionado e produtos sem
+fallback. Testar PAC/SEDEX, cenários negativos e timeout em ambiente isolado. Nunca
+usar token production no preview do RC.
+
+### Stripe
+
+Usar apenas `sk_test_...`, webhook test e banco isolado. Rodar o smoke guard antes de
+qualquer ativação temporária. Validar assinatura, idempotência, aprovado, recusado,
+cancelado e expirado sem dados reais. Nunca reutilizar endpoint/secret live.
+
+### E-mail e Push
+
+E-mail exige provider sandbox e destinatários de teste. Push exige VAPID e subscription
+exclusivos do laboratório. iPhone requer instalação na Tela de Início e validação manual.
+
+## 9. Aprovação e interrupção
+
+Preview recebe GO somente com suíte, build, audit, release guard e smoke aprovados,
+isolamento comprovado, health sem erro, noindex e todas as integrações desligadas.
+
+Interromper diante de recurso de produção compartilhado, secret/PII exposto, chamada
+externa inesperada, migration não revisada, indexação, erro 500/hydration, checkout ou
+frete ativo, cron/webhook real ou qualquer escrita fora do ambiente isolado.
