@@ -19,9 +19,22 @@ for (const route of publicAuditRoutes) {
   });
 }
 
-test("menu mobile aberto permanece acessível", async ({ page }, testInfo) => {
+test("controles móveis do carrossel e menu permanecem acessíveis", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "chromium-mobile", "O menu mobile só existe no viewport mobile.");
   await page.goto("/");
+  const carouselIndicators = page.getByRole("button", { name: /^Ir para slide/ });
+  const indicatorCount = await carouselIndicators.count();
+  if (indicatorCount > 0) {
+    expect(indicatorCount).toBeGreaterThan(1);
+    for (const indicator of await carouselIndicators.all()) {
+      const box = await indicator.boundingBox();
+      expect(box?.width ?? 0).toBeGreaterThanOrEqual(24);
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(24);
+    }
+    await carouselIndicators.nth(1).click();
+    await expect(carouselIndicators.nth(1)).toHaveAttribute("aria-current", "true");
+  }
+
   await page.getByRole("button", { name: "Abrir menu" }).click();
   const dialog = page.getByRole("dialog", { name: "RARE" });
   await expect(dialog).toBeVisible();

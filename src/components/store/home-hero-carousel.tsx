@@ -301,18 +301,25 @@ export function HomeHeroCarousel({ slides }: HomeHeroCarouselProps) {
             <ChevronRight className="h-5 w-5" aria-hidden="true" />
           </button>
 
-          <div className="absolute bottom-5 left-5 z-30 flex items-center gap-2 sm:left-8 md:left-10 xl:left-12">
+          <div className="absolute bottom-5 left-5 z-30 flex items-center sm:left-8 md:left-10 xl:left-12">
             {activeSlides.map((slide, index) => (
               <button
                 key={slide.id}
                 type="button"
-                className={`h-2.5 rounded-full transition-[background-color,width] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 ${
-                  index === normalizedActiveIndex ? "w-8 bg-white" : "w-2.5 bg-white/35 hover:bg-white/65"
+                className={`group/indicator flex h-6 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 ${
+                  index === normalizedActiveIndex ? "w-10" : "w-6"
                 }`}
                 aria-label={`Ir para slide ${index + 1}`}
                 aria-current={index === normalizedActiveIndex ? "true" : undefined}
                 onClick={() => goToSlide(index)}
-              />
+              >
+                <span
+                  aria-hidden="true"
+                  className={`block h-2.5 rounded-full transition-[background-color,width] duration-150 ${
+                    index === normalizedActiveIndex ? "w-8 bg-white" : "w-2.5 bg-white/35 group-hover/indicator:bg-white/65"
+                  }`}
+                />
+              </button>
             ))}
           </div>
         </>
