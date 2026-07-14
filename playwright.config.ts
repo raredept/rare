@@ -30,8 +30,11 @@ export default defineConfig({
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,
         env: {
+          APP_URL: "https://raredept.com.br",
           CHECKOUT_ENABLED: "false",
           EMAIL_DRIVER: "disabled",
+          NEXT_PUBLIC_APP_URL: "https://raredept.com.br",
+          SHIPPING_ENABLED: "false",
         },
       }
     : undefined,

@@ -24,10 +24,15 @@ const documentedDevelopmentConsoleWarnings = [
   /Image with src [\s\S]* was detected as the Largest Contentful Paint \(LCP\)[\s\S]*loading="eager"/,
 ];
 
-export async function blockExternalRequests(page: Page) {
+export async function blockExternalRequests(page: Page, baseURL?: string) {
+  const allowedHosts = new Set(expectedHosts);
+  if (baseURL) {
+    allowedHosts.add(new URL(baseURL).hostname);
+  }
+
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
-    if ((url.protocol === "http:" || url.protocol === "https:") && !expectedHosts.has(url.hostname)) {
+    if ((url.protocol === "http:" || url.protocol === "https:") && !allowedHosts.has(url.hostname)) {
       await route.abort("blockedbyclient");
       return;
     }
@@ -35,8 +40,9 @@ export async function blockExternalRequests(page: Page) {
   });
 }
 
-export function captureUnexpectedBrowserIssues(page: Page) {
+export function captureUnexpectedBrowserIssues(page: Page, baseURL = "http://127.0.0.1:3100") {
   const issues: string[] = [];
+  const monitoredOrigin = new URL(baseURL).origin;
   const onConsole = (message: ConsoleMessage) => {
     if (message.type() === "error" || message.type() === "warning") {
       if (message.type() === "warning" && documentedDevelopmentConsoleWarnings.some((pattern) => pattern.test(message.text()))) {
@@ -49,7 +55,7 @@ export function captureUnexpectedBrowserIssues(page: Page) {
   page.on("console", onConsole);
   page.on("pageerror", (error) => issues.push(`pageerror: ${error.message}`));
   page.on("response", (response) => {
-    if (response.url().startsWith("http://127.0.0.1:3100") && response.status() >= 400) {
+    if (response.url().startsWith(monitoredOrigin) && response.status() >= 400) {
       issues.push(`response ${response.status()}: ${new URL(response.url()).pathname}`);
     }
   });
