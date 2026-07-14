@@ -8,7 +8,6 @@ export type StripeSecretKeyMode = "test" | "live" | "unknown";
 
 type SmokeEnv = Record<string, string | undefined>;
 
-const checkoutDisabledValues = new Set(["0", "false", "off", "disabled", "no"]);
 const safeEnvironmentNames = new Set(["development", "dev", "local", "test", "staging", "stage", "preview", "homologacao", "homologation"]);
 const productionEnvironmentNames = new Set(["production", "prod", "live"]);
 const productionOrigins = new Set(["https://raredept.com.br", "https://www.raredept.com.br"]);
@@ -27,8 +26,7 @@ function hasPlaceholderValue(value: string | undefined) {
 }
 
 function isEnabled(value: string | undefined) {
-  const normalized = clean(value)?.toLowerCase();
-  return !normalized || !checkoutDisabledValues.has(normalized);
+  return value === "true";
 }
 
 function parseHttpUrl(value: string | undefined) {

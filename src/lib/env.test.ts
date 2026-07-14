@@ -30,6 +30,15 @@ describe("environment validation", () => {
     expect(result.warnings.some((issue) => issue.variable === "STRIPE_WEBHOOK_SECRET")).toBe(false);
   });
 
+  it.each(["", "false", "0", "yes", "TRUE", " ", " true ", "invalid"])(
+    "keeps checkout disabled for the non-literal value %j",
+    (value) => {
+      process.env.CHECKOUT_ENABLED = value;
+
+      expect(isCheckoutEnabled()).toBe(false);
+    },
+  );
+
   it("warns about missing Stripe configuration in development when checkout is explicitly enabled", () => {
     process.env.CHECKOUT_ENABLED = "true";
     const result = validateEnvironment();

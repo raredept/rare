@@ -116,7 +116,7 @@ function checkFeatureFlags() {
   if (!/^CHECKOUT_ENABLED=["']false["']$/m.test(envExample)) fail("flags", ".env.example deve manter CHECKOUT_ENABLED=false.");
   if (!/^EMAIL_DRIVER=["']disabled["']$/m.test(envExample)) fail("flags", ".env.example deve manter EMAIL_DRIVER=disabled.");
   if (!/^MEDIA_BACKFILL_ALLOW_PRODUCTION=["']false["']$/m.test(envExample)) fail("flags", "Backfill de produção deve ficar bloqueado.");
-  if (!/return value\?\.toLowerCase\(\) === CHECKOUT_ENABLED_VALUE/.test(envSource)) fail("flags", "Checkout deve exigir habilitação explícita.");
+  if (!/return env\.CHECKOUT_ENABLED === CHECKOUT_ENABLED_VALUE/.test(envSource)) fail("flags", "Checkout deve exigir o literal CHECKOUT_ENABLED=true.");
   if (!/if \(!isCheckoutEnabled\(\)\)/.test(shippingRoute)) fail("flags", "A rota de frete deve falhar fechada com checkout pausado.");
   if (!/offers:\s*input\.checkoutEnabled\s*\?/.test(structuredData)) fail("flags", "Product.offers deve depender da flag de checkout.");
   if (!failures.some((item) => item.label === "flags")) ok("flags:safe-defaults");

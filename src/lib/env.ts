@@ -82,8 +82,7 @@ export function isProductionEnv(env: Record<string, string | undefined> = proces
 }
 
 export function isCheckoutEnabled(env: Record<string, string | undefined> = process.env) {
-  const value = clean(env.CHECKOUT_ENABLED);
-  return value?.toLowerCase() === CHECKOUT_ENABLED_VALUE;
+  return env.CHECKOUT_ENABLED === CHECKOUT_ENABLED_VALUE;
 }
 
 export function getAppUrl() {

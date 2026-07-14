@@ -3,6 +3,7 @@ import { POST } from "@/app/api/shipping/quote/route";
 
 const quoteMocks = vi.hoisted(() => ({
   getStoreSettings: vi.fn(),
+  rateLimit: vi.fn(),
   prisma: {
     productVariant: {
       findMany: vi.fn(),
@@ -16,6 +17,10 @@ vi.mock("@/lib/prisma", () => ({
 
 vi.mock("@/lib/settings", () => ({
   getStoreSettings: quoteMocks.getStoreSettings,
+}));
+
+vi.mock("@/lib/rate-limit", () => ({
+  rateLimit: quoteMocks.rateLimit,
 }));
 
 const validBody = {
@@ -64,6 +69,7 @@ beforeEach(() => {
     freeShippingThresholdInCents: null,
     checkoutRequiresAddress: true,
   });
+  quoteMocks.rateLimit.mockResolvedValue({ ok: true });
   quoteMocks.prisma.productVariant.findMany.mockResolvedValue([variant()]);
 });
 
@@ -73,23 +79,28 @@ afterEach(() => {
 });
 
 describe("shipping quote route", () => {
-  it("fails closed before database or provider access while checkout is paused", async () => {
-    vi.stubEnv("CHECKOUT_ENABLED", "false");
-    const fetchMock = vi.fn<typeof fetch>();
-    vi.stubGlobal("fetch", fetchMock);
+  it.each([undefined, "", "false", "0", "yes", "TRUE", " ", " true ", "invalid"])(
+    "fails closed before rate limit, database or provider access for %j",
+    async (checkoutEnabled) => {
+      if (checkoutEnabled === undefined) delete process.env.CHECKOUT_ENABLED;
+      else vi.stubEnv("CHECKOUT_ENABLED", checkoutEnabled);
+      const fetchMock = vi.fn<typeof fetch>();
+      vi.stubGlobal("fetch", fetchMock);
 
-    const response = await POST(request(validBody) as never);
+      const response = await POST(request(validBody) as never);
 
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
-      options: [],
-      disabled: true,
-      message: "Frete automático indisponível enquanto as compras estiverem pausadas.",
-    });
-    expect(quoteMocks.getStoreSettings).not.toHaveBeenCalled();
-    expect(quoteMocks.prisma.productVariant.findMany).not.toHaveBeenCalled();
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toEqual({
+        options: [],
+        disabled: true,
+        message: "Frete automático indisponível enquanto as compras estiverem pausadas.",
+      });
+      expect(quoteMocks.rateLimit).not.toHaveBeenCalled();
+      expect(quoteMocks.getStoreSettings).not.toHaveBeenCalled();
+      expect(quoteMocks.prisma.productVariant.findMany).not.toHaveBeenCalled();
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
 
   it("rejects invalid CEP before returning quotes", async () => {
     const response = await POST(request({ ...validBody, cep: "123" }) as never);

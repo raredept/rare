@@ -12,6 +12,21 @@ const safeEnv = {
 };
 
 describe("Stripe checkout smoke guard", () => {
+  it.each([undefined, "", "false", "0", "yes", "TRUE", " ", " true ", "invalid"])(
+    "requires the literal lowercase checkout flag for %j",
+    (checkoutEnabled) => {
+      const result = validateCheckoutSmokeEnvironment({
+        ...safeEnv,
+        CHECKOUT_ENABLED: checkoutEnabled,
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.errors).toEqual(
+        expect.arrayContaining([expect.objectContaining({ variable: "CHECKOUT_ENABLED" })]),
+      );
+    },
+  );
+
   it("detects Stripe test and live secret key modes", () => {
     expect(getStripeSecretKeyMode("sk_test_abc")).toBe("test");
     expect(getStripeSecretKeyMode("rk_test_abc")).toBe("test");
