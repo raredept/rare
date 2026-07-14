@@ -51,6 +51,7 @@ function request(body: unknown) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv("CHECKOUT_ENABLED", "true");
   vi.stubEnv("SHIPPING_ENABLED", "true");
   vi.stubEnv("SHIPPING_PROVIDER", "");
   vi.stubEnv("SHIPPING_ORIGIN_CEP", "");
@@ -72,6 +73,24 @@ afterEach(() => {
 });
 
 describe("shipping quote route", () => {
+  it("fails closed before database or provider access while checkout is paused", async () => {
+    vi.stubEnv("CHECKOUT_ENABLED", "false");
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await POST(request(validBody) as never);
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      options: [],
+      disabled: true,
+      message: "Frete automático indisponível enquanto as compras estiverem pausadas.",
+    });
+    expect(quoteMocks.getStoreSettings).not.toHaveBeenCalled();
+    expect(quoteMocks.prisma.productVariant.findMany).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("rejects invalid CEP before returning quotes", async () => {
     const response = await POST(request({ ...validBody, cep: "123" }) as never);
     const body = await response.json();

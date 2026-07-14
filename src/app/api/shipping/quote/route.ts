@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ZodError, z } from "zod";
 import { rateLimit } from "@/lib/rate-limit";
+import { isCheckoutEnabled } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import { getStoreSettings } from "@/lib/settings";
 import {
@@ -120,6 +121,14 @@ function getPublicError(error: unknown) {
 }
 
 export async function POST(request: NextRequest) {
+  if (!isCheckoutEnabled()) {
+    return NextResponse.json({
+      options: [],
+      disabled: true,
+      message: "Frete automático indisponível enquanto as compras estiverem pausadas.",
+    });
+  }
+
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
   const limit = await rateLimit(`shipping-quote:${ip}`, 60, 60_000);
 

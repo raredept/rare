@@ -22,7 +22,7 @@ type StorageDriver = "local" | "r2";
 const DEFAULT_APP_URL = "http://localhost:3000";
 const DEFAULT_LOCAL_STORAGE_DIR = "public/uploads";
 const DEFAULT_LOCAL_STORAGE_PUBLIC_BASE_URL = "/uploads";
-const CHECKOUT_DISABLED_VALUES = new Set(["0", "false", "off", "disabled", "no"]);
+const CHECKOUT_ENABLED_VALUE = "true";
 const PLACEHOLDER_FRAGMENTS = [
   "replace-with",
   "placeholder",
@@ -83,7 +83,7 @@ export function isProductionEnv(env: Record<string, string | undefined> = proces
 
 export function isCheckoutEnabled(env: Record<string, string | undefined> = process.env) {
   const value = clean(env.CHECKOUT_ENABLED);
-  return !value || !CHECKOUT_DISABLED_VALUES.has(value.toLowerCase());
+  return value?.toLowerCase() === CHECKOUT_ENABLED_VALUE;
 }
 
 export function getAppUrl() {

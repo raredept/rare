@@ -21,9 +21,20 @@ afterEach(() => {
 });
 
 describe("environment validation", () => {
-  it("warns about missing Stripe configuration in development without blocking local readiness", () => {
+  it("keeps checkout disabled by default when the feature flag is absent", () => {
     const result = validateEnvironment();
 
+    expect(isCheckoutEnabled()).toBe(false);
+    expect(result.ok).toBe(true);
+    expect(result.warnings.some((issue) => issue.variable === "STRIPE_SECRET_KEY")).toBe(false);
+    expect(result.warnings.some((issue) => issue.variable === "STRIPE_WEBHOOK_SECRET")).toBe(false);
+  });
+
+  it("warns about missing Stripe configuration in development when checkout is explicitly enabled", () => {
+    process.env.CHECKOUT_ENABLED = "true";
+    const result = validateEnvironment();
+
+    expect(isCheckoutEnabled()).toBe(true);
     expect(result.ok).toBe(true);
     expect(result.warnings.some((issue) => issue.variable === "STRIPE_SECRET_KEY")).toBe(true);
     expect(result.warnings.some((issue) => issue.variable === "STRIPE_WEBHOOK_SECRET")).toBe(true);
@@ -34,6 +45,7 @@ describe("environment validation", () => {
       ...process.env,
       NODE_ENV: "production",
       APP_URL: "https://rare.example",
+      CHECKOUT_ENABLED: "true",
       STORAGE_DRIVER: "r2",
       R2_ACCOUNT_ID: "configured-account-id",
       R2_BUCKET: "rare-production",
