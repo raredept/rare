@@ -66,6 +66,7 @@ function isProductionEnv(env: EnvLike) {
 
 export function isPublicIndexingEnabled(env: EnvLike = process.env) {
   if (!isProductionEnv(env)) return false;
+  if (["staging", "preview", "homologation"].includes(clean(env.APP_ENV)?.toLowerCase() ?? "")) return false;
   const configured = clean(env.APP_URL) ?? clean(env.NEXT_PUBLIC_APP_URL);
   if (!configured) return true;
 
@@ -223,7 +224,7 @@ export function buildPageMetadata(input: BuildPageMetadataInput): Metadata {
       description,
       images: socialImages.map((image) => image.url),
     },
-    robots: input.robots,
+    robots: isPublicIndexingEnabled(env) ? input.robots : { index: false, follow: false },
   };
 }
 

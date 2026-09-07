@@ -5,6 +5,8 @@ import {
   buildCategoryMetadata,
   buildPageMetadata,
   buildProductMetadata,
+  buildRootMetadata,
+  buildNoIndexMetadata,
   getPublicBaseUrl,
   isPublicIndexingEnabled,
   getSocialImageForProduct,
@@ -27,6 +29,34 @@ function getOpenGraphImageUrls(metadata: Metadata) {
 }
 
 describe("public SEO helpers", () => {
+  it.each(["staging", "preview", "homologation", " STAGING "])("keeps %s metadata non-indexable even when the configured URL is production", (appEnv) => {
+    const env = { NODE_ENV: "production", APP_ENV: appEnv, APP_URL: "https://raredept.com.br" };
+    const robots = { index: false, follow: false };
+
+    expect(isPublicIndexingEnabled(env)).toBe(false);
+    expect(buildRootMetadata(env).robots).toEqual(robots);
+    expect(buildPageMetadata({ title: "Home", path: "/", env }).robots).toEqual(robots);
+    expect(buildPageMetadata({ title: "Home", path: "/", robots: { index: true, follow: true }, env }).robots).toEqual(robots);
+    expect(buildProductMetadata({ title: "Produto", slug: "produto" }, env).robots).toEqual(robots);
+    expect(buildCategoryMetadata({ kind: "category", slug: "vazia", title: "Vazia", products: [] }, env).robots).toEqual(robots);
+  });
+
+  it.each([
+    { NODE_ENV: "production", APP_URL: "https://rare-staging.up.railway.app" },
+    { NODE_ENV: "development", APP_URL: "http://localhost:3000" },
+  ])("preserves noindex at page level in a non-indexable environment", (env) => {
+    expect(buildPageMetadata({ title: "Home", path: "/", env }).robots).toEqual({ index: false, follow: false });
+  });
+
+  it("preserves public and private production metadata", () => {
+    const env = { NODE_ENV: "production", APP_ENV: "production", APP_URL: "https://raredept.com.br" };
+    expect(isPublicIndexingEnabled(env)).toBe(true);
+    expect(buildPageMetadata({ title: "Home", path: "/", env }).robots).toBeUndefined();
+    expect(buildPageMetadata({ title: "Privada", path: "/privada", robots: { index: false, follow: false }, env }).robots)
+      .toEqual({ index: false, follow: false });
+    expect(buildNoIndexMetadata({ title: "Admin", path: "/admin", env }).robots).toEqual({ index: false, follow: false });
+  });
+
   it("normalizes absolute canonicals and never falls back to localhost in production", () => {
     expect(getPublicBaseUrl({ NODE_ENV: "production", APP_URL: "http://localhost:3000" })).toBe(RARE_DEFAULT_SITE_URL);
     expect(getPublicBaseUrl({ NODE_ENV: "development" })).toBe("http://localhost:3000");
