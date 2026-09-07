@@ -5,7 +5,6 @@ import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildObjectKey,
-  createPresignedR2Upload,
   getMaxAcceptedUploadBytes,
   getPublicUploadErrorMessage,
   getMaxUploadBytes,
@@ -14,7 +13,6 @@ import {
   resolveLocalStorageObjectPath,
   saveUploadedImage,
   sanitizeUploadFilenameStem,
-  validateDirectR2UploadMetadata,
   validateUploadedImageMetadata,
 } from "@/lib/storage";
 
@@ -28,17 +26,9 @@ const s3Mocks = vi.hoisted(() => ({
   }),
 }));
 
-const presignerMocks = vi.hoisted(() => ({
-  getSignedUrl: vi.fn(),
-}));
-
 vi.mock("@aws-sdk/client-s3", () => ({
   S3Client: s3Mocks.S3Client,
   PutObjectCommand: s3Mocks.PutObjectCommand,
-}));
-
-vi.mock("@aws-sdk/s3-request-presigner", () => ({
-  getSignedUrl: presignerMocks.getSignedUrl,
 }));
 
 const originalEnv = process.env;
@@ -48,7 +38,7 @@ const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
 const jpgBytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0]);
 const webpBytes = new Uint8Array(Buffer.from("RIFFxxxxWEBP", "ascii"));
 const avifBytes = new Uint8Array(Buffer.from([0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x61, 0x76, 0x69, 0x66]));
-const gifBytes = new Uint8Array(Buffer.from("GIF89a", "ascii"));
+const gifBytes = new Uint8Array(Buffer.from("R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=", "base64"));
 const mp4Bytes = new Uint8Array(Buffer.from([0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d]));
 
 function toArrayBuffer(buffer: Buffer): ArrayBuffer {
@@ -58,7 +48,6 @@ function toArrayBuffer(buffer: Buffer): ArrayBuffer {
 beforeEach(() => {
   vi.clearAllMocks();
   s3Mocks.send.mockResolvedValue({});
-  presignerMocks.getSignedUrl.mockResolvedValue("https://r2.example/presigned-upload");
   process.env = {
     ...originalEnv,
     NODE_ENV: "development",
@@ -112,6 +101,55 @@ describe("storage helpers", () => {
     ).rejects.toThrow("Arquivo de imagem estática inválido.");
   });
 
+  it("does not persist a truncated image whose header is still valid", async () => {
+    const source = await sharp({
+      create: {
+        width: 800,
+        height: 600,
+        channels: 3,
+        background: { r: 20, g: 20, b: 20 },
+      },
+    }).png().toBuffer();
+    const truncated = source.subarray(0, Math.floor(source.length / 2));
+
+    await expect(saveUploadedImage(new File([toArrayBuffer(truncated)], "truncado.png", { type: "image/png" })))
+      .rejects.toThrow("Arquivo de imagem estática inválido.");
+    expect(s3Mocks.send).not.toHaveBeenCalled();
+    expect(existsSync(testStorageDir)).toBe(false);
+  });
+
+  it("rejects GIF headers that do not contain a decodable image", async () => {
+    await expect(
+      saveUploadedImage(new File([Buffer.from("GIF89a", "ascii")], "corrompido.gif", { type: "image/gif" })),
+    ).rejects.toThrow("Arquivo de imagem estática inválido.");
+    expect(s3Mocks.send).not.toHaveBeenCalled();
+  });
+
+  it("rejects valid image bytes when they do not match the declared MIME", async () => {
+    const source = await sharp({
+      create: {
+        width: 2,
+        height: 2,
+        channels: 3,
+        background: { r: 1, g: 2, b: 3 },
+      },
+    })
+      .png()
+      .toBuffer();
+
+    await expect(
+      saveUploadedImage(new File([toArrayBuffer(source)], "disfarce.jpg", { type: "image/jpeg" })),
+    ).rejects.toThrow("Arquivo de midia invalido.");
+    expect(s3Mocks.send).not.toHaveBeenCalled();
+  });
+
+  it("rejects empty uploads before storage or image processing", async () => {
+    await expect(
+      saveUploadedImage(new File([], "vazio.png", { type: "image/png" })),
+    ).rejects.toThrow("Arquivo de midia invalido.");
+    expect(s3Mocks.send).not.toHaveBeenCalled();
+  });
+
   it("accepts JPG, PNG, WEBP, AVIF, GIF and MP4 metadata", () => {
     expect(validateUploadedImageMetadata(new File([jpgBytes], "produto.jpeg", { type: "image/jpeg" }))).toBe("jpg");
     expect(validateUploadedImageMetadata(new File([pngBytes], "produto.png", { type: "image/png" }))).toBe("png");
@@ -141,14 +179,6 @@ describe("storage helpers", () => {
     const oversized = new File([new Uint8Array(1024 * 1024 + 1)], "grande.png", { type: "image/png" });
 
     expect(() => validateUploadedImageMetadata(oversized)).toThrow("Arquivo maior que 1MB.");
-  });
-
-  it("validates direct R2 uploads with the 100 MB hard limit", () => {
-    const accepted = { name: "catalogo.mp4", type: "video/mp4", size: 100 * 1024 * 1024 };
-    const oversized = { name: "grande.mp4", type: "video/mp4", size: 100 * 1024 * 1024 + 1 };
-
-    expect(validateDirectR2UploadMetadata(accepted)).toBe("mp4");
-    expect(() => validateDirectR2UploadMetadata(oversized)).toThrow("Arquivo maior que 100MB.");
   });
 
   it("uses larger safe limits for GIF and MP4", () => {
@@ -376,30 +406,4 @@ describe("storage helpers", () => {
     expect(JSON.stringify(saved)).not.toContain("configured-secret-key");
   });
 
-  it("creates short-lived presigned R2 PUT uploads without reading file bytes", async () => {
-    process.env.STORAGE_DRIVER = "r2";
-    process.env.R2_ACCOUNT_ID = "abc123";
-    process.env.R2_BUCKET = "rare-media";
-    process.env.R2_ACCESS_KEY_ID = "configured-access-key";
-    process.env.R2_SECRET_ACCESS_KEY = "configured-secret-key";
-    process.env.R2_PUBLIC_BASE_URL = "https://media.rare.example/";
-
-    const upload = await createPresignedR2Upload(
-      { name: "Banner Home.webp", type: "image/webp", size: 42 },
-      { context: "banners", now: new Date("2026-05-14T12:00:00Z") },
-    );
-    const command = s3Mocks.PutObjectCommand.mock.calls[0]?.[0] as { Bucket: string; Key: string; ContentType: string; IfNoneMatch: string };
-
-    expect(upload.uploadUrl).toBe("https://r2.example/presigned-upload");
-    expect(upload.publicUrl).toBe(`https://media.rare.example/${upload.key}`);
-    expect(upload.key).toMatch(/^banners\/2026\/05\/[a-f0-9-]+-banner-home\.webp$/);
-    expect(upload.expiresInSeconds).toBe(300);
-    expect(command).toMatchObject({
-      Bucket: "rare-media",
-      Key: upload.key,
-      ContentType: "image/webp",
-      IfNoneMatch: "*",
-    });
-    expect(presignerMocks.getSignedUrl).toHaveBeenCalledWith(expect.anything(), expect.anything(), { expiresIn: 300 });
-  });
 });

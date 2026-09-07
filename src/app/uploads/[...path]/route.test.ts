@@ -4,12 +4,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { GET } from "@/app/uploads/[...path]/route";
 
 const originalEnv = process.env;
-const uploadRoot = path.join(process.cwd(), "public", "uploads", "qa-test-route");
+const uploadRoot = path.join(process.cwd(), "output", "test-storage-route");
 
 beforeEach(async () => {
   process.env = {
     ...originalEnv,
     STORAGE_DRIVER: "local",
+    STORAGE_LOCAL_DIR: path.relative(process.cwd(), uploadRoot),
   };
   await mkdir(path.join(uploadRoot, "products", "2026", "05"), { recursive: true });
 });
@@ -23,8 +24,8 @@ describe("local upload serving route", () => {
   it("serves uploaded local images from the configured storage directory", async () => {
     await writeFile(path.join(uploadRoot, "products", "2026", "05", "produto.png"), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
 
-    const response = await GET(new Request("http://localhost/uploads/qa-test-route/products/2026/05/produto.png") as never, {
-      params: Promise.resolve({ path: ["qa-test-route", "products", "2026", "05", "produto.png"] }),
+    const response = await GET(new Request("http://localhost/uploads/products/2026/05/produto.png") as never, {
+      params: Promise.resolve({ path: ["products", "2026", "05", "produto.png"] }),
     });
 
     expect(response.status).toBe(200);
@@ -37,14 +38,14 @@ describe("local upload serving route", () => {
     await writeFile(path.join(uploadRoot, "products", "2026", "05", "animado.gif"), Buffer.from("GIF89a"));
     await writeFile(path.join(uploadRoot, "products", "2026", "05", "video.mp4"), Buffer.from([0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70]));
 
-    const avif = await GET(new Request("http://localhost/uploads/qa-test-route/products/2026/05/poster.avif") as never, {
-      params: Promise.resolve({ path: ["qa-test-route", "products", "2026", "05", "poster.avif"] }),
+    const avif = await GET(new Request("http://localhost/uploads/products/2026/05/poster.avif") as never, {
+      params: Promise.resolve({ path: ["products", "2026", "05", "poster.avif"] }),
     });
-    const gif = await GET(new Request("http://localhost/uploads/qa-test-route/products/2026/05/animado.gif") as never, {
-      params: Promise.resolve({ path: ["qa-test-route", "products", "2026", "05", "animado.gif"] }),
+    const gif = await GET(new Request("http://localhost/uploads/products/2026/05/animado.gif") as never, {
+      params: Promise.resolve({ path: ["products", "2026", "05", "animado.gif"] }),
     });
-    const mp4 = await GET(new Request("http://localhost/uploads/qa-test-route/products/2026/05/video.mp4") as never, {
-      params: Promise.resolve({ path: ["qa-test-route", "products", "2026", "05", "video.mp4"] }),
+    const mp4 = await GET(new Request("http://localhost/uploads/products/2026/05/video.mp4") as never, {
+      params: Promise.resolve({ path: ["products", "2026", "05", "video.mp4"] }),
     });
 
     expect(avif.status).toBe(200);

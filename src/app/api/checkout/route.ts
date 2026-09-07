@@ -79,7 +79,7 @@ function getSafeLogMessage(error: unknown) {
   const message = error instanceof Error ? error.message : "Unknown checkout error.";
   return message
     .replace(/[a-z]+:\/\/\S+/gi, "[redacted-url]")
-    .replace(/\bsk_(live|test)_[A-Za-z0-9_]+/g, "sk_$1_[redacted]")
+    .replace(/\b(?:sk|rk)_(live|test)_[A-Za-z0-9_]+/g, "stripe_$1_[redacted]")
     .replace(/\bwhsec_[A-Za-z0-9_]+/g, "whsec_[redacted]");
 }
 

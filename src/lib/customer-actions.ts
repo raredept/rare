@@ -76,6 +76,15 @@ export async function registerCustomerAction(_state: CustomerActionState, formDa
     };
   }
 
+  if (bcrypt.truncates(parsed.data.password)) {
+    return {
+      error: "Revise os campos do cadastro.",
+      fieldErrors: {
+        password: ["A senha e longa demais. Use ate 72 caracteres simples ou reduza os caracteres especiais."],
+      },
+    };
+  }
+
   const limit = await rateLimit(`customer-register:${parsed.data.email}`, 5, 10 * 60_000);
   if (!limit.ok) {
     return { error: "Muitas tentativas. Aguarde alguns minutos." };

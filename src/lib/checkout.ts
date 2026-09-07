@@ -71,6 +71,8 @@ type StripeCustomerDetails =
   | undefined;
 
 type PaidOrderSource = {
+  amountInCents: number | null;
+  currency: string | null;
   customerDetails?: StripeCustomerDetails;
   shippingDetails?: StripeAddressDetails;
   paymentIntentId?: string | null;
@@ -94,7 +96,7 @@ function consolidateItems(items: CheckoutItem[]) {
       byVariant.set(item.variantId, { ...item });
     }
   }
-  return [...byVariant.values()];
+  return [...byVariant.values()].sort((a, b) => a.variantId.localeCompare(b.variantId));
 }
 
 function stripeAddressSnapshot(
@@ -195,6 +197,13 @@ async function findOrderForPaymentIntent(tx: Prisma.TransactionClient, paymentIn
   });
 }
 
+// The order row serializes every payment/release transition, including different
+// Stripe event IDs for the same purchase. Variant counters alone cannot do this.
+async function lockOrder(tx: Prisma.TransactionClient, orderId: string) {
+  await tx.$queryRaw`SELECT "id" FROM "Order" WHERE "id" = ${orderId} FOR UPDATE`;
+  return tx.order.findUniqueOrThrow({ where: { id: orderId }, include: { items: true } });
+}
+
 async function notifyPaidOrderIfNeeded(result: { status: string; orderId?: string }) {
   if (result.status !== "paid" || !result.orderId) return;
 
@@ -214,14 +223,25 @@ async function finalizePaidOrder(
   order: OrderWithItems,
   source: PaidOrderSource,
 ) {
+  if (source.currency !== "brl" || source.amountInCents !== order.totalInCents) {
+    throw new Error(`Stripe payment total does not match order ${order.orderNumber}.`);
+  }
+  if (order.stripePaymentIntentId && source.paymentIntentId !== order.stripePaymentIntentId) {
+    throw new Error(`Stripe PaymentIntent does not match order ${order.orderNumber}.`);
+  }
   if (["paid", "processing", "shipped", "delivered"].includes(order.status)) {
     return { status: "already_paid" as const };
   }
+  if (order.status === "refunded") {
+    return { status: "already_refunded" as const };
+  }
 
-  for (const item of order.items) {
+  const hasReservation = releasableReservationStatuses.includes(order.status);
+
+  for (const item of [...order.items].sort((a, b) => (a.variantId ?? "").localeCompare(b.variantId ?? ""))) {
     if (!item.variantId) throw new Error(`Order item ${item.id} has no variant.`);
 
-    const updated = await tx.productVariant.updateMany({
+    const updated = hasReservation ? await tx.productVariant.updateMany({
       where: {
         id: item.variantId,
         stock: { gte: item.quantity },
@@ -231,7 +251,12 @@ async function finalizePaidOrder(
         stock: { decrement: item.quantity },
         reservedStock: { decrement: item.quantity },
       },
-    });
+    }) : { count: await tx.$executeRaw`
+      UPDATE "ProductVariant"
+      SET "stock" = "stock" - ${item.quantity}, "updatedAt" = NOW()
+      WHERE "id" = ${item.variantId}
+        AND ("stock" - "reservedStock") >= ${item.quantity}
+    ` };
 
     if (updated.count !== 1) {
       throw new Error(`Reserved stock is not available for order ${order.orderNumber}.`);
@@ -245,7 +270,7 @@ async function finalizePaidOrder(
         orderId: order.id,
         orderItemId: item.id,
         stockDelta: -item.quantity,
-        reservedDelta: -item.quantity,
+        reservedDelta: hasReservation ? -item.quantity : 0,
         reason: source.movementReason,
       },
     });
@@ -272,12 +297,14 @@ async function finalizePaidOrder(
   return { status: "paid" as const, orderId: order.id };
 }
 
-export async function releaseExpiredReservations(tx: Prisma.TransactionClient = prisma) {
+export async function releaseExpiredReservations(tx?: Prisma.TransactionClient): Promise<number> {
+  if (!tx) return prisma.$transaction((transaction) => releaseExpiredReservations(transaction));
+  const expiredBefore = new Date();
   const expiredOrders = await tx.order.findMany({
     where: {
       status: "awaiting_payment",
       reservationExpiresAt: {
-        lt: new Date(),
+        lt: expiredBefore,
       },
     },
     include: {
@@ -285,19 +312,17 @@ export async function releaseExpiredReservations(tx: Prisma.TransactionClient = 
     },
   });
 
+  let released = 0;
   for (const order of expiredOrders) {
-    await releaseOrderReservation(tx, order.id, order.items, "canceled", "Reserva expirada");
+    if (await releaseOrderReservation(tx, order.id, order.items, "canceled", "Reserva expirada", expiredBefore)) released += 1;
   }
 
-  return expiredOrders.length;
+  return released;
 }
 
 export async function updateOrderStatusWithReservationRelease(orderId: string, status: OrderStatus, reason: string) {
   return prisma.$transaction(async (tx) => {
-    const order = await tx.order.findUnique({
-      where: { id: orderId },
-      include: { items: true },
-    });
+    const order = await lockOrder(tx, orderId);
 
     if (!order) {
       throw new Error("Pedido não encontrado.");
@@ -321,18 +346,17 @@ async function releaseOrderReservation(
   items: Array<{ id: string; productId: string | null; variantId: string | null; quantity: number }>,
   status: OrderStatus,
   reason: string,
+  expiredBefore?: Date,
 ) {
-  const order = await tx.order.findUnique({
-    where: { id: orderId },
-    select: { status: true },
-  });
+  const order = await lockOrder(tx, orderId);
 
   if (!order || !releasableReservationStatuses.includes(order.status)) {
-    return;
+    return false;
   }
+  if (expiredBefore && (!order.reservationExpiresAt || order.reservationExpiresAt >= expiredBefore)) return false;
 
-  for (const item of items) {
-    if (!item.variantId) continue;
+  for (const item of [...items].sort((a, b) => (a.variantId ?? "").localeCompare(b.variantId ?? ""))) {
+    if (!item.variantId) throw new Error(`Order item ${item.id} has no variant.`);
 
     const updated = await tx.productVariant.updateMany({
       where: {
@@ -344,7 +368,7 @@ async function releaseOrderReservation(
       },
     });
 
-    if (updated.count !== 1) continue;
+    if (updated.count !== 1) throw new Error(`Reserved stock is not available for order ${order.orderNumber}.`);
 
     await tx.inventoryMovement.create({
       data: {
@@ -363,6 +387,7 @@ async function releaseOrderReservation(
     where: { id: orderId },
     data: { status },
   });
+  return true;
 }
 
 export async function createCheckoutSession(input: unknown, options: CheckoutOptions = {}) {
@@ -371,6 +396,9 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
   }
 
   const parsed = checkoutRequestSchema.parse(input);
+  // Validate configuration before reserving stock.
+  const paymentMethodTypes = normalizePaymentMethodTypes();
+  const appUrl = getAppUrl();
   const items = consolidateItems(parsed.items);
   let stripeShippingOption: ShippingOption | null = null;
 
@@ -379,7 +407,7 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
   });
 
   const settings = await getStoreSettings();
-  const reservationMinutes = Math.max(30, settings.checkoutReservationMinutes);
+  const reservationMinutes = Math.min(24 * 60, Math.max(30, settings.checkoutReservationMinutes));
   const reservationExpiresAt = new Date(Date.now() + reservationMinutes * 60 * 1000);
   const checkoutCustomer = await prisma.customer.findFirst({
     where: {
@@ -623,10 +651,8 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
         },
       },
     });
-  });
+  }, { timeout: 45_000 });
 
-  const paymentMethodTypes = normalizePaymentMethodTypes();
-  const appUrl = getAppUrl();
   const orderDiscountInCents = order.discountInCents ?? 0;
   const lineItems: CheckoutLineItem[] =
     orderDiscountInCents <= 0
@@ -667,6 +693,19 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
           });
         })();
 
+  // Charge legacy fixed shipping even when quote retrieval is disabled.
+  if (!stripeShippingOption && order.shippingInCents > 0) {
+    lineItems.push({
+      quantity: 1,
+      price_data: {
+        currency: "brl",
+        unit_amount: order.shippingInCents,
+        product_data: { name: order.shippingMethodSnapshot ?? "Frete" },
+      },
+    });
+  }
+
+  let stripeSessionCreated = false;
   try {
     const stripe = getStripe();
     const shippingMetadata = getShippingMetadata(stripeShippingOption);
@@ -724,6 +763,7 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
     const session = await stripe.checkout.sessions.create(sessionParams, {
       idempotencyKey: `rare-checkout-session:${order.id}`,
     });
+    stripeSessionCreated = true;
 
     await prisma.order.update({
       where: { id: order.id },
@@ -738,6 +778,12 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
       orderNumber: order.orderNumber,
     };
   } catch (error) {
+    const stripeErrorType = typeof error === "object" && error && "type" in error ? error.type : null;
+    // A lost response can still mean a payable session exists at Stripe. Keep
+    // its reservation for webhook reconciliation/expiry instead of freeing it.
+    if (stripeSessionCreated || stripeErrorType === "StripeConnectionError" || stripeErrorType === "StripeAPIError") {
+      throw error;
+    }
     await prisma.$transaction(async (tx) => {
       const freshOrder = await tx.order.findUnique({
         where: { id: order.id },
@@ -759,7 +805,7 @@ export async function processStripeCheckoutEvent(eventId: string, eventType: str
       return { status: "already_processed" as const };
     }
 
-    const order = await tx.order.findFirst({
+    const candidate = await tx.order.findFirst({
       where: {
         OR: [
           { stripeCheckoutSessionId: session.id },
@@ -770,6 +816,17 @@ export async function processStripeCheckoutEvent(eventId: string, eventType: str
         items: true,
       },
     });
+
+    const order = candidate ? await lockOrder(tx, candidate.id) : null;
+    if (order && await tx.stripeEvent.findUnique({ where: { id: eventId } })) {
+      return { status: "already_processed" as const };
+    }
+    if (order?.stripeCheckoutSessionId && order.stripeCheckoutSessionId !== session.id) {
+      throw new Error(`Stripe Checkout Session does not match order ${order.orderNumber}.`);
+    }
+    if (order && session.metadata?.orderId && session.metadata.orderId !== order.id) {
+      throw new Error(`Stripe Checkout metadata does not match order ${order.orderNumber}.`);
+    }
 
     await tx.stripeEvent.create({
       data: {
@@ -783,6 +840,10 @@ export async function processStripeCheckoutEvent(eventId: string, eventType: str
       return { status: "order_not_found" as const };
     }
 
+    if (!order.stripeCheckoutSessionId) {
+      await tx.order.update({ where: { id: order.id }, data: { stripeCheckoutSessionId: session.id } });
+    }
+
     if (eventType === "checkout.session.expired") {
       await releaseOrderReservation(tx, order.id, order.items, "canceled", "Checkout Stripe expirado");
       return { status: "released" as const };
@@ -794,10 +855,16 @@ export async function processStripeCheckoutEvent(eventId: string, eventType: str
     }
 
     const shouldMarkPaid =
-      eventType === "checkout.session.async_payment_succeeded" ||
-      (eventType === "checkout.session.completed" && session.payment_status === "paid");
+      (eventType === "checkout.session.async_payment_succeeded" || eventType === "checkout.session.completed") &&
+      session.payment_status === "paid";
 
     if (!shouldMarkPaid) {
+      // A completed, unpaid Checkout can still settle asynchronously. The session
+      // expiry is no longer a deadline for the payment; keep its reservation until
+      // the signed async success/failure event arrives.
+      if (eventType === "checkout.session.completed" && releasableReservationStatuses.includes(order.status)) {
+        await tx.order.update({ where: { id: order.id }, data: { reservationExpiresAt: null } });
+      }
       return { status: "ignored" as const };
     }
 
@@ -806,8 +873,10 @@ export async function processStripeCheckoutEvent(eventId: string, eventType: str
     };
 
     return finalizePaidOrder(tx, order, {
+      amountInCents: session.amount_total,
+      currency: session.currency,
       customerDetails: session.customer_details,
-      shippingDetails: sessionWithShipping.shipping_details,
+      shippingDetails: session.collected_information?.shipping_details ?? sessionWithShipping.shipping_details,
       paymentIntentId: getPaymentIntentIdFromSession(session),
       paymentMethod: session.payment_method_types?.join(",") ?? null,
       movementReason: "Pagamento confirmado pela Stripe",
@@ -829,7 +898,17 @@ export async function processStripePaymentIntentEvent(
       return { status: "already_processed" as const };
     }
 
-    const order = await findOrderForPaymentIntent(tx, paymentIntent);
+    const candidate = await findOrderForPaymentIntent(tx, paymentIntent);
+    const order = candidate ? await lockOrder(tx, candidate.id) : null;
+    if (order && await tx.stripeEvent.findUnique({ where: { id: eventId } })) {
+      return { status: "already_processed" as const };
+    }
+    if (order?.stripePaymentIntentId && order.stripePaymentIntentId !== paymentIntent.id) {
+      throw new Error(`Stripe PaymentIntent does not match order ${order.orderNumber}.`);
+    }
+    if (order && paymentIntent.metadata?.orderId && paymentIntent.metadata.orderId !== order.id) {
+      throw new Error(`Stripe PaymentIntent metadata does not match order ${order.orderNumber}.`);
+    }
 
     await tx.stripeEvent.create({
       data: {
@@ -853,12 +932,15 @@ export async function processStripePaymentIntentEvent(
           paymentMethod: paymentMethod ?? order.paymentMethod,
         },
       });
-      await releaseOrderReservation(tx, order.id, order.items, "failed", "Pagamento recusado pela Stripe");
-      return { status: "failed" as const };
+      // A declined attempt returns the same PaymentIntent to
+      // requires_payment_method and the customer can retry this Checkout.
+      return { status: "payment_attempt_failed" as const };
     }
 
     if (eventType === "payment_intent.succeeded" && paymentIntent.status === "succeeded") {
       return finalizePaidOrder(tx, order, {
+        amountInCents: paymentIntent.amount_received,
+        currency: paymentIntent.currency,
         paymentIntentId: paymentIntent.id,
         paymentMethod,
         movementReason: "Pagamento confirmado pela Stripe",

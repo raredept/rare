@@ -10,12 +10,12 @@ export function LoginForm({ next }: { next?: string }) {
     <form action={formAction} className="mt-8 space-y-4">
       <input type="hidden" name="next" value={next ?? ""} />
       <label className="block">
-        <span className="mb-2 block text-sm font-black uppercase tracking-wide text-neutral-700">E-mail</span>
+        <span className="mb-2 block text-sm font-black uppercase tracking-wide text-neutral-700">Login ou e-mail</span>
         <input
           name="email"
-          type="email"
+          type="text"
           required
-          autoComplete="email"
+          autoComplete="username"
           className="h-12 w-full rounded-lg border border-neutral-300 px-3 text-sm font-semibold outline-none focus:border-black"
         />
       </label>

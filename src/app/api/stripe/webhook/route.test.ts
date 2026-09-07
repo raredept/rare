@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import Stripe from "stripe";
 import { POST } from "@/app/api/stripe/webhook/route";
 
 const webhookMocks = vi.hoisted(() => ({
@@ -22,6 +23,7 @@ beforeEach(() => {
   process.env = {
     ...originalEnv,
     STRIPE_WEBHOOK_SECRET: "stripe-webhook-secret-configured-for-unit-test",
+    STRIPE_SECRET_KEY: "rk_test_mock",
   };
   vi.resetAllMocks();
 });
@@ -31,6 +33,49 @@ afterEach(() => {
 });
 
 describe("stripe webhook route readiness", () => {
+  it("processes a real signed raw body while new sales are paused", async () => {
+    process.env.CHECKOUT_ENABLED = "false";
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+    webhookMocks.getStripe.mockReturnValue(stripe);
+    webhookMocks.processStripeCheckoutEvent.mockResolvedValue({ status: "paid", orderId: "order_paused" });
+    const payload = '{\n  "id": "evt_real_signature", "object": "event", "livemode": false, "type": "checkout.session.completed", "data": {"object": {"id": "cs_test_paused"}}\n}';
+    const signature = stripe.webhooks.generateTestHeaderString({ payload, secret: process.env.STRIPE_WEBHOOK_SECRET! });
+    const response = await POST(new Request("http://localhost/api/stripe/webhook", {
+      method: "POST", body: payload, headers: { "stripe-signature": signature },
+    }) as never);
+    expect(response.status).toBe(200);
+    expect(webhookMocks.processStripeCheckoutEvent).toHaveBeenCalledWith("evt_real_signature", "checkout.session.completed", { id: "cs_test_paused" });
+  });
+
+  it.each([
+    ["rk_test_mock", true],
+    ["rk_live_mock", false],
+    ["sk_test_mock", true],
+  ])("rejects signed events in the wrong mode for %s", async (key, livemode) => {
+    process.env.STRIPE_SECRET_KEY = key;
+    webhookMocks.getStripe.mockReturnValue({ webhooks: { constructEvent: () => ({
+      id: "evt_wrong_mode", type: "payment_intent.succeeded", livemode, data: { object: {} },
+    }) } });
+    const response = await POST(new Request("http://localhost/api/stripe/webhook", {
+      method: "POST", body: "{}", headers: { "stripe-signature": "signed" },
+    }) as never);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Stripe event mode mismatch" });
+    expect(webhookMocks.processStripeCheckoutEvent).not.toHaveBeenCalled();
+    expect(webhookMocks.processStripePaymentIntentEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects a modified body using the actual Stripe signature verifier", async () => {
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+    webhookMocks.getStripe.mockReturnValue(stripe);
+    const signature = stripe.webhooks.generateTestHeaderString({ payload: "{}", secret: process.env.STRIPE_WEBHOOK_SECRET! });
+    const response = await POST(new Request("http://localhost/api/stripe/webhook", {
+      method: "POST", body: '{"modified":true}', headers: { "stripe-signature": signature },
+    }) as never);
+    expect(response.status).toBe(400);
+    expect(webhookMocks.processStripeCheckoutEvent).not.toHaveBeenCalled();
+  });
+
   it("rejects requests without Stripe signature before processing events", async () => {
     const request = new Request("http://localhost/api/stripe/webhook", {
       method: "POST",
@@ -95,6 +140,7 @@ describe("stripe webhook route readiness", () => {
       webhooks: {
         constructEvent: vi.fn(() => ({
           id: "evt_checkout_completed",
+          livemode: false,
           type: "checkout.session.completed",
           data: { object: session },
         })),
@@ -127,6 +173,7 @@ describe("stripe webhook route readiness", () => {
       webhooks: {
         constructEvent: vi.fn(() => ({
           id: "evt_payment_intent_succeeded",
+          livemode: false,
           type: "payment_intent.succeeded",
           data: { object: paymentIntent },
         })),

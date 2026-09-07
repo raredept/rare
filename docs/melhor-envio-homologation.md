@@ -10,6 +10,7 @@ a API não faz chamada externa e retorna uma mensagem operacional segura.
 
 - `SHIPPING_PROVIDER=melhor_envio`
 - `SHIPPING_ORIGIN_CEP` como fallback; o CEP salvo no Admin tem prioridade
+- Sem origem configurada explicitamente, a cotacao falha; o codigo nao usa mais o CEP historico `31170350` silenciosamente.
 - `MELHOR_ENVIO_TOKEN` ou `MELHOR_ENVIO_ACCESS_TOKEN`
 - `MELHOR_ENVIO_ENV=sandbox` para homologação
 - `MELHOR_ENVIO_SERVICES=1,2` para PAC e SEDEX

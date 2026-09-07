@@ -3,12 +3,14 @@ import { processStripeCheckoutEvent } from "@/lib/checkout";
 
 const mocks = vi.hoisted(() => {
   const tx = {
+    $queryRaw: vi.fn(),
     stripeEvent: {
       findUnique: vi.fn(),
       create: vi.fn(),
     },
     order: {
       findFirst: vi.fn(),
+      findUniqueOrThrow: vi.fn(),
       update: vi.fn(),
     },
     productVariant: {
@@ -68,7 +70,8 @@ describe("processStripeCheckoutEvent", () => {
 
   it("creates an admin notification after a Stripe checkout event confirms payment", async () => {
     mocks.tx.stripeEvent.findUnique.mockResolvedValueOnce(null);
-    mocks.tx.order.findFirst.mockResolvedValueOnce({
+    mocks.tx.order.findFirst.mockResolvedValueOnce({ id: "order_1" });
+    mocks.tx.order.findUniqueOrThrow.mockResolvedValueOnce({
       id: "order_1",
       orderNumber: "RARE-PAID",
       status: "awaiting_payment",
@@ -82,6 +85,8 @@ describe("processStripeCheckoutEvent", () => {
       billingAddressSnapshot: null,
       stripePaymentIntentId: null,
       paymentMethod: null,
+      totalInCents: 10000,
+      stripeCheckoutSessionId: "cs_paid",
       items: [
         {
           id: "item_1",
@@ -103,6 +108,8 @@ describe("processStripeCheckoutEvent", () => {
       {
         id: "cs_paid",
         payment_status: "paid",
+        amount_total: 10000,
+        currency: "brl",
         metadata: { orderId: "order_1" },
         payment_intent: "pi_paid",
         payment_method_types: ["card"],

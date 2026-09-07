@@ -2,6 +2,13 @@ import { NextResponse, type NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 import { ADMIN_SESSION_COOKIE, CUSTOMER_SESSION_COOKIE } from "@/lib/auth-constants";
 import { getOptionalAdminSessionSecret } from "@/lib/env";
+import { checkStagingAccess, isRestrictedEnvironment } from "@/lib/staging-access";
+import packageJson from "../package.json";
+import {
+  buildServerActionRequestRecord,
+  isServerActionRequest,
+  type ServerActionAuthState,
+} from "@/lib/server-action-observability";
 
 function getSecret() {
   const secret = getOptionalAdminSessionSecret();
@@ -16,7 +23,11 @@ async function hasValidAdminSession(request: NextRequest) {
 
   try {
     const { payload } = await jwtVerify(token, secret);
-    return payload.role === "ADMIN" && typeof payload.sub === "string";
+    return (
+      payload.role === "ADMIN" &&
+      typeof payload.sub === "string" &&
+      typeof payload.credentialVersion === "string"
+    );
   } catch {
     return false;
   }
@@ -160,10 +171,27 @@ async function getPublicCatalogNotFoundResponse(request: NextRequest) {
 }
 
 export async function proxy(request: NextRequest) {
+  const stagingResponse = checkStagingAccess(request);
+  if (stagingResponse) return stagingResponse;
   const { pathname } = request.nextUrl;
   const isAdminPage = pathname.startsWith("/admin") && pathname !== "/admin/login";
   const isAdminApi = pathname.startsWith("/api/admin");
   const isCustomerPage = pathname.startsWith("/minha-conta");
+  const actionRequest = isServerActionRequest(request.method, request.headers);
+  const requestId = actionRequest ? crypto.randomUUID() : undefined;
+
+  function continueRequest() {
+    if (!requestId) {
+      const response = NextResponse.next();
+      if (isRestrictedEnvironment()) response.headers.set("X-Robots-Tag", "noindex, nofollow");
+      return response;
+    }
+    const headers = new Headers(request.headers);
+    headers.set("x-rare-request-id", requestId);
+    const response = NextResponse.next({ request: { headers } });
+    if (isRestrictedEnvironment()) response.headers.set("X-Robots-Tag", "noindex, nofollow");
+    return response;
+  }
 
   const publicCatalogNotFoundResponse = await getPublicCatalogNotFoundResponse(request);
   if (publicCatalogNotFoundResponse) {
@@ -171,12 +199,32 @@ export async function proxy(request: NextRequest) {
   }
 
   if (!isAdminPage && !isAdminApi && !isCustomerPage) {
-    return NextResponse.next();
+    if (actionRequest) {
+      console.info("[RARE server action] request", buildServerActionRequestRecord({
+        route: pathname,
+        method: request.method,
+        requestId: requestId!,
+        authState: "anonymous",
+        appVersion: packageJson.version,
+      }));
+    }
+    return continueRequest();
   }
 
   if (isAdminPage || isAdminApi) {
-    if (await hasValidAdminSession(request)) {
-      return NextResponse.next();
+    const validAdminSession = await hasValidAdminSession(request);
+    if (actionRequest) {
+      const authState: ServerActionAuthState = validAdminSession ? "admin" : "anonymous";
+      console.info("[RARE server action] request", buildServerActionRequestRecord({
+        route: pathname,
+        method: request.method,
+        requestId: requestId!,
+        authState,
+        appVersion: packageJson.version,
+      }));
+    }
+    if (validAdminSession) {
+      return continueRequest();
     }
 
     if (isAdminApi) {
@@ -190,8 +238,19 @@ export async function proxy(request: NextRequest) {
   }
 
   if (isCustomerPage) {
-    if (await hasValidCustomerSession(request)) {
-      return NextResponse.next();
+    const validCustomerSession = await hasValidCustomerSession(request);
+    if (actionRequest) {
+      const authState: ServerActionAuthState = validCustomerSession ? "customer" : "anonymous";
+      console.info("[RARE server action] request", buildServerActionRequestRecord({
+        route: pathname,
+        method: request.method,
+        requestId: requestId!,
+        authState,
+        appVersion: packageJson.version,
+      }));
+    }
+    if (validCustomerSession) {
+      return continueRequest();
     }
 
     const loginUrl = request.nextUrl.clone();
@@ -200,9 +259,18 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  return NextResponse.next();
+  return continueRequest();
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/api/admin/:path*", "/minha-conta/:path*", "/produto/:path*", "/categoria/:path*"],
+  matcher: [
+    "/:path*",
+    "/admin/:path*",
+    "/api/admin/:path*",
+    "/minha-conta/:path*",
+    "/entrar",
+    "/cadastro",
+    "/produto/:path*",
+    "/categoria/:path*",
+  ],
 };

@@ -31,6 +31,7 @@ const successMessages = new Map([
   ["banner-removed", "Banner removido."],
   ["banner-reordered", "Ordem dos banners atualizada."],
   ["settings-saved", "Configurações salvas."],
+  ["password-updated", "Senha atualizada com sucesso."],
   ["order-status-saved", "Status do pedido atualizado."],
 ]);
 

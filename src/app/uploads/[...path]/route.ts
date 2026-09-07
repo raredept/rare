@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { NextResponse, type NextRequest } from "next/server";
-import { getStorageDriver } from "@/lib/env";
+import { getStorageDriver, getStorageLocalDir } from "@/lib/env";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,14 +50,14 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     return notFound();
   }
 
-  const storageRoot = path.join(process.cwd(), "public", "uploads");
-  const absolutePath = path.resolve(storageRoot, ...filePath);
+  const storageRoot = path.resolve(/*turbopackIgnore: true*/ process.cwd(), getStorageLocalDir());
+  const absolutePath = path.resolve(/*turbopackIgnore: true*/ storageRoot, ...filePath);
   if (!absolutePath.startsWith(`${storageRoot}${path.sep}`)) {
     return notFound();
   }
 
   try {
-    const bytes = await readFile(absolutePath);
+    const bytes = await readFile(/*turbopackIgnore: true*/ absolutePath);
     return new NextResponse(bytes, {
       headers: {
         "Cache-Control": "public, max-age=31536000, immutable",

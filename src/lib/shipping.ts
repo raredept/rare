@@ -194,7 +194,8 @@ export function isFixedShippingModeActive(settings?: ProvisionalShippingSettings
 }
 
 export function getConfiguredShippingOriginCep(settings?: ProvisionalShippingSettings | null) {
-  const originCep = clean(settings?.originCep) ?? clean(process.env.SHIPPING_ORIGIN_CEP) ?? DEFAULT_SHIPPING_ORIGIN_CEP;
+  const originCep = clean(settings?.originCep) ?? clean(process.env.SHIPPING_ORIGIN_CEP);
+  if (!originCep) throw new Error("Configure o CEP de origem da loja para calcular o frete.");
   return validateCep(originCep, "CEP de origem");
 }
 
@@ -295,7 +296,7 @@ export function calculateProvisionalShipping(input: ProvisionalShippingInput): P
   }
 
   return {
-    shippingInCents: getEffectiveFixedShippingInCents(input.settings),
+    shippingInCents: getRequiredFixedShippingInCents(input.settings),
     shippingMethod: mode === "manual" ? "Frete manual provisório" : "Frete fixo provisório",
     shippingCep,
     warnings,

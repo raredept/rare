@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build && node scripts/prepare-standalone.mjs",
+    "build": "next build && node scripts/prepare-standalone.mjs && node scripts/check-server-actions-artifact.mjs",
     "start": "node .next/standalone/server.js",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
@@ -19,6 +19,7 @@
     "lighthouse": "node scripts/run-lighthouse.mjs",
     "smoke:release": "node scripts/smoke-release.mjs",
     "release:guard": "node scripts/check-release-static.mjs",
+    "server-actions:check": "node scripts/check-server-actions-artifact.mjs",
     "release:check": "node scripts/check-release-candidate.mjs",
     "app:check": "tsx scripts/check-readiness.ts",
     "checkout": "npm run checkout:smoke",
@@ -36,6 +37,8 @@
     "catalog:import": "tsx scripts/import-real-catalog.ts",
     "catalog:remap-legacy-bags": "tsx scripts/remap-legacy-bags-subcategory.ts",
     "admin:create": "tsx scripts/create-admin.ts",
+    "qa:admin-access": "node scripts/qa-admin-access.mjs",
+    "qa:e2e:isolated": "node scripts/qa-isolated-admin-e2e.mjs",
     "inventory:release-expired": "tsx scripts/release-expired-reservations.ts",
     "cron:release-expired": "node scripts/call-release-expired-cron.mjs",
     "shipping:dimensions:audit": "tsx scripts/audit-product-shipping-dimensions.ts",
@@ -46,19 +49,18 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1045.0",
-    "@aws-sdk/s3-request-presigner": "^3.1050.0",
-    "@prisma/adapter-pg": "^7.8.0",
-    "@prisma/client": "^7.8.0",
+    "@prisma/adapter-pg": "^7.9.1",
+    "@prisma/client": "^7.9.1",
     "bcryptjs": "^3.0.3",
     "jose": "^6.2.3",
     "lucide-react": "^1.14.0",
-    "next": "^16.2.10",
+    "next": "^16.2.11",
     "pg": "^8.20.0",
-    "prisma": "^7.8.0",
+    "prisma": "^7.9.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "redis": "^6.1.0",
-    "sharp": "^0.34.5",
+    "sharp": "0.35.4",
     "stripe": "^22.1.1",
     "web-push": "^3.6.7",
     "zod": "^4.4.3"
@@ -73,7 +75,7 @@
     "@types/react-dom": "^19",
     "@types/web-push": "^3.6.4",
     "eslint": "^9",
-    "eslint-config-next": "^16.2.10",
+    "eslint-config-next": "^16.2.11",
     "lighthouse": "^12.6.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.0",
@@ -81,7 +83,8 @@
     "vitest": "^4.1.10"
   },
   "overrides": {
-    "@hono/node-server": "1.19.13",
-    "postcss": "^8.5.10"
+    "mysql2": "3.23.1",
+    "postcss": "^8.5.23",
+    "sharp": "$sharp"
   }
 }

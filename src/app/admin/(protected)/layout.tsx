@@ -40,7 +40,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.2em] text-neutral-500">RARE Admin</p>
-              <p className="text-sm font-semibold text-neutral-300">{admin.email}</p>
+              <p className="text-sm font-semibold text-neutral-300">{admin.username ?? admin.email}</p>
             </div>
             <div className="scrollbar-none flex gap-2 overflow-x-auto lg:hidden">
               <AdminNav compact unreadNotifications={unreadNotifications} />

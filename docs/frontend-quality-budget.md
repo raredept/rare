@@ -1,6 +1,6 @@
 # Orçamento de qualidade do storefront
 
-Atualizado em 12/07/2026. Este orçamento usa auditoria local de produção, com `CHECKOUT_ENABLED=false`, domínio de metadata `https://raredept.com.br` e tráfego HTTPS externo bloqueado. Os relatórios brutos ficam em `output/lighthouse/` e não são versionados.
+Atualizado em 07/09/2026. Este orçamento usa auditoria local de produção, com `CHECKOUT_ENABLED=false`, domínio de metadata `https://raredept.com.br` e tráfego HTTPS externo bloqueado. Os relatórios brutos ficam em `output/lighthouse/` e não são versionados.
 
 ## Baseline medido
 
@@ -10,20 +10,20 @@ O baseline melhorado e reproduzível usa Lighthouse 12.6.1, fixado em `devDepend
 
 | Métrica | Baseline melhorado (pior rota/perfil) | Limite | Justificativa |
 | --- | ---: | ---: | --- |
-| Performance mobile pública | 88 | >= 80 | Meta inicial do ciclo, com margem para variação local. |
+| Performance mobile pública | 89 | >= 80 | Meta inicial do ciclo, com margem para variação local. |
 | Performance desktop pública | 99 | >= 90 | Meta inicial do ciclo. |
-| Accessibility | 96 | >= 95 | Complementado por Axe sem violações. |
+| Accessibility | 100 | >= 95 | Complementado por Axe sem violações. |
 | Best Practices | 100 | >= 95 | Meta inicial do ciclo. |
 | SEO indexável | 100 | >= 95 | Login é excluído do score por `noindex` intencional. |
-| LCP mobile | 3.911 ms | <= 4.500 ms | Aproximadamente 15% de margem sobre o baseline melhorado. |
-| LCP desktop | 911 ms | <= 2.500 ms | Mantém folga para máquina/CI sem aceitar regressão severa. |
+| LCP mobile | 3.766 ms | <= 4.500 ms | Mantém margem sobre o limite do ciclo. |
+| LCP desktop | 874 ms | <= 2.500 ms | Mantém folga para máquina/CI sem aceitar regressão severa. |
 | CLS | 0 | <= 0,10 | Limite de Core Web Vitals; o baseline atual não desloca layout. |
-| TBT | 17 ms | <= 150 ms | Margem para variação, ainda abaixo do limiar de 200 ms. |
-| JavaScript transferido | 184.816 B | <= 220.000 B | Cerca de 19% de margem. |
-| CSS transferido | 15.750 B | <= 20.000 B | Cerca de 27% de margem. |
+| TBT | 47 ms | <= 150 ms | Margem para variação, ainda abaixo do limiar de 200 ms. |
+| JavaScript transferido | 185.098 B | <= 220.000 B | Mantém margem sem relaxar o teto. |
+| CSS transferido | 15.320 B | <= 20.000 B | Mantém margem sem relaxar o teto. |
 | Imagens transferidas | 80.877 B | <= 100.000 B | Cerca de 24% de margem; não inclui zoom acionado pelo usuário. |
-| Fontes transferidas | 29.801 B | <= 36.000 B | Cerca de 21% de margem; Geist Mono fica restrita ao Admin. |
-| Transferência total | 505.190 B | <= 600.000 B | Cerca de 19% de margem. |
+| Fontes transferidas | 33.249 B | <= 36.000 B | Geist Sans local, sem Google Fonts; Geist Mono fica restrita ao Admin. |
+| Transferência total | 508.376 B | <= 600.000 B | Mantém margem sem relaxar o teto. |
 | Requests | 55 | <= 65 | Cerca de 18% de margem. |
 
 ## Como medir
@@ -34,6 +34,8 @@ O baseline melhorado e reproduzível usa Lighthouse 12.6.1, fixado em `devDepend
 4. Confira `output/lighthouse/summary.json` e os oito relatórios JSON.
 
 O runner faz build standalone, inicia um servidor local isolado, força checkout/e-mail desabilitados, bloqueia recursos HTTPS externos e audita Home, catálogo, produto e login em mobile/desktop. As páginas públicas indexáveis precisam cumprir SEO; login precisa permanecer `noindex`, validado por testes de metadata e Playwright.
+
+As fontes Geist Sans e Geist Mono são subconjuntos latinos locais, versionados com a licença OFL em `src/app/fonts/`. O build não consulta Google Fonts nem outro serviço de fontes. Isso não significa que `npm ci` seja totalmente offline: instalar as demais dependências ainda exige registry ou cache npm disponível.
 
 ## Tratamento de regressões
 

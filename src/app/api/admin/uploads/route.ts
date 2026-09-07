@@ -20,8 +20,29 @@ function getMaxRequestBytes() {
   return SERVER_ROUTED_UPLOAD_LIMIT_BYTES * maxFilesPerRequest;
 }
 
+function isSameOriginRequest(request: NextRequest) {
+  const origin = request.headers.get("origin");
+  const host = request.headers.get("host")?.trim();
+  if (!origin || !host) return false;
+
+  try {
+    const parsedOrigin = new URL(origin);
+    const allowedProtocol =
+      parsedOrigin.protocol === "https:" ||
+      (process.env.NODE_ENV !== "production" && parsedOrigin.protocol === "http:");
+
+    return allowedProtocol && parsedOrigin.host.toLowerCase() === host.toLowerCase();
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(request: NextRequest) {
   const admin = await requireAdmin();
+  if (!isSameOriginRequest(request)) {
+    return NextResponse.json({ error: "Origem de upload invalida." }, { status: 403 });
+  }
+
   const limit = await rateLimit(`admin-upload:${admin.id}`, 120, 60_000);
   if (!limit.ok) {
     return NextResponse.json({ error: "Muitas tentativas. Aguarde um instante." }, { status: 429 });

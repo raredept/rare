@@ -17,7 +17,7 @@ O processamento ocorre apenas em `POST /api/admin/uploads`, no runtime Node. A d
 - JPG/JPEG, PNG, WEBP e AVIF estáticos podem ser processados.
 - A imagem precisa ter pelo menos 1200 px de largura orientada.
 - Imagens animadas detectadas, arquivos pequenos, resultados sem ganho e falhas de processamento preservam somente o original.
-- GIF não é processado e continua animado.
+- GIF precisa ser decodificável pelo Sharp e continua animado, sem geração de variantes.
 - MP4 não é processado e continua disponível como vídeo.
 - Nenhum arquivo original é removido.
 - Produtos e banners antigos continuam usando a URL original.
@@ -46,11 +46,15 @@ Todos os objetos enviados pelo backend usam o `Content-Type` correspondente e `C
 - Open Graph escolhe `medium` quando a URL é pública, estática e sem query/token.
 - GIF e MP4 mantêm os comportamentos anteriores; MP4 não entra em card, zoom ou OG.
 
-## Upload direto por presign
+## Upload direto por presign encerrado
 
-O presign R2 permanece disponível até 100 MB e não foi alterado. Como o arquivo vai direto do navegador para o R2, esse fluxo não passa pelo buffer do backend e não gera variantes.
+O endpoint legado `POST /api/admin/uploads/presign` não possui consumidor no frontend atual e confiava em metadados declarados pelo cliente antes de publicar o objeto. Ele foi encerrado: depois da autenticação Admin, responde `410 Gone` com o código `DIRECT_UPLOAD_DISABLED` e não emite URL de escrita.
 
-Use o upload server-routed de até 4 MB para imagens estáticas que precisam de variantes. Preserve o presign para arquivos grandes e MP4. Um processamento assíncrono posterior pode ser avaliado no futuro, mas não faz parte do fluxo atual.
+Produto e banner usam exclusivamente o upload server-routed de até 4 MB em `POST /api/admin/uploads`. Um eventual retorno do upload direto exigiria staging privado real, validação dos bytes antes da publicação e vínculo autorizado com o registro; um prefixo em bucket público não atende esse contrato.
+
+O Route Handler exige sessão Admin e origem HTTP do mesmo host antes de ler o `FormData`. As chaves são geradas no servidor com UUID; o R2 usa `If-None-Match: *` e o driver local usa criação exclusiva (`wx`), portanto colisões não sobrescrevem objetos existentes. A associação com produto ou banner continua sendo uma etapa posterior e autorizada da Server Action. Se essa gravação de banco falhar, o objeto recém-enviado pode ficar órfão: não existe deleção automática no fluxo atual. Substituir ou remover uma referência também não apaga objetos anteriores, evitando deleção prematura ou arbitrária, mas exigindo uma futura política explícita de limpeza.
+
+JPG, PNG, WebP, AVIF e GIF precisam ser decodificáveis pelo Sharp e respeitar o limite de pixels. MP4 mantém apenas a verificação de extensão, MIME e assinatura básica do container; não existe decoder/transcoder de vídeo nesta aplicação. O ambiente R2 real não é acessado pelos testes locais.
 
 ## Backfill de mídia antiga
 

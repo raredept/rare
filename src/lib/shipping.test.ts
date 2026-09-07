@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  DEFAULT_SHIPPING_ORIGIN_CEP,
   buildPackageFromCart,
   calculateProvisionalShipping,
   getConfiguredShippingProvider,
@@ -35,6 +34,9 @@ function packageItem(overrides: Record<string, unknown> = {}) {
 }
 
 describe("shipping domain", () => {
+  it("never turns missing provisional fixed freight configuration into free shipping", () => {
+    expect(() => calculateProvisionalShipping({ subtotalInCents: 10000, cep: "01001000", settings: { shippingMode: "fixed", fixedShippingInCents: 0 } })).toThrow("Configure um valor de frete fixo");
+  });
   it("normalizes and validates CEP values", () => {
     expect(normalizeCep("01001-000")).toBe("01001000");
     expect(validateCep("01001000", "CEP de destino")).toBe("01001000");
@@ -163,8 +165,11 @@ describe("shipping domain", () => {
     ).rejects.toThrow("Frete Correios precisa de CORREIOS_USER e CORREIOS_TOKEN configurados.");
   });
 
-  it("uses the store origin CEP fallback when no origin CEP is configured", () => {
-    expect(getConfiguredShippingOriginCep({ originCep: null, shippingMode: "melhor_envio" })).toBe(DEFAULT_SHIPPING_ORIGIN_CEP);
+  it("blocks quotes when no origin CEP was explicitly configured", () => {
+    vi.stubEnv("SHIPPING_ORIGIN_CEP", "");
+    expect(() => getConfiguredShippingOriginCep({ originCep: null, shippingMode: "melhor_envio" })).toThrow(
+      "Configure o CEP de origem da loja para calcular o frete.",
+    );
   });
 
   it("prioritizes the store settings origin CEP over the environment fallback", () => {

@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type Stripe from "stripe";
 import { processStripeCheckoutEvent, processStripePaymentIntentEvent } from "@/lib/checkout";
-import { getStripeWebhookSecret } from "@/lib/env";
+import { getStripeSecretKey, getStripeWebhookSecret } from "@/lib/env";
 import { getStripe } from "@/lib/stripe";
 
 export const runtime = "nodejs";
@@ -27,7 +27,7 @@ function getSafeLogMessage(error: unknown) {
   const message = error instanceof Error ? error.message : "Unknown webhook processing error.";
   return message
     .replace(/[a-z]+:\/\/\S+/gi, "[redacted-url]")
-    .replace(/\bsk_(live|test)_[A-Za-z0-9_]+/g, "sk_$1_[redacted]")
+    .replace(/\b(?:sk|rk)_(live|test)_[A-Za-z0-9_]+/g, "stripe_$1_[redacted]")
     .replace(/\bwhsec_[A-Za-z0-9_]+/g, "whsec_[redacted]");
 }
 
@@ -38,8 +38,12 @@ export async function POST(request: NextRequest) {
   }
 
   let webhookSecret: string;
+  let expectedLivemode: boolean;
   try {
     webhookSecret = getStripeWebhookSecret();
+    const keyMode = getStripeSecretKey().match(/^(?:sk|rk)_(test|live)_/);
+    if (!keyMode) throw new Error("Invalid Stripe key mode");
+    expectedLivemode = keyMode[1] === "live";
   } catch {
     return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
   }
@@ -51,6 +55,12 @@ export async function POST(request: NextRequest) {
     event = getStripe().webhooks.constructEvent(rawBody, signature, webhookSecret);
   } catch {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+  }
+
+  // CHECKOUT_ENABLED only pauses new sales. Valid events for existing orders
+  // remain processable, while a misconfigured test/live endpoint cannot write.
+  if (event.livemode !== expectedLivemode) {
+    return NextResponse.json({ error: "Stripe event mode mismatch" }, { status: 400 });
   }
 
   if (!handledEvents.has(event.type)) {

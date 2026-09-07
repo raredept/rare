@@ -11,7 +11,10 @@ Este guia homologa o checkout da RARE com Stripe em test mode. Ele nao deve ser 
 - `createCheckoutSession()` cria pedido `awaiting_payment`, reserva estoque em `ProductVariant.reservedStock`, cria movimento `reserve` e cria Stripe Checkout Session.
 - O webhook `POST /api/stripe/webhook` exige `stripe-signature` e `STRIPE_WEBHOOK_SECRET`.
 - `checkout.session.completed` pago ou `payment_intent.succeeded` move pedido para `paid`, baixa `stock`, baixa `reservedStock` e cria movimento `sale`.
-- `checkout.session.expired`, `checkout.session.async_payment_failed`, `payment_intent.payment_failed`, admin cancel/refund ou `npm run inventory:release-expired` liberam reserva quando aplicavel.
+- `checkout.session.expired`, `checkout.session.async_payment_failed`, admin cancel/refund ou `npm run inventory:release-expired` liberam reserva quando aplicavel. `payment_intent.payment_failed` representa uma tentativa recusada: conserva a reserva porque o cliente pode tentar outro cartao na mesma sessao.
+- Eventos assinados sao segregados por `livemode` em relacao a chave `sk_`/`rk_` configurada. A pausa de novas vendas nao bloqueia webhooks de pedidos existentes.
+- Confirmacao valida BRL, valor recebido/total e vinculos de sessao/PaymentIntent. Lock transacional por pedido impede duas baixas por eventos concorrentes diferentes. Pagamento tardio apos liberacao so consome estoque livre; se nao houver, o evento permanece reentregavel e exige reconciliacao operacional.
+- Checkout concluido ainda nao pago conserva a reserva ate `async_payment_succeeded`/`async_payment_failed`; a cron nao interpreta expiracao da sessao como falha de um pagamento assincrono em processamento.
 - Admin exibe pedido em `/admin/orders` e detalhes em `/admin/orders/[id]`, com IDs Stripe mascarados.
 
 ## Variaveis necessarias

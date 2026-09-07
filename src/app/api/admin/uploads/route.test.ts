@@ -25,6 +25,10 @@ vi.mock("@/lib/storage", () => ({
 function buildUploadRequest(formData: FormData) {
   return new Request("http://localhost/api/admin/uploads", {
     method: "POST",
+    headers: {
+      host: "localhost",
+      origin: "http://localhost",
+    },
     body: formData,
   });
 }
@@ -128,10 +132,53 @@ describe("admin uploads route", () => {
     expect(routeMocks.saveUploadedImage).not.toHaveBeenCalled();
   });
 
+  it("rejects a cross-origin upload before storage writes", async () => {
+    const formData = new FormData();
+    formData.append("files", new File([new Uint8Array([1])], "produto.png", { type: "image/png" }));
+    const request = new Request("http://localhost/api/admin/uploads", {
+      method: "POST",
+      headers: {
+        host: "localhost",
+        origin: "https://attacker.example",
+      },
+      body: formData,
+    });
+
+    const response = await POST(request as never);
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body.error).toBe("Origem de upload invalida.");
+    expect(routeMocks.saveUploadedImage).not.toHaveBeenCalled();
+  });
+
+  it("does not trust a spoofed forwarded host for origin validation", async () => {
+    const formData = new FormData();
+    formData.append("files", new File([new Uint8Array([1])], "produto.png", { type: "image/png" }));
+    const request = new Request("http://localhost/api/admin/uploads", {
+      method: "POST",
+      headers: {
+        host: "localhost",
+        origin: "https://attacker.example",
+        "x-forwarded-host": "attacker.example",
+      },
+      body: formData,
+    });
+
+    const response = await POST(request as never);
+
+    expect(response.status).toBe(403);
+    expect(routeMocks.saveUploadedImage).not.toHaveBeenCalled();
+  });
+
   it("returns a controlled 413 before parsing oversized server-routed upload payloads", async () => {
     const request = new Request("http://localhost/api/admin/uploads", {
       method: "POST",
-      headers: { "content-length": String(41 * 1024 * 1024) },
+      headers: {
+        "content-length": String(41 * 1024 * 1024),
+        host: "localhost",
+        origin: "http://localhost",
+      },
       body: "oversized",
     });
 

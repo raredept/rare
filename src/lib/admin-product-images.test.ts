@@ -47,6 +47,16 @@ describe("admin product image helpers", () => {
     expect(urls).toEqual(["/uploads/products/current.png", "/uploads/products/extra.webp"]);
   });
 
+  it("does not discard existing images when a requested replacement upload produced no validated URL", () => {
+    const urls = resolveProductImageSubmission({
+      existingImageUrls: ["/uploads/products/current.png"],
+      uploadedUrls: [],
+      replaceImages: true,
+    });
+
+    expect(urls).toEqual(["/uploads/products/current.png"]);
+  });
+
   it("does not enable replacement by default for a new product without previous media", () => {
     expect(shouldReplaceProductImagesByDefault([])).toBe(false);
     expect(shouldReplaceProductImagesByDefault(["https://media.rare.example/products/current.webp"])).toBe(false);

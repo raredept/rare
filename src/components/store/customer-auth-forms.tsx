@@ -38,6 +38,7 @@ function PasswordField({
           required
           autoComplete={autoComplete}
           minLength={name.includes("password") && autoComplete === "new-password" ? 8 : undefined}
+          maxLength={autoComplete === "new-password" ? 72 : undefined}
           aria-describedby={invalid ? errorId : undefined}
           aria-invalid={invalid || undefined}
           className="store-input pr-12"
@@ -146,6 +147,9 @@ export function CustomerRegisterForm({ next }: { next?: string }) {
         <PasswordField name="passwordConfirmation" label="Confirmar senha" autoComplete="new-password" errorId="register-password-confirmation-error" invalid={Boolean(state.fieldErrors?.passwordConfirmation?.length)} />
         <FieldError id="register-password-confirmation-error" errors={state.fieldErrors?.passwordConfirmation} />
       </div>
+      <p className="text-xs font-semibold leading-5 text-neutral-600">
+        Use de 8 a 72 caracteres. Acentos e outros caracteres especiais podem reduzir o limite.
+      </p>
       {state.error ? <p className="rounded-md bg-red-50 px-4 py-3 text-sm font-semibold text-red-700" role="alert">{state.error}</p> : null}
       <button
         type="submit"

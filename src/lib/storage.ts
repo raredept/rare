@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import {
   assertUploadStorageReady,
   getR2StorageConfig,
@@ -10,22 +9,21 @@ import {
   getStorageLocalDir,
   getStoragePublicBaseUrl,
 } from "@/lib/env";
-import { generateStaticImageVariants, STATIC_IMAGE_CONTENT_TYPES } from "@/lib/image-variants";
+import {
+  generateStaticImageVariants,
+  STATIC_IMAGE_CONTENT_TYPES,
+  validateDecodableImage,
+} from "@/lib/image-variants";
 import {
   buildGeneratedMediaObjectKey,
   type GeneratedMediaVariantKind,
 } from "@/lib/media-variant-convention";
-import {
-  DIRECT_R2_UPLOAD_LIMIT_BYTES,
-  DIRECT_R2_UPLOAD_LIMIT_MB,
-  SERVER_ROUTED_UPLOAD_LIMIT_MB,
-} from "@/lib/upload-limits";
+import { SERVER_ROUTED_UPLOAD_LIMIT_MB } from "@/lib/upload-limits";
 
 const DEFAULT_MAX_UPLOAD_SIZE_MB = SERVER_ROUTED_UPLOAD_LIMIT_MB;
 const DEFAULT_MAX_GIF_UPLOAD_SIZE_MB = SERVER_ROUTED_UPLOAD_LIMIT_MB;
 const DEFAULT_MAX_VIDEO_UPLOAD_SIZE_MB = SERVER_ROUTED_UPLOAD_LIMIT_MB;
 const UPLOAD_CACHE_CONTROL = "public, max-age=31536000, immutable";
-export const PRESIGNED_R2_UPLOAD_EXPIRES_SECONDS = 300;
 
 export type UploadContext = "products" | "banners";
 
@@ -158,13 +156,6 @@ export function validateUploadedImageMetadata(
   }
 
   return publicExtension;
-}
-
-export function validateDirectR2UploadMetadata(file: Pick<File, "name" | "type" | "size">, context: UploadContext = "products") {
-  return validateUploadedImageMetadata(file, context, {
-    maxBytes: DIRECT_R2_UPLOAD_LIMIT_BYTES,
-    maxMb: DIRECT_R2_UPLOAD_LIMIT_MB,
-  });
 }
 
 export function hasValidImageSignature(bytes: Buffer, extension: string) {
@@ -315,39 +306,6 @@ function createR2Client(r2: ReturnType<typeof getR2StorageConfig>) {
   });
 }
 
-export async function createPresignedR2Upload(
-  file: Pick<File, "name" | "type" | "size">,
-  options: { context?: UploadContext; now?: Date } = {},
-) {
-  const context = options.context ?? "products";
-  const extension = validateDirectR2UploadMetadata(file, context);
-
-  if (getStorageDriver() !== "r2") {
-    throw new Error("Upload direto para R2 indisponivel neste ambiente. Configure STORAGE_DRIVER=r2 para uploads de ate 100 MB.");
-  }
-
-  const r2 = getR2StorageConfig();
-  const key = buildObjectKey(file.name, extension, options.now ?? new Date(), context);
-  const client = createR2Client(r2);
-  const command = new PutObjectCommand({
-    Bucket: r2.bucket,
-    Key: key,
-    ContentType: file.type,
-    CacheControl: UPLOAD_CACHE_CONTROL,
-    IfNoneMatch: "*",
-  });
-  const uploadUrl = await getSignedUrl(client, command, { expiresIn: PRESIGNED_R2_UPLOAD_EXPIRES_SECONDS });
-
-  return {
-    uploadUrl,
-    publicUrl: `${r2.publicBaseUrl}/${key}`,
-    key,
-    contentType: file.type,
-    size: file.size,
-    expiresInSeconds: PRESIGNED_R2_UPLOAD_EXPIRES_SECONDS,
-  };
-}
-
 export async function saveUploadedImage(file: File, options: { context?: UploadContext } = {}) {
   const context = options.context ?? "products";
   const extension = validateUploadedImageMetadata(file, context);
@@ -355,6 +313,10 @@ export async function saveUploadedImage(file: File, options: { context?: UploadC
 
   if (!hasValidImageSignature(bytes, extension)) {
     throw new Error("Arquivo de midia invalido.");
+  }
+
+  if (file.type === "image/gif") {
+    await validateDecodableImage(bytes);
   }
 
   assertUploadStorageReady();
@@ -382,7 +344,7 @@ export async function saveUploadedImage(file: File, options: { context?: UploadC
     const publicPath = `${getStoragePublicBaseUrl()}/${localPath.relativePath}`;
 
     await mkdir(/*turbopackIgnore: true*/ localPath.directoryPath, { recursive: true });
-    await writeFile(/*turbopackIgnore: true*/ localPath.absolutePath, objectBytes);
+    await writeFile(/*turbopackIgnore: true*/ localPath.absolutePath, objectBytes, { flag: "wx" });
 
     return publicPath;
   }
@@ -442,7 +404,6 @@ const safePublicUploadErrorPatterns = [
   /^Arquivo de midia invalido\.$/,
   /^Arquivo de imagem estática inválido\.$/,
   /^Caminho de upload invalido\.$/,
-  /^Upload direto para R2 indisponivel/,
   /^Upload local nao e permitido em producao/,
   /^Upload Cloudflare R2 incompleto/,
 ];

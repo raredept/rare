@@ -1,5 +1,26 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import nextConfig from "../../next.config";
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.resetModules();
+});
+
+describe("protected environment images", () => {
+  it.each(["staging", "preview", "homologation"])("serves protected image sources directly in %s", async (environment) => {
+    vi.stubEnv("APP_ENV", environment);
+    vi.resetModules();
+    const { default: config } = await import("../../next.config");
+    expect(config.images?.unoptimized).toBe(true);
+  });
+
+  it("preserves the production image optimizer", async () => {
+    vi.stubEnv("APP_ENV", "production");
+    vi.resetModules();
+    const { default: config } = await import("../../next.config");
+    expect(config.images?.unoptimized).not.toBe(true);
+  });
+});
 
 describe("next config redirects", () => {
   it("redirects the legacy cart route to checkout as an HTTP redirect", async () => {

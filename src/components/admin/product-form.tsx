@@ -41,7 +41,7 @@ export function ProductForm({ product, categories, error, shippingDraft }: Produ
   const subcategories = sortProductFormCategoryOptions(activeCategories.filter((category) => category.parentId));
 
   return (
-    <form action={action} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]" encType="multipart/form-data">
+    <form action={action} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
       {error ? (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 xl:col-span-2" role="alert">
           {error}

@@ -31,6 +31,37 @@ export class InvalidStaticImageError extends Error {
   }
 }
 
+async function readImageMetadata(bytes: Buffer) {
+  try {
+    const metadata = await sharp(bytes, {
+      failOn: "error",
+      limitInputPixels: MAX_INPUT_PIXELS,
+    }).metadata();
+
+    if (!metadata.width || !metadata.height) {
+      throw new InvalidStaticImageError();
+    }
+
+    return metadata;
+  } catch {
+    throw new InvalidStaticImageError();
+  }
+}
+
+export async function validateDecodableImage(bytes: Buffer) {
+  try {
+    // metadata() only reads headers. Decode every frame before preserving bytes
+    // for an image that will not go through the variant encoder.
+    await sharp(bytes, {
+      animated: true,
+      failOn: "error",
+      limitInputPixels: MAX_INPUT_PIXELS,
+    }).stats();
+  } catch {
+    throw new InvalidStaticImageError();
+  }
+}
+
 function getOrientedDimensions(metadata: Awaited<ReturnType<ReturnType<typeof sharp>["metadata"]>>) {
   const width = metadata.width ?? 0;
   const height = metadata.height ?? 0;
@@ -40,22 +71,15 @@ function getOrientedDimensions(metadata: Awaited<ReturnType<ReturnType<typeof sh
 }
 
 export async function generateStaticImageVariants(bytes: Buffer): Promise<GeneratedImageVariantSet | null> {
-  let metadata: Awaited<ReturnType<ReturnType<typeof sharp>["metadata"]>>;
-
-  try {
-    metadata = await sharp(bytes, {
-      failOn: "error",
-      limitInputPixels: MAX_INPUT_PIXELS,
-    }).metadata();
-  } catch {
-    throw new InvalidStaticImageError();
-  }
+  const metadata = await readImageMetadata(bytes);
 
   try {
     const source = getOrientedDimensions(metadata);
 
-    if (!source.width || !source.height || (metadata.pages ?? 1) > 1) return null;
-    if (source.width < GENERATED_MEDIA_VARIANTS.at(-1)!.width) return null;
+    if ((metadata.pages ?? 1) > 1 || source.width < GENERATED_MEDIA_VARIANTS.at(-1)!.width) {
+      await validateDecodableImage(bytes);
+      return null;
+    }
 
     const variants = await Promise.all(
       GENERATED_MEDIA_VARIANTS.map(async (variant) => {

@@ -1,10 +1,12 @@
 type FrontendIssueLevel = "error" | "warning";
+export type FrontendIssueCategory = "unexpected_error" | "server_action_version_mismatch";
 
 type FrontendIssueRecord = {
   level: FrontendIssueLevel;
   source: "storefront";
   route: string;
   kind: string;
+  category: FrontendIssueCategory;
 };
 
 const safeKinds = new Set(["Error", "TypeError", "RangeError", "ReferenceError", "SyntaxError"]);
@@ -29,9 +31,15 @@ export function buildFrontendIssueRecord(
     source: "storefront",
     route: sanitizeFrontendRoute(input.route),
     kind: safeKinds.has(rawKind) ? rawKind : "Error",
+    category: "unexpected_error",
   };
 }
 
-export function reportFrontendError(error: unknown, route?: string | null) {
-  console.error("[RARE frontend] unexpected error", buildFrontendIssueRecord(error, { route }));
+export function reportFrontendError(
+  error: unknown,
+  route?: string | null,
+  category: FrontendIssueCategory = "unexpected_error",
+) {
+  const record = { ...buildFrontendIssueRecord(error, { route }), category };
+  console.error("[RARE frontend] unexpected error", record);
 }

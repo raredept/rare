@@ -12,7 +12,13 @@ describe("frontend observability", () => {
     const record = buildFrontendIssueRecord(error, { route: "/conta?cpf=12345678900" });
     const serialized = JSON.stringify(record);
 
-    expect(record).toEqual({ level: "error", source: "storefront", route: "/conta", kind: "Error" });
+    expect(record).toEqual({
+      level: "error",
+      source: "storefront",
+      route: "/conta",
+      kind: "Error",
+      category: "unexpected_error",
+    });
     expect(serialized).not.toMatch(/secret|example\.com|12345678900|stack|Bearer/);
   });
 
@@ -24,7 +30,23 @@ describe("frontend observability", () => {
       source: "storefront",
       route: "/produto/teste",
       kind: "TypeError",
+      category: "unexpected_error",
     });
+    consoleError.mockRestore();
+  });
+
+  it("uses only the fixed version-mismatch category for recognized stale actions", () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    reportFrontendError(new Error("private action id"), "/entrar?email=private@example.com", "server_action_version_mismatch");
+
+    expect(consoleError).toHaveBeenCalledWith("[RARE frontend] unexpected error", {
+      level: "error",
+      source: "storefront",
+      route: "/entrar",
+      kind: "Error",
+      category: "server_action_version_mismatch",
+    });
+    expect(JSON.stringify(consoleError.mock.calls)).not.toContain("private action id");
     consoleError.mockRestore();
   });
 });

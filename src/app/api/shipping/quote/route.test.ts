@@ -170,7 +170,7 @@ describe("shipping quote route", () => {
     ]);
   });
 
-  it("uses the default origin CEP when manual shipping has no configured origin", async () => {
+  it("blocks manual quotes when the store origin was never configured", async () => {
     quoteMocks.getStoreSettings.mockResolvedValueOnce({
       shippingMode: "manual",
       originCep: null,
@@ -184,9 +184,8 @@ describe("shipping quote route", () => {
     const response = await POST(request(validBody) as never);
     const body = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(body.options.map((option: { service: string }) => option.service)).toEqual(["PAC", "SEDEX"]);
-    expect(body.options[0].originCep).toBe("31170350");
+    expect(response.status).toBe(503);
+    expect(body.error).toBe("Configure o CEP de origem da loja para calcular o frete.");
   });
 
   it("returns disabled shipping without requiring a quote", async () => {
@@ -312,7 +311,7 @@ describe("shipping quote route", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("uses the default store origin CEP for Melhor Envio when settings originCep is empty", async () => {
+  it("blocks Melhor Envio before the API call when the store origin was never configured", async () => {
     vi.stubEnv("SHIPPING_PROVIDER", "melhor_envio");
     vi.stubEnv("MELHOR_ENVIO_TOKEN", "test-token");
     const fetchMock = vi.fn<typeof fetch>(async () =>
@@ -331,16 +330,10 @@ describe("shipping quote route", () => {
 
     const response = await POST(request(validBody) as never);
     const body = await response.json();
-    const payload = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
 
-    expect(response.status).toBe(200);
-    expect(payload.from.postal_code).toBe("31170350");
-    expect(body.options[0]).toEqual(
-      expect.objectContaining({
-        provider: "melhor_envio",
-        amountCents: 3000,
-      }),
-    );
+    expect(response.status).toBe(503);
+    expect(body.error).toBe("Configure o CEP de origem da loja para calcular o frete.");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("accepts Melhor Envio destination CEP without punctuation", async () => {

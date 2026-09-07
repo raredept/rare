@@ -1,8 +1,16 @@
 import type { NextConfig } from "next";
 import { getSecurityHeaders } from "./src/lib/security-headers";
+import { getServerActionDeploymentId } from "./src/lib/server-action-observability";
+
+const deploymentId = getServerActionDeploymentId(process.env);
+const restrictedEnvironment = ["staging", "preview", "homologation"].includes(process.env.APP_ENV?.trim().toLowerCase() ?? "");
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  ...(deploymentId ? { deploymentId } : {}),
+  // The image optimizer does not forward Basic credentials to local sources.
+  // Protected previews serve images directly; production keeps optimization.
+  ...(restrictedEnvironment ? { images: { unoptimized: true } } : {}),
   experimental: {
     serverActions: {
       bodySizeLimit: "6mb",

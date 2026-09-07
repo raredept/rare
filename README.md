@@ -1,5 +1,8 @@
 # RARE
 
+Estado atual do release, publicação e homologação: [FINAL_RELEASE_STATUS.md](./FINAL_RELEASE_STATUS.md).
+Relatórios anteriores preservam evidências históricas; autorizações e pendências correntes estão nesse registro.
+
 Aplicação e-commerce da RARE com storefront público, catálogo de produtos, carrinho, checkout server-side preparado para Stripe, área do cliente e painel administrativo protegido.
 
 ## Stack
@@ -35,6 +38,8 @@ npm run lint
 npm run typecheck
 npm test
 npm run db:check
+npm run qa:admin-access
+npm run qa:e2e:isolated
 npm run app:check
 npm run smoke -- https://raredept.com.br
 npm run checkout:smoke
@@ -51,15 +56,22 @@ npm run release:check
 O storage persistente recomendado para produção é Cloudflare R2 com `STORAGE_DRIVER=r2`.
 O Admin usa `POST /api/admin/uploads`: o navegador envia o arquivo para o domínio da aplicação e o servidor Next na Railway grava no R2 com credenciais server-side. Isso evita upload direto do navegador para o bucket.
 
-Limite atual: 4 MB por arquivo. Imagens estáticas elegíveis preservam o original e podem gerar thumbnail 640 e medium 1200 em WEBP. GIF e MP4 permanecem sem processamento. O presign direto de até 100 MB não gera variantes.
+Limite atual: 4 MB por arquivo. Imagens estáticas elegíveis preservam o original e podem gerar thumbnail 640 e medium 1200 em WEBP. GIF é decodificado pelo Sharp antes do armazenamento e preservado sem variantes; MP4 passa por validação de extensão, MIME e assinatura do container, mas não por decodificação/transcoding. O antigo endpoint de presign direto está encerrado e responde `410 Gone` sem emitir URL de escrita.
 
 Detalhes: [docs/media-optimization.md](docs/media-optimization.md).
+
+## Primeiro acesso administrativo
+
+Contas administrativas com `mustChangePassword=true` só alcançam `/admin/change-password`. Páginas, APIs e Server Actions administrativas consultam o estado atual no banco; ao trocar a senha, a sessão é vinculada ao novo hash e cookies emitidos com a credencial anterior deixam de ser aceitos. `npm run qa:admin-access` valida migration, preservação do administrador anterior, troca e reprovisionamento em PostgreSQL local descartável. `npm run qa:e2e:isolated` acrescenta browser desktop/mobile, upload local de produto/banner e limpeza automática do banco/storage sintéticos.
+
+As fontes Geist Sans e Geist Mono estão em `src/app/fonts/`, com licença OFL e subconjuntos latinos locais. O build não depende de Google Fonts. Uma instalação npm totalmente offline continua exigindo cache prévio das demais dependências.
 
 ## Operação, deploy e validação
 
 Use estes documentos para entrega ao cliente e homologação:
 
 - [Checklist de variáveis da Railway](docs/railway-env-checklist.md)
+- [Consolidação final de QA de 2026-09-07](FINAL_QA_CONSOLIDATION_REPORT.md)
 - [Handoff técnico do cliente](docs/client-handoff.md)
 - [Auditoria atual de prontidão](docs/full-project-readiness-audit.md)
 - [Auditoria final de release de 2026-06-04 (histórico)](docs/final-release-audit.md)

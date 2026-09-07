@@ -25,16 +25,26 @@ export default defineConfig({
   },
   webServer: managesServer
     ? {
-        command: "npm run dev -- --hostname 127.0.0.1 --port 3100",
+        command: "node node_modules/next/dist/bin/next dev --hostname 127.0.0.1 --port 3100",
         url: baseURL,
-        reuseExistingServer: !process.env.CI,
+        reuseExistingServer: false,
         timeout: 120_000,
         env: {
           APP_URL: "https://raredept.com.br",
           CHECKOUT_ENABLED: "false",
+          ...(process.env.QA_DATABASE_URL ? { DATABASE_URL: process.env.QA_DATABASE_URL } : {}),
           EMAIL_DRIVER: "disabled",
           NEXT_PUBLIC_APP_URL: "https://raredept.com.br",
+          NEXT_TELEMETRY_DISABLED: "1",
+          RATE_LIMIT_DRIVER: "memory",
           SHIPPING_ENABLED: "false",
+          ...(process.env.QA_STORAGE_LOCAL_DIR
+            ? {
+                STORAGE_DRIVER: "local",
+                STORAGE_LOCAL_DIR: process.env.QA_STORAGE_LOCAL_DIR,
+                STORAGE_PUBLIC_BASE_URL: "/uploads",
+              }
+            : {}),
         },
       }
     : undefined,

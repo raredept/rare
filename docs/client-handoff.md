@@ -6,7 +6,7 @@ O projeto está tecnicamente preparado para staging/homologação. Várias pend�
 
 O estado e o checklist de evidências mais recentes estão em [docs/full-project-readiness-audit.md](./full-project-readiness-audit.md). A auditoria de 2026-06-04 permanece apenas como histórico.
 
-O desenvolvedor não tinha acesso direto à Railway, Redis/Upstash, Stripe Dashboard e algumas credenciais do cliente. Por isso, a etapa final precisa ser executada pelo cliente ou por quem tenha acesso aos painéis.
+As auditorias iniciais não tinham acesso aos painéis externos. A consolidação de 2026-09-07 obteve evidência Railway somente leitura e registra um deployment Admin já realizado em tarefa anterior, mas não acessou Redis/Upstash, Stripe Dashboard, R2 nem Cloudflare. As etapas externas restantes precisam ser executadas pelo cliente ou por quem tenha autorização nesses painéis.
 
 ## 2. O que foi corrigido
 
@@ -23,6 +23,8 @@ O desenvolvedor não tinha acesso direto à Railway, Redis/Upstash, Stripe Dashb
 | Dados estruturados | JSON-LD `Organization` e `BreadcrumbList` adicionados. | Preparado no código | Inspecionar HTML das páginas públicas. |
 | Checkout seguro | Guard criado para impedir smoke inseguro com Stripe live, domínio de produção ou banco suspeito. | Preparado no código | `npm run checkout:smoke`. |
 | Storage local | Storage local endurecido e warning de Turbopack corrigido. | Preparado no código | `npm run build` e upload local em dev. |
+| Primeiro acesso Admin | Conta temporária fica restrita à troca de senha; a troca invalida senha e sessões anteriores. | ADMIN 2 básico publicado; invalidação de sessões anteriores ainda local | `npm run qa:admin-access` e `npm run qa:e2e:isolated`; publicar um novo release autorizado para levar o endurecimento adicional ao site. |
+| Fontes | Geist Sans/Mono servidas por arquivos locais com licença OFL; sem chamada a Google Fonts no build. | Preparado no código | Build com rede de fontes bloqueada e `npm run lighthouse`. |
 | Catálogo/Admin | Admin bloqueia produto ativo sem peso/dimensões. | Preparado no código | Tentar ativar produto incompleto no Admin. |
 | Smoke público | Smoke público local criado. | Preparado no código | `npm run smoke -- https://raredept.com.br`. |
 | Pendências do catálogo | Admin mostra pendências de catálogo. | Preparado no código | Abrir painel Admin em staging. |
@@ -31,7 +33,7 @@ O desenvolvedor não tinha acesso direto à Railway, Redis/Upstash, Stripe Dashb
 
 Nota: `WebSite/SearchAction` fica como melhoria futura quando houver uma página de busca canônica estável. Um domínio/CDN dedicado para imagens sociais também pode ser avaliado depois, se o cliente quiser controlar previews por campanha.
 
-Nota de mídia: `next/image` não foi aplicado amplamente porque o catálogo aceita URLs antigas de origens variadas e o projeto não possui allowlist/loader remoto estável para todas elas. Novos JPG/JPEG/PNG/WEBP/AVIF estáticos e elegíveis enviados pelo fluxo server-routed podem gerar thumbnail/medium WEBP persistidos por convenção versionada de key. GIF e MP4 permanecem permitidos e sem processamento. O presign direto não gera variantes. Produtos antigos continuam na URL original até reupload manual ou um job futuro explícito. A triagem segura é `npm run media:variants:audit`, que é dry-run e não chama R2/rede externa por padrão.
+Nota de mídia: `next/image` não foi aplicado amplamente porque o catálogo aceita URLs antigas de origens variadas e o projeto não possui allowlist/loader remoto estável para todas elas. Novos JPG/JPEG/PNG/WEBP/AVIF estáticos e elegíveis enviados pelo fluxo server-routed podem gerar thumbnail/medium WEBP persistidos por convenção versionada de key. GIF continua sem variantes, mas precisa ser decodificável pelo Sharp; MP4 passa apenas por validação de extensão, MIME e assinatura básica do container, sem decoder/transcoder. O antigo presign direto foi encerrado com `410 Gone` e não emite URL de escrita. As gravações usam chaves server-side e são condicionais contra sobrescrita; associação e substituição não apagam automaticamente objetos, portanto falhas posteriores de banco podem deixar órfãos até existir uma política de limpeza autorizada. Produtos antigos continuam na URL original até reupload manual ou um job futuro explícito. A triagem segura é `npm run media:variants:audit`, que é dry-run e não chama R2/rede externa por padrão.
 
 ## 3. O que o cliente precisa configurar
 

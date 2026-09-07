@@ -44,6 +44,9 @@ beforeEach(() => {
     SHIPPING_PROVIDER: "manual",
     SHIPPING_ORIGIN_CEP: "01001000",
     RATE_LIMIT_DRIVER: "redis",
+    RAILWAY_GIT_COMMIT_SHA: "abcdef1234567890abcdef1234567890abcdef12",
+    RAILWAY_DEPLOYMENT_ID: "deployment-123",
+    RAILWAY_REPLICA_ID: "replica-456",
     UPSTASH_REDIS_REST_URL: "https://redis.example",
     UPSTASH_REDIS_REST_TOKEN: "redis-token-that-must-not-be-returned",
   };
@@ -70,6 +73,10 @@ describe("health route readiness", () => {
 
     expect(response.status).toBe(200);
     expect(body.app.ok).toBe(true);
+    expect(body.app.release).toEqual({
+      sha: "abcdef1234567890abcdef1234567890abcdef12",
+      buildId: "deployment-123",
+    });
     expect(body.database.ok).toBe(false);
     expect(body.environment.shipping.env).toEqual({
       checked: true,

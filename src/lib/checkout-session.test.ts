@@ -10,6 +10,7 @@ import {
 
 const mocks = vi.hoisted(() => {
   const tx = {
+    $queryRaw: vi.fn(),
     $executeRaw: vi.fn(),
     stripeEvent: {
       findUnique: vi.fn(),
@@ -104,6 +105,8 @@ function buildOrder(status = "awaiting_payment") {
     shippingAddressSnapshot: null,
     billingAddressSnapshot: null,
     stripePaymentIntentId: null,
+    stripeCheckoutSessionId: "cs_test_123",
+    reservationExpiresAt: new Date("2020-01-01T00:00:00.000Z"),
     paymentMethod: null,
     subtotalInCents: 20000,
     shippingInCents: 1990,
@@ -225,6 +228,37 @@ afterEach(() => {
 });
 
 describe("createCheckoutSession", () => {
+  it("charges server-side fixed freight even when quote retrieval is disabled", async () => {
+    process.env.SHIPPING_ENABLED = "false";
+    mocks.getStoreSettings.mockResolvedValueOnce({ shippingMode: "fixed", fixedShippingInCents: 1990, checkoutReservationMinutes: 30, checkoutRequiresAddress: true });
+    await createCheckoutSession(validCheckoutInput, checkoutOptions);
+    const params = mocks.stripeSessionsCreate.mock.calls[0][0];
+    expect(params.shipping_options).toBeUndefined();
+    expect(params.line_items).toHaveLength(2);
+    expect(params.line_items[1].price_data).toMatchObject({ currency: "brl", unit_amount: 1990 });
+    expect(params.line_items.reduce((total: number, item: { quantity: number; price_data: { unit_amount: number } }) => total + item.quantity * item.price_data.unit_amount, 0)).toBe(21990);
+  });
+
+  it("validates payment configuration before any reservation is created", async () => {
+    mocks.normalizePaymentMethodTypes.mockImplementationOnce(() => { throw new Error("Unsupported payment method"); });
+    await expect(createCheckoutSession(validCheckoutInput, checkoutOptions)).rejects.toThrow("Unsupported");
+    expect(mocks.tx.order.create).not.toHaveBeenCalled();
+  });
+
+  it.each(["StripeConnectionError", "StripeAPIError"])("preserves the reservation after an ambiguous %s", async (type) => {
+    mocks.stripeSessionsCreate.mockRejectedValueOnce(Object.assign(new Error("Ambiguous provider failure"), { type }));
+    await expect(createCheckoutSession(validCheckoutInput, checkoutOptions)).rejects.toThrow("Ambiguous");
+    expect(mocks.tx.productVariant.updateMany).not.toHaveBeenCalled();
+    expect(mocks.tx.order.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("preserves a payable session reservation when saving its identifier fails", async () => {
+    mocks.prisma.order.update.mockRejectedValueOnce(new Error("Temporary database failure"));
+    await expect(createCheckoutSession(validCheckoutInput, checkoutOptions)).rejects.toThrow("Temporary database");
+    expect(mocks.tx.productVariant.updateMany).not.toHaveBeenCalled();
+    expect(mocks.tx.order.findUnique).not.toHaveBeenCalled();
+  });
+
   it("requires a logged customer before parsing or creating checkout state", async () => {
     await expect(createCheckoutSession(validCheckoutInput)).rejects.toThrow(checkoutRequiresLoginMessage);
 
@@ -666,6 +700,18 @@ describe("createCheckoutSession", () => {
 });
 
 describe("expired reservation release job", () => {
+  it("opens a transaction when invoked by the cron without a transaction client", async () => {
+    expect(await releaseExpiredReservations()).toBe(0);
+    expect(mocks.prisma.$transaction).toHaveBeenCalledOnce();
+  });
+
+  it("rechecks expiration after acquiring the lock when async payment extended a reservation", async () => {
+    mocks.tx.order.findMany.mockResolvedValueOnce([buildOrder()]);
+    mocks.tx.order.findUniqueOrThrow.mockResolvedValueOnce({ ...buildOrder(), reservationExpiresAt: null });
+    expect(await releaseExpiredReservations(mocks.tx as never)).toBe(0);
+    expect(mocks.tx.productVariant.updateMany).not.toHaveBeenCalled();
+  });
+
   it("queries only expired awaiting-payment orders", async () => {
     mocks.tx.order.findMany.mockResolvedValueOnce([]);
 
@@ -690,6 +736,7 @@ describe("expired reservation release job", () => {
   it("is idempotent when the release job runs more than once", async () => {
     mocks.tx.order.findMany.mockResolvedValueOnce([buildOrder()]).mockResolvedValueOnce([]);
     mocks.tx.order.findUnique.mockResolvedValue({ status: "awaiting_payment" });
+    mocks.tx.order.findUniqueOrThrow.mockResolvedValue(buildOrder());
     mocks.tx.productVariant.updateMany.mockResolvedValue({ count: 1 });
     mocks.tx.inventoryMovement.create.mockResolvedValue({});
     mocks.tx.order.update.mockResolvedValue({});
@@ -715,15 +762,43 @@ describe("Stripe webhook reconciliation", () => {
     mocks.tx.stripeEvent.create.mockResolvedValue({});
     mocks.tx.order.findFirst.mockResolvedValue(buildOrder());
     mocks.tx.order.findUnique.mockResolvedValue({ status: "awaiting_payment" });
+    mocks.tx.order.findUniqueOrThrow.mockResolvedValue(buildOrder());
     mocks.tx.productVariant.updateMany.mockResolvedValue({ count: 1 });
     mocks.tx.inventoryMovement.create.mockResolvedValue({});
     mocks.tx.order.update.mockResolvedValue({});
+  });
+
+  it.each([
+    { amount_total: 1, currency: "brl" },
+    { amount_total: 21990, currency: "usd" },
+  ])("rejects mismatched payment total or currency before consuming inventory: %j", async (payment) => {
+    await expect(processStripeCheckoutEvent("evt_bad_total", "checkout.session.completed", {
+      id: "cs_test_123", payment_status: "paid", metadata: { orderId: "order_1" }, ...payment,
+    } as never)).rejects.toThrow("Stripe payment total does not match");
+    expect(mocks.tx.productVariant.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("does not fulfill an async success event whose session is still unpaid", async () => {
+    const result = await processStripeCheckoutEvent("evt_async_unpaid", "checkout.session.async_payment_succeeded", {
+      id: "cs_test_123", payment_status: "unpaid", metadata: { orderId: "order_1" },
+    } as never);
+    expect(result.status).toBe("ignored");
+    expect(mocks.tx.productVariant.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects a session that conflicts with the stored order linkage", async () => {
+    await expect(processStripeCheckoutEvent("evt_bad_link", "checkout.session.completed", {
+      id: "cs_test_other", payment_status: "paid", metadata: { orderId: "order_1" },
+    } as never)).rejects.toThrow("Stripe Checkout Session does not match");
+    expect(mocks.tx.productVariant.updateMany).not.toHaveBeenCalled();
   });
 
   it("marks checkout.session.completed as paid and consumes reserved stock once", async () => {
     const result = await processStripeCheckoutEvent("evt_checkout_completed", "checkout.session.completed", {
       id: "cs_test_123",
       payment_status: "paid",
+      amount_total: 21990,
+      currency: "brl",
       payment_intent: "pi_test_123",
       payment_method_types: ["card"],
       metadata: { orderId: "order_1" },
@@ -772,11 +847,13 @@ describe("Stripe webhook reconciliation", () => {
   });
 
   it("does not decrement stock again when payment_intent.succeeded arrives after an already paid order", async () => {
-    mocks.tx.order.findFirst.mockResolvedValueOnce(buildOrder("paid"));
+    mocks.tx.order.findUniqueOrThrow.mockResolvedValueOnce(buildOrder("paid"));
 
     const result = await processStripePaymentIntentEvent("evt_pi_succeeded", "payment_intent.succeeded", {
       id: "pi_test_123",
       status: "succeeded",
+      amount_received: 21990,
+      currency: "brl",
       payment_method_types: ["card"],
       metadata: { orderId: "order_1" },
     } as never);
@@ -785,7 +862,7 @@ describe("Stripe webhook reconciliation", () => {
     expect(mocks.tx.productVariant.updateMany).not.toHaveBeenCalled();
   });
 
-  it("releases reservations on payment_intent.payment_failed", async () => {
+  it("preserves reservations when a declined payment can be retried in the same Checkout", async () => {
     const result = await processStripePaymentIntentEvent("evt_pi_failed", "payment_intent.payment_failed", {
       id: "pi_test_123",
       status: "requires_payment_method",
@@ -793,7 +870,7 @@ describe("Stripe webhook reconciliation", () => {
       metadata: { orderId: "order_1" },
     } as never);
 
-    expect(result).toEqual({ status: "failed" });
+    expect(result).toEqual({ status: "payment_attempt_failed" });
     expect(mocks.tx.order.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -802,10 +879,7 @@ describe("Stripe webhook reconciliation", () => {
         }),
       }),
     );
-    expect(mocks.tx.order.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: { status: "failed" },
-      }),
-    );
+    expect(mocks.tx.order.update).toHaveBeenCalledTimes(1);
+    expect(mocks.tx.productVariant.updateMany).not.toHaveBeenCalled();
   });
 });

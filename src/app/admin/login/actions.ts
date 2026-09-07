@@ -18,19 +18,23 @@ export async function loginAction(_state: LoginState, formData: FormData): Promi
   });
 
   if (!parsed.success) {
-    return { error: "Informe e-mail e senha validos." };
+    return { error: "Informe login e senha validos." };
   }
 
-  const limit = await rateLimit(`admin-login:${parsed.data.email}`, 8, 5 * 60_000);
+  const identifier = parsed.data.email.toLowerCase();
+  const limit = await rateLimit(`admin-login:${identifier}`, 8, 5 * 60_000);
   if (!limit.ok) {
     return { error: "Muitas tentativas. Tente novamente em alguns minutos." };
   }
 
   const user = await prisma.user.findFirst({
     where: {
-      email: parsed.data.email.toLowerCase(),
       role: "ADMIN",
       active: true,
+      OR: [
+        { email: { equals: identifier, mode: "insensitive" } },
+        { username: { equals: identifier, mode: "insensitive" } },
+      ],
     },
   });
 
@@ -45,6 +49,10 @@ export async function loginAction(_state: LoginState, formData: FormData): Promi
 
   const token = await signAdminSession(user);
   await setAdminSessionCookie(token);
+
+  if (user.mustChangePassword) {
+    redirect("/admin/change-password");
+  }
 
   const next = formData.get("next");
   const target = typeof next === "string" && next.startsWith("/admin") && next !== "/admin/login" ? next : "/admin";

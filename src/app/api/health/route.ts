@@ -11,6 +11,8 @@ import {
   normalizeShippingProvider,
 } from "@/lib/shipping";
 import { getProductShippingNotReadyWhere } from "@/lib/product-shipping-readiness-prisma";
+import { getServerRuntimeMetadata } from "@/lib/server-action-observability";
+import { getReleaseArtifact } from "@/lib/release-artifact";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -138,6 +140,7 @@ function response(body: unknown, status: number) {
 export async function GET() {
   const env = validateEnvironment();
   const rateLimit = getRateLimitStatus();
+  const runtimeMetadata = getServerRuntimeMetadata(process.env, packageJson.version);
   let database: { ok: boolean; message: string } = { ok: false, message: "Database check was not executed." };
   let storeSettingsShipping = {
     checked: false,
@@ -214,6 +217,11 @@ export async function GET() {
         ok: true,
         name: packageJson.name,
         version: packageJson.version,
+        release: {
+          sha: runtimeMetadata.releaseSha,
+          buildId: runtimeMetadata.buildId,
+        },
+        artifact: getReleaseArtifact(),
       },
       database,
       environment: {

@@ -10,14 +10,28 @@ type AdminSessionPayload = {
   sub: string;
   email: string;
   role: "ADMIN";
+  mustChangePassword: boolean;
+  credentialVersion: string;
 };
 
 function getSessionSecret() {
   return new TextEncoder().encode(getAdminSessionSecret());
 }
 
-export async function signAdminSession(user: Pick<User, "id" | "email" | "role">) {
-  return new SignJWT({ email: user.email, role: user.role } satisfies Omit<AdminSessionPayload, "sub">)
+async function buildCredentialVersion(passwordHash: string) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(passwordHash));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+export async function signAdminSession(
+  user: Pick<User, "id" | "email" | "role" | "mustChangePassword" | "passwordHash">,
+) {
+  return new SignJWT({
+    email: user.email,
+    role: user.role,
+    mustChangePassword: user.mustChangePassword,
+    credentialVersion: await buildCredentialVersion(user.passwordHash),
+  } satisfies Omit<AdminSessionPayload, "sub">)
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(user.id)
     .setIssuedAt()
@@ -30,7 +44,12 @@ export async function verifyAdminSession(token?: string | null): Promise<AdminSe
 
   try {
     const { payload } = await jwtVerify(token, getSessionSecret());
-    if (payload.role !== "ADMIN" || typeof payload.sub !== "string" || typeof payload.email !== "string") {
+    if (
+      payload.role !== "ADMIN" ||
+      typeof payload.sub !== "string" ||
+      typeof payload.email !== "string" ||
+      typeof payload.credentialVersion !== "string"
+    ) {
       return null;
     }
 
@@ -38,6 +57,8 @@ export async function verifyAdminSession(token?: string | null): Promise<AdminSe
       sub: payload.sub,
       email: payload.email,
       role: "ADMIN",
+      mustChangePassword: payload.mustChangePassword === true,
+      credentialVersion: payload.credentialVersion,
     };
   } catch {
     return null;
@@ -50,7 +71,7 @@ export async function getCurrentAdmin() {
   const session = await verifyAdminSession(token);
   if (!session) return null;
 
-  return prisma.user.findFirst({
+  const admin = await prisma.user.findFirst({
     where: {
       id: session.sub,
       role: "ADMIN",
@@ -60,14 +81,31 @@ export async function getCurrentAdmin() {
       id: true,
       name: true,
       email: true,
+      username: true,
       role: true,
+      mustChangePassword: true,
+      passwordHash: true,
     },
   });
+
+  if (!admin || session.credentialVersion !== await buildCredentialVersion(admin.passwordHash)) {
+    return null;
+  }
+
+  return {
+    id: admin.id,
+    name: admin.name,
+    email: admin.email,
+    username: admin.username,
+    role: admin.role,
+    mustChangePassword: admin.mustChangePassword,
+  };
 }
 
 export async function requireAdmin() {
   const admin = await getCurrentAdmin();
   if (!admin) redirect("/admin/login");
+  if (admin.mustChangePassword) redirect("/admin/change-password");
   return admin;
 }
 
