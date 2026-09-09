@@ -25,7 +25,7 @@ export async function releaseSourceManifest(root = process.cwd()) {
   for (const file of files.sort()) {
     const bytes = await readFile(path.join(root, file));
     // Git normalizes source text between Windows checkouts and Linux builds.
-    const canonical = /\.(ts|tsx|js|mjs|json|css|sql|md|toml|txt|svg)$/i.test(file)
+    const canonical = /\.(ts|tsx|js|mjs|json|css|sql|prisma|md|toml|txt|svg)$/i.test(file)
       ? Buffer.from(bytes.toString("utf8").replace(/\r\n/g, "\n")) : bytes;
     hash.update(file).update("\0").update(createHash("sha256").update(canonical).digest("hex")).update("\n");
   }

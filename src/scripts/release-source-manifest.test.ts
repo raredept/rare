@@ -55,6 +55,23 @@ describe("release source fingerprint and standalone packaging", () => {
     expect((await manifest(crlf)).sourceSha256).not.toBe(baseline.sourceSha256);
   });
 
+  it.each(["CRLF", "mixed"])("canonicalizes %s Prisma schema newlines without hiding schema edits", async (newlines) => {
+    const root = await fixture();
+    const schemaPath = path.join(root, "prisma", "schema.prisma");
+    const schema = "model Product {\n  id String @id\n  title String\n}\n";
+    await writeFile(schemaPath, schema);
+    const baseline = await manifest(root);
+
+    const checkoutSchema = newlines === "CRLF"
+      ? schema.replaceAll("\n", "\r\n")
+      : schema.replace("\n", "\r\n");
+    await writeFile(schemaPath, checkoutSchema);
+    expect(await manifest(root)).toEqual(baseline);
+
+    await writeFile(schemaPath, checkoutSchema.replace("title String", "displayName String"));
+    expect((await manifest(root)).sourceSha256).not.toBe(baseline.sourceSha256);
+  });
+
   it("excludes environment files, private key files, generated code and user uploads from the fingerprint and public artifact", async () => {
     const root = await fixture();
     const baseline = await manifest(root);

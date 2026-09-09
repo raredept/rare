@@ -11,7 +11,8 @@ Este documento e o checklist operacional para configurar a RARE na Railway. Ele 
 - Production so deve usar Stripe live quando a venda aberta estiver autorizada.
 - Staging/homologacao deve usar Stripe test mode e banco isolado.
 - Enquanto venda aberta nao estiver liberada, mantenha `CHECKOUT_ENABLED=false` em Production.
-- Nao sobrescreva `PORT`; a Railway injeta essa variavel.
+- Neste projeto, os serviços web foram fixados em `HOSTNAME=0.0.0.0`, `PORT=8080`, com a mesma porta nos domínios. Preserve esse alinhamento em redeploys.
+- Configure `RAILPACK_NODE_NPM_INSTALL=npm ci` nos serviços que constroem o repositório para instalar o lockfile revisado. Referência: [Railpack](https://railpack.com/config/recommendations).
 - Nao transforme `Content-Security-Policy-Report-Only` em enforcement durante esta etapa.
 
 ## 2. Servicos Railway
@@ -45,6 +46,7 @@ A Railway injeta variaveis de sistema como `PORT`, `RAILWAY_ENVIRONMENT_NAME` e,
 | `CHECKOUT_ENABLED` | `false` | Sim | Alterar para `true` so depois da homologacao aprovada. |
 | `SHIPPING_ENABLED` | `false` | Sim neste RC | Impede cotacao automatica enquanto o checkout esta pausado. |
 | `EMAIL_DRIVER` | `disabled` | Sim neste RC | Outbox/SMTP implementados; entrega externa ainda não homologada. |
+| `RAILPACK_NODE_NPM_INSTALL` | `npm ci` | Sim no build | Instalação reproduzível do lockfile; variável de build do Railpack. |
 | `RATE_LIMIT_DRIVER` | `redis` | Sim para venda aberta | `memory` gera warning e nao e compartilhado entre replicas. |
 | `REDIS_URL` | `${{Redis.REDIS_URL}}` | Sim com Redis Railway | Conexao TCP privada com o Redis do projeto. |
 | `UPSTASH_REDIS_REST_URL` / `REDIS_REST_URL` | `https://...` | Sim com Redis | URL REST HTTPS. |
