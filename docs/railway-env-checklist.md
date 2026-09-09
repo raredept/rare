@@ -44,7 +44,7 @@ A Railway injeta variaveis de sistema como `PORT`, `RAILWAY_ENVIRONMENT_NAME` e,
 | `ADMIN_SESSION_SECRET` | `...32+ caracteres...` | Sim | `AUTH_SECRET` tambem e aceito como alias. |
 | `CHECKOUT_ENABLED` | `false` | Sim | Alterar para `true` so depois da homologacao aprovada. |
 | `SHIPPING_ENABLED` | `false` | Sim neste RC | Impede cotacao automatica enquanto o checkout esta pausado. |
-| `EMAIL_DRIVER` | `disabled` | Sim neste RC | Nenhum provider real no release candidate. |
+| `EMAIL_DRIVER` | `disabled` | Sim neste RC | Outbox/SMTP implementados; entrega externa ainda não homologada. |
 | `RATE_LIMIT_DRIVER` | `redis` | Sim para venda aberta | `memory` gera warning e nao e compartilhado entre replicas. |
 | `REDIS_URL` | `${{Redis.REDIS_URL}}` | Sim com Redis Railway | Conexao TCP privada com o Redis do projeto. |
 | `UPSTASH_REDIS_REST_URL` / `REDIS_REST_URL` | `https://...` | Sim com Redis | URL REST HTTPS. |

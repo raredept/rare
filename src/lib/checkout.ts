@@ -26,6 +26,7 @@ import { makeOrderNumber } from "@/lib/slug";
 import { releasableReservationStatuses, shouldReleaseReservationOnStatusChange } from "@/lib/order-status";
 import { notifyAdminsOfPaidOrder } from "@/lib/admin-notifications";
 import { getFirstOrderCouponDiscount, paidOrderStatuses } from "@/lib/coupons";
+import { enqueuePaidOrderEmail } from "@/lib/email-outbox";
 
 type CheckoutSessionCreateParams = NonNullable<Parameters<Stripe["checkout"]["sessions"]["create"]>[0]>;
 type CheckoutLineItem = NonNullable<CheckoutSessionCreateParams["line_items"]>[number];
@@ -292,6 +293,14 @@ async function finalizePaidOrder(
       paymentMethod: source.paymentMethod ?? order.paymentMethod,
       paidAt: new Date(),
     },
+  });
+
+  await enqueuePaidOrderEmail(tx, {
+    id: order.id,
+    orderNumber: order.orderNumber,
+    totalInCents: order.totalInCents,
+    customerEmailSnapshot: order.customerEmailSnapshot ?? source.customerDetails?.email ?? order.customerEmail,
+    customerNameSnapshot: order.customerNameSnapshot ?? source.customerDetails?.name ?? order.customerName,
   });
 
   return { status: "paid" as const, orderId: order.id };

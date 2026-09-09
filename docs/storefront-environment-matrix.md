@@ -29,9 +29,14 @@ sinônimo de segredo permitido no browser.
 | `STRIPE_PAYMENT_METHOD_TYPES` | Não | Não | Não | Sim | Dashboard Stripe | criação de sessão | Métodos dinâmicos do Dashboard quando checkout futuro estiver ativo |
 | `STRIPE_PRICE_CURRENCY` | Não | Não | Não | Sim | `BRL` no código | checkout | Usa moeda padrão |
 | `EMAIL_DRIVER` | Sim, `disabled` | Sim, `disabled` | Não | Não recomendado | `disabled` | e-mail transacional | Ausente também desabilita; driver desconhecido falha contido |
-| `EMAIL_FROM_ORDERS` | Cond. | Não | Não | Sim | Nenhum | provider futuro | Remetente de pedidos indisponível |
+| `EMAIL_FROM_ORDERS` | Cond. com SMTP | Não | Não | Sim com disabled | Nenhum | adaptador SMTP | Remetente de pedidos indisponível |
 | `EMAIL_FROM_SUPPORT` | Cond. | Não | Não | Sim | Nenhum | provider futuro | Remetente de suporte indisponível |
-| `EMAIL_REPLY_TO` | Cond. | Não | Não | Sim | Nenhum | provider futuro | Reply-To indisponível |
+| `EMAIL_REPLY_TO` | Opcional com SMTP | Não | Não | Sim | Nenhum | adaptador SMTP | Sem Reply-To adicional |
+| `EMAIL_DELIVERY_MODE` | `production` somente após aprovação | `test` no staging de homologação | Não | Só com disabled | Nenhum | worker SMTP | SMTP bloqueado se modo/ambiente não corresponderem |
+| `EMAIL_TEST_RECIPIENTS` | Não | Sim com SMTP test | Dado interno | Só com disabled | Nenhum | worker e adapter | SMTP de teste exige lista exata de caixas controladas |
+| `EMAIL_SEND_NOT_BEFORE` | Sim com SMTP | Sim com SMTP | Não | Só com disabled | Nenhum | claim da outbox | Não envia backlog anterior ao corte UTC explícito |
+| `SMTP_HOST`, `SMTP_PORT` | Cond. | Cond. | Não | Só com disabled | Host sem default | adaptador SMTP | Exige host da conta e porta TLS 465/587 |
+| `SMTP_USER`, `SMTP_PASSWORD` | Cond. | Cond. | Sim | Só com disabled | Nenhum | adaptador SMTP | Credencial obrigatória; nunca NEXT_PUBLIC |
 | `NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY` | Cond. | Não | Não, é pública | Sim | Vazia | Admin/browser | UI de Push informa não configurado |
 | `WEB_PUSH_VAPID_PRIVATE_KEY` | Cond. | Não | Sim | Sim | Vazia | envio Web Push | Push desabilitado |
 | `WEB_PUSH_CONTACT` | Cond. | Não | Não | Sim | Nenhum | Web Push | Provider futuro sem contato operacional |

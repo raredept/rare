@@ -19,6 +19,9 @@ const mocks = vi.hoisted(() => {
     inventoryMovement: {
       create: vi.fn(),
     },
+    emailOutbox: {
+      createMany: vi.fn(),
+    },
   };
 
   return {
@@ -66,6 +69,7 @@ describe("processStripeCheckoutEvent", () => {
     expect(mocks.tx.inventoryMovement.create).not.toHaveBeenCalled();
     expect(mocks.tx.order.update).not.toHaveBeenCalled();
     expect(mocks.notifyAdminsOfPaidOrder).not.toHaveBeenCalled();
+    expect(mocks.tx.emailOutbox.createMany).not.toHaveBeenCalled();
   });
 
   it("creates an admin notification after a Stripe checkout event confirms payment", async () => {
@@ -123,5 +127,14 @@ describe("processStripeCheckoutEvent", () => {
 
     expect(result).toEqual({ status: "paid", orderId: "order_1" });
     expect(mocks.notifyAdminsOfPaidOrder).toHaveBeenCalledWith("order_1");
+    expect(mocks.tx.emailOutbox.createMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({
+        orderId: "order_1", kind: "payment_approved", recipient: "cliente@example.com",
+        customerName: "Cliente Teste", orderNumber: "RARE-PAID", totalInCents: 10000,
+      })],
+      skipDuplicates: true,
+    });
+    expect(mocks.tx.order.update.mock.invocationCallOrder[0]).toBeLessThan(mocks.tx.emailOutbox.createMany.mock.invocationCallOrder[0]);
+    expect(mocks.tx.emailOutbox.createMany.mock.invocationCallOrder[0]).toBeLessThan(mocks.notifyAdminsOfPaidOrder.mock.invocationCallOrder[0]);
   });
 });

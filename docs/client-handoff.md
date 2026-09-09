@@ -1,5 +1,11 @@
 # Handoff técnico — RARE
 
+> Estado vigente: [FINAL_RELEASE_STATUS.md](../FINAL_RELEASE_STATUS.md). As listas
+> abaixo documentam o handoff anterior; a execução autorizada de 2026-09-07 já
+> publicou autenticação, uploads endurecidos e fontes locais, criou staging
+> isolado e comprovou Stripe test. Os gates externos restantes estão no registro
+> vigente. Vendas reais continuam desativadas.
+
 ## 1. Resumo executivo
 
 O projeto está tecnicamente preparado para staging/homologação. Várias pendências do relatório foram resolvidas no código, mas venda aberta ainda depende de configuração real do cliente na Railway, Redis/Upstash, Stripe, R2, Melhor Envio e bancos isolados.
@@ -18,12 +24,12 @@ As auditorias iniciais não tinham acesso aos painéis externos. A consolidaçã
 | Performance de mídia | Upload server-routed pode gerar thumbnail 640 e medium 1200 em WEBP; cards/detail/banner/OG usam variantes reais e zoom usa o original. | Preparado no código para novos uploads elegíveis | Ver [docs/media-optimization.md](./media-optimization.md), rodar `npm run media:variants:audit`, reenviar uma fixture em staging e inspecionar `src`/`srcSet`. |
 | Rate limit | Suporte a Redis/Upstash REST com fallback `memory` para dev/test. | Depende de envs | Ver [docs/rate-limit.md](./rate-limit.md) e `/api/health`. |
 | Categorias | Categorias vazias ocultadas da navegação pública/home/sitemap, sem apagar do Admin. | Preparado no código | Conferir navegação pública, home e sitemap. |
-| Segurança HTTP | CSP progressiva adicionada em `Content-Security-Policy-Report-Only`. | Preparado no código | `npm run smoke -- https://raredept.com.br`. |
+| Segurança HTTP | Headers de proteção existentes; CSP experimental foi removida e não está ativa. | Verificado no smoke público | `npm run smoke -- https://raredept.com.br`. |
 | Metadata | Metadata de `/entrar` e `/cadastro` corrigida. | Preparado no código | Conferir HTML/head nas rotas. |
 | Dados estruturados | JSON-LD `Organization` e `BreadcrumbList` adicionados. | Preparado no código | Inspecionar HTML das páginas públicas. |
 | Checkout seguro | Guard criado para impedir smoke inseguro com Stripe live, domínio de produção ou banco suspeito. | Preparado no código | `npm run checkout:smoke`. |
 | Storage local | Storage local endurecido e warning de Turbopack corrigido. | Preparado no código | `npm run build` e upload local em dev. |
-| Primeiro acesso Admin | Conta temporária fica restrita à troca de senha; a troca invalida senha e sessões anteriores. | ADMIN 2 básico publicado; invalidação de sessões anteriores ainda local | `npm run qa:admin-access` e `npm run qa:e2e:isolated`; publicar um novo release autorizado para levar o endurecimento adicional ao site. |
+| Primeiro acesso Admin | Conta temporária fica restrita à troca de senha; a troca invalida senha e sessões anteriores. | Publicado no release técnico de 2026-09-07 | `npm run qa:admin-access` e `npm run qa:e2e:isolated`; senhas definitivas dos administradores foram preservadas. |
 | Fontes | Geist Sans/Mono servidas por arquivos locais com licença OFL; sem chamada a Google Fonts no build. | Preparado no código | Build com rede de fontes bloqueada e `npm run lighthouse`. |
 | Catálogo/Admin | Admin bloqueia produto ativo sem peso/dimensões. | Preparado no código | Tentar ativar produto incompleto no Admin. |
 | Smoke público | Smoke público local criado. | Preparado no código | `npm run smoke -- https://raredept.com.br`. |

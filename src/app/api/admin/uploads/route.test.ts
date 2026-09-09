@@ -203,17 +203,26 @@ describe("admin uploads route", () => {
   });
 
   it("does not expose internal processing or storage errors", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
     routeMocks.saveUploadedImage.mockRejectedValueOnce(
       new Error("sharp failed with R2_SECRET_ACCESS_KEY=configured-secret-key"),
     );
     const formData = new FormData();
     formData.append("files", new File([new Uint8Array([1])], "produto.png", { type: "image/png" }));
 
-    const response = await POST(buildUploadRequest(formData) as never);
-    const text = await response.text();
+    try {
+      const response = await POST(buildUploadRequest(formData) as never);
+      const text = await response.text();
 
-    expect(response.status).toBe(400);
-    expect(text).toContain("Falha ao processar ou armazenar");
-    expect(text).not.toContain("configured-secret-key");
+      expect(response.status).toBe(400);
+      expect(text).toContain("Falha ao processar ou armazenar");
+      expect(text).not.toContain("configured-secret-key");
+      expect(log).toHaveBeenCalledWith("admin_upload_failure", {
+        errorName: "Error", code: null, httpStatus: null, causeCategory: "unclassified",
+      });
+      expect(JSON.stringify(log.mock.calls)).not.toContain("configured-secret-key");
+    } finally {
+      log.mockRestore();
+    }
   });
 });

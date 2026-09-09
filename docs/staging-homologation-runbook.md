@@ -1,5 +1,10 @@
 # Runbook de preview e staging do release candidate
 
+> Histórico do RC de catálogo. Para a execução atual, escopo/autorização em
+> `RARE_FINALIZACAO_PROMPT.md` e estado em `FINAL_RELEASE_STATUS.md` prevalecem.
+> Homologação SMTP controlada agora segue [transactional-email.md](transactional-email.md);
+> produção permanece com driver desabilitado.
+
 Este runbook prepara um ambiente de catálogo para revisão. Ele não autoriza mudança
 na Railway, DNS, checkout, pagamento, cotação, e-mail, Push, cron ou backfill. O modo
 obrigatório deste RC é `CHECKOUT_ENABLED=false` e `SHIPPING_ENABLED=false`.

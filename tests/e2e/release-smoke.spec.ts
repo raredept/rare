@@ -26,7 +26,11 @@ function isProductionBaseUrl(baseURL: string) {
 }
 
 test.beforeEach(async ({ page, baseURL }) => {
-  await blockExternalRequests(page, baseURL);
+  // Production serves its real media from R2 and injects Cloudflare resources.
+  // Blocking those hosts makes this remote smoke report failures it created.
+  if (!baseURL || !isProductionBaseUrl(baseURL)) {
+    await blockExternalRequests(page, baseURL);
+  }
 });
 
 test("rotas essenciais têm h1, canonical seguro, metadata limpa e nenhum overflow crítico", async ({ page, baseURL }) => {

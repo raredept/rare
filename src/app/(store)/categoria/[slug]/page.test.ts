@@ -1,6 +1,6 @@
 import { createElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import CategoryPage, { generateMetadata } from "@/app/(store)/categoria/[slug]/page";
 import { absoluteUrl } from "@/lib/seo";
 
@@ -51,8 +51,13 @@ function getJsonLdScripts(html: string) {
 describe("store category page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("APP_ENV", "production");
+    vi.stubEnv("APP_URL", "https://raredept.com.br");
     mocks.getAppUrl.mockReturnValue("https://raredept.com.br");
   });
+
+  afterEach(() => vi.unstubAllEnvs());
 
   it("renders the featured virtual category page", async () => {
     mocks.getCategoryPageData.mockResolvedValueOnce({

@@ -34,6 +34,15 @@ enum InventoryMovementType {
   manual
 }
 
+enum EmailOutboxStatus {
+  pending
+  sending
+  retry
+  accepted
+  failed
+  uncertain
+}
+
 model User {
   id                     String                  @id @default(cuid())
   name                   String
@@ -208,6 +217,7 @@ model Order {
   items                   OrderItem[]
   inventoryMovements      InventoryMovement[]
   adminNotifications      AdminNotification[]
+  emailOutbox             EmailOutbox[]
   createdAt               DateTime            @default(now())
   updatedAt               DateTime            @updatedAt
 
@@ -216,6 +226,36 @@ model Order {
   @@index([customerId, createdAt])
   @@index([customerEmailSnapshot])
   @@index([stripePaymentIntentId])
+}
+
+// Payment and enqueue commit together; SMTP runs only after this transaction.
+// accepted means SMTP acceptance, never confirmed inbox delivery.
+model EmailOutbox {
+  id                String            @id @default(cuid())
+  orderId           String
+  order             Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  kind              String            @default("payment_approved")
+  recipient         String?
+  customerName      String?
+  orderNumber       String
+  totalInCents      Int
+  messageId         String            @unique
+  status            EmailOutboxStatus @default(pending)
+  attempts          Int               @default(0)
+  nextAttemptAt     DateTime          @default(now())
+  leaseToken        String?
+  leaseExpiresAt    DateTime?
+  provider          String?
+  acceptedAt        DateTime?
+  lastErrorCode     String?
+  reviewedAt        DateTime?
+  reviewNote        String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@unique([orderId, kind])
+  @@index([status, nextAttemptAt, createdAt])
+  @@index([status, leaseExpiresAt])
 }
 
 model AdminNotification {

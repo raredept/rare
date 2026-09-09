@@ -13,6 +13,7 @@ import {
 import { getProductShippingNotReadyWhere } from "@/lib/product-shipping-readiness-prisma";
 import { getServerRuntimeMetadata } from "@/lib/server-action-observability";
 import { getReleaseArtifact } from "@/lib/release-artifact";
+import { getEmailConfigurationStatus } from "@/lib/email-config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -253,9 +254,7 @@ export async function GET() {
       operational: {
         summary: {
           checkout: env.checkoutEnabled ? "enabled" : "intentionally_disabled",
-          email: clean(process.env.EMAIL_DRIVER)?.toLowerCase() === "disabled" || !clean(process.env.EMAIL_DRIVER)
-            ? "intentionally_disabled"
-            : "configured",
+          email: getEmailConfigurationStatus(),
           melhorEnvio: storeSettingsShipping.effectiveProvider === "melhor_envio"
             ? (getShippingEnvironmentSummary().melhorEnvio.tokenConfigured ? "configured" : "missing_required_configuration")
             : "awaiting_explicit_activation",

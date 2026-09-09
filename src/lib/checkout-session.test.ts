@@ -31,6 +31,9 @@ const mocks = vi.hoisted(() => {
     inventoryMovement: {
       create: vi.fn(),
     },
+    emailOutbox: {
+      createMany: vi.fn(),
+    },
   };
 
   const stripeSessionsCreate = vi.fn();

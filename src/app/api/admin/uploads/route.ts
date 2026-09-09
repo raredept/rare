@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { rateLimit } from "@/lib/rate-limit";
+import { getUploadFailureDiagnostic } from "@/lib/upload-observability";
 import {
   getPublicUploadErrorMessage,
   normalizeUploadContext,
@@ -79,6 +80,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ uploads });
   } catch (error) {
-    return NextResponse.json({ error: getPublicUploadErrorMessage(error) }, { status: 400 });
+    const message = getPublicUploadErrorMessage(error);
+    if (message === "Falha ao processar ou armazenar a mídia.") {
+      console.error("admin_upload_failure", getUploadFailureDiagnostic(error));
+    }
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }

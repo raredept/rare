@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   deliverTransactionalEmail,
   renderOrderConfirmationEmail,
@@ -7,6 +7,9 @@ import {
   renderPaymentDeclinedEmail,
   renderSupportContactEmail,
 } from "@/lib/transactional-email";
+
+const messageId = `<rare-${"a".repeat(64)}@raredept.com.br>`;
+afterEach(() => vi.unstubAllEnvs());
 
 const order = {
   to: "cliente@example.com",
@@ -49,8 +52,9 @@ describe("transactional email", () => {
   });
 
   it("is safely disabled by default without calling a provider", async () => {
+    vi.stubEnv("EMAIL_DRIVER", "disabled");
     const provider = { name: "future-provider", send: vi.fn(async () => ({ id: "message-1" })) };
-    const result = await deliverTransactionalEmail(renderOrderConfirmationEmail(order), provider);
+    const result = await deliverTransactionalEmail(renderOrderConfirmationEmail(order), messageId, provider);
 
     expect(result).toEqual({ status: "disabled" });
     expect(provider.send).not.toHaveBeenCalled();
@@ -61,9 +65,10 @@ describe("transactional email", () => {
     const provider = { name: "future-provider", send: vi.fn(async () => { throw new Error("secret provider payload"); }) };
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
-    await expect(deliverTransactionalEmail(renderPaymentApprovedEmail(order), provider)).resolves.toEqual({
-      status: "failed",
+    await expect(deliverTransactionalEmail(renderPaymentApprovedEmail(order), messageId, provider)).resolves.toEqual({
+      status: "uncertain",
       provider: "future-provider",
+      code: "UnclassifiedProviderFailure",
     });
     expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining("secret provider payload"));
     vi.unstubAllEnvs();
@@ -74,9 +79,10 @@ describe("transactional email", () => {
     vi.stubEnv("EMAIL_DRIVER", "future-provider");
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
-    await expect(deliverTransactionalEmail(renderPaymentApprovedEmail(order))).resolves.toEqual({
+    await expect(deliverTransactionalEmail(renderPaymentApprovedEmail(order), messageId)).resolves.toEqual({
       status: "failed",
-      provider: "future-provider",
+      provider: "unconfigured",
+      code: "ProviderNotConfigured",
     });
     vi.unstubAllEnvs();
     consoleSpy.mockRestore();

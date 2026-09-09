@@ -127,6 +127,11 @@ textarea {
   background-color: #101010;
 }
 
+.admin-dark a[aria-current="page"] {
+  background-color: #ffffff;
+  color: #000000;
+}
+
 .admin-dark .bg-neutral-50 {
   background-color: #151515;
 }

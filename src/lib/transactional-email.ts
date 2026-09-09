@@ -16,8 +16,22 @@ export type TransactionalEmailMessage = {
 
 export type TransactionalEmailProvider = {
   name: string;
-  send(message: TransactionalEmailMessage): Promise<{ id?: string }>;
+  send(message: TransactionalEmailMessage, messageId: string): Promise<{ id: string }>;
 };
+
+export type EmailDeliveryResult =
+  | { status: "disabled" }
+  | { status: "accepted"; provider: string; id: string }
+  | { status: "retry" | "failed" | "uncertain"; provider: string; code: string };
+
+// Only explicit, sanitized codes cross the provider boundary. An unclassified
+// error may have occurred after SMTP accepted DATA, so it is never retried blind.
+export class EmailDeliveryError extends Error {
+  constructor(readonly outcome: "retry" | "failed" | "uncertain", readonly code: string) {
+    super(code);
+    this.name = "EmailDeliveryError";
+  }
+}
 
 export type OrderEmailInput = {
   to: string;
@@ -102,27 +116,28 @@ export function renderSupportContactEmail(input: SupportEmailInput): Transaction
   };
 }
 
-export function getTransactionalEmailDriver(env: NodeJS.ProcessEnv = process.env) {
+export function getTransactionalEmailDriver(env: Record<string, string | undefined> = process.env) {
   return env.EMAIL_DRIVER?.trim().toLowerCase() || "disabled";
 }
 
 export async function deliverTransactionalEmail(
   message: TransactionalEmailMessage,
+  messageId: string,
   provider?: TransactionalEmailProvider,
-) {
-  const driver = getTransactionalEmailDriver();
+  env: Record<string, string | undefined> = process.env,
+): Promise<EmailDeliveryResult> {
+  const driver = getTransactionalEmailDriver(env);
   if (driver === "disabled") return { status: "disabled" as const };
   if (!provider || provider.name !== driver) {
-    console.error("[transactional-email] delivery failed", { provider: driver, error: "ProviderNotConfigured" });
-    return { status: "failed" as const, provider: driver };
+    return { status: "failed", provider: "unconfigured", code: "ProviderNotConfigured" };
   }
 
   try {
-    const result = await provider.send(message);
-    return { status: "sent" as const, provider: provider.name, id: result.id };
+    const result = await provider.send(message, messageId);
+    return { status: "accepted", provider: provider.name, id: result.id };
   } catch (error) {
-    const name = error instanceof Error ? error.name : "UnknownError";
-    console.error("[transactional-email] delivery failed", { provider: provider.name, error: name });
-    return { status: "failed" as const, provider: provider.name };
+    return error instanceof EmailDeliveryError
+      ? { status: error.outcome, provider: provider.name, code: error.code }
+      : { status: "uncertain", provider: provider.name, code: "UnclassifiedProviderFailure" };
   }
 }

@@ -73,6 +73,7 @@ async function main() {
       assert.equal(variant.stock, expectedStock);
       assert.equal(variant.reservedStock, 0);
       assert.equal(await prisma.inventoryMovement.count({ where: { orderId, type: "sale" } }), 1);
+      assert.equal(await prisma.emailOutbox.count({ where: { orderId, kind: "payment_approved" } }), 1);
     }
     const proofs: string[] = [];
     const last = await product();
