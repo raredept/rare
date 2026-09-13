@@ -3,6 +3,7 @@
 import {
   ArrowLeft,
   ArrowRight,
+  Crop,
   Film,
   ImageIcon,
   ImageOff,
@@ -13,6 +14,9 @@ import {
   XCircle,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import dynamic from "next/dynamic";
+import type { ProductImageEditorAsset, ProductImageReference } from "@/lib/product-image-framing";
+import editorStyles from "./product-image-editor.module.css";
 import {
   PRODUCT_MEDIA_LIMIT,
   classifyProductImageUrl,
@@ -35,10 +39,12 @@ import {
 } from "@/lib/upload-limits";
 
 type ProductImageManagerProps = {
-  images: { url: string }[];
+  images: { id?: string; url: string }[];
 };
 
-type UploadStatus = "uploading" | "uploaded" | "error";
+const ProductImageEditor = dynamic(() => import("@/components/admin/product-image-editor"), { ssr: false });
+
+type UploadStatus = "uploading" | "uploaded" | "error" | "canceled";
 
 type UploadItem = {
   id: string;
@@ -61,8 +67,13 @@ export function ProductImageManager({ images }: ProductImageManagerProps) {
   const [replaceMedia, setReplaceMedia] = useState(() => shouldReplaceProductImagesByDefault(initialUrls));
   const [manualOpen, setManualOpen] = useState(false);
   const [uploadItems, setUploadItems] = useState<UploadItem[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [editorError, setEditorError] = useState("");
+  const [references, setReferences] = useState<Record<string, ProductImageReference>>(() => Object.fromEntries(images.filter((image) => image.id).map((image) => [image.url, { productImageId: image.id! }])));
+  const [editor, setEditor] = useState<{ asset: ProductImageEditorAsset; complete: (asset: ProductImageEditorAsset | null) => void } | null>(null);
+  const sectionRef = useRef<HTMLElement>(null);
   const objectUrlsRef = useRef<string[]>([]);
-  const uploadDisabled = replaceMedia ? false : mediaUrls.length >= PRODUCT_MEDIA_LIMIT;
+  const uploadDisabled = uploading || (replaceMedia ? false : mediaUrls.length >= PRODUCT_MEDIA_LIMIT);
   const mediaCountLabel = `${mediaUrls.length}/${PRODUCT_MEDIA_LIMIT} mídias adicionadas`;
   const coverUrl = mediaUrls[0] ?? null;
 
@@ -74,6 +85,35 @@ export function ProductImageManager({ images }: ProductImageManagerProps) {
       }
     };
   }, []);
+
+  useEffect(() => {
+    const form = sectionRef.current?.closest("form");
+    function guard(event: Event) { if (uploading || editor) { event.preventDefault(); setEditorError("Conclua ou cancele o enquadramento antes de salvar o produto."); } }
+    form?.addEventListener("submit", guard);
+    return () => form?.removeEventListener("submit", guard);
+  }, [uploading, editor]);
+
+  function editAsset(asset: ProductImageEditorAsset) {
+    if (!asset.editable) return Promise.resolve(asset);
+    return new Promise<ProductImageEditorAsset | null>((complete) => setEditor({ asset, complete }));
+  }
+
+  async function openExistingEditor(url: string) {
+    setEditorError("");
+    try {
+      const reference = references[url];
+      if (!reference) throw new Error("Salve o produto para editar esta mídia já cadastrada, ou envie o original pelo upload.");
+      const response = await fetch("/api/admin/product-images/editor", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "prepare", reference }) });
+      const body = await response.json();
+      if (!response.ok || !body.asset) throw new Error(body.error ?? "Não foi possível abrir o editor.");
+      if (!body.asset.editable) throw new Error("Animações são preservadas. O editor aceita apenas imagens estáticas.");
+      const result = await editAsset(body.asset);
+      if (result) {
+        setReferences((current) => ({ ...current, [result.url]: result.reference }));
+        setMediaUrls((current) => current.map((value) => value === url ? result.url : value));
+      }
+    } catch (error) { setEditorError(error instanceof Error ? error.message : "Falha ao abrir o editor."); }
+  }
 
   const manualValue = useMemo(() => mediaUrls.join("\n"), [mediaUrls]);
 
@@ -90,6 +130,8 @@ export function ProductImageManager({ images }: ProductImageManagerProps) {
     const selectedFiles = Array.from(event.target.files ?? []);
     event.currentTarget.value = "";
     if (!selectedFiles.length) return;
+    setUploading(true);
+    setEditorError("");
 
     const uploadableFiles = selectedFiles.filter((file) => !isOverServerRoutedUploadLimit(file));
     const oversizedFiles = selectedFiles.filter((file) => isOverServerRoutedUploadLimit(file));
@@ -133,12 +175,28 @@ export function ProductImageManager({ images }: ProductImageManagerProps) {
       if (!itemId) continue;
 
       try {
-        const uploadedUrl = await uploadAdminMediaFile(file, {
+        let uploadedUrl: string;
+        if (["image/jpeg", "image/png", "image/webp", "image/avif"].includes(file.type)) {
+          const form = new FormData();
+          form.set("file", file);
+          const response = await fetch("/api/admin/product-images/editor", { method: "POST", body: form });
+          const body = await response.json();
+          if (!response.ok || !body.asset) throw new Error(body.error ?? "Falha ao enviar imagem.");
+          const result = await editAsset(body.asset);
+          if (!result) {
+            setUploadItems((current) => current.map((item) => item.id === itemId ? { ...item, status: "canceled" } : item));
+            continue;
+          }
+          uploadedUrl = result.url;
+          setReferences((current) => ({ ...current, [result.url]: result.reference }));
+        } else {
+          uploadedUrl = await uploadAdminMediaFile(file, {
           context: "products",
           onProgress: (progress) => {
             setUploadItems((current) => current.map((item) => (item.id === itemId ? { ...item, progress } : item)));
           },
-        });
+          });
+        }
         uploadedUrls.push(uploadedUrl);
         setUploadItems((current) =>
           current.map((item) => (item.id === itemId ? { ...item, status: "uploaded", progress: 100, uploadedUrl } : item)),
@@ -161,11 +219,16 @@ export function ProductImageManager({ images }: ProductImageManagerProps) {
     if (replaceCurrentBatch && uploadedUrls.length) {
       setReplaceMedia(false);
     }
+    setUploading(false);
   }
 
   return (
-    <section className="space-y-5 rounded-lg border border-neutral-800 bg-neutral-950/70 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
+    <section ref={sectionRef} className="space-y-5 rounded-lg border border-neutral-800 bg-neutral-950/70 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
       <input type="hidden" name="imageUrls" value={mediaUrls.join("\n")} />
+      {editor ? <ProductImageEditor key={JSON.stringify(editor.asset.reference)} asset={editor.asset}
+        onApply={(asset) => { editor.complete(asset); setEditor(null); }}
+        onCancel={() => { editor.complete(null); setEditor(null); }} /> : null}
+      {editorError ? <p role="alert" className="text-sm text-red-200">{editorError}</p> : null}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -185,7 +248,7 @@ export function ProductImageManager({ images }: ProductImageManagerProps) {
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500">Capa atual</span>
             {coverUrl ? <MediaBadge>CAPA</MediaBadge> : null}
           </div>
-          <div className="aspect-[4/3] max-h-[380px]">
+          <div className={`${editorStyles.frame} mx-auto aspect-[4/5] max-w-[320px]`}>
             {coverUrl ? (
               <MediaPreview
                 alt="Capa do produto"
@@ -224,6 +287,7 @@ export function ProductImageManager({ images }: ProductImageManagerProps) {
             <input
               name="replaceImages"
               type="checkbox"
+              disabled={uploading}
               checked={replaceMedia}
               className="mt-0.5 h-4 w-4 accent-white"
               onChange={(event) => setReplaceMedia(event.target.checked)}
@@ -267,6 +331,7 @@ export function ProductImageManager({ images }: ProductImageManagerProps) {
                     </p>
                   ) : null}
                   {item.status === "error" ? <p className="mt-1 text-xs font-bold text-red-200">{item.error}</p> : null}
+                  {item.status === "canceled" ? <p className="mt-1 text-xs text-neutral-400">Cancelado. A mídia anterior foi mantida.</p> : null}
                 </div>
               </div>
             ))}
@@ -300,7 +365,7 @@ export function ProductImageManager({ images }: ProductImageManagerProps) {
                   key={url}
                   className="admin-media-card overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900/70 transition hover:border-neutral-600 hover:bg-neutral-900"
                 >
-                  <div className="relative aspect-[4/3] bg-black">
+                  <div className={`${editorStyles.frame} relative aspect-[4/5]`}>
                     <MediaPreview
                       alt={`Mídia ${index + 1}`}
                       broken={broken}
@@ -348,6 +413,10 @@ export function ProductImageManager({ images }: ProductImageManagerProps) {
                       </button>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                      {mediaType === "image" ? <button type="button" disabled={uploading || broken}
+                        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-neutral-700 px-3 py-2 text-xs font-black text-neutral-200 hover:bg-white hover:text-black focus-visible:ring-2 focus-visible:ring-white disabled:opacity-40"
+                        onClick={() => void openExistingEditor(url)}><Crop className="h-4 w-4" aria-hidden="true" />Enquadrar imagem {index + 1}</button> :
+                        <p className="text-xs text-neutral-400">GIFs e vídeos mantêm seu formato original, sem recorte.</p>}
                       {index > 0 ? (
                         <button
                           type="button"

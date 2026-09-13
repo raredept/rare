@@ -165,4 +165,28 @@ describe("ProductCard", () => {
     expect(html).toContain("Consulte disponibilidade");
     expect(html).not.toContain("3x sem juros");
   });
+
+  it("keeps a reserved-out product linked with its image, price and sold-out label while sales are paused", () => {
+    const html = renderToStaticMarkup(createElement(ProductCard, {
+      product: { ...baseProduct, images: [{ url: "/uploads/products/front.webp", alt: "Frente" }],
+        variants: [{ stock: 3, reservedStock: 3, active: true }, { stock: 20, reservedStock: 0, active: false }] },
+      commerce: buildStorefrontCommerceState(false),
+    }));
+    expect(html).toContain('href="/produto/supreme-bag"');
+    expect(html).toContain("529,99");
+    expect(html).toContain("Esgotado");
+    expect(html).toContain(encodeURIComponent("/uploads/products/front.webp"));
+    expect(html).not.toContain("Consulte disponibilidade");
+  });
+
+  it("remains available with one sellable variant without promising unverified installments", () => {
+    const html = renderToStaticMarkup(createElement(ProductCard, {
+      product: { ...baseProduct, images: [], variants: [
+        { stock: 3, reservedStock: 3, active: true }, { stock: 1, reservedStock: 0, active: true },
+      ] }, commerce: buildStorefrontCommerceState(true),
+    }));
+    expect(html).not.toContain("Esgotado");
+    expect(html).not.toContain("3x sem juros");
+    expect(html).toContain("Disponível");
+  });
 });

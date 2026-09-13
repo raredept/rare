@@ -6,6 +6,7 @@ import { createBannerAction, updateBannerAction } from "@/app/admin/(protected)/
 import { AdminSubmitButton } from "@/components/admin/admin-submit-button";
 import { uploadAdminMediaFile } from "@/lib/admin-upload-client";
 import type { HomeBannerSlide } from "@/lib/home-banners";
+import { bannerPlacements, type BannerPlacement } from "@/lib/banner-placement";
 import { getProductMediaTypeFromUrl } from "@/lib/product-media";
 import { BANNER_UPLOAD_HELP_TEXT, isOverServerRoutedUploadLimit, serverRoutedUploadLimitMessage } from "@/lib/upload-limits";
 
@@ -18,6 +19,12 @@ type HomeBannerFormProps = {
 type UploadTarget = "desktop" | "mobile";
 
 type FormState = {
+  placement: BannerPlacement;
+  imageFit: "cover" | "contain";
+  imagePositionX: number;
+  imagePositionY: number;
+  mobileImagePositionX: number;
+  mobileImagePositionY: number;
   active: boolean;
   eyebrow: string;
   title: string;
@@ -32,6 +39,12 @@ type FormState = {
 
 function initialState(banner: HomeBannerSlide | undefined, nextSortOrder: number): FormState {
   return {
+    placement: banner?.placement ?? "home",
+    imageFit: banner?.imageFit ?? "cover",
+    imagePositionX: banner?.imagePositionX ?? 50,
+    imagePositionY: banner?.imagePositionY ?? 50,
+    mobileImagePositionX: banner?.mobileImagePositionX ?? 50,
+    mobileImagePositionY: banner?.mobileImagePositionY ?? 50,
     active: banner?.active ?? true,
     eyebrow: banner?.eyebrow ?? "",
     title: banner?.title ?? "",
@@ -52,6 +65,7 @@ export function HomeBannerForm({ banner, error, nextSortOrder }: HomeBannerFormP
   const [uploadError, setUploadError] = useState<string | null>(null);
   const action = banner ? updateBannerAction : createBannerAction;
   const hasImage = Boolean(state.imageUrl.trim());
+  const isLogin = state.placement !== "home";
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setState((current) => ({ ...current, [key]: value }));
@@ -61,6 +75,10 @@ export function HomeBannerForm({ banner, error, nextSortOrder }: HomeBannerFormP
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = "";
     if (!file) return;
+    if (isLogin && ["image/gif", "video/mp4"].includes(file.type)) {
+      setUploadError("No login, use uma imagem estática JPG, PNG, WEBP ou AVIF.");
+      return;
+    }
 
     if (isOverServerRoutedUploadLimit(file)) {
       setUploadError(serverRoutedUploadLimitMessage("Mídia"));
@@ -106,7 +124,7 @@ export function HomeBannerForm({ banner, error, nextSortOrder }: HomeBannerFormP
               {banner ? "Editar banner" : "Novo banner"}
             </h2>
             <p className="mt-1 text-xs font-semibold leading-5 text-neutral-500">
-              Use JPG, PNG, WEBP, AVIF, GIF ou MP4. Desktop recomendado: 1920x650. Mobile recomendado: 1080x1350.
+              {isLogin ? "Login: JPG, PNG, WEBP ou AVIF. Use uma arte vertical no desktop e uma horizontal no mobile." : "Use JPG, PNG, WEBP, AVIF, GIF ou MP4. Desktop recomendado: 1920x650. Mobile recomendado: 1080x1350."}
             </p>
             <p className="mt-1 text-xs font-semibold leading-5 text-neutral-500">
               Imagens estáticas enviadas pelo Admin podem gerar versões otimizadas para catálogo e detalhe. GIF e MP4 mantêm o original.
@@ -123,6 +141,13 @@ export function HomeBannerForm({ banner, error, nextSortOrder }: HomeBannerFormP
             Ativo
           </label>
         </div>
+
+        <Field label="Destino do banner">
+          <select name="placement" value={state.placement} className="admin-input" onChange={(event) => updateField("placement", event.target.value as BannerPlacement)}>
+            {Object.entries(bannerPlacements).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
+        </Field>
+        {isLogin ? <p className="text-xs leading-5 text-neutral-400">O login usa o primeiro banner ativo deste destino pela ordem definida. Sem imagem ativa, exibe o logo da RARE. O formulário de acesso permanece ao lado no desktop e abaixo no mobile.</p> : null}
 
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Eyebrow">
@@ -200,7 +225,7 @@ export function HomeBannerForm({ banner, error, nextSortOrder }: HomeBannerFormP
         {state.active && !state.imageUrl ? (
           <div className="flex items-start gap-3 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-3 text-xs font-bold leading-5 text-amber-100">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-            Banner ativo sem imagem usa o placeholder premium da home.
+            {isLogin ? "Sem imagem, o login usa o logo padrão da RARE." : "Banner ativo sem imagem usa o placeholder premium da home."}
           </div>
         ) : null}
 
@@ -210,14 +235,36 @@ export function HomeBannerForm({ banner, error, nextSortOrder }: HomeBannerFormP
             uploading={uploading === "desktop"}
             progress={uploading === "desktop" ? uploadProgress : null}
             onChange={(event) => onUploadChange("desktop", event)}
+            staticOnly={isLogin}
           />
           <UploadField
             label="Mídia mobile opcional"
             uploading={uploading === "mobile"}
             progress={uploading === "mobile" ? uploadProgress : null}
             onChange={(event) => onUploadChange("mobile", event)}
+            staticOnly={isLogin}
           />
         </div>
+
+        {isLogin ? (
+          <section className="space-y-4 rounded-lg border border-neutral-800 p-4">
+            <h3 className="text-sm font-bold text-neutral-200">Enquadramento do login</h3>
+            <Field label="Ajuste da imagem">
+              <select name="imageFit" value={state.imageFit} className="admin-input" onChange={(event) => updateField("imageFit", event.target.value as FormState["imageFit"])}>
+                <option value="cover">Preencher com recorte</option><option value="contain">Encaixar imagem inteira</option>
+              </select>
+            </Field>
+            {([
+              ["imagePositionX", "Desktop: posição horizontal"], ["imagePositionY", "Desktop: posição vertical"],
+              ["mobileImagePositionX", "Mobile: posição horizontal"], ["mobileImagePositionY", "Mobile: posição vertical"],
+            ] as const).map(([name, label]) => (
+              <Field key={name} label={`${label} (${state[name]}%)`}>
+                <input name={name} type="range" min={0} max={100} value={state[name]} className="min-h-11 w-full accent-white" onChange={(event) => updateField(name, Number(event.target.value))} />
+              </Field>
+            ))}
+            <button type="button" className="min-h-11 rounded-md border border-neutral-600 px-4 text-sm font-bold text-neutral-200" onClick={() => setState((current) => ({ ...current, imageFit: "cover", imagePositionX: 50, imagePositionY: 50, mobileImagePositionX: 50, mobileImagePositionY: 50 }))}>Redefinir enquadramento</button>
+          </section>
+        ) : null}
 
         <details className="rounded-lg border border-neutral-800 bg-black p-4">
           <summary className="cursor-pointer text-xs font-black uppercase tracking-wide text-neutral-300">
@@ -243,13 +290,14 @@ export function HomeBannerForm({ banner, error, nextSortOrder }: HomeBannerFormP
         <AdminSubmitButton
           idleLabel={banner ? "Salvar banner" : "Criar banner"}
           pendingLabel="Salvando..."
+          disabled={uploading !== null}
           className="h-12 w-full rounded-lg bg-black px-5 text-sm font-black uppercase tracking-wide text-white"
         />
       </section>
 
       <aside className="space-y-4">
-        <BannerPreview title="Preview desktop" icon={<Monitor className="h-4 w-4" aria-hidden="true" />} ratio="aspect-[16/7]" state={state} />
-        <BannerPreview title="Preview mobile" icon={<Smartphone className="h-4 w-4" aria-hidden="true" />} ratio="aspect-[9/13]" state={state} mobile />
+        <BannerPreview title="Preview desktop" icon={<Monitor className="h-4 w-4" aria-hidden="true" />} ratio={isLogin ? "aspect-[4/5]" : "aspect-[16/7]"} state={state} />
+        <BannerPreview title="Preview mobile" icon={<Smartphone className="h-4 w-4" aria-hidden="true" />} ratio={isLogin ? "aspect-[3/2]" : "aspect-[9/13]"} state={state} mobile />
       </aside>
     </form>
   );
@@ -269,11 +317,13 @@ function UploadField({
   onChange,
   progress,
   uploading,
+  staticOnly = false,
 }: {
   label: string;
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
   progress: number | null;
   uploading: boolean;
+  staticOnly?: boolean;
 }) {
   return (
     <label className="block rounded-lg border border-neutral-800 bg-black p-4">
@@ -283,7 +333,7 @@ function UploadField({
       </span>
       <input
         type="file"
-        accept="image/jpeg,image/png,image/webp,image/avif,image/gif,video/mp4"
+        accept={staticOnly ? "image/jpeg,image/png,image/webp,image/avif" : "image/jpeg,image/png,image/webp,image/avif,image/gif,video/mp4"}
         disabled={uploading}
         className="block w-full cursor-pointer rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm font-semibold text-neutral-300 file:mr-3 file:rounded-md file:border-0 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-black file:text-black hover:border-neutral-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-not-allowed disabled:opacity-50"
         onChange={onChange}
@@ -318,7 +368,7 @@ function BannerPreview({
       </div>
       <div className={`relative ${ratio} overflow-hidden bg-black`}>
         {previewUrl ? (
-          <BannerPreviewMedia url={previewUrl} alt={state.alt || state.title || "Preview do banner"} mobile={mobile} />
+          <BannerPreviewMedia url={previewUrl} alt={state.alt || state.title || "Preview do banner"} mobile={mobile} state={state} />
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-[linear-gradient(135deg,#050505_0%,#161616_48%,#030303_100%)] text-neutral-500">
             <ImageIcon className="h-8 w-8" aria-hidden="true" />
@@ -343,7 +393,7 @@ function BannerPreview({
   );
 }
 
-function BannerPreviewMedia({ alt, mobile, url }: { alt: string; mobile: boolean; url: string }) {
+function BannerPreviewMedia({ alt, mobile, url, state }: { alt: string; mobile: boolean; url: string; state: FormState }) {
   const mediaType = getProductMediaTypeFromUrl(url);
   const className = "h-full w-full object-cover";
 
@@ -360,6 +410,7 @@ function BannerPreviewMedia({ alt, mobile, url }: { alt: string; mobile: boolean
       loading="lazy"
       decoding="async"
       className={className}
+      style={state.placement === "home" ? undefined : { objectFit: state.imageFit, objectPosition: `${mobile ? state.mobileImagePositionX : state.imagePositionX}% ${mobile ? state.mobileImagePositionY : state.imagePositionY}%` }}
     />
   );
 }

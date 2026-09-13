@@ -66,6 +66,7 @@ describe("store category page", () => {
       eyebrow: "Destaques RARE",
       title: "Destaques da loja",
       description: "Peças em evidência na RARE — selecionadas por estilo, procura e presença.",
+      page: 1, hasMore: false,
       products: [product],
     });
 
@@ -75,7 +76,7 @@ describe("store category page", () => {
     });
     const html = renderToStaticMarkup(element as ReactElement);
 
-    expect(mocks.getCategoryPageData).toHaveBeenCalledWith("destaques", { query: undefined });
+    expect(mocks.getCategoryPageData).toHaveBeenCalledWith("destaques", { query: undefined, brand: undefined, page: 1 });
     expect(html).toContain("Destaques da loja");
     expect(html).toContain("Peças em evidência na RARE — selecionadas por estilo, procura e presença.");
     expect(html).toContain("Camiseta RARE");
@@ -106,7 +107,7 @@ describe("store category page", () => {
     });
     const html = renderToStaticMarkup(element as ReactElement);
 
-    expect(mocks.getCategoryPageData).toHaveBeenCalledWith("tudo", { query: undefined });
+    expect(mocks.getCategoryPageData).toHaveBeenCalledWith("tudo", { query: undefined, brand: undefined, page: 1 });
     expect(html).toContain("Catálogo completo");
     expect(html).toContain("Explore todas as peças da RARE por categoria.");
     expect(html).toContain("Camisetas");
@@ -163,6 +164,7 @@ describe("store category page", () => {
       eyebrow: "Destaques RARE",
       title: "Destaques da loja",
       description: "Peças em evidência na RARE — selecionadas por estilo, procura e presença.",
+      page: 1, hasMore: false,
       products: [product],
     });
 
@@ -227,6 +229,7 @@ describe("store category page", () => {
       eyebrow: "Categoria",
       title: "Cuecas",
       description: "Peças disponíveis agora nesta categoria.",
+      page: 1, hasMore: false,
       products: [],
     });
 
@@ -254,7 +257,7 @@ describe("store category page", () => {
       }),
     ).rejects.toThrow("NEXT_NOT_FOUND");
 
-    expect(mocks.getCategoryPageData).toHaveBeenCalledWith("nao-existe", { query: undefined });
+    expect(mocks.getCategoryPageData).toHaveBeenCalledWith("nao-existe", { query: undefined, brand: undefined, page: 1 });
   });
 
   it("renders the featured empty state when no featured products are active", async () => {
@@ -264,6 +267,7 @@ describe("store category page", () => {
       eyebrow: "Destaques RARE",
       title: "Destaques da loja",
       description: "Peças em evidência na RARE — selecionadas por estilo, procura e presença.",
+      page: 1, hasMore: false,
       products: [],
     });
 
@@ -286,6 +290,7 @@ describe("store category page", () => {
       eyebrow: "Categoria",
       title: "Cuecas",
       description: "Peças disponíveis agora nesta categoria.",
+      page: 1, hasMore: false,
       products: [],
     });
 
@@ -296,7 +301,7 @@ describe("store category page", () => {
     const html = renderToStaticMarkup(element as ReactElement);
 
     expect(html).toContain("Nada por aqui no momento.");
-    expect(html).toContain("Essa categoria ainda não tem peças disponíveis, mas novos drops podem aparecer a qualquer hora.");
+    expect(html).toContain("Essa categoria ainda não tem peças publicadas, mas novos drops podem aparecer a qualquer hora.");
     expect(html).toContain('href="/categoria/tudo"');
     expect(html).toContain("Ver catálogo completo");
     expect(html).toContain('href="/categoria/destaques"');
@@ -311,6 +316,7 @@ describe("store category page", () => {
       eyebrow: "Categoria",
       title: "Camisetas",
       description: "Peças disponíveis agora nesta categoria.",
+      page: 1, hasMore: false,
       products: [product],
     });
 
@@ -327,5 +333,28 @@ describe("store category page", () => {
       { "@type": "ListItem", position: 1, name: "Início", item: "https://raredept.com.br/" },
       { "@type": "ListItem", position: 2, name: "Camisetas", item: "https://raredept.com.br/categoria/camisetas" },
     ]);
+  });
+
+  it("renders previous and next page links that preserve the search and brand", async () => {
+    mocks.getCategoryPageData.mockResolvedValueOnce({ kind: "category", slug: "camisetas", eyebrow: "Categoria", title: "Camisetas",
+      description: "Peças selecionadas", products: [product], page: 2, hasMore: true });
+    const element = await CategoryPage({ params: Promise.resolve({ slug: "camisetas" }), searchParams: Promise.resolve({ q: "Rare +", brand: "STÜSSY", page: "2" }) });
+    const html = renderToStaticMarkup(element);
+    expect(mocks.getCategoryPageData).toHaveBeenCalledWith("camisetas", { query: "Rare +", brand: "STÜSSY", page: 2 });
+    expect(html).toContain('aria-label="Paginação do catálogo"');
+    const links = html.match(/<a\b[^>]*>/g) ?? [];
+    expect(links.find((link) => link.includes('rel="prev"'))).toContain('href="/categoria/camisetas?q=Rare+%2B&amp;brand=ST%C3%9CSSY"');
+    expect(links.find((link) => link.includes('rel="next"'))).toContain('href="/categoria/camisetas?q=Rare+%2B&amp;brand=ST%C3%9CSSY&amp;page=3"');
+    expect(html).toContain("Página 2");
+  });
+
+  it("offers a first-page recovery for an empty later page without discarding filters", async () => {
+    mocks.getCategoryPageData.mockResolvedValueOnce({ kind: "featured", slug: "destaques", eyebrow: "Destaques", title: "Destaques da loja",
+      description: "Seleção", products: [], page: 9, hasMore: false });
+    const html = renderToStaticMarkup(await CategoryPage({ params: Promise.resolve({ slug: "destaques" }), searchParams: Promise.resolve({ q: "Drop", brand: "BAPE", page: "9" }) }));
+    expect(html).toContain("Nenhum produto nesta página.");
+    expect(html).toContain('href="/categoria/destaques?q=Drop&amp;brand=BAPE"');
+    expect(html).not.toContain('rel="next"');
+    expect(html).not.toContain("Nenhum destaque ativo");
   });
 });

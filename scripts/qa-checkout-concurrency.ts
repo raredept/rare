@@ -47,10 +47,30 @@ async function main() {
     database = prisma;
     const commerce = await import("../src/lib/checkout");
     const { getStripe } = await import("../src/lib/stripe");
-    getStripe().checkout.sessions.create = (async (params: Stripe.Checkout.SessionCreateParams) => ({
-      id: `cs_test_${params.client_reference_id}`,
-      url: "https://checkout.stripe.test/qa",
-    })) as ReturnType<typeof getStripe>["checkout"]["sessions"]["create"];
+    const { runCheckoutExpiryBatch } = await import("../src/lib/checkout-expiry");
+    const sessions = new Map<string, Stripe.Checkout.Session>();
+    const stripe = getStripe();
+    stripe.checkout.sessions.create = (async (params: Stripe.Checkout.SessionCreateParams) => {
+      const value = { id: `cs_test_${params.client_reference_id}`, url: "https://checkout.stripe.test/qa",
+        metadata: params.metadata, client_reference_id: params.client_reference_id,
+        status: "open", payment_status: "unpaid", payment_intent: null, amount_total: 11000, currency: "brl" } as Stripe.Checkout.Session;
+      assert(params.expires_at! >= Math.floor(Date.now() / 1000) + 1800, "Stripe creation must not receive 15 minutes");
+      sessions.set(value.id, value); return value;
+    }) as typeof stripe.checkout.sessions.create;
+    const transportFault = { remaining: 0, sessionId: "" };
+    let expireResponseLost = false;
+    stripe.checkout.sessions.retrieve = (async (id: string) => {
+      if (transportFault.remaining > 0 && id === transportFault.sessionId) { transportFault.remaining -= 1; throw new Error("Synthetic transport interruption"); }
+      return { ...sessions.get(id)! };
+    }) as typeof stripe.checkout.sessions.retrieve;
+    stripe.checkout.sessions.expire = (async (id: string) => {
+      const session = sessions.get(id)!;
+      if (session.status !== "open") throw new Error("Session not open");
+      session.status = "expired";
+      if (expireResponseLost) { expireResponseLost = false; throw new Error("Synthetic lost response after acceptance"); }
+      return { ...session };
+    }) as typeof stripe.checkout.sessions.expire;
+    stripe.checkout.sessions.list = (async () => ({ data: [...sessions.values()], has_more: false })) as typeof stripe.checkout.sessions.list;
     await prisma.storeSettings.upsert({ where: { id: "store" }, update: { shippingMode: "fixed", fixedShippingInCents: 1000 }, create: { id: "store", shippingMode: "fixed", fixedShippingInCents: 1000 } });
     const customer = await prisma.customer.create({ data: { name: "QA Synthetic", email: "commerce@rare.invalid", cpf: "12345678909", passwordHash: "not-a-login" } });
     const address = await prisma.customerAddress.create({ data: { customerId: customer.id, cep: "01001000", street: "QA", number: "1", neighborhood: "QA", city: "Sao Paulo", state: "SP" } });
@@ -105,6 +125,7 @@ async function main() {
       const item = await product();
       const order = await checkout(item);
       await prisma.order.update({ where: { id: order.orderId }, data: { reservationExpiresAt: new Date(0) } });
+      await prisma.checkoutExpiryJob.update({ where: { orderId: order.orderId }, data: { nextAttemptAt: new Date(0) } });
       await Promise.all([commerce.releaseExpiredReservations(), commerce.processStripePaymentIntentEvent(`evt_race_${i}`, "payment_intent.succeeded", intent(order.orderId))]);
       await verifyPaid(order.orderId, item.variants[0].id);
     }
@@ -113,6 +134,7 @@ async function main() {
     const held = await product();
     const older = await checkout(held);
     await prisma.order.update({ where: { id: older.orderId }, data: { reservationExpiresAt: new Date(0) } });
+    await prisma.checkoutExpiryJob.update({ where: { orderId: older.orderId }, data: { nextAttemptAt: new Date(0) } });
     await commerce.releaseExpiredReservations();
     await checkout(held);
     await assert.rejects(commerce.processStripePaymentIntentEvent("evt_late_no_stock", "payment_intent.succeeded", intent(older.orderId)), /Reserved stock/);
@@ -138,6 +160,73 @@ async function main() {
     await commerce.processStripeCheckoutEvent("evt_async_failed", "checkout.session.async_payment_failed", session(asyncOrder.orderId, "unpaid"));
     assert.equal((await prisma.productVariant.findUniqueOrThrow({ where: { id: asyncProduct.variants[0].id } })).reservedStock, 0);
     proofs.push("async_pending_reservation_survives_session_expiry_until_final_event");
+
+    async function timedCheckout() {
+      const item = await product();
+      const started = Date.now();
+      const operation = await checkout(item);
+      const record = await prisma.order.findUniqueOrThrow({ where: { id: operation.orderId } });
+      assert(record.checkoutDeadlineAt);
+      assert(record.checkoutDeadlineAt.getTime() - started >= 900_000 && record.checkoutDeadlineAt.getTime() - started < 905_000);
+      const job = await prisma.checkoutExpiryJob.findUniqueOrThrow({ where: { orderId: record.id } });
+      assert.equal(job.deadlineAt.toISOString(), record.checkoutDeadlineAt.toISOString());
+      return { item, record, due: new Date(job.deadlineAt.getTime() + 1000) };
+    }
+    const fault = await timedCheckout();
+    transportFault.remaining = 1;
+    transportFault.sessionId = fault.record.stripeCheckoutSessionId!;
+    await runCheckoutExpiryBatch({ now: fault.due });
+    assert.equal((await prisma.order.findUniqueOrThrow({ where: { id: fault.record.id } })).status, "awaiting_payment");
+    assert.equal((await prisma.productVariant.findUniqueOrThrow({ where: { id: fault.item.variants[0].id } })).reservedStock, 1);
+    const failedJob = await prisma.checkoutExpiryJob.findUniqueOrThrow({ where: { orderId: fault.record.id } });
+    assert.equal(failedJob.status, "retry");
+    assert.equal(failedJob.lastErrorCode, "PROVIDER_RECONCILIATION_FAILED");
+    // Simulate a worker that claimed its durable row and then died.
+    const abandonedLeaseEnd = new Date(fault.due.getTime() + 120_000);
+    await prisma.checkoutExpiryJob.update({ where: { id: failedJob.id }, data: { status: "processing", leaseToken: "dead-worker", leaseExpiresAt: abandonedLeaseEnd } });
+    await runCheckoutExpiryBatch({ now: new Date(abandonedLeaseEnd.getTime() - 1) });
+    assert.equal((await prisma.order.findUniqueOrThrow({ where: { id: fault.record.id } })).status, "awaiting_payment");
+    await runCheckoutExpiryBatch({ now: new Date(abandonedLeaseEnd.getTime() + 1) });
+    assert.equal((await prisma.order.findUniqueOrThrow({ where: { id: fault.record.id } })).status, "canceled");
+    assert.equal(sessions.get(fault.record.stripeCheckoutSessionId!)?.status, "expired");
+    assert.equal((await prisma.productVariant.findUniqueOrThrow({ where: { id: fault.item.variants[0].id } })).reservedStock, 0);
+    proofs.push("durable_15_minute_deadline_provider_failure_holds_stock_abandoned_worker_lease_recovers");
+
+    const lost = await timedCheckout();
+    expireResponseLost = true;
+    await runCheckoutExpiryBatch({ now: lost.due });
+    assert.equal((await prisma.order.findUniqueOrThrow({ where: { id: lost.record.id } })).status, "canceled");
+    assert.equal(await prisma.inventoryMovement.count({ where: { orderId: lost.record.id, type: "release" } }), 1);
+    await runCheckoutExpiryBatch({ now: lost.due });
+    assert.equal(await prisma.inventoryMovement.count({ where: { orderId: lost.record.id, type: "release" } }), 1);
+    proofs.push("lost_expire_response_retrieved_before_release_and_duplicate_worker_idempotent");
+
+    const ambiguous = await timedCheckout();
+    await prisma.order.update({ where: { id: ambiguous.record.id }, data: { stripeCheckoutSessionId: null } });
+    await runCheckoutExpiryBatch({ now: ambiguous.due });
+    assert.equal((await prisma.order.findUniqueOrThrow({ where: { id: ambiguous.record.id } })).status, "canceled");
+    proofs.push("lost_creation_response_recovers_provider_session_by_order_metadata");
+
+    const processing = await timedCheckout();
+    sessions.set(processing.record.stripeCheckoutSessionId!, { ...sessions.get(processing.record.stripeCheckoutSessionId!)!, status: "complete", payment_status: "unpaid", payment_intent: { ...intent(processing.record.id), status: "processing" } as Stripe.PaymentIntent });
+    await runCheckoutExpiryBatch({ now: processing.due });
+    assert.equal((await prisma.productVariant.findUniqueOrThrow({ where: { id: processing.item.variants[0].id } })).reservedStock, 1);
+    assert.equal((await prisma.order.findUniqueOrThrow({ where: { id: processing.record.id } })).reservationExpiresAt, null);
+    assert.equal((await prisma.order.findUniqueOrThrow({ where: { id: processing.record.id } })).checkoutDeadlineAt!.toISOString(), processing.record.checkoutDeadlineAt!.toISOString());
+    sessions.get(processing.record.stripeCheckoutSessionId!)!.payment_status = "paid";
+    await runCheckoutExpiryBatch({ now: new Date(processing.due.getTime() + 60_000) });
+    await verifyPaid(processing.record.id, processing.item.variants[0].id);
+    proofs.push("async_processing_at_deadline_preserves_stock_then_reconciles_payment");
+
+    const legacy = await timedCheckout();
+    const originalDeadline = new Date(legacy.due.getTime() + 1_800_000);
+    await prisma.checkoutExpiryJob.delete({ where: { orderId: legacy.record.id } });
+    await prisma.order.update({ where: { id: legacy.record.id }, data: { checkoutDeadlineAt: null, reservationExpiresAt: originalDeadline } });
+    await runCheckoutExpiryBatch({ now: legacy.due });
+    assert.equal(await prisma.checkoutExpiryJob.count({ where: { orderId: legacy.record.id } }), 0);
+    await runCheckoutExpiryBatch({ now: new Date(originalDeadline.getTime() + 1) });
+    assert.equal((await prisma.checkoutExpiryJob.findUniqueOrThrow({ where: { orderId: legacy.record.id } })).deadlineAt.toISOString(), originalDeadline.toISOString());
+    proofs.push("legacy_deadline_preserved_and_backfilled_without_shortening");
     console.log(`COMMERCE_CONCURRENCY_QA=${JSON.stringify({ database: databaseName, proofs, providerCalls: 0 })}`);
   } finally {
     await database?.$disconnect();

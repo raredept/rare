@@ -23,7 +23,7 @@ export default async function StoreLayout({ children }: { children: ReactNode })
         <StoreHeader categories={categories} />
         <CartDrawer commerce={commerce} />
         <main className="flex-1 bg-neutral-50">{children}</main>
-        <StoreFooter categories={categories} whatsappNumber={settings.whatsappNumber} commerce={commerce} />
+        <StoreFooter categories={categories} whatsappNumber={settings.whatsappNumber} instagramUrl={settings.instagramUrl} commerce={commerce} />
       </div>
     </CartProvider>
   );

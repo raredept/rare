@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CartPageClient } from "@/components/store/cart-page-client";
+import { CheckoutDeadline } from "@/components/store/checkout-deadline";
 import { getCurrentCustomer } from "@/lib/customer-auth";
 import { FIRST_ORDER_COUPON_CODE, FIRST_ORDER_COUPON_PERCENT, paidOrderStatuses } from "@/lib/coupons";
 import { isValidCpf, maskCpf } from "@/lib/cpf";
@@ -50,7 +51,7 @@ export async function StoreCheckoutPage({ searchParams }: StoreCheckoutPageProps
   });
 
   return (
-    <CartPageClient
+    <><CheckoutDeadline /><CartPageClient
       customer={{
         name: customer.name,
         email: customer.email,
@@ -75,7 +76,7 @@ export async function StoreCheckoutPage({ searchParams }: StoreCheckoutPageProps
           ? { code: FIRST_ORDER_COUPON_CODE, percentOff: FIRST_ORDER_COUPON_PERCENT }
           : null
       }
-    />
+    /></>
   );
 }
 

@@ -28,6 +28,9 @@ function redirectWithBannerError(message: string, editId?: string): never {
 function revalidateBannerPaths() {
   revalidatePath("/");
   revalidatePath("/admin/banners");
+  revalidatePath("/entrar");
+  revalidatePath("/cadastro");
+  revalidatePath("/admin/login");
 }
 
 async function getNextSortOrder() {
@@ -57,6 +60,12 @@ async function normalizeSortOrdersWithout(idToRemove?: string) {
 async function parseBannerForm(formData: FormData, editId?: string) {
   const fallbackSortOrder = text(formData, "sortOrder") || String(await getNextSortOrder());
   const parsed = homeBannerInputSchema.safeParse({
+    placement: text(formData, "placement") || "home",
+    imageFit: text(formData, "imageFit") || "cover",
+    imagePositionX: Number(text(formData, "imagePositionX") || 50),
+    imagePositionY: Number(text(formData, "imagePositionY") || 50),
+    mobileImagePositionX: Number(text(formData, "mobileImagePositionX") || 50),
+    mobileImagePositionY: Number(text(formData, "mobileImagePositionY") || 50),
     eyebrow: text(formData, "eyebrow"),
     title: text(formData, "title"),
     description: text(formData, "description"),

@@ -5,7 +5,6 @@ import {
   createCheckoutSession,
   processStripeCheckoutEvent,
   processStripePaymentIntentEvent,
-  releaseExpiredReservations,
 } from "@/lib/checkout";
 
 const mocks = vi.hoisted(() => {
@@ -368,6 +367,7 @@ describe("createCheckoutSession", () => {
       url: "https://checkout.stripe.test/session",
       orderId: "order_1",
       orderNumber: "RARE-TEST",
+      checkoutDeadlineAt: expect.any(String),
     });
     expect(mocks.tx.order.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -403,7 +403,7 @@ describe("createCheckoutSession", () => {
     expect(mocks.stripeSessionsCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         success_url: "https://staging.rare.example/pedido/sucesso?session_id={CHECKOUT_SESSION_ID}",
-        cancel_url: "https://staging.rare.example/finalizar-compra?checkout=cancelado",
+        cancel_url: "https://staging.rare.example/finalizar-compra?checkout=cancelado&pedido=order_1",
         line_items: [
           expect.objectContaining({
             quantity: 2,
@@ -699,63 +699,6 @@ describe("createCheckoutSession", () => {
 
     expect(mocks.tx.order.create).not.toHaveBeenCalled();
     expect(mocks.stripeSessionsCreate).not.toHaveBeenCalled();
-  });
-});
-
-describe("expired reservation release job", () => {
-  it("opens a transaction when invoked by the cron without a transaction client", async () => {
-    expect(await releaseExpiredReservations()).toBe(0);
-    expect(mocks.prisma.$transaction).toHaveBeenCalledOnce();
-  });
-
-  it("rechecks expiration after acquiring the lock when async payment extended a reservation", async () => {
-    mocks.tx.order.findMany.mockResolvedValueOnce([buildOrder()]);
-    mocks.tx.order.findUniqueOrThrow.mockResolvedValueOnce({ ...buildOrder(), reservationExpiresAt: null });
-    expect(await releaseExpiredReservations(mocks.tx as never)).toBe(0);
-    expect(mocks.tx.productVariant.updateMany).not.toHaveBeenCalled();
-  });
-
-  it("queries only expired awaiting-payment orders", async () => {
-    mocks.tx.order.findMany.mockResolvedValueOnce([]);
-
-    const count = await releaseExpiredReservations(mocks.tx as never);
-
-    expect(count).toBe(0);
-    expect(mocks.tx.order.findMany).toHaveBeenCalledWith({
-      where: {
-        status: "awaiting_payment",
-        reservationExpiresAt: {
-          lt: expect.any(Date),
-        },
-      },
-      include: {
-        items: true,
-      },
-    });
-    expect(mocks.tx.productVariant.updateMany).not.toHaveBeenCalled();
-    expect(mocks.tx.inventoryMovement.create).not.toHaveBeenCalled();
-  });
-
-  it("is idempotent when the release job runs more than once", async () => {
-    mocks.tx.order.findMany.mockResolvedValueOnce([buildOrder()]).mockResolvedValueOnce([]);
-    mocks.tx.order.findUnique.mockResolvedValue({ status: "awaiting_payment" });
-    mocks.tx.order.findUniqueOrThrow.mockResolvedValue(buildOrder());
-    mocks.tx.productVariant.updateMany.mockResolvedValue({ count: 1 });
-    mocks.tx.inventoryMovement.create.mockResolvedValue({});
-    mocks.tx.order.update.mockResolvedValue({});
-
-    const firstRun = await releaseExpiredReservations(mocks.tx as never);
-    const secondRun = await releaseExpiredReservations(mocks.tx as never);
-
-    expect(firstRun).toBe(1);
-    expect(secondRun).toBe(0);
-    expect(mocks.tx.productVariant.updateMany).toHaveBeenCalledTimes(1);
-    expect(mocks.tx.inventoryMovement.create).toHaveBeenCalledTimes(1);
-    expect(mocks.tx.order.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: { status: "canceled" },
-      }),
-    );
   });
 });
 

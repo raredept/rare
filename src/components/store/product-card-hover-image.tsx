@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { canOptimizeProductImageWithNext, getProductMediaRenderPlan, type ProductMediaAsset } from "@/lib/product-media";
+import styles from "./product-card.module.css";
 
 type ProductCardHoverImageProps = {
   media: ProductMediaAsset;
@@ -14,7 +15,7 @@ export function ProductCardHoverImage({ media }: ProductCardHoverImageProps) {
 
   if (hidden || renderPlan.renderAs !== "img") return null;
 
-  const className = "store-product-hover-image pointer-events-none absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-200 ease-out group-hover:opacity-100 group-focus-within:opacity-100";
+  const className = `store-product-hover-image pointer-events-none absolute inset-0 h-full w-full object-cover ${styles.hoverImage}`;
 
   if (canOptimizeProductImageWithNext(renderPlan, "card")) {
     return (

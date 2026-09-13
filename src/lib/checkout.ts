@@ -27,6 +27,7 @@ import { releasableReservationStatuses, shouldReleaseReservationOnStatusChange }
 import { notifyAdminsOfPaidOrder } from "@/lib/admin-notifications";
 import { getFirstOrderCouponDiscount, paidOrderStatuses } from "@/lib/coupons";
 import { enqueuePaidOrderEmail } from "@/lib/email-outbox";
+import { CHECKOUT_RESERVATION_MINUTES, STRIPE_SESSION_FALLBACK_SECONDS } from "@/lib/checkout-policy";
 
 type CheckoutSessionCreateParams = NonNullable<Parameters<Stripe["checkout"]["sessions"]["create"]>[0]>;
 type CheckoutLineItem = NonNullable<CheckoutSessionCreateParams["line_items"]>[number];
@@ -306,35 +307,33 @@ async function finalizePaidOrder(
   return { status: "paid" as const, orderId: order.id };
 }
 
-export async function releaseExpiredReservations(tx?: Prisma.TransactionClient): Promise<number> {
-  if (!tx) return prisma.$transaction((transaction) => releaseExpiredReservations(transaction));
-  const expiredBefore = new Date();
-  const expiredOrders = await tx.order.findMany({
-    where: {
-      status: "awaiting_payment",
-      reservationExpiresAt: {
-        lt: expiredBefore,
-      },
-    },
-    include: {
-      items: true,
-    },
-  });
-
-  let released = 0;
-  for (const order of expiredOrders) {
-    if (await releaseOrderReservation(tx, order.id, order.items, "canceled", "Reserva expirada", expiredBefore)) released += 1;
-  }
-
-  return released;
+export async function releaseExpiredReservations(): Promise<number> {
+  // Compatibility entry point for the authenticated maintenance endpoint.
+  // Provider requests must run OUTSIDE a transaction holding inventory locks.
+  const { runCheckoutExpiryBatch } = await import("@/lib/checkout-expiry");
+  return (await runCheckoutExpiryBatch()).released;
 }
 
 export async function updateOrderStatusWithReservationRelease(orderId: string, status: OrderStatus, reason: string) {
+  const before = await prisma.order.findUnique({ where: { id: orderId } });
+  const needsProviderConfirmation = before && shouldReleaseReservationOnStatusChange(before.status, status)
+    && Boolean(before.stripeCheckoutSessionId || before.checkoutDeadlineAt);
+  if (needsProviderConfirmation) {
+    const { reconcileCheckoutExpiry } = await import("@/lib/checkout-expiry");
+    const result = await reconcileCheckoutExpiry(orderId);
+    if (result.outcome === "paid" || result.outcome === "processing") {
+      throw new Error("Pagamento confirmado ou em processamento. Aguarde a conciliação antes de alterar este pedido.");
+    }
+  }
   return prisma.$transaction(async (tx) => {
     const order = await lockOrder(tx, orderId);
 
     if (!order) {
       throw new Error("Pedido não encontrado.");
+    }
+
+    if (needsProviderConfirmation && (releasableReservationStatuses.includes(order.status) || (paidOrderStatuses as readonly string[]).includes(order.status))) {
+      throw new Error("Não foi possível confirmar o encerramento seguro deste pagamento.");
     }
 
     if (shouldReleaseReservationOnStatusChange(order.status, status)) {
@@ -411,12 +410,8 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
   const items = consolidateItems(parsed.items);
   let stripeShippingOption: ShippingOption | null = null;
 
-  await prisma.$transaction(async (tx) => {
-    await releaseExpiredReservations(tx);
-  });
-
   const settings = await getStoreSettings();
-  const reservationMinutes = Math.min(24 * 60, Math.max(30, settings.checkoutReservationMinutes));
+  const reservationMinutes = CHECKOUT_RESERVATION_MINUTES;
   const reservationExpiresAt = new Date(Date.now() + reservationMinutes * 60 * 1000);
   const checkoutCustomer = await prisma.customer.findFirst({
     where: {
@@ -613,6 +608,8 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
         totalInCents: subtotalInCents - coupon.discountInCents + shipping.shippingInCents,
         status: "awaiting_payment",
         reservationExpiresAt,
+        checkoutDeadlineAt: reservationExpiresAt,
+        checkoutExpiryJob: { create: { deadlineAt: reservationExpiresAt, nextAttemptAt: reservationExpiresAt } },
         items: {
           create: orderItems,
         },
@@ -722,11 +719,12 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
       mode: "payment",
       line_items: lineItems,
       success_url: `${appUrl}/pedido/sucesso?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/finalizar-compra?checkout=cancelado`,
+      cancel_url: `${appUrl}/finalizar-compra?checkout=cancelado&pedido=${encodeURIComponent(order.id)}`,
       client_reference_id: order.id,
       metadata: {
         orderId: order.id,
         orderNumber: order.orderNumber,
+        checkoutDeadlineAt: reservationExpiresAt.toISOString(),
         ...(checkoutCustomer ? { customerId: checkoutCustomer.id } : {}),
         ...(order.shippingMethodSnapshot ? { shippingMethod: order.shippingMethodSnapshot } : {}),
         ...shippingMetadata,
@@ -739,7 +737,8 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
           ...shippingMetadata,
         },
       },
-      expires_at: Math.floor(reservationExpiresAt.getTime() / 1000),
+      expires_at: Math.ceil(Date.now() / 1000) + STRIPE_SESSION_FALLBACK_SECONDS,
+      custom_text: { submit: { message: "Finalize em até 15 minutos após iniciar a compra na RARE. A reserva termina no prazo informado pela loja; um pagamento já em processamento aguarda confirmação." } },
       phone_number_collection: {
         enabled: true,
       },
@@ -785,6 +784,7 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
       url: session.url,
       orderId: order.id,
       orderNumber: order.orderNumber,
+      checkoutDeadlineAt: reservationExpiresAt.toISOString(),
     };
   } catch (error) {
     const stripeErrorType = typeof error === "object" && error && "type" in error ? error.type : null;
@@ -854,8 +854,12 @@ export async function processStripeCheckoutEvent(eventId: string, eventType: str
     }
 
     if (eventType === "checkout.session.expired") {
-      await releaseOrderReservation(tx, order.id, order.items, "canceled", "Checkout Stripe expirado");
-      return { status: "released" as const };
+      // A delayed expiration event must not undo a completed asynchronous
+      // checkout whose payment is still processing, or a confirmed payment.
+      if (!order.reservationExpiresAt || session.payment_status === "paid") return { status: "ignored" as const };
+      const released = await releaseOrderReservation(tx, order.id, order.items, "canceled", "Checkout Stripe expirado");
+      if (released) await tx.order.update({ where: { id: order.id }, data: { checkoutExpiredAt: new Date() } });
+      return { status: released ? "released" as const : "ignored" as const };
     }
 
     if (eventType === "checkout.session.async_payment_failed") {

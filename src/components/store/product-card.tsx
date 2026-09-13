@@ -6,6 +6,8 @@ import { ProductCardHoverImage } from "@/components/store/product-card-hover-ima
 import { ProductMedia } from "@/components/store/product-media";
 import { ProductMediaPlaceholder } from "@/components/store/product-media-placeholder";
 import { buildStorefrontCommerceState, type StorefrontCommerceState } from "@/lib/storefront-commerce";
+import styles from "./product-card.module.css";
+import { InstallmentTerms } from "@/components/store/installment-terms";
 
 type ProductCardProps = {
   product: {
@@ -35,7 +37,7 @@ export function ProductCard({ product, commerce, priority = false }: ProductCard
     <article className="group h-full min-w-0">
       <Link
         href={`/produto/${product.slug}`}
-        className="store-product-card flex h-full cursor-pointer flex-col border-b border-neutral-200 bg-transparent pb-4 transition-[border-color,transform] duration-200 ease-out hover:-translate-y-1 hover:border-neutral-950 active:translate-y-0 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
+        className={`store-product-card flex h-full cursor-pointer flex-col border-b border-neutral-200 bg-transparent pb-4 hover:border-neutral-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 ${styles.card}`}
       >
         <div className="relative aspect-[4/5] overflow-hidden rounded-lg bg-neutral-100">
           {image ? (
@@ -45,7 +47,7 @@ export function ProductCard({ product, commerce, priority = false }: ProductCard
               context="card"
               priority={priority}
               placeholderLabel="Mídia indisponível"
-              className="store-product-image h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.035] group-active:scale-[1.015]"
+              className={`store-product-image h-full w-full object-cover ${styles.image}`}
             />
           ) : (
             <ProductMediaPlaceholder />
@@ -69,8 +71,9 @@ export function ProductCard({ product, commerce, priority = false }: ProductCard
               {formatMoney(product.priceInCents)}
             </p>
             <p className="whitespace-nowrap text-[10px] font-bold uppercase leading-4 tracking-wide text-neutral-500 sm:text-xs">
-              {commerceState.checkoutEnabled ? "3x sem juros" : "Consulte disponibilidade"}
+              {soldOut ? "Esgotado" : commerceState.checkoutEnabled ? "Disponível" : "Consulte disponibilidade"}
             </p>
+            <InstallmentTerms amountInCents={product.priceInCents} checkoutEnabled={commerceState.checkoutEnabled} className="text-xs font-semibold leading-4 text-neutral-600" />
           </div>
         </div>
       </Link>

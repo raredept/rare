@@ -83,7 +83,7 @@ describe("storefront navigation categories", () => {
     ]);
   }, 60000);
 
-  it("hides empty and unavailable categories from public navigation while keeping available categories", async () => {
+  it("hides empty categories but keeps published sold-out products discoverable in navigation", async () => {
     mocks.prisma.category.findMany.mockResolvedValueOnce([
       { id: "cat-camisetas", name: "Camisetas", slug: "camisetas", sortOrder: 10, children: [] },
       { id: "cat-bermudas", name: "Bermudas", slug: "bermudas", sortOrder: 40, children: [] },
@@ -125,9 +125,9 @@ describe("storefront navigation categories", () => {
     const { getNavigationCategories } = await import("@/lib/storefront");
     const categories = await getNavigationCategories();
 
-    expect(categories.map((category) => category.slug)).toEqual(["camisetas", "acessorios"]);
-    expect(categories.find((category) => category.slug === "acessorios")?.children.map((child) => child.slug)).toEqual(["bags"]);
-    expect(categories.some((category) => category.slug === "bermudas")).toBe(false);
+    expect(categories.map((category) => category.slug)).toEqual(["camisetas", "bermudas", "acessorios"]);
+    expect(categories.find((category) => category.slug === "acessorios")?.children.map((child) => child.slug)).toEqual(["bags", "meias"]);
+    expect(categories.some((category) => category.slug === "bermudas")).toBe(true);
     expect(mocks.prisma.category.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { active: true, parentId: null },

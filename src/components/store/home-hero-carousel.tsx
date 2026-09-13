@@ -2,43 +2,21 @@
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   getActiveHomeHeroSlides,
-  getNextHomeHeroSlideIndex,
-  getPreviousHomeHeroSlideIndex,
-  normalizeHomeHeroSlideIndex,
-  selectHomeHeroSlideIndex,
   shouldRenderHomeHeroControls,
   type HomeHeroSlide,
 } from "@/lib/home-hero-slides";
+import { HomeMotionControl, useHomeCarousel } from "@/components/store/home-motion";
 import { getProductMediaRenderPlan, getProductMediaTypeFromUrl } from "@/lib/product-media";
 
 const autoplayMs = 6000;
-const swipeThresholdPx = 48;
+
 
 type HomeHeroCarouselProps = {
   slides: HomeHeroSlide[];
 };
-
-function usePrefersReducedMotion() {
-  const [reducedMotion, setReducedMotion] = useState(false);
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-
-    function syncPreference() {
-      setReducedMotion(mediaQuery.matches);
-    }
-
-    syncPreference();
-    mediaQuery.addEventListener("change", syncPreference);
-
-    return () => mediaQuery.removeEventListener("change", syncPreference);
-  }, []);
-
-  return reducedMotion;
-}
 
 function HomeHeroPlaceholder({ label = "Banner RARE" }: { label?: string }) {
   return (
@@ -62,15 +40,23 @@ function HomeHeroImage({
   failed,
   index,
   onError,
-  reducedMotion,
+  mediaPlaying,
   slide,
 }: {
   slide: HomeHeroSlide;
   index: number;
   failed: boolean;
   onError: () => void;
-  reducedMotion: boolean;
+  mediaPlaying: boolean;
 }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (mediaPlaying) void video.play().catch(() => {});
+    else video.pause();
+  }, [mediaPlaying, slide.imageUrl]);
+
   if (!slide.imageUrl || failed) {
     return <HomeHeroPlaceholder label={slide.alt} />;
   }
@@ -89,12 +75,13 @@ function HomeHeroImage({
       <div className="relative h-full w-full">
         <HomeHeroPlaceholder label={slide.alt} />
         <video
+          ref={videoRef}
           src={slide.imageUrl}
           aria-label={slide.alt}
           className="absolute inset-0 h-full w-full object-cover"
-          autoPlay={!reducedMotion}
+          autoPlay={mediaPlaying}
           muted
-          loop={!reducedMotion}
+          loop
           playsInline
           poster={videoPoster}
           preload="metadata"
@@ -132,39 +119,14 @@ function HomeHeroImage({
 
 export function HomeHeroCarousel({ slides }: HomeHeroCarouselProps) {
   const activeSlides = useMemo(() => getActiveHomeHeroSlides(slides), [slides]);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [paused, setPaused] = useState(false);
   const [failedSlideIds, setFailedSlideIds] = useState<Set<string>>(() => new Set());
-  const touchStartXRef = useRef<number | null>(null);
-  const reducedMotion = usePrefersReducedMotion();
+  const { ref: carouselRef, activeIndex, playing, mediaPlaying, interactionProps, move, select } = useHomeCarousel(activeSlides.length, autoplayMs);
   const controlsEnabled = shouldRenderHomeHeroControls(activeSlides.length);
-  const normalizedActiveIndex = normalizeHomeHeroSlideIndex(activeIndex, activeSlides.length);
+  const normalizedActiveIndex = activeIndex;
   const activeSlide = activeSlides[normalizedActiveIndex];
-
-  const goToPrevious = useCallback(() => {
-    setActiveIndex((current) => getPreviousHomeHeroSlideIndex(current, activeSlides.length));
-  }, [activeSlides.length]);
-
-  const goToNext = useCallback(() => {
-    setActiveIndex((current) => getNextHomeHeroSlideIndex(current, activeSlides.length));
-  }, [activeSlides.length]);
-
-  const goToSlide = useCallback(
-    (targetIndex: number) => {
-      setActiveIndex(selectHomeHeroSlideIndex(targetIndex, activeSlides.length));
-    },
-    [activeSlides.length],
-  );
-
-  useEffect(() => {
-    if (!controlsEnabled || paused || reducedMotion) return;
-
-    const interval = window.setInterval(() => {
-      setActiveIndex((current) => getNextHomeHeroSlideIndex(current, activeSlides.length));
-    }, autoplayMs);
-
-    return () => window.clearInterval(interval);
-  }, [activeSlides.length, controlsEnabled, paused, reducedMotion]);
+  const goToPrevious = () => move(-1);
+  const goToNext = () => move(1);
+  const goToSlide = select;
 
   if (!activeSlides.length) {
     return (
@@ -172,29 +134,6 @@ export function HomeHeroCarousel({ slides }: HomeHeroCarouselProps) {
         <HomeHeroPlaceholder label="Destaque RARE indisponível" />
       </section>
     );
-  }
-
-  function handlePointerDown(event: PointerEvent<HTMLElement>) {
-    if (!controlsEnabled || event.pointerType === "mouse") return;
-    touchStartXRef.current = event.clientX;
-  }
-
-  function handlePointerUp(event: PointerEvent<HTMLElement>) {
-    if (!controlsEnabled || touchStartXRef.current === null) return;
-
-    const deltaX = event.clientX - touchStartXRef.current;
-    touchStartXRef.current = null;
-
-    if (Math.abs(deltaX) < swipeThresholdPx) return;
-    if (deltaX < 0) {
-      goToNext();
-    } else {
-      goToPrevious();
-    }
-  }
-
-  function handlePointerCancel() {
-    touchStartXRef.current = null;
   }
 
   function markImageFailed(slideId: string) {
@@ -212,28 +151,9 @@ export function HomeHeroCarousel({ slides }: HomeHeroCarouselProps) {
       className="store-home-hero group relative overflow-hidden rounded-lg bg-black text-white shadow-[0_28px_80px_rgba(0,0,0,0.28)]"
       aria-label="Destaques da home RARE"
       aria-roledescription="carousel"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onFocusCapture={() => setPaused(true)}
-      onBlurCapture={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) {
-          setPaused(false);
-        }
-      }}
-      onPointerDown={handlePointerDown}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerCancel}
-      onKeyDown={(event) => {
-        if (!controlsEnabled) return;
-        if (event.key === "ArrowLeft") {
-          event.preventDefault();
-          goToPrevious();
-        }
-        if (event.key === "ArrowRight") {
-          event.preventDefault();
-          goToNext();
-        }
-      }}
+      ref={carouselRef}
+      data-playing={playing}
+      {...interactionProps}
     >
       <div
         key={activeSlide.id}
@@ -252,7 +172,7 @@ export function HomeHeroCarousel({ slides }: HomeHeroCarouselProps) {
             index={normalizedActiveIndex}
             failed={failedSlideIds.has(activeSlide.id)}
             onError={() => markImageFailed(activeSlide.id)}
-            reducedMotion={reducedMotion}
+            mediaPlaying={mediaPlaying}
           />
         </div>
 
@@ -282,6 +202,7 @@ export function HomeHeroCarousel({ slides }: HomeHeroCarouselProps) {
         </div>
       </div>
 
+      {controlsEnabled || getProductMediaTypeFromUrl(activeSlide.imageUrl ?? "") === "video" ? <div className="absolute right-4 top-4 z-30"><HomeMotionControl className="bg-black/70" /></div> : null}
       {controlsEnabled ? (
         <>
           <button
@@ -306,8 +227,8 @@ export function HomeHeroCarousel({ slides }: HomeHeroCarouselProps) {
               <button
                 key={slide.id}
                 type="button"
-                className={`group/indicator flex h-6 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 ${
-                  index === normalizedActiveIndex ? "w-10" : "w-6"
+                className={`group/indicator flex h-11 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 ${
+                  index === normalizedActiveIndex ? "w-12" : "w-11"
                 }`}
                 aria-label={`Ir para slide ${index + 1}`}
                 aria-current={index === normalizedActiveIndex ? "true" : undefined}

@@ -26,7 +26,7 @@ type ProductFormProps = {
     featured: boolean;
     featuredSortOrder: number | null;
     sortOrder: number;
-    images: { url: string }[];
+    images: { id?: string; url: string }[];
     variants: { size: string; stock: number; sku: string | null }[];
   };
   categories: { id: string; name: string; parentId: string | null; active?: boolean }[];

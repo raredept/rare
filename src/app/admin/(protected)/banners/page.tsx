@@ -11,6 +11,7 @@ import { AdminSubmitButton } from "@/components/admin/admin-submit-button";
 import { ConfirmButton } from "@/components/admin/confirm-button";
 import { HomeBannerForm } from "@/components/admin/home-banner-form";
 import { getAdminHomeBannerSlides, getHomeBannerSummary, type HomeBannerSlide } from "@/lib/home-banners";
+import { bannerPlacements } from "@/lib/banner-placement";
 
 export const dynamic = "force-dynamic";
 
@@ -30,8 +31,8 @@ export default async function BannersPage({ searchParams }: BannersPageProps = {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.22em] text-neutral-500">Vitrine</p>
-          <h1 className="mt-2 text-2xl font-black text-neutral-950">Banners da Home</h1>
-          <p className="mt-1 text-sm font-semibold text-neutral-500">Gerencie os slides principais exibidos na vitrine.</p>
+          <h1 className="mt-2 text-2xl font-black text-neutral-950">Banners da Home e do login</h1>
+          <p className="mt-1 text-sm font-semibold text-neutral-500">Gerencie a vitrine, o acesso do cliente e o acesso Admin nesta mesma área.</p>
         </div>
         {editingBanner ? (
           <Link
@@ -55,7 +56,7 @@ export default async function BannersPage({ searchParams }: BannersPageProps = {
       <section className="space-y-4">
         <div>
           <h2 className="text-sm font-black uppercase tracking-[0.2em] text-neutral-300">Slides cadastrados</h2>
-          <p className="mt-1 text-xs font-semibold text-neutral-500">A home usa apenas banners ativos, ordenados de cima para baixo.</p>
+          <p className="mt-1 text-xs font-semibold text-neutral-500">Cada destino usa apenas seus banners ativos. No login, vale o primeiro pela ordem; a home mantém seus slides.</p>
         </div>
 
         {banners.length ? (
@@ -97,6 +98,7 @@ function BannerCard({ banner, isFirst, isLast }: { banner: HomeBannerSlide; isFi
           <Badge tone={banner.active ? "neutral" : "muted"}>{banner.active ? "Ativo" : "Oculto"}</Badge>
           {!banner.imageUrl ? <Badge tone="warning">Sem imagem</Badge> : null}
           <Badge tone="dark">Ordem {banner.sortOrder}</Badge>
+          <Badge tone="dark">{bannerPlacements[banner.placement ?? "home"]}</Badge>
         </div>
         <h3 className="mt-3 truncate text-lg font-black text-neutral-950">{banner.title || "Banner sem título"}</h3>
         <p className="mt-1 text-sm font-semibold text-neutral-500">{banner.eyebrow || "Eyebrow não informado"}</p>

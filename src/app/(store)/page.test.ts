@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
   getFeaturedProducts: vi.fn(),
   getRecentProducts: vi.fn(),
   getHomeCategoryTiles: vi.fn(),
+  getAvailableBrandsForStore: vi.fn(),
+  getStoreSettings: vi.fn(),
   checkoutEnabled: true,
 }));
 
@@ -32,7 +34,10 @@ vi.mock("@/lib/storefront", () => ({
   getFeaturedProducts: mocks.getFeaturedProducts,
   getRecentProducts: mocks.getRecentProducts,
   getHomeCategoryTiles: mocks.getHomeCategoryTiles,
+  getAvailableBrandsForStore: mocks.getAvailableBrandsForStore,
 }));
+
+vi.mock("@/lib/settings", () => ({ getStoreSettings: mocks.getStoreSettings }));
 
 vi.mock("@/lib/home-banners", () => ({
   getHomeBannerSlidesForStore: vi.fn(async () => [
@@ -68,6 +73,8 @@ describe("store home page", () => {
     mocks.checkoutEnabled = true;
     mocks.getAppUrl.mockReturnValue("https://raredept.com.br");
     mocks.getProducts.mockResolvedValue([product("busca-1", "Resultado mock")]);
+    mocks.getAvailableBrandsForStore.mockResolvedValue(["BAPE", "STÜSSY"]);
+    mocks.getStoreSettings.mockResolvedValue({ instagramUrl: "https://www.instagram.com/rare.deptt/" });
     mocks.getFeaturedProducts.mockResolvedValue([
       product("featured-1", "Destaque 1"),
       product("featured-2", "Destaque 2"),
@@ -141,8 +148,10 @@ describe("store home page", () => {
     expect(html.indexOf("Destaques do mês")).toBeLessThan(html.indexOf("Chegou agora"));
     expect(html.indexOf("Chegou agora")).toBeLessThan(html.indexOf("Escolha por categoria"));
     expect(html.indexOf("Escolha por categoria")).toBeLessThan(html.indexOf("Compra segura"));
-    expect(mocks.getFeaturedProducts).toHaveBeenCalledWith({ limit: 5 });
+    expect(mocks.getFeaturedProducts).toHaveBeenCalledWith({ limit: 8 });
     expect(mocks.getRecentProducts).toHaveBeenCalledWith({ limit: 4 });
+    expect(html).toContain("Marcas disponíveis na RARE");
+    expect(html).toContain("STÜSSY");
   });
 
   it("renders public Organization JSON-LD on the storefront home", async () => {
@@ -158,6 +167,7 @@ describe("store home page", () => {
       name: "RARE",
       url: "https://raredept.com.br",
       logo: "https://raredept.com.br/brand/rare-logo.png",
+      sameAs: ["https://www.instagram.com/rare.deptt/"],
     });
     expect(JSON.stringify(organizationSchemas[0])).not.toContain("suporte@");
     expect(JSON.stringify(organizationSchemas[0])).not.toContain("contato@");

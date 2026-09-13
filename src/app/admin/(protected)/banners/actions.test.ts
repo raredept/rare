@@ -70,6 +70,22 @@ beforeEach(() => {
 });
 
 describe("home banner admin actions", () => {
+  it("persists login placement/framing and refreshes both customer and Admin destinations", async () => {
+    const { updateBannerAction } = await import("@/app/admin/(protected)/banners/actions");
+    await expect(updateBannerAction(buildBannerFormData({ id: "login-1", placement: "customer_login", imageFit: "contain", imagePositionX: "0", imagePositionY: "100", mobileImagePositionX: "25", mobileImagePositionY: "75" }))).rejects.toThrow(/^NEXT_REDIRECT:/);
+    expect(mocks.prisma.homeBannerSlide.update).toHaveBeenCalledWith({ where: { id: "login-1" }, data: expect.objectContaining({ placement: "customer_login", imageFit: "contain", imagePositionX: 0, imagePositionY: 100, mobileImagePositionX: 25, mobileImagePositionY: 75 }) });
+    for (const route of ["/entrar", "/cadastro", "/admin/login"]) expect(mocks.revalidatePath).toHaveBeenCalledWith(route);
+  });
+
+  it("rejects unauthorized edits and invalid framing before changing saved media", async () => {
+    const { updateBannerAction } = await import("@/app/admin/(protected)/banners/actions");
+    mocks.requireAdmin.mockRejectedValueOnce(new Error("Unauthorized"));
+    await expect(updateBannerAction(buildBannerFormData({ id: "login-1" }))).rejects.toThrow("Unauthorized");
+    expect(mocks.prisma.homeBannerSlide.update).not.toHaveBeenCalled();
+    await expect(updateBannerAction(buildBannerFormData({ id: "login-1", placement: "admin_login", imagePositionX: "101" }))).rejects.toThrow(/^NEXT_REDIRECT:/);
+    expect(mocks.prisma.homeBannerSlide.update).not.toHaveBeenCalled();
+  });
+
   it("creates a banner, revalidates home/admin paths and redirects with success", async () => {
     const { createBannerAction } = await import("@/app/admin/(protected)/banners/actions");
 

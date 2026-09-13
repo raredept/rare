@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCart, type CartItem } from "@/components/store/cart-context";
 import { ProductMediaPlaceholder } from "@/components/store/product-media-placeholder";
+import { InstallmentTerms } from "@/components/store/installment-terms";
 import { formatCep, parseCep } from "@/lib/cep";
 import { formatCpf, isValidCpf, normalizeCpf } from "@/lib/cpf";
 import { formatMoney } from "@/lib/money";
@@ -776,9 +777,11 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
                 <span>Total</span>
                 <span className="whitespace-nowrap">{formatMoney(discountedTotalInCents)}</span>
               </div>
+              <InstallmentTerms amountInCents={discountedTotalInCents} checkoutEnabled context="order" />
             </div>
           </div>
           {error ? <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{error}</p> : null}
+          <p className="mt-5 text-sm font-semibold leading-6 text-neutral-700">Ao iniciar o pagamento, você terá 15 minutos para finalizar. O prazo fica salvo com seu pedido e não se renova ao voltar à loja. Pagamentos já em processamento aguardam confirmação.</p>
           <button
             type="button"
             onClick={checkout}

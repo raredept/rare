@@ -11,6 +11,8 @@ export function getStripe() {
   const secretKey = getStripeSecretKey();
   stripeClient = new Stripe(secretKey, {
     apiVersion: "2026-04-22.dahlia",
+    timeout: 10_000,
+    maxNetworkRetries: 1,
   });
 
   return stripeClient;

@@ -4,6 +4,7 @@ import { getCurrentCustomer } from "@/lib/customer-auth";
 import { buildNoIndexMetadata } from "@/lib/seo";
 import { CustomerAuthShell } from "@/components/store/customer-auth-shell";
 import { getStorefrontCommerceState } from "@/lib/storefront-commerce";
+import { getLoginBanner } from "@/lib/home-banners";
 
 export const dynamic = "force-dynamic";
 
@@ -24,9 +25,10 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
     redirect("/minha-conta");
   }
   const commerce = getStorefrontCommerceState();
+  const banner = await getLoginBanner("customer_login");
 
   return (
-    <CustomerAuthShell wide eyebrow="Conta RARE" title="Criar cadastro" description={commerce.checkoutEnabled ? "Informe seus dados para concluir pedidos e acompanhar cada etapa. O CPF é necessário para emissão e envio." : "Crie sua conta para organizar dados, endereços e acompanhar pedidos anteriores. As compras estão temporariamente pausadas."}>
+    <CustomerAuthShell banner={banner} wide eyebrow="Conta RARE" title="Criar cadastro" description={commerce.checkoutEnabled ? "Informe seus dados para concluir pedidos e acompanhar cada etapa. O CPF é necessário para emissão e envio." : "Crie sua conta para organizar dados, endereços e acompanhar pedidos anteriores. As compras estão temporariamente pausadas."}>
       <CustomerRegisterForm next={next} />
     </CustomerAuthShell>
   );

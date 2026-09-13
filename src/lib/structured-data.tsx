@@ -1,3 +1,5 @@
+import { getInstagramUrl } from "@/lib/store-social";
+
 type JsonLdValue = string | number | boolean | null | JsonLdObject | JsonLdValue[];
 
 export type JsonLdObject = {
@@ -34,14 +36,14 @@ export function JsonLdScript({ data, id }: { data: JsonLdObject; id: string }) {
   return <script id={id} type="application/ld+json" dangerouslySetInnerHTML={{ __html: stringifyJsonLd(data) }} />;
 }
 
-export function buildOrganizationJsonLd(appUrl: string): JsonLdObject {
+export function buildOrganizationJsonLd(appUrl: string, instagramUrl?: string | null): JsonLdObject {
   return {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "RARE",
     url: appUrl,
     logo: `${appUrl}/brand/rare-logo.png`,
-    sameAs: ["https://www.instagram.com/raredept/"],
+    sameAs: [getInstagramUrl(instagramUrl)],
   };
 }
 

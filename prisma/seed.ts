@@ -8,6 +8,7 @@ import {
 } from "../src/lib/catalog-categories";
 import { getDatabaseUrl, isProductionEnv } from "../src/lib/env";
 import { slugify } from "../src/lib/slug";
+import { DEFAULT_INSTAGRAM_URL } from "../src/lib/store-social";
 
 let prisma: PrismaClient;
 
@@ -206,6 +207,7 @@ async function main() {
     },
     create: {
       id: "store",
+      instagramUrl: DEFAULT_INSTAGRAM_URL,
       storeName: "RARE",
       whatsappDefaultMessage: "Ola, tenho interesse em um produto da RARE.",
       manualShippingInCents: 0,

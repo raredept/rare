@@ -6,12 +6,13 @@ import { buildCategoryMetadata, RARE_DEFAULT_SITE_URL } from "@/lib/seo";
 import { buildBreadcrumbListJsonLd, JsonLdScript } from "@/lib/structured-data";
 import { getCategoryPageData, type StorefrontProduct } from "@/lib/storefront";
 import { getStorefrontCommerceState, type StorefrontCommerceState } from "@/lib/storefront-commerce";
+import { buildCatalogPageHref, normalizeCatalogPage } from "@/lib/catalog-pagination";
 
 export const dynamic = "force-dynamic";
 
 type CategoryPageProps = {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; brand?: string; page?: string }>;
 };
 
 export async function generateMetadata({ params }: Pick<CategoryPageProps, "params">): Promise<Metadata> {
@@ -81,8 +82,9 @@ function EmptyState({
 }
 
 export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {
-  const [{ slug }, { q }] = await Promise.all([params, searchParams]);
-  const pageData = await getCategoryPageData(slug, { query: q });
+  const [{ slug }, { q, brand, page }] = await Promise.all([params, searchParams]);
+  const filters = { query: q, brand };
+  const pageData = await getCategoryPageData(slug, { ...filters, page: normalizeCatalogPage(page) });
 
   if (!pageData) notFound();
   const commerce = getStorefrontCommerceState();
@@ -105,7 +107,11 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
         <p className="text-xs font-black uppercase tracking-[0.24em] text-neutral-500">{pageData.eyebrow}</p>
         <h1 className="mt-3 text-3xl font-black tracking-tight text-neutral-950 lg:text-5xl">{pageData.title}</h1>
         <p className="mt-4 max-w-2xl text-sm font-semibold leading-6 text-neutral-500">{pageData.description}</p>
-        <p className="mt-5 text-xs font-black uppercase tracking-[0.18em] text-neutral-700">{totalProducts} {totalProducts === 1 ? "produto" : "produtos"}</p>
+        <p className="mt-5 text-xs font-black uppercase tracking-[0.18em] text-neutral-700">{totalProducts} {totalProducts === 1 ? "produto" : "produtos"}{pageData.kind !== "grouped" ? ` nesta página · Página ${pageData.page}` : ""}</p>
+        {q?.trim() || brand?.trim() ? <div className="mt-3 flex flex-wrap items-center gap-3 text-sm font-semibold text-neutral-600">
+          {q?.trim() ? <span>Busca: {q.trim()}</span> : null}{brand?.trim() ? <span>Marca: {brand.trim()}</span> : null}
+          <Link href={buildCatalogPageHref(slug)} className="inline-flex min-h-11 items-center underline underline-offset-4">Limpar filtros</Link>
+        </div> : null}
         <div className="scrollbar-none mt-6 flex gap-2 overflow-x-auto pb-1" aria-label="Atalhos do catálogo">
           {[{href:"/categoria/tudo",label:"Tudo"},{href:"/categoria/destaques",label:"Destaques"},{href:"/categoria/camisetas",label:"Camisetas"},{href:"/categoria/jaquetas",label:"Jaquetas"},{href:"/categoria/acessorios",label:"Acessórios"}].map((item) => (
             <Link key={item.href} href={item.href} className={`inline-flex min-h-10 shrink-0 items-center rounded-full border px-4 text-xs font-black uppercase tracking-[0.12em] ${item.href.endsWith(`/${slug}`) ? "border-black bg-black text-white" : "border-neutral-300 bg-white text-neutral-700 hover:border-black"}`}>{item.label}</Link>
@@ -145,6 +151,12 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
         )
       ) : pageData.products.length ? (
         <ProductGrid products={pageData.products} commerce={commerce} priorityFirst />
+      ) : pageData.page > 1 ? (
+        <EmptyState title="Nenhum produto nesta página." description="Volte à primeira página para explorar esta seleção."
+          actions={[{ href: buildCatalogPageHref(slug, filters), label: "Voltar à primeira página", variant: "primary" }]} />
+      ) : q?.trim() || brand?.trim() ? (
+        <EmptyState title="Nenhum produto encontrado." description="Tente outro termo ou remova os filtros."
+          actions={[{ href: buildCatalogPageHref(slug), label: "Limpar filtros", variant: "primary" }]} />
       ) : pageData.kind === "featured" ? (
         <EmptyState
           title="Nenhum destaque ativo no momento."
@@ -154,9 +166,14 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
       ) : (
         <EmptyState
           title="Nada por aqui no momento."
-          description="Essa categoria ainda não tem peças disponíveis, mas novos drops podem aparecer a qualquer hora."
+          description="Essa categoria ainda não tem peças publicadas, mas novos drops podem aparecer a qualquer hora."
         />
       )}
+      {pageData.kind !== "grouped" && (pageData.page > 1 || pageData.hasMore) ? <nav aria-label="Paginação do catálogo" className="mt-10 flex flex-wrap items-center justify-center gap-3 border-t border-neutral-200 pt-6">
+        {pageData.page > 1 ? <Link rel="prev" href={buildCatalogPageHref(slug, { ...filters, page: pageData.page - 1 })} className="inline-flex min-h-11 items-center rounded-full border border-neutral-300 px-5 text-sm font-bold hover:border-black">Página anterior</Link> : null}
+        <span className="px-2 text-sm font-bold" aria-current="page">Página {pageData.page}</span>
+        {pageData.hasMore ? <Link rel="next" href={buildCatalogPageHref(slug, { ...filters, page: pageData.page + 1 })} className="inline-flex min-h-11 items-center rounded-full border border-neutral-300 px-5 text-sm font-bold hover:border-black">Próxima página</Link> : null}
+      </nav> : null}
     </div>
   );
 }

@@ -9,6 +9,20 @@ vi.mock("@/app/admin/(protected)/banners/actions", () => ({
 }));
 
 describe("HomeBannerForm", () => {
+  it("loads the saved login destination and framing with accessible static-image controls", () => {
+    const html = renderToStaticMarkup(createElement(HomeBannerForm, { nextSortOrder: 0, banner: {
+      id: "login-1", placement: "admin_login", imageFit: "contain", imagePositionX: 25, imagePositionY: 75,
+      mobileImagePositionX: 30, mobileImagePositionY: 60, imageUrl: "/brand/rare-logo.png", alt: "RARE", active: true, sortOrder: 0,
+    } }));
+    expect(html).toContain('value="admin_login" selected=""');
+    expect(html).toContain('name="imagePositionX"');
+    expect(html).toContain('object-position:25% 75%');
+    expect(html).toContain('object-position:30% 60%');
+    expect(html).toContain('object-fit:contain');
+    expect(html).toContain('accept="image/jpeg,image/png,image/webp,image/avif"');
+    expect(html).toContain("Redefinir enquadramento");
+  });
+
   it("renders banner fields, media upload controls and desktop/mobile previews", () => {
     const html = renderToStaticMarkup(
       createElement(HomeBannerForm, {

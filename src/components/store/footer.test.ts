@@ -16,6 +16,13 @@ const categories = [
 ];
 
 describe("StoreFooter", () => {
+  it("renders the persisted Instagram profile with external link protections", () => {
+    const html = renderToStaticMarkup(createElement(StoreFooter, { categories, instagramUrl: "https://www.instagram.com/qa.rare/" }));
+    expect(html).toContain('href="https://www.instagram.com/qa.rare/"');
+    expect(html).toContain('rel="noopener noreferrer"');
+    expect(html).not.toContain("rare.deptt/");
+  });
+
   it("renders ecommerce footer links for categories, service, institutional pages, and contact", () => {
     const html = renderToStaticMarkup(createElement(StoreFooter, { categories, whatsappNumber: "5511999999999" }) as ReactElement);
 
@@ -30,7 +37,7 @@ describe("StoreFooter", () => {
     expect(html).toContain("Privacidade e termos");
     expect(html).not.toContain("suporte@raredept.com.br");
     expect(html).toContain("Pagamento e envio confirmados durante o checkout");
-    expect(html).toContain('href="https://www.instagram.com/raredept/"');
+    expect(html).toContain('href="https://www.instagram.com/rare.deptt/"');
     expect(html).toContain('href="https://wa.me/5511999999999"');
   });
 

@@ -4,6 +4,7 @@ export { hasCompleteProductShippingData } from "@/lib/product-shipping-readiness
 import { isValidCep, parseCep } from "@/lib/cep";
 import { isValidCpf, normalizeCpf } from "@/lib/cpf";
 import { shippingModes } from "@/lib/shipping";
+import { normalizeInstagramUrl } from "@/lib/store-social";
 
 export const checkoutItemSchema = z.object({
   productId: z.string().min(1),
@@ -170,6 +171,7 @@ export const categoryFormSchema = z.object({
 });
 
 export const settingsFormSchema = z.object({
+  instagramUrl: z.string().trim().max(2048).refine((value) => normalizeInstagramUrl(value) !== null, "Informe a URL HTTPS do perfil no Instagram.").transform((value) => normalizeInstagramUrl(value)!).optional(),
   storeName: z.string().trim().min(2).max(80),
   whatsappNumber: z.string().trim().max(32).optional(),
   whatsappDefaultMessage: z.string().trim().min(5).max(240),
@@ -181,5 +183,5 @@ export const settingsFormSchema = z.object({
   freeShippingThresholdInCents: z.number().int().min(0).optional(),
   shippingInstructions: z.string().trim().max(500).optional(),
   checkoutRequiresAddress: z.boolean(),
-  checkoutReservationMinutes: z.number().int().min(30).max(1440),
+  checkoutReservationMinutes: z.literal(15),
 });

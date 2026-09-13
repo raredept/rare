@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AtSign, MessageCircle } from "lucide-react";
 import { virtualCatalogCategories } from "@/lib/catalog-categories";
 import { buildStorefrontCommerceState, type StorefrontCommerceState } from "@/lib/storefront-commerce";
+import { getInstagramUrl } from "@/lib/store-social";
 
 type FooterCategory = {
   id: string;
@@ -12,6 +13,7 @@ type FooterCategory = {
 type StoreFooterProps = {
   categories: FooterCategory[];
   whatsappNumber?: string | null;
+  instagramUrl?: string | null;
   commerce?: StorefrontCommerceState;
 };
 
@@ -52,7 +54,7 @@ function FooterNavList({
   );
 }
 
-export function StoreFooter({ categories, whatsappNumber, commerce }: StoreFooterProps) {
+export function StoreFooter({ categories, whatsappNumber, instagramUrl, commerce }: StoreFooterProps) {
   const commerceState = commerce ?? buildStorefrontCommerceState(true);
   const year = new Date().getFullYear();
   const categoryLinks = [
@@ -89,7 +91,7 @@ export function StoreFooter({ categories, whatsappNumber, commerce }: StoreFoote
             <p>Atendimento direto para dúvidas sobre peças, disponibilidade e pedidos.</p>
           </div>
           <div className="mt-6 flex flex-wrap gap-3">
-            <a href="https://www.instagram.com/raredept/" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/20 px-4 text-sm font-black text-white transition hover:border-white hover:bg-white hover:text-black">
+            <a href={getInstagramUrl(instagramUrl)} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/20 px-4 text-sm font-black text-white transition hover:border-white hover:bg-white hover:text-black">
               <AtSign className="h-4 w-4" aria-hidden="true" />
               Instagram
             </a>

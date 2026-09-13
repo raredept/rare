@@ -1,0 +1,4 @@
+.frame {
+  /* Match the public card despite the Admin's generic dark-theme overrides. */
+  background: var(--color-neutral-100);
+}

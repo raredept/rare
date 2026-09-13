@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getFallbackHomeBannerSlides,
   getHomeBannerSlidesForStore,
+  getLoginBanner,
   homeBannerInputSchema,
   isSafeBannerHref,
   normalizeBannerHref,
@@ -12,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   prisma: {
     homeBannerSlide: {
       findMany: vi.fn(),
+      findFirst: vi.fn(),
     },
   },
 }));
@@ -25,6 +27,35 @@ beforeEach(() => {
 });
 
 describe("home banner helpers", () => {
+  it("selects only the active banner for the requested login destination and preserves framing", async () => {
+    mocks.prisma.homeBannerSlide.findFirst.mockResolvedValueOnce({
+      id: "login-art", placement: "admin_login", imageFit: "contain", imagePositionX: 20, imagePositionY: 70,
+      mobileImagePositionX: 80, mobileImagePositionY: 10, imageUrl: "/brand/rare-logo.png", mobileImageUrl: null,
+      eyebrow: null, title: "Acesso RARE", description: null, ctaLabel: null, href: null,
+      alt: "Logo RARE", active: true, sortOrder: 0,
+    });
+    expect(await getLoginBanner("admin_login")).toMatchObject({ id: "login-art", imageFit: "contain", imagePositionX: 20, mobileImagePositionY: 10 });
+    expect(mocks.prisma.homeBannerSlide.findFirst).toHaveBeenCalledWith({
+      where: { active: true, placement: "admin_login" },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+    });
+  });
+
+  it("keeps login usable with its approved public fallback when campaign data is absent or unavailable", async () => {
+    mocks.prisma.homeBannerSlide.findFirst.mockResolvedValueOnce(null).mockRejectedValueOnce(new Error("Unavailable"));
+    for (const destination of ["customer_login", "admin_login"] as const) {
+      expect(await getLoginBanner(destination)).toMatchObject({ placement: destination, imageUrl: "/brand/rare-logo.png", imageFit: "contain" });
+    }
+  });
+
+  it("rejects unsupported login animation, invalid destination and framing outside the image", () => {
+    const input = { placement: "customer_login", imageUrl: "/uploads/banner.png", alt: "Banner", active: true, sortOrder: 0 };
+    expect(homeBannerInputSchema.safeParse(input).success).toBe(true);
+    for (const patch of [{ placement: "private" }, { imagePositionX: 101 }, { imagePositionY: -1 }, { imagePositionY: 4.5 }, { imageUrl: "/uploads/banner.gif" }, { mobileImageUrl: "/uploads/banner.mp4" }]) {
+      expect(homeBannerInputSchema.safeParse({ ...input, ...patch }).success).toBe(false);
+    }
+  });
+
   it("returns active persisted banners ordered for the storefront", async () => {
     mocks.prisma.homeBannerSlide.findMany.mockResolvedValueOnce([
       {
@@ -58,7 +89,7 @@ describe("home banner helpers", () => {
     const slides = await getHomeBannerSlidesForStore();
 
     expect(mocks.prisma.homeBannerSlide.findMany).toHaveBeenCalledWith({
-      where: { active: true },
+      where: { active: true, placement: "home" },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     });
     expect(slides.map((slide) => slide.id)).toEqual(["banner-2", "banner-1"]);

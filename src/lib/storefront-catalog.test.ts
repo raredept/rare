@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   prisma: {
+    $transaction: vi.fn(),
+    productVariant: { fields: { reservedStock: "reservedStock-field" } },
     category: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
@@ -9,6 +11,7 @@ const mocks = vi.hoisted(() => ({
     product: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
+      count: vi.fn(),
     },
   },
 }));
@@ -16,6 +19,10 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: mocks.prisma,
 }));
+
+function availableWhere(where: Record<string, unknown>) {
+  return expect.objectContaining({ AND: expect.arrayContaining([expect.objectContaining(where)]) });
+}
 
 function product(overrides: Record<string, unknown>) {
   return {
@@ -36,7 +43,10 @@ function product(overrides: Record<string, unknown>) {
 
 describe("storefront catalog helpers", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
+    mocks.prisma.$transaction.mockImplementation((callback: (client: typeof mocks.prisma) => Promise<unknown>) => callback(mocks.prisma));
+    mocks.prisma.product.findMany.mockResolvedValue([]);
+    mocks.prisma.product.count.mockResolvedValue(0);
   });
 
   it("gets active featured products through the existing featured flag", async () => {
@@ -49,11 +59,12 @@ describe("storefront catalog helpers", () => {
     expect(products).toEqual([featuredProduct]);
     expect(mocks.prisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ active: true, featured: true }),
+        where: availableWhere({ active: true, featured: true }),
         orderBy: [
           { featuredSortOrder: { sort: "asc", nulls: "last" } },
           { updatedAt: "desc" },
           { title: "asc" },
+          { id: "asc" },
         ],
       }),
     );
@@ -71,11 +82,12 @@ describe("storefront catalog helpers", () => {
     expect(products.map((item) => item.id)).toEqual(["featured-ordered", "featured-unordered"]);
     expect(mocks.prisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ active: true, featured: true }),
+        where: availableWhere({ active: true, featured: true }),
         orderBy: [
           { featuredSortOrder: { sort: "asc", nulls: "last" } },
           { updatedAt: "desc" },
           { title: "asc" },
+          { id: "asc" },
         ],
         take: 5,
       }),
@@ -92,8 +104,8 @@ describe("storefront catalog helpers", () => {
     expect(products).toEqual([recentProduct]);
     expect(mocks.prisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ active: true }),
-        orderBy: [{ createdAt: "desc" }, { sortOrder: "asc" }],
+        where: availableWhere({ active: true }),
+        orderBy: [{ createdAt: "desc" }, { sortOrder: "asc" }, { id: "asc" }],
         take: 4,
       }),
     );
@@ -173,7 +185,7 @@ describe("storefront catalog helpers", () => {
 
     expect(mocks.prisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ active: true }),
+        where: availableWhere({ active: true }),
       }),
     );
     expect(sections.map((section) => section.name)).toEqual(["Camisetas", "Calças", "Bags"]);
@@ -218,7 +230,7 @@ describe("storefront catalog helpers", () => {
     expect(pageData.sections.some((section) => section.slug === "relogios")).toBe(false);
     expect(mocks.prisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({
+        where: availableWhere({
           active: true,
           AND: [
             {
@@ -270,7 +282,7 @@ describe("storefront catalog helpers", () => {
     expect(mocks.prisma.category.findUnique).not.toHaveBeenCalled();
     expect(mocks.prisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ active: true, featured: true }),
+        where: availableWhere({ active: true, featured: true }),
       }),
     );
   });
@@ -377,5 +389,44 @@ describe("storefront catalog helpers", () => {
     expect(mocks.prisma.category.findUnique).toHaveBeenCalledWith(
       expect.objectContaining({ where: { slug: "categoria-inexistente" } }),
     );
+  });
+
+  it("fills a page crossing availability groups using the remaining sold-out offset in one snapshot", async () => {
+    mocks.prisma.product.count.mockResolvedValueOnce(25);
+    mocks.prisma.product.findMany.mockResolvedValueOnce([product({ id: "available-last" })]);
+    mocks.prisma.product.findMany.mockResolvedValueOnce([product({ id: "sold-first" }), product({ id: "sold-second" })]);
+    const { getProducts } = await import("@/lib/storefront");
+    const rows = await getProducts({ offset: 24, limit: 3, query: "Rare", brand: "STÜSSY" });
+    expect(rows.map((row) => row.id)).toEqual(["available-last", "sold-first", "sold-second"]);
+    expect(mocks.prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: "RepeatableRead" });
+    expect(mocks.prisma.product.findMany).toHaveBeenNthCalledWith(1, expect.objectContaining({ skip: 24, take: 3 }));
+    expect(mocks.prisma.product.findMany).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      skip: 0, take: 2, where: { AND: [expect.objectContaining({ active: true, brand: { equals: "STÜSSY", mode: "insensitive" } }),
+        { variants: { none: { active: true, stock: { gt: "reservedStock-field" } } } }] },
+    }));
+  });
+
+  it("skips within the sold-out group after all available products and preserves a stable tie breaker", async () => {
+    mocks.prisma.product.count.mockResolvedValueOnce(25);
+    mocks.prisma.product.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([product({ id: "sold-later" })]);
+    const { getProducts } = await import("@/lib/storefront");
+    await getProducts({ offset: 48, limit: 24, orderBy: [{ priceInCents: "asc" }] });
+    expect(mocks.prisma.product.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ skip: 23, take: 24,
+      orderBy: [{ priceInCents: "asc" }, { id: "asc" }],
+    }));
+  });
+
+  it("returns a 24-product leaf page with a lookahead and keeps the same search and brand filters", async () => {
+    mocks.prisma.category.findUnique.mockResolvedValueOnce({ name: "Camisetas", slug: "camisetas", active: true, children: [] });
+    mocks.prisma.product.count.mockResolvedValueOnce(60);
+    mocks.prisma.product.findMany.mockResolvedValueOnce(Array.from({ length: 25 }, (_, index) => product({ id: `page-${index}` })));
+    const { getCategoryPageData } = await import("@/lib/storefront");
+    const data = await getCategoryPageData("camisetas", { page: 2, query: "Rare", brand: "BAPE" });
+    expect(data).toMatchObject({ page: 2, hasMore: true });
+    if (data?.kind !== "category") throw new Error("Expected leaf page");
+    expect(data.products).toHaveLength(24);
+    expect(mocks.prisma.product.findMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 24, take: 25,
+      where: availableWhere({ active: true, brand: { equals: "BAPE", mode: "insensitive" } }),
+    }));
   });
 });

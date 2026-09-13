@@ -14,7 +14,7 @@ describe("storefront structured data", () => {
       "@type": "Organization",
       name: "RARE",
       url: appUrl,
-      sameAs: ["https://www.instagram.com/raredept/"],
+      sameAs: ["https://www.instagram.com/rare.deptt/"],
     });
     expect(buildWebsiteJsonLd(appUrl)).toMatchObject({
       "@type": "WebSite",

@@ -213,6 +213,9 @@ model Order {
   stripePaymentIntentId   String?
   paymentMethod           String?
   reservationExpiresAt    DateTime?
+  checkoutDeadlineAt      DateTime?
+  checkoutExpiredAt       DateTime?
+  checkoutExpiryJob       CheckoutExpiryJob?
   paidAt                  DateTime?
   items                   OrderItem[]
   inventoryMovements      InventoryMovement[]
@@ -231,31 +234,64 @@ model Order {
 // Payment and enqueue commit together; SMTP runs only after this transaction.
 // accepted means SMTP acceptance, never confirmed inbox delivery.
 model EmailOutbox {
-  id                String            @id @default(cuid())
-  orderId           String
-  order             Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  kind              String            @default("payment_approved")
-  recipient         String?
-  customerName      String?
-  orderNumber       String
-  totalInCents      Int
-  messageId         String            @unique
-  status            EmailOutboxStatus @default(pending)
-  attempts          Int               @default(0)
-  nextAttemptAt     DateTime          @default(now())
-  leaseToken        String?
-  leaseExpiresAt    DateTime?
-  provider          String?
-  acceptedAt        DateTime?
-  lastErrorCode     String?
-  reviewedAt        DateTime?
-  reviewNote        String?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  id             String            @id @default(cuid())
+  orderId        String
+  order          Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  kind           String            @default("payment_approved")
+  recipient      String?
+  customerName   String?
+  orderNumber    String
+  totalInCents   Int
+  messageId      String            @unique
+  status         EmailOutboxStatus @default(pending)
+  attempts       Int               @default(0)
+  nextAttemptAt  DateTime          @default(now())
+  leaseToken     String?
+  leaseExpiresAt DateTime?
+  provider       String?
+  acceptedAt     DateTime?
+  lastErrorCode  String?
+  reviewedAt     DateTime?
+  reviewNote     String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
   @@unique([orderId, kind])
   @@index([status, nextAttemptAt, createdAt])
   @@index([status, leaseExpiresAt])
+}
+
+// Durable commercial deadline. Provider confirmation precedes stock release.
+model CheckoutExpiryJob {
+  id                String    @id @default(cuid())
+  orderId           String    @unique
+  order             Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  deadlineAt        DateTime
+  nextAttemptAt     DateTime
+  status            String    @default("pending")
+  attempts          Int       @default(0)
+  leaseToken        String?
+  leaseExpiresAt    DateTime?
+  providerCheckedAt DateTime?
+  completedAt       DateTime?
+  lastErrorCode     String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([status, leaseExpiresAt])
+}
+
+// Every rendered edit points back to the immutable uploaded original.
+model ProductMediaAsset {
+  id               String   @id @default(cuid())
+  url              String   @unique
+  originalUrl      String
+  width            Int
+  height           Int
+  framing          Json?
+  createdByAdminId String
+  createdAt        DateTime @default(now())
 }
 
 model AdminNotification {
@@ -338,6 +374,7 @@ model InventoryMovement {
 model StoreSettings {
   id                           String   @id @default("store")
   storeName                    String   @default("RARE STORE")
+  instagramUrl                 String   @default("https://www.instagram.com/rare.deptt/")
   whatsappNumber               String?
   whatsappDefaultMessage       String   @default("Ola, tenho interesse nesse produto da RARE STORE.")
   manualShippingInCents        Int      @default(0)
@@ -348,22 +385,22 @@ model StoreSettings {
   freeShippingThresholdInCents Int?
   shippingInstructions         String?
   checkoutRequiresAddress      Boolean  @default(true)
-  checkoutReservationMinutes   Int      @default(30)
+  checkoutReservationMinutes   Int      @default(15)
   createdAt                    DateTime @default(now())
   updatedAt                    DateTime @updatedAt
 }
 
 model OperationalEvidence {
-  id                String   @id @default(cuid())
+  id                String    @id @default(cuid())
   key               String
-  status            String   @default("pending")
-  environment       String   @default("staging")
+  status            String    @default("pending")
+  environment       String    @default("staging")
   checkedAt         DateTime?
   checkedByLabel    String?
   notes             String?
   evidenceReference String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@unique([key, environment])
   @@index([status, environment])
@@ -371,22 +408,29 @@ model OperationalEvidence {
 }
 
 model HomeBannerSlide {
-  id             String   @id @default(cuid())
-  eyebrow        String?
-  title          String?
-  description    String?
-  ctaLabel       String?
-  href           String?
-  imageUrl       String   @default("")
-  mobileImageUrl String?
-  alt            String
-  active         Boolean  @default(true)
-  sortOrder      Int      @default(0)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  eyebrow              String?
+  title                String?
+  description          String?
+  ctaLabel             String?
+  href                 String?
+  imageUrl             String   @default("")
+  mobileImageUrl       String?
+  placement            String   @default("home")
+  imageFit             String   @default("cover")
+  imagePositionX       Int      @default(50)
+  imagePositionY       Int      @default(50)
+  mobileImagePositionX Int      @default(50)
+  mobileImagePositionY Int      @default(50)
+  alt                  String
+  active               Boolean  @default(true)
+  sortOrder            Int      @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   @@index([active, sortOrder])
   @@index([sortOrder])
+  @@index([placement, active, sortOrder])
 }
 
 model StripeEvent {

@@ -16,6 +16,7 @@ function text(formData: FormData, key: string) {
 export async function saveSettingsAction(formData: FormData) {
   await requireAdmin();
   const parsed = settingsFormSchema.parse({
+    instagramUrl: text(formData, "instagramUrl") || undefined,
     storeName: text(formData, "storeName"),
     whatsappNumber: text(formData, "whatsappNumber") || undefined,
     whatsappDefaultMessage: text(formData, "whatsappDefaultMessage"),
@@ -27,7 +28,7 @@ export async function saveSettingsAction(formData: FormData) {
     freeShippingThresholdInCents: parseMoneyToCents(formData.get("freeShippingThreshold")) || undefined,
     shippingInstructions: text(formData, "shippingInstructions") || undefined,
     checkoutRequiresAddress: formData.get("checkoutRequiresAddress") === "on",
-    checkoutReservationMinutes: Number(text(formData, "checkoutReservationMinutes") || 30),
+    checkoutReservationMinutes: 15,
   });
 
   await prisma.storeSettings.upsert({
@@ -36,7 +37,7 @@ export async function saveSettingsAction(formData: FormData) {
     create: { id: "store", ...parsed },
   });
 
-  revalidatePath("/");
+  revalidatePath("/", "layout");
   revalidatePath("/admin/settings");
   redirect(withAdminActionRefresh("/admin/settings?success=settings-saved"));
 }

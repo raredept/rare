@@ -3,6 +3,7 @@ import { CustomerLoginForm } from "@/components/store/customer-auth-forms";
 import { getCurrentCustomer } from "@/lib/customer-auth";
 import { buildNoIndexMetadata } from "@/lib/seo";
 import { CustomerAuthShell } from "@/components/store/customer-auth-shell";
+import { getLoginBanner } from "@/lib/home-banners";
 
 export const dynamic = "force-dynamic";
 
@@ -22,9 +23,10 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   if (customer) {
     redirect("/minha-conta");
   }
+  const banner = await getLoginBanner("customer_login");
 
   return (
-    <CustomerAuthShell eyebrow="Conta RARE" title="Entrar" description="Acesse seus dados, endereços e pedidos em um só lugar.">
+    <CustomerAuthShell banner={banner} eyebrow="Conta RARE" title="Entrar" description="Acesse seus dados, endereços e pedidos em um só lugar.">
       <CustomerLoginForm next={next} />
     </CustomerAuthShell>
   );

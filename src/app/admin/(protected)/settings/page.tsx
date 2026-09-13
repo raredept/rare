@@ -3,6 +3,7 @@ import { AdminSubmitButton } from "@/components/admin/admin-submit-button";
 import { formatCep } from "@/lib/cep";
 import { formatMoney } from "@/lib/money";
 import { getStoreSettings } from "@/lib/settings";
+import { getInstagramUrl } from "@/lib/store-social";
 import { getEffectiveFixedShippingInCents, getEffectiveFreeShippingThresholdInCents } from "@/lib/shipping";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +17,11 @@ export default async function SettingsPage() {
     <div>
       <h1 className="text-2xl font-black text-neutral-950">Configurações</h1>
       <form action={saveSettingsAction} className="mt-6 max-w-3xl space-y-6 rounded-lg border border-neutral-200 bg-white p-5">
+        <label className="block">
+          <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Instagram da loja</span>
+          <input name="instagramUrl" type="url" required defaultValue={getInstagramUrl(settings.instagramUrl)} className="admin-input" />
+          <span className="mt-2 block text-xs text-neutral-500">Perfil usado no rodapé, contato e dados públicos da loja.</span>
+        </label>
         <label className="block">
           <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Nome da loja</span>
           <input name="storeName" defaultValue={settings.storeName} className="admin-input" />
@@ -87,11 +93,11 @@ export default async function SettingsPage() {
           <input
             name="checkoutReservationMinutes"
             type="number"
-            min={30}
-            max={1440}
-            defaultValue={settings.checkoutReservationMinutes}
+            value={15}
+            readOnly
             className="admin-input"
           />
+          <p className="mt-2 text-xs text-neutral-600">Novas compras: 15 minutos, com encerramento confirmado no provedor. Pedidos anteriores mantêm o prazo original; login e pagamentos em processamento têm prazos próprios.</p>
         </label>
         <AdminSubmitButton
           idleLabel="Salvar configurações"

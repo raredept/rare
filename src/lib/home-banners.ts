@@ -1,11 +1,13 @@
 import { z } from "zod";
 import { getActiveHomeHeroSlides, homeHeroSlides, type HomeHeroSlide } from "@/lib/home-hero-slides";
 
+import type { BannerFraming } from "@/lib/banner-placement";
+
 export type HomeBannerSlide = HomeHeroSlide & {
   sortOrder: number;
   createdAt?: Date;
   updatedAt?: Date;
-};
+} & BannerFraming;
 
 export type HomeBannerSlideInput = {
   eyebrow?: string;
@@ -18,7 +20,7 @@ export type HomeBannerSlideInput = {
   alt: string;
   active: boolean;
   sortOrder: number;
-};
+} & BannerFraming;
 
 type PersistedHomeBannerSlide = {
   id: string;
@@ -34,6 +36,12 @@ type PersistedHomeBannerSlide = {
   sortOrder: number;
   createdAt?: Date;
   updatedAt?: Date;
+  placement?: string;
+  imageFit?: string;
+  imagePositionX?: number;
+  imagePositionY?: number;
+  mobileImagePositionX?: number;
+  mobileImagePositionY?: number;
 };
 
 const internalHrefPrefixes = ["/categoria/", "/produto/"];
@@ -127,6 +135,7 @@ export function isSafeBannerHref(value: string | undefined) {
 export function isSafeBannerImageUrl(value: string | undefined) {
   if (!value) return true;
   if (value.startsWith("/uploads/") || value.startsWith("/test-uploads/")) return true;
+  if (value === "/brand/rare-logo.png") return true;
 
   try {
     const url = new URL(value);
@@ -138,6 +147,12 @@ export function isSafeBannerImageUrl(value: string | undefined) {
 
 export const homeBannerInputSchema = z
   .object({
+    placement: z.enum(["home", "customer_login", "admin_login"]).default("home"),
+    imageFit: z.enum(["cover", "contain"]).default("cover"),
+    imagePositionX: z.coerce.number().int().min(0).max(100).default(50),
+    imagePositionY: z.coerce.number().int().min(0).max(100).default(50),
+    mobileImagePositionX: z.coerce.number().int().min(0).max(100).default(50),
+    mobileImagePositionY: z.coerce.number().int().min(0).max(100).default(50),
     eyebrow: optionalText(80),
     title: optionalText(140),
     description: optionalText(320),
@@ -150,6 +165,9 @@ export const homeBannerInputSchema = z
     sortOrder: z.coerce.number().int().min(0).max(999999),
   })
   .superRefine((value, context) => {
+    if (value.placement !== "home" && [value.imageUrl, value.mobileImageUrl].some((url) => url && /\.(?:gif|mp4)(?:[?#]|$)/i.test(url))) {
+      context.addIssue({ code: "custom", path: ["imageUrl"], message: "No login, use uma imagem estática JPG, PNG, WEBP ou AVIF." });
+    }
     if (value.imageUrl && !value.alt) {
       context.addIssue({
         code: "custom",
@@ -193,6 +211,12 @@ export const homeBannerInputSchema = z
 
 export function normalizeHomeBannerSlide(slide: PersistedHomeBannerSlide): HomeBannerSlide | null {
   const parsed = homeBannerInputSchema.safeParse({
+    placement: slide.placement,
+    imageFit: slide.imageFit,
+    imagePositionX: slide.imagePositionX,
+    imagePositionY: slide.imagePositionY,
+    mobileImagePositionX: slide.mobileImagePositionX,
+    mobileImagePositionY: slide.mobileImagePositionY,
     eyebrow: slide.eyebrow ?? undefined,
     title: slide.title ?? undefined,
     description: slide.description ?? undefined,
@@ -212,6 +236,12 @@ export function normalizeHomeBannerSlide(slide: PersistedHomeBannerSlide): HomeB
 
   return {
     id: slide.id,
+    placement: data.placement,
+    imageFit: data.imageFit,
+    imagePositionX: data.imagePositionX,
+    imagePositionY: data.imagePositionY,
+    mobileImagePositionX: data.mobileImagePositionX,
+    mobileImagePositionY: data.mobileImagePositionY,
     eyebrow: data.eyebrow,
     title: data.title,
     description: data.description,
@@ -280,7 +310,7 @@ export async function getHomeBannerSlidesForStore(): Promise<HomeHeroSlide[]> {
   try {
     const { prisma } = await import("@/lib/prisma");
     const banners = await prisma.homeBannerSlide.findMany({
-      where: { active: true },
+      where: { active: true, placement: "home" },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     });
     const slides = banners.map(normalizeHomeBannerSlide).filter((slide): slide is HomeBannerSlide => Boolean(slide));
@@ -288,6 +318,31 @@ export async function getHomeBannerSlidesForStore(): Promise<HomeHeroSlide[]> {
   } catch {
     return getFallbackHomeBannerSlides();
   }
+}
+
+export function getFallbackLoginBanner(placement: "customer_login" | "admin_login"): HomeBannerSlide {
+  return {
+    id: `fallback-${placement}`, placement, imageUrl: "/brand/rare-logo.png", alt: "RARE Dept.",
+    active: true, sortOrder: 0, imageFit: "contain", imagePositionX: 50, imagePositionY: 30,
+    mobileImagePositionX: 50, mobileImagePositionY: 30,
+    title: placement === "customer_login" ? "Sua curadoria, seus dados, seus pedidos." : "RARE por dentro.",
+    description: placement === "customer_login" ? "Uma conta simples para acompanhar sua relação com a RARE." : "Gestão da loja em um só lugar.",
+  };
+}
+
+export async function getLoginBanner(placement: "customer_login" | "admin_login"): Promise<HomeBannerSlide> {
+  try {
+    const { prisma } = await import("@/lib/prisma");
+    const stored = await prisma.homeBannerSlide.findFirst({
+      where: { active: true, placement },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+    });
+    const banner = stored ? normalizeHomeBannerSlide(stored) : null;
+    if (banner?.active && banner.placement === placement && banner.imageUrl) return banner;
+  } catch {
+    // Login remains usable when the optional campaign data is unavailable.
+  }
+  return getFallbackLoginBanner(placement);
 }
 
 export async function getAdminHomeBannerSlides(): Promise<HomeBannerSlide[]> {

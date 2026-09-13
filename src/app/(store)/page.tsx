@@ -1,12 +1,18 @@
 import { ArrowRight, Headphones, PackageSearch, RotateCcw, ShieldCheck, Sparkles, Truck } from "lucide-react";
 import Link from "next/link";
 import { HomeHeroCarousel } from "@/components/store/home-hero-carousel";
+import { HomeMotionProvider } from "@/components/store/home-motion";
+import { HomeBrandsStrip } from "@/components/store/home-brands-strip";
+import { HomeFeaturedCarousel, type HomeFeaturedSlide } from "@/components/store/home-featured-carousel";
 import { ProductCard } from "@/components/store/product-card";
 import { getHomeBannerSlidesForStore } from "@/lib/home-banners";
 import { buildPageMetadata, RARE_DEFAULT_SITE_URL } from "@/lib/seo";
 import { buildOrganizationJsonLd, buildWebsiteJsonLd, JsonLdScript } from "@/lib/structured-data";
-import { getFeaturedProducts, getHomeCategoryTiles, getProducts, getRecentProducts, type HomeCategoryTile, type StorefrontProduct } from "@/lib/storefront";
+import { getAvailableBrandsForStore, getFeaturedProducts, getHomeCategoryTiles, getProducts, getRecentProducts, type HomeCategoryTile, type StorefrontProduct } from "@/lib/storefront";
 import { getStorefrontCommerceState, type StorefrontCommerceState } from "@/lib/storefront-commerce";
+import { getProductMediaTypeFromUrl } from "@/lib/product-media";
+import { getAvailableStock } from "@/lib/stock";
+import { getStoreSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -160,23 +166,35 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     return <SearchResults products={products} query={searchQuery} commerce={commerce} />;
   }
 
-  const [heroSlides, categoryTiles, featuredProducts, recentProducts] = await Promise.all([
+  const [heroSlides, categoryTiles, featuredProducts, recentProducts, brands, settings] = await Promise.all([
     getHomeBannerSlidesForStore(),
     getHomeCategoryTiles(),
-    getFeaturedProducts({ limit: 5 }),
+    getFeaturedProducts({ limit: 8 }),
     getRecentProducts({ limit: 4 }),
+    getAvailableBrandsForStore(),
+    getStoreSettings(),
   ]);
   const selectedFeaturedProducts = featuredProducts.slice(0, 5);
+  const featuredSlides: HomeFeaturedSlide[] = featuredProducts.flatMap((product) => {
+    const image = product.images.find((media) => getProductMediaTypeFromUrl(media.url) === "image");
+    if (!image) return [];
+    return [{ id: product.id, title: product.title, slug: product.slug, priceInCents: product.priceInCents,
+      soldOut: !product.variants.some((variant) => variant.active && getAvailableStock(variant.stock, variant.reservedStock) > 0),
+      image: { url: image.url, alt: image.alt || product.title },
+    }];
+  });
   const appUrl = RARE_DEFAULT_SITE_URL;
-  const organizationJsonLd = buildOrganizationJsonLd(appUrl);
+  const organizationJsonLd = buildOrganizationJsonLd(appUrl, settings.instagramUrl);
   const websiteJsonLd = buildWebsiteJsonLd(appUrl);
 
   return (
+    <HomeMotionProvider>
     <div className="store-shell pb-12 pt-5 lg:pb-16 lg:pt-8">
       <JsonLdScript id="rare-organization-json-ld" data={organizationJsonLd} />
       <JsonLdScript id="rare-website-json-ld" data={websiteJsonLd} />
       <h1 className="sr-only">RARE — streetwear importado e drops selecionados</h1>
       <HomeHeroCarousel slides={heroSlides} />
+      <HomeBrandsStrip brands={brands} />
 
       <section className="store-home-section mt-12 lg:mt-16" aria-labelledby="home-featured-title">
         <SectionHeading
@@ -212,11 +230,13 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         </section>
       ) : null}
 
-      <section className="store-home-section mt-12 overflow-hidden rounded-lg bg-black px-6 py-10 text-white sm:px-8 lg:mt-16 lg:px-10 lg:py-12">
+      <section aria-labelledby="home-limited-title" className="store-home-section mt-12 overflow-hidden rounded-lg bg-black px-6 py-10 text-white sm:px-8 lg:mt-16 lg:px-10 lg:py-12">
+        <div className={`grid items-center gap-8 lg:gap-12 ${featuredSlides.length ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]" : ""}`}>
+        <div>
         <p className="text-xs font-black uppercase tracking-[0.26em] text-white/65">Drop RARE</p>
-        <div className="mt-5 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+        <div className="mt-5 flex flex-col gap-6">
           <div className="max-w-3xl">
-            <h2 className="text-3xl font-black tracking-tight sm:text-4xl lg:text-5xl">Estoque limitado. Escolha sem pressa, mas não deixa passar.</h2>
+            <h2 id="home-limited-title" className="text-3xl font-black tracking-tight sm:text-4xl lg:text-5xl">Estoque limitado. Escolha sem pressa, mas não deixa passar.</h2>
             <p className="mt-4 max-w-2xl text-sm font-semibold leading-6 text-white/62 sm:text-base">
               Quando uma peça sai, pode não voltar tão cedo.
             </p>
@@ -228,6 +248,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             Ver catálogo completo
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </Link>
+        </div>
+        </div>
+        <HomeFeaturedCarousel products={featuredSlides} />
         </div>
       </section>
 
@@ -288,5 +311,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         </div>
       </section>
     </div>
+    </HomeMotionProvider>
   );
 }

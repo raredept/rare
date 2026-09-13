@@ -44,7 +44,7 @@ describe("admin banners page", () => {
     const html = renderToStaticMarkup(element as ReactElement);
 
     expect(html).toContain("Banners da Home");
-    expect(html).toContain("Gerencie os slides principais exibidos na vitrine.");
+    expect(html).toContain("Gerencie a vitrine, o acesso do cliente e o acesso Admin nesta mesma área.");
     expect(html).toContain("Nenhum banner cadastrado.");
     expect(html).toContain("Crie o primeiro banner para destacar drops e campanhas na home.");
     expect(html).toContain("Novo banner");

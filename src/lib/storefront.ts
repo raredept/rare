@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { accessoryCatalogSubcategories, groupedCatalogCategories, primaryCatalogCategories } from "@/lib/catalog-categories";
 import { prisma } from "@/lib/prisma";
 import { isVariantPurchasable } from "@/lib/stock";
+import { buildCatalogPageHref, CATALOG_PAGE_SIZE, normalizeCatalogPage } from "@/lib/catalog-pagination";
 
 export const productInclude = {
   category: true,
@@ -60,11 +61,12 @@ const homeCategoryDescriptions = new Map([
   ["relogios", "Relógios e detalhes de impacto."],
 ]);
 
-function buildActiveProductWhere(params?: { query?: string; categorySlug?: string; featuredOnly?: boolean }) {
+function buildActiveProductWhere(params?: { query?: string; categorySlug?: string; brand?: string; featuredOnly?: boolean }) {
   const query = params?.query?.trim();
   const where: Prisma.ProductWhereInput = {
     active: true,
     ...(params?.featuredOnly ? { featured: true } : {}),
+    ...(params?.brand?.trim() ? { brand: { equals: params.brand.trim(), mode: "insensitive" as const } } : {}),
   };
 
   const and: Prisma.ProductWhereInput[] = [];
@@ -104,12 +106,10 @@ type CategoryAvailabilityProduct = {
   variants: { active: boolean; stock: number; reservedStock: number }[];
 };
 
-function buildPurchasableProductCountsByCategorySlug(products: CategoryAvailabilityProduct[]) {
+function buildPublishedProductCountsByCategorySlug(products: CategoryAvailabilityProduct[]) {
   const counts = new Map<string, number>();
 
   for (const product of products) {
-    if (!product.variants.some((variant) => isVariantPurchasable(variant))) continue;
-
     const slugs = new Set([product.category?.slug, product.subcategory?.slug].filter((slug): slug is string => Boolean(slug)));
     for (const slug of slugs) {
       counts.set(slug, (counts.get(slug) ?? 0) + 1);
@@ -154,7 +154,7 @@ export async function getNavigationCategories() {
       },
     }),
   ]);
-  const productCountsBySlug = buildPurchasableProductCountsByCategorySlug(products);
+  const productCountsBySlug = buildPublishedProductCountsByCategorySlug(products);
 
   return categories.flatMap((category) => {
     const childrenWithProducts = category.children.filter((child) => (productCountsBySlug.get(child.slug) ?? 0) > 0);
@@ -195,16 +195,51 @@ function buildHomeCategoryTile(category: { name: string; slug: string }, total: 
 export async function getProducts(params?: {
   query?: string;
   categorySlug?: string;
+  brand?: string;
   featuredOnly?: boolean;
   limit?: number;
+  offset?: number;
   orderBy?: Prisma.ProductOrderByWithRelationInput[];
 }) {
-  return prisma.product.findMany({
-    where: buildActiveProductWhere(params),
-    include: productInclude,
-    orderBy: params?.orderBy ?? productOrderBy,
-    ...(params?.limit && params.limit > 0 ? { take: params.limit } : {}),
+  const where = buildActiveProductWhere(params);
+  const purchasable = { active: true, stock: { gt: prisma.productVariant.fields.reservedStock } };
+  const availableWhere: Prisma.ProductWhereInput = { AND: [where, { variants: { some: purchasable } }] };
+  const soldOutWhere: Prisma.ProductWhereInput = { AND: [where, { variants: { none: purchasable } }] };
+  const orderBy = [...(params?.orderBy ?? productOrderBy), { id: "asc" as const }];
+  const requestedOffset = params?.offset ?? 0;
+  const requestedLimit = params?.limit ?? 0;
+  const offset = Number.isSafeInteger(requestedOffset) && requestedOffset > 0 ? requestedOffset : 0;
+  const limit = Number.isFinite(requestedLimit) && requestedLimit > 0 ? Math.max(1, Math.trunc(requestedLimit)) : undefined;
+
+  // Grouping happens in PostgreSQL BEFORE skip/take. One snapshot prevents a
+  // stock mutation between the two groups from duplicating/skipping a product.
+  return prisma.$transaction(async (tx) => {
+    const availableCount = offset ? await tx.product.count({ where: availableWhere }) : 0;
+    const available = await tx.product.findMany({
+      where: availableWhere, include: productInclude, orderBy, skip: offset, take: limit,
+    });
+    if (limit && available.length === limit) return available;
+    const soldOut = await tx.product.findMany({
+      where: soldOutWhere, include: productInclude, orderBy,
+      skip: Math.max(0, offset - availableCount), take: limit ? limit - available.length : undefined,
+    });
+    return [...available, ...soldOut];
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+}
+
+export async function getAvailableBrandsForStore(): Promise<string[]> {
+  const rows = await prisma.product.findMany({
+    where: { active: true, brand: { not: null }, variants: { some: {
+      active: true, stock: { gt: prisma.productVariant.fields.reservedStock },
+    } } },
+    select: { brand: true }, distinct: ["brand"], orderBy: [{ brand: "asc" }, { id: "asc" }],
   });
+  const brands = new Map<string, string>();
+  for (const row of rows) {
+    const name = row.brand?.normalize("NFC").trim().replace(/\s+/g, " ");
+    if (name && !brands.has(name.toLocaleLowerCase("pt-BR"))) brands.set(name.toLocaleLowerCase("pt-BR"), name);
+  }
+  return [...brands.values()];
 }
 
 export async function getFeaturedProducts(params?: { query?: string; limit?: number }) {
@@ -261,6 +296,7 @@ export async function getHomeCategoryTiles(): Promise<HomeCategoryTiles> {
 
 export async function getProductsGroupedByCategory(params?: {
   query?: string;
+  brand?: string;
   categorySlug?: string;
   categories?: GroupingCategory[];
   limitPerCategory?: number;
@@ -268,11 +304,7 @@ export async function getProductsGroupedByCategory(params?: {
 }) {
   const groupingCategories = params?.categories ?? groupedCatalogCategories;
   const groupingSlugs = new Set(groupingCategories.map((category) => category.slug));
-  const products = await prisma.product.findMany({
-    where: buildActiveProductWhere({ query: params?.query, categorySlug: params?.categorySlug }),
-    include: productInclude,
-    orderBy: productOrderBy,
-  });
+  const products = await getProducts({ query: params?.query, brand: params?.brand, categorySlug: params?.categorySlug });
 
   const groupedProducts = new Map<string, StorefrontProduct[]>();
 
@@ -300,7 +332,7 @@ export async function getProductsGroupedByCategory(params?: {
       {
         name: category.name,
         slug: category.slug,
-        href: `/categoria/${category.slug}`,
+        href: buildCatalogPageHref(category.slug, params),
         products: productsToShow,
         total: productsForCategory.length,
         hasMore: limitPerCategory > 0 && productsForCategory.length > limitPerCategory,
@@ -309,7 +341,15 @@ export async function getProductsGroupedByCategory(params?: {
   });
 }
 
-export async function getCategoryPageData(slug: string, params?: { query?: string }) {
+export async function getCategoryPageData(slug: string, params?: { query?: string; brand?: string; page?: number }) {
+  const page = normalizeCatalogPage(params?.page);
+  async function loadProductPage(categorySlug?: string, featuredOnly = false) {
+    const products = await getProducts({ categorySlug, featuredOnly, query: params?.query, brand: params?.brand,
+      limit: CATALOG_PAGE_SIZE + 1, offset: (page - 1) * CATALOG_PAGE_SIZE,
+      ...(featuredOnly ? { orderBy: featuredProductOrderBy } : {}),
+    });
+    return { products: products.slice(0, CATALOG_PAGE_SIZE), page, hasMore: products.length > CATALOG_PAGE_SIZE };
+  }
   if (slug === "destaques") {
     return {
       kind: "featured" as const,
@@ -317,7 +357,7 @@ export async function getCategoryPageData(slug: string, params?: { query?: strin
       eyebrow: "Destaques RARE",
       title: "Destaques da loja",
       description: "Peças em evidência na RARE — selecionadas por estilo, procura e presença.",
-      products: await getFeaturedProducts({ query: params?.query }),
+      ...await loadProductPage(undefined, true),
     };
   }
 
@@ -328,7 +368,7 @@ export async function getCategoryPageData(slug: string, params?: { query?: strin
       eyebrow: "Catálogo RARE",
       title: "Catálogo completo",
       description: "Explore todas as peças da RARE por categoria.",
-      sections: await getProductsGroupedByCategory({ query: params?.query, limitPerCategory: 10 }),
+      sections: await getProductsGroupedByCategory({ query: params?.query, brand: params?.brand, limitPerCategory: 10 }),
     };
   }
 
@@ -351,10 +391,11 @@ export async function getCategoryPageData(slug: string, params?: { query?: strin
       slug,
       eyebrow: "Categoria",
       title: category.name,
-      description: "Peças disponíveis agora nesta categoria, separadas por seção.",
+      description: "Peças da RARE nesta categoria, separadas por seção.",
       sections: await getProductsGroupedByCategory({
         categorySlug: slug,
         query: params?.query,
+        brand: params?.brand,
         categories: category.children,
       }),
     };
@@ -365,8 +406,8 @@ export async function getCategoryPageData(slug: string, params?: { query?: strin
     slug,
     eyebrow: "Categoria",
     title: category.name,
-    description: "Peças disponíveis agora nesta categoria.",
-    products: await getProducts({ categorySlug: slug, query: params?.query }),
+    description: "Peças selecionadas pela RARE nesta categoria.",
+    ...await loadProductPage(slug),
   };
 }
 

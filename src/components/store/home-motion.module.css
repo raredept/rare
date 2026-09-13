@@ -1,0 +1,22 @@
+.brands { display: flex; min-width: 0; flex-direction: column; overflow: hidden; }
+.brandViewport { container-type: inline-size; overflow: hidden; flex: 1; min-width: 0; }
+.brandTrack { display: flex; width: max-content; animation: brands-travel 45s linear infinite; animation-play-state: paused; }
+.brands[data-playing="true"] .brandTrack { animation-play-state: running; }
+.brandGroup { display: flex; flex: 0 0 auto; justify-content: space-around; align-items: center; width: max-content; min-width: 100cqw; margin: 0; padding: 0; list-style: none; }
+.brandName { display: flex; align-items: center; justify-content: center; gap: 2rem; padding: 1.25rem 1rem; white-space: nowrap; font-size: 1rem; line-height: 1.5; font-weight: 900; letter-spacing: .12em; }
+.brandSeparator { width: .25rem; height: .25rem; border-radius: 50%; background: #737373; }
+.brands[data-static="true"] .brandTrack { width: 100%; animation: none; }
+.brands[data-static="true"] .brandGroup { width: 100%; flex-wrap: wrap; }
+.brands[data-static="true"] .brandCopy { display: none; }
+.brands[data-static="true"] .brandName { gap: 1rem; padding-block: 1rem; }
+.featureSlide { animation: feature-enter 350ms ease-out both; }
+.featureViewport { touch-action: pan-y; }
+@keyframes brands-travel { to { transform: translateX(-50%); } }
+@keyframes feature-enter { from { opacity: .35; } to { opacity: 1; } }
+@media (min-width: 640px) { .brands { flex-direction: row; align-items: center; } }
+@media (prefers-reduced-motion: reduce) {
+  .brandTrack { animation: none; width: 100%; }
+  .brandGroup { width: 100%; flex-wrap: wrap; }
+  .brandCopy { display: none; }
+  .featureSlide { animation: none; }
+}
