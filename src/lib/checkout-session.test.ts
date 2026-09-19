@@ -433,9 +433,7 @@ describe("createCheckoutSession", () => {
             }),
           }),
         ],
-        shipping_address_collection: {
-          allowed_countries: ["BR"],
-        },
+        phone_number_collection: { enabled: false },
         payment_intent_data: {
           metadata: {
             orderId: "order_1",
@@ -451,6 +449,8 @@ describe("createCheckoutSession", () => {
       }),
       { idempotencyKey: "rare-checkout-session:order_1" },
     );
+    // The delivery address was chosen in the store; Stripe must not ask for a second one.
+    expect(mocks.stripeSessionsCreate.mock.calls[0][0]).not.toHaveProperty("shipping_address_collection");
   });
 
   it("validates fixed shipping from settings without trusting frontend freight values or origin CEP", async () => {

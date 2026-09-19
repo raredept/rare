@@ -780,17 +780,22 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
       },
       expires_at: Math.ceil(Date.now() / 1000) + STRIPE_SESSION_FALLBACK_SECONDS,
       custom_text: { submit: { message: "Finalize em até 15 minutos após iniciar a compra na RARE. A reserva termina no prazo informado pela loja; um pagamento já em processamento aguarda confirmação." } },
+      // The delivery address and phone were chosen and validated in the store (and are
+      // stored on the order); asking again at Stripe would let a different address be typed
+      // that we never ship to. Collect only what is missing.
       phone_number_collection: {
-        enabled: true,
+        enabled: !(order.customerPhoneSnapshot ?? order.customerPhone),
       },
       billing_address_collection: "auto",
     };
 
     if (stripeShippingOption) {
       sessionParams.shipping_options = [buildStripeShippingOption(stripeShippingOption)];
-      sessionParams.shipping_address_collection = {
-        allowed_countries: ["BR"],
-      };
+      if (!selectedShippingAddress) {
+        sessionParams.shipping_address_collection = {
+          allowed_countries: ["BR"],
+        };
+      }
     }
 
     if (paymentMethodTypes?.length) {
