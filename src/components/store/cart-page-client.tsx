@@ -531,7 +531,7 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
       <h1 className="text-2xl font-black text-neutral-950 lg:text-3xl">Finalizar compra</h1>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <CartItems items={items} updateQuantity={updateQuantity} removeItem={removeItem} />
 
           {welcomeCoupon ? (
@@ -550,7 +550,7 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
               <h2 className="text-lg font-black text-neutral-950">Dados de contato</h2>
             </div>
 
-            <div className="mt-4 rounded-lg bg-neutral-50 p-4 text-sm font-semibold text-neutral-600">
+            <div className="mt-4 rounded-lg bg-neutral-50 p-4 text-sm font-semibold text-neutral-600 [overflow-wrap:anywhere]">
               <p className="font-black text-neutral-950">{customer.name}</p>
               <p>{customer.email}</p>
               <p>{customer.phone ?? "Telefone não cadastrado"}</p>
