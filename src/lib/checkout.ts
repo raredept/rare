@@ -26,7 +26,7 @@ import { makeOrderNumber } from "@/lib/slug";
 import { canTransitionManually, invalidOrderTransitionMessage, releasableReservationStatuses, shouldReleaseReservationOnStatusChange } from "@/lib/order-status";
 import { notifyAdminsOfPaidOrder } from "@/lib/admin-notifications";
 import { getFirstOrderCouponDiscount, paidOrderStatuses } from "@/lib/coupons";
-import { enqueuePaidOrderEmail } from "@/lib/email-outbox";
+import { enqueueOrderShippedEmail, enqueuePaidOrderEmail } from "@/lib/email-outbox";
 import { CHECKOUT_RESERVATION_MINUTES, STRIPE_SESSION_FALLBACK_SECONDS } from "@/lib/checkout-policy";
 
 type CheckoutSessionCreateParams = NonNullable<Parameters<Stripe["checkout"]["sessions"]["create"]>[0]>;
@@ -354,6 +354,16 @@ export async function updateOrderStatusWithReservationRelease(orderId: string, s
       where: { id: order.id },
       data: { status },
     });
+
+    if (status === "shipped") {
+      await enqueueOrderShippedEmail(tx, {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        totalInCents: order.totalInCents,
+        customerEmailSnapshot: order.customerEmailSnapshot ?? order.customerEmail,
+        customerNameSnapshot: order.customerNameSnapshot ?? order.customerName,
+      });
+    }
   });
 }
 
