@@ -365,7 +365,7 @@ describe("health route readiness", () => {
 
   it("exposes only the verdict to anonymous callers", async () => {
     healthMocks.getCurrentAdmin.mockResolvedValue(null);
-    process.env.DATABASE_URL = "postgresql://user:pass@db.example:5432/rare";
+    process.env.DATABASE_URL = "postgresql://db.internal:5432/rare";
     healthMocks.prisma.$queryRaw.mockResolvedValue([{ "?column?": 1 }]);
 
     const response = await GET();
