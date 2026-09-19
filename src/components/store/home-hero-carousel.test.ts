@@ -53,7 +53,7 @@ describe("HomeHeroCarousel", () => {
     expect(html).toContain('aria-label="Próximo slide"');
     expect(html).toContain('aria-label="Ir para slide 1"');
     expect(html).toContain('aria-current="true"');
-    expect(html).toContain("data-motion-control");
+    expect(html).not.toContain("data-motion-control");
     expect(html).toContain("block h-2.5 rounded-full");
     expect(html).not.toContain("Slide inativo");
   });

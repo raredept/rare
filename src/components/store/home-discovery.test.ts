@@ -18,12 +18,11 @@ describe("Home discovery", () => {
     expect(html).not.toContain("data-motion-control");
   });
 
-  it("keeps the loop copy out of the accessibility tree and provides a persistent motion control", () => {
+  it("keeps the loop copy out of the accessibility tree without a visible motion control", () => {
     const html = renderToStaticMarkup(createElement(HomeBrandsStrip, { brands: ["Nike", "Oakley", "STÜSSY", "Supreme"] }));
     expect((html.match(/<ul/g) ?? [])).lengthOf(2);
     expect(html).toContain('<ul aria-hidden="true"');
-    expect(html).toContain("data-motion-control");
-    expect(html).not.toContain("tabindex");
+    expect(html).not.toContain("data-motion-control");
   });
 
   it("preserves one real featured product as a static linked slide with sold-out state and optimized lazy media", () => {

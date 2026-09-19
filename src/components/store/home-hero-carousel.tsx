@@ -8,7 +8,7 @@ import {
   shouldRenderHomeHeroControls,
   type HomeHeroSlide,
 } from "@/lib/home-hero-slides";
-import { HomeMotionControl, useHomeCarousel } from "@/components/store/home-motion";
+import { useHomeCarousel } from "@/components/store/home-motion";
 import { getProductMediaRenderPlan, getProductMediaTypeFromUrl } from "@/lib/product-media";
 
 const autoplayMs = 6000;
@@ -202,7 +202,6 @@ export function HomeHeroCarousel({ slides }: HomeHeroCarouselProps) {
         </div>
       </div>
 
-      {controlsEnabled || getProductMediaTypeFromUrl(activeSlide.imageUrl ?? "") === "video" ? <div className="absolute right-4 top-4 z-30"><HomeMotionControl className="bg-black/70" /></div> : null}
       {controlsEnabled ? (
         <>
           <button

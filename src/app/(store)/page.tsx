@@ -189,12 +189,12 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
   return (
     <HomeMotionProvider>
+    <HomeBrandsStrip brands={brands} />
     <div className="store-shell pb-12 pt-5 lg:pb-16 lg:pt-8">
       <JsonLdScript id="rare-organization-json-ld" data={organizationJsonLd} />
       <JsonLdScript id="rare-website-json-ld" data={websiteJsonLd} />
       <h1 className="sr-only">RARE — streetwear importado e drops selecionados</h1>
       <HomeHeroCarousel slides={heroSlides} />
-      <HomeBrandsStrip brands={brands} />
 
       <section className="store-home-section mt-12 lg:mt-16" aria-labelledby="home-featured-title">
         <SectionHeading
