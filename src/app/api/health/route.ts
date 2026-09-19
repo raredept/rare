@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import packageJson from "../../../../package.json";
 import { validateEnvironment } from "@/lib/env";
+import { resolveClientIp } from "@/lib/client-ip";
 import { getRateLimitStatus } from "@/lib/rate-limit-config";
 import {
   DEFAULT_PRODUCT_PACKAGE,
@@ -149,7 +150,7 @@ async function hasAdminDetailAccess() {
   }
 }
 
-export async function GET() {
+export async function GET(request?: Request) {
   const env = validateEnvironment();
   const rateLimit = getRateLimitStatus();
   const runtimeMetadata = getServerRuntimeMetadata(process.env, packageJson.version);
@@ -251,6 +252,9 @@ export async function GET() {
         },
         artifact: getReleaseArtifact(),
       },
+      // Lets an Admin confirm which address the rate limiter attributes to them
+      // (and therefore that the edge headers are trusted correctly).
+      clientIdentity: request ? resolveClientIp(request.headers) : null,
       database,
       environment: {
         nodeEnv: env.nodeEnv,

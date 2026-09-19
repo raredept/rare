@@ -143,13 +143,26 @@ describe("customer CPF route", () => {
       expect(statuses.slice(0, 30).every((status) => status === 401)).toBe(true);
     });
 
+    it("cannot be evaded by forging CF-Connecting-IP directly against the origin", async () => {
+      routeMocks.getCurrentCustomer.mockResolvedValue(null);
+      const statuses: number[] = [];
+
+      for (let i = 0; i < 40; i += 1) {
+        statuses.push((await post({ "x-real-ip": "198.51.100.99", "cf-connecting-ip": `10.7.7.${i}` })).status);
+      }
+
+      expect(statuses.filter((status) => status === 429).length).toBe(10);
+    });
+
     it("keeps separate buckets for genuinely different edge-reported clients", async () => {
       routeMocks.getCurrentCustomer.mockResolvedValue(null);
 
-      for (let i = 0; i < 31; i += 1) await post({ "cf-connecting-ip": "198.51.100.10" });
+      const viaCloudflare = (client: string) => ({ "x-real-ip": "172.71.10.20", "cf-connecting-ip": client });
 
-      expect((await post({ "cf-connecting-ip": "198.51.100.10" })).status).toBe(429);
-      expect((await post({ "cf-connecting-ip": "198.51.100.11" })).status).toBe(401);
+      for (let i = 0; i < 31; i += 1) await post(viaCloudflare("198.51.100.10"));
+
+      expect((await post(viaCloudflare("198.51.100.10"))).status).toBe(429);
+      expect((await post(viaCloudflare("198.51.100.11"))).status).toBe(401);
     });
   });
 });

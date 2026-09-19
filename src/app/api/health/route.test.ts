@@ -401,4 +401,14 @@ describe("health route readiness", () => {
 
     expect(body.app).toEqual({ ok: true });
   });
+
+  it("shows an Admin which address the rate limiter attributes to the request", async () => {
+    const request = new Request("http://localhost/api/health", {
+      headers: { "x-real-ip": "172.71.10.20", "cf-connecting-ip": "203.0.113.7" },
+    });
+
+    const body = await (await GET(request)).json();
+
+    expect(body.clientIdentity).toEqual({ ip: "203.0.113.7", source: "cf-connecting-ip" });
+  });
 });
