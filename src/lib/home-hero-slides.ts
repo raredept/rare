@@ -38,7 +38,7 @@ export const homeHeroSlides = [
     id: "streetwear-presenca",
     eyebrow: "Streetwear importado",
     title: "Drops para quem veste presença.",
-    description: "Escolha sua peça e finalize no checkout com Pix ou cartão.",
+    description: "Escolha sua peça e finalize no checkout seguro.",
     ctaLabel: "Comprar agora",
     href: "/categoria/tudo",
     imageUrl: "",

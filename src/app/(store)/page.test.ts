@@ -135,7 +135,7 @@ describe("store home page", () => {
     expect(html).toContain("Destaque 5");
     expect(html).not.toContain("Destaque 6");
     expect(html).toContain("Compra segura");
-    expect(html).toContain("Pix e cartão");
+    expect(html).toContain("Pagamento seguro");
     expect(html).toContain("Envio para todo o Brasil");
     expect(html).toContain("Peças escolhidas a dedo");
     expect(html).toContain("Atendimento direto");
