@@ -45,7 +45,7 @@ describe("next config security headers", () => {
     const headers = new Map(globalHeaders.map((header) => [header.key.toLowerCase(), header.value]));
 
     expect(headers.has("content-security-policy-report-only")).toBe(false);
-    expect(headers.has("content-security-policy")).toBe(false);
+    expect(headers.get("content-security-policy")).toBe("base-uri 'self'; object-src 'none'; frame-ancestors 'none'");
     expect(headers.get("x-frame-options")).toBe("DENY");
     expect(headers.get("x-content-type-options")).toBe("nosniff");
     expect(headers.get("strict-transport-security")).toBe("max-age=63072000");

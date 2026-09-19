@@ -76,13 +76,16 @@ export function buildContentSecurityPolicyReportOnly(env: PublicEnv = process.en
   return directives.map(([directive, sources]) => `${directive} ${sources.join(" ")}`).join("; ");
 }
 
+// Only directives that cannot affect Next/React inline runtime code are enforced.
+// A full script-src policy needs a nonce/hash rollout with a real reporting
+// endpoint (see buildContentSecurityPolicyReportOnly for the compatibility
+// blueprint); these directives already block plugin content, <base> hijacking
+// and framing without any browser noise.
+export const ENFORCED_CONTENT_SECURITY_POLICY = "base-uri 'self'; object-src 'none'; frame-ancestors 'none'";
+
 export function getSecurityHeaders(): Header[] {
-  // A CSP is intentionally not emitted yet. The previous report-only policy had
-  // no report endpoint and was incompatible with Next/React inline runtime code,
-  // so it produced browser noise without protection or actionable telemetry.
-  // Keep buildContentSecurityPolicyReportOnly as the compatibility blueprint for
-  // a future nonce/hash-based rollout with a real reporting endpoint.
   return [
+    { key: "Content-Security-Policy", value: ENFORCED_CONTENT_SECURITY_POLICY },
     { key: "X-Content-Type-Options", value: "nosniff" },
     { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
     { key: "X-Frame-Options", value: "DENY" },

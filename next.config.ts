@@ -7,6 +7,8 @@ const restrictedEnvironment = ["staging", "preview", "homologation"].includes(pr
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Do not advertise the framework in every response.
+  poweredByHeader: false,
   // Keep complete metadata in the initial head for crawlers and HTML auditors.
   // This waits for generateMetadata instead of streaming its tags into the body.
   htmlLimitedBots: /.*/,

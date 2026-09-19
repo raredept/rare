@@ -49,6 +49,19 @@ describe("security headers", () => {
     expect(serialized).not.toContain("r2_secret_value_that_must_not_leak");
     expect(serialized).not.toContain("postgres://user:password@db.example/rare");
     expect(serialized).not.toContain("admin_session_secret_that_must_not_leak");
-    expect(headers.some((header) => header.key.startsWith("Content-Security-Policy"))).toBe(false);
+    expect(headers.filter((header) => header.key.startsWith("Content-Security-Policy"))).toEqual([
+      { key: "Content-Security-Policy", value: "base-uri 'self'; object-src 'none'; frame-ancestors 'none'" },
+    ]);
   });
+  it("enforces only directives that cannot break Next inline runtime code", () => {
+    const policy = getSecurityHeaders().find((header) => header.key === "Content-Security-Policy")?.value ?? "";
+
+    expect(policy).toContain("frame-ancestors 'none'");
+    expect(policy).toContain("object-src 'none'");
+    expect(policy).toContain("base-uri 'self'");
+    expect(policy).not.toContain("script-src");
+    expect(policy).not.toContain("default-src");
+    expect(policy).not.toContain("unsafe-");
+  });
+
 });
