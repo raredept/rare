@@ -23,7 +23,7 @@ import { getStoreSettings } from "@/lib/settings";
 import { getStripe, normalizePaymentMethodTypes } from "@/lib/stripe";
 import { checkoutRequestSchema } from "@/lib/validators";
 import { makeOrderNumber } from "@/lib/slug";
-import { releasableReservationStatuses, shouldReleaseReservationOnStatusChange } from "@/lib/order-status";
+import { canTransitionManually, invalidOrderTransitionMessage, releasableReservationStatuses, shouldReleaseReservationOnStatusChange } from "@/lib/order-status";
 import { notifyAdminsOfPaidOrder } from "@/lib/admin-notifications";
 import { getFirstOrderCouponDiscount, paidOrderStatuses } from "@/lib/coupons";
 import { enqueuePaidOrderEmail } from "@/lib/email-outbox";
@@ -316,6 +316,8 @@ export async function releaseExpiredReservations(): Promise<number> {
 
 export async function updateOrderStatusWithReservationRelease(orderId: string, status: OrderStatus, reason: string) {
   const before = await prisma.order.findUnique({ where: { id: orderId } });
+  if (!before) throw new Error("Pedido não encontrado.");
+  if (!canTransitionManually(before.status, status)) throw new Error(invalidOrderTransitionMessage);
   const needsProviderConfirmation = before && shouldReleaseReservationOnStatusChange(before.status, status)
     && Boolean(before.stripeCheckoutSessionId || before.checkoutDeadlineAt);
   if (needsProviderConfirmation) {
@@ -330,6 +332,11 @@ export async function updateOrderStatusWithReservationRelease(orderId: string, s
 
     if (!order) {
       throw new Error("Pedido não encontrado.");
+    }
+
+    // Re-check under the row lock: a webhook may have moved the order meanwhile.
+    if (!canTransitionManually(order.status, status)) {
+      throw new Error(invalidOrderTransitionMessage);
     }
 
     if (needsProviderConfirmation && (releasableReservationStatuses.includes(order.status) || (paidOrderStatuses as readonly string[]).includes(order.status))) {
