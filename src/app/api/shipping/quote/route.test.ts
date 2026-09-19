@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SHIPPING_PRODUCT_DATA_MESSAGE, SHIPPING_UNAVAILABLE_MESSAGE } from "@/lib/shipping-errors";
 import { POST } from "@/app/api/shipping/quote/route";
 
 const quoteMocks = vi.hoisted(() => ({
@@ -185,7 +186,8 @@ describe("shipping quote route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(503);
-    expect(body.error).toBe("Configure o CEP de origem da loja para calcular o frete.");
+    expect(body.error).toBe(SHIPPING_UNAVAILABLE_MESSAGE);
+    expect(JSON.stringify(body)).not.toMatch(/CEP de origem|MELHOR_ENVIO|token/i);
   });
 
   it("returns disabled shipping without requiring a quote", async () => {
@@ -244,7 +246,8 @@ describe("shipping quote route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(503);
-    expect(body.error).toBe("Frete Correios precisa de CORREIOS_USER e CORREIOS_TOKEN configurados.");
+    expect(body.error).toBe(SHIPPING_UNAVAILABLE_MESSAGE);
+    expect(JSON.stringify(body)).not.toMatch(/CORREIOS|token/i);
   });
 
   it("returns normalized Melhor Envio options using originCep from settings", async () => {
@@ -307,7 +310,7 @@ describe("shipping quote route", () => {
 
     const response = await POST(request(validBody) as never);
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({ error: "Esse produto ainda precisa de peso e medidas para calcular o frete." });
+    await expect(response.json()).resolves.toEqual({ error: SHIPPING_PRODUCT_DATA_MESSAGE });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -332,7 +335,8 @@ describe("shipping quote route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(503);
-    expect(body.error).toBe("Configure o CEP de origem da loja para calcular o frete.");
+    expect(body.error).toBe(SHIPPING_UNAVAILABLE_MESSAGE);
+    expect(JSON.stringify(body)).not.toMatch(/CEP de origem|MELHOR_ENVIO|token/i);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -383,7 +387,8 @@ describe("shipping quote route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(503);
-    expect(body.error).toBe("Configure MELHOR_ENVIO_TOKEN para calcular o frete automaticamente.");
+    expect(body.error).toBe(SHIPPING_UNAVAILABLE_MESSAGE);
+    expect(JSON.stringify(body)).not.toMatch(/MELHOR_ENVIO|token/i);
   });
 
   it("returns the OAuth authorization guidance when only Melhor Envio client credentials are configured", async () => {
@@ -406,6 +411,7 @@ describe("shipping quote route", () => {
     const body = await response.json();
 
     expect(response.status).toBe(503);
-    expect(body.error).toBe("Configure MELHOR_ENVIO_TOKEN ou finalize a autorização OAuth do Melhor Envio.");
+    expect(body.error).toBe(SHIPPING_UNAVAILABLE_MESSAGE);
+    expect(JSON.stringify(body)).not.toMatch(/MELHOR_ENVIO|OAuth|token/i);
   });
 });

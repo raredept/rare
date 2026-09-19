@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { ZodError, z } from "zod";
 import { getClientIp } from "@/lib/client-ip";
 import { rateLimit } from "@/lib/rate-limit";
+import { toShopperShippingError } from "@/lib/shipping-errors";
 import { isCheckoutEnabled } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import { getStoreSettings } from "@/lib/settings";
@@ -26,49 +27,6 @@ const quoteRequestSchema = z.object({
   cep: z.string().trim().min(1).max(20),
   items: z.array(checkoutItemSchema).min(1).max(50),
 });
-
-const publicQuoteErrors = new Set([
-  "CEP de destino inválido.",
-  "Carrinho vazio.",
-  "Produto indisponível.",
-  "Variação inválida.",
-  "Esse produto ainda precisa de peso e medidas para calcular o frete.",
-  "Configure o CEP de origem da loja para calcular o frete.",
-  "Configure MELHOR_ENVIO_TOKEN para calcular o frete automaticamente.",
-  "Configure MELHOR_ENVIO_TOKEN ou finalize a autorização OAuth do Melhor Envio.",
-  "Informe um CEP válido para calcular o frete.",
-  "Não foi possível autenticar no Melhor Envio. Verifique o token.",
-  "Não foi possível calcular o frete com os dados informados.",
-  "Nenhuma opção de frete disponível para este CEP.",
-  "Frete indisponível no momento. Tente novamente em alguns instantes.",
-  "Provedor de frete inválido.",
-  "MELHOR_ENVIO_BASE_URL inválida.",
-  "MELHOR_ENVIO_ENV deve ser production ou sandbox.",
-  "MELHOR_ENVIO_TIMEOUT_MS deve estar entre 1000 e 30000.",
-  "Frete Correios precisa de CORREIOS_USER e CORREIOS_TOKEN configurados.",
-  "Frete Melhor Envio precisa de MELHOR_ENVIO_TOKEN configurado.",
-  "Frete Frenet precisa de FRENET_TOKEN configurado.",
-  "Configure um valor de frete fixo para habilitar o checkout.",
-  "Provider Correios preparado, mas a integração externa ainda não está ativada nesta versão.",
-  "Provider Frenet preparado, mas a integração externa ainda não está ativada nesta versão.",
-]);
-
-const serviceUnavailableQuoteErrors = new Set([
-  "Configure o CEP de origem da loja para calcular o frete.",
-  "Configure MELHOR_ENVIO_TOKEN para calcular o frete automaticamente.",
-  "Configure MELHOR_ENVIO_TOKEN ou finalize a autorização OAuth do Melhor Envio.",
-  "Não foi possível autenticar no Melhor Envio. Verifique o token.",
-  "Frete indisponível no momento. Tente novamente em alguns instantes.",
-  "MELHOR_ENVIO_BASE_URL inválida.",
-  "MELHOR_ENVIO_ENV deve ser production ou sandbox.",
-  "MELHOR_ENVIO_TIMEOUT_MS deve estar entre 1000 e 30000.",
-  "Frete Correios precisa de CORREIOS_USER e CORREIOS_TOKEN configurados.",
-  "Frete Melhor Envio precisa de MELHOR_ENVIO_TOKEN configurado.",
-  "Frete Frenet precisa de FRENET_TOKEN configurado.",
-  "Configure um valor de frete fixo para habilitar o checkout.",
-  "Provider Correios preparado, mas a integração externa ainda não está ativada nesta versão.",
-  "Provider Frenet preparado, mas a integração externa ainda não está ativada nesta versão.",
-]);
 
 function consolidateItems(items: z.infer<typeof checkoutItemSchema>[]) {
   const byVariant = new Map<string, z.infer<typeof checkoutItemSchema>>();
@@ -110,15 +68,10 @@ function getSafeLogMessage(error: unknown) {
 
 function getPublicError(error: unknown) {
   if (error instanceof SyntaxError || error instanceof ZodError) {
-    return { message: "Revise os dados para calcular o frete.", status: 400 };
+    return { message: "Revise os dados para calcular o frete.", status: 400, log: false };
   }
 
-  if (error instanceof Error && publicQuoteErrors.has(error.message)) {
-    const status = serviceUnavailableQuoteErrors.has(error.message) ? 503 : 400;
-    return { message: error.message, status };
-  }
-
-  return { message: "Frete indisponível no momento. Tente novamente em alguns minutos.", status: 503 };
+  return toShopperShippingError(error instanceof Error ? error.message : "");
 }
 
 export async function POST(request: NextRequest) {
@@ -217,7 +170,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     const publicError = getPublicError(error);
-    if (publicError.status >= 500) {
+    if (publicError.log) {
       console.error("[shipping-quote] failed", { message: getSafeLogMessage(error) });
     }
     return NextResponse.json({ error: publicError.message }, { status: publicError.status });
