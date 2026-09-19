@@ -22,15 +22,19 @@ Crie dois servicos a partir do mesmo repositorio:
 | Servico | Config file | Funcao |
 | --- | --- | --- |
 | Web | `railway.json` | Build Next.js, aplica migrations Prisma, sobe o storefront/Admin e valida `/api/health`. |
-| Cron reservas | `/railway.cron.json` | Executa `npm run cron:release-expired` diariamente e encerra. |
+| Worker reservas | Configuração persistida do serviço; `railway.cron.json` preserva o caminho legado | Executa `npm run checkout:worker` continuamente, consulta a fila durável a cada15 segundos e confirma a expiração na Stripe antes de liberar estoque. |
 
-O arquivo `railway.cron.json` nao e lido automaticamente pelo servico web. No servico cron, configure **Settings > Build > Config File Path** como `/railway.cron.json`. Se isso nao estiver disponivel no painel, configure manualmente no servico cron:
+O arquivo `railway.cron.json` não é lido pelo serviço web. Config as Code foi descontinuado para novas configurações Railway; os serviços são configurados diretamente pela API/CLI. No antigo serviço `rare-cron`, agora usado como worker separado, mantenha:
 
-- Start Command: `npm run cron:release-expired`
-- Cron Schedule: `0 3 * * *`
+- Build Command: `npx prisma generate`
+- Start Command: `npm run checkout:worker`
+- Cron Schedule: vazio (processo contínuo)
+- Restart Policy: `ALWAYS`, sem suspensão por inatividade, uma réplica
 - Healthcheck: vazio
+- `DATABASE_URL` e `STRIPE_SECRET_KEY`: referências ao banco e à chave do mesmo ambiente; staging usa somente Stripe test e banco isolado.
+- `EMAIL_DRIVER=disabled`; flags de checkout/frete permanecem falsas no worker e em produção.
 
-O servico cron chama a rota protegida `/api/cron/release-expired-inventory` usando `CRON_SECRET`; nao coloque `cronSchedule` no servico web.
+O worker acessa PostgreSQL e Stripe diretamente e sobrevive a reinícios do Next. A rota autenticada `/api/cron/release-expired-inventory` continua disponível como manutenção compatível, com a mesma reconciliação segura; não substitui o worker de15 minutos. Pedidos anteriores preservam seus deadlines. Se a API Stripe estiver indisponível, a reserva permanece retida com retry/backoff até5 minutos; o corte não é garantido no segundo exato.
 
 A Railway injeta variaveis de sistema como `PORT`, `RAILWAY_ENVIRONMENT_NAME` e, quando houver dominio publico gerado, `RAILWAY_PUBLIC_DOMAIN`. O app usa `RAILWAY_PUBLIC_DOMAIN` apenas como origem publica adicional para preview/staging; `APP_URL` e `NEXT_PUBLIC_APP_URL` continuam sendo a fonte canonica.
 

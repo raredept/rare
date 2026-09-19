@@ -1,5 +1,8 @@
 import path from "node:path";
+import { readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import pg from "pg";
+import sharp from "sharp";
 import { expect, test, type Page } from "@playwright/test";
 
 const databaseUrl = process.env.QA_DATABASE_URL;
@@ -63,13 +66,15 @@ test("first access blocks pages, API and a real Server Action, rotates the passw
   await pendingPage.goto("/admin/products");
   await expect(pendingPage).toHaveURL(/\/admin\/change-password/);
 
-  const apiResponse = await pendingContext.request.post(`${baseURL}/api/admin/uploads`, {
-    headers: { origin: new URL(baseURL).origin },
-    multipart: { uploadContext: "products" },
-    maxRedirects: 0,
-  });
-  expect([303, 307]).toContain(apiResponse.status());
-  expect(apiResponse.headers().location).toBe("/admin/change-password");
+  for (const endpoint of ["/api/admin/uploads", "/api/admin/product-images/editor"]) {
+    const apiResponse = await pendingContext.request.post(`${baseURL}${endpoint}`, {
+      headers: { origin: new URL(baseURL).origin },
+      multipart: { uploadContext: "products" },
+      maxRedirects: 0,
+    });
+    expect([303, 307]).toContain(apiResponse.status());
+    expect(apiResponse.headers().location).toBe("/admin/change-password");
+  }
 
   expect(actionName).toBeTruthy();
   const actionResponse = await pendingContext.request.post(`${baseURL}/admin/products`, {
@@ -128,10 +133,23 @@ test("product and banner uploads persist locally; a failed replacement keeps the
   const productId = new URL(page.url()).pathname.split("/")[3];
   const validImage = path.join(process.cwd(), "public", "brand", "rare-icon-192.png");
   const productUpload = page.locator('input[type="file"][multiple]');
+  const imageUrlsInput = page.locator('input[name="imageUrls"]');
+  const priorMedia = await imageUrlsInput.inputValue();
+  const editor = page.getByRole("dialog", { name: "Enquadrar imagem" });
 
   await productUpload.setInputFiles(validImage);
+  await expect(editor).toBeVisible();
+  await editor.getByRole("button", { name: "Cancelar", exact: true }).click();
+  await expect(editor).toBeHidden();
+  await expect(imageUrlsInput).toHaveValue(priorMedia);
+
+  await productUpload.setInputFiles(validImage);
+  await expect(editor).toBeVisible();
+  await editor.getByLabel("Encaixar o produto inteiro", { exact: true }).check();
+  await editor.getByLabel("Zoom", { exact: true }).fill("0.8");
+  await editor.getByRole("button", { name: "Aplicar enquadramento", exact: true }).click();
+  await expect(editor).toBeHidden();
   await expect(page.getByText(/Upload concluído/).first()).toBeVisible();
-  const imageUrlsInput = page.locator('input[name="imageUrls"]');
   const persistedProductImage = await imageUrlsInput.inputValue();
   expect(persistedProductImage).toMatch(/^\/uploads\/products\//);
 
@@ -140,7 +158,7 @@ test("product and banner uploads persist locally; a failed replacement keeps the
     mimeType: "image/png",
     buffer: Buffer.from("not a decodable PNG"),
   });
-  await expect(page.getByText("Arquivo de midia invalido.")).toBeVisible();
+  await expect(page.getByText("Imagem inválida ou acima do limite de 40 milhões de pixels.", { exact: true })).toBeVisible();
   await expect(imageUrlsInput).toHaveValue(persistedProductImage);
 
   for (const [name, value] of [
@@ -162,6 +180,26 @@ test("product and banner uploads persist locally; a failed replacement keeps the
   expect(productRows[0]?.url).toBe(persistedProductImage);
   const productMediaResponse = await page.request.get(persistedProductImage);
   expect(productMediaResponse.status()).toBe(200);
+  const outputMetadata = await sharp(await productMediaResponse.body()).metadata();
+  expect([outputMetadata.width, outputMetadata.height]).toEqual([1600, 2000]);
+  const assetRows = await query<{ originalUrl: string; framing: { mode: string; zoom: number } }>(
+    `SELECT "originalUrl", "framing" FROM "ProductMediaAsset" WHERE "url" = $1`,
+    [persistedProductImage],
+  );
+  expect(assetRows[0]?.framing).toMatchObject({ mode: "contain", zoom: 0.8 });
+  const originalResponse = await page.request.get(assetRows[0]!.originalUrl);
+  expect(originalResponse.status()).toBe(200);
+  const sha256 = (bytes: Buffer) => createHash("sha256").update(bytes).digest("hex");
+  expect(sha256(await originalResponse.body())).toBe(sha256(await readFile(validImage)));
+
+  await page.reload();
+  await page.getByRole("button", { name: "Enquadrar imagem 1", exact: true }).click();
+  await expect(editor).toBeVisible();
+  await expect(editor.getByLabel("Encaixar o produto inteiro", { exact: true })).toBeChecked();
+  await expect(editor.getByLabel("Zoom", { exact: true })).toHaveValue("0.8");
+  await page.keyboard.press("Escape");
+  await expect(editor).toBeHidden();
+  await expect(imageUrlsInput).toHaveValue(persistedProductImage);
   await page.goto(`/produto/${productRows[0]?.slug}`);
   await expect(page.locator("main img").first()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);

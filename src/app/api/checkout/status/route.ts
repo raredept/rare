@@ -15,17 +15,20 @@ export async function GET(request: NextRequest) {
     select: { id: true, orderNumber: true, status: true, checkoutDeadlineAt: true,
       reservationExpiresAt: true, checkoutExpiredAt: true, stripeCheckoutSessionId: true },
   });
-  const serverNow = new Date();
-  if (!order) return NextResponse.json({ order: null, serverNow: serverNow.toISOString() }, { headers: { "Cache-Control": "private, no-store" } });
+  const checkedAt = new Date();
+  if (!order) return NextResponse.json({ order: null, serverNow: checkedAt.toISOString() }, { headers: { "Cache-Control": "private, no-store" } });
   const deadline = order.checkoutDeadlineAt ?? order.reservationExpiresAt;
   const processing = order.status === "awaiting_payment" && !order.reservationExpiresAt;
   let resumeUrl: string | null = null;
-  if (!processing && order.status === "awaiting_payment" && deadline && deadline > serverNow && order.stripeCheckoutSessionId) {
+  if (!processing && order.status === "awaiting_payment" && deadline && deadline > checkedAt && order.stripeCheckoutSessionId) {
     try {
       const session = await getStripe().checkout.sessions.retrieve(order.stripeCheckoutSessionId);
       if (session.status === "open" && session.payment_status !== "paid") resumeUrl = session.url;
     } catch { /* A provider failure must never expose a possibly expired link. */ }
   }
+  // Provider latency must not extend the displayed window or revive its link.
+  const serverNow = new Date();
+  if (deadline && deadline <= serverNow) resumeUrl = null;
   return NextResponse.json({ order: {
     id: order.id, orderNumber: order.orderNumber, status: order.status,
     deadlineAt: deadline?.toISOString() ?? null, expiredAt: order.checkoutExpiredAt?.toISOString() ?? null,

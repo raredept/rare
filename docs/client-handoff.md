@@ -44,7 +44,7 @@ Nota de mídia: `next/image` não foi aplicado amplamente porque o catálogo ace
 ## 3. O que o cliente precisa configurar
 
 - Variáveis da Railway conforme [docs/railway-env-checklist.md](./railway-env-checklist.md).
-- Serviço web Railway com `railway.json`; serviço cron separado com Config File Path `/railway.cron.json` ou start/schedule configurados manualmente no painel.
+- Serviço web Railway e worker de reservas separado (`npm run checkout:worker`, contínuo, sem cronSchedule). O worker consulta a fila a cada15 segundos e confirma o estado na Stripe antes de liberar estoque. Preserve as referências de banco/chave no mesmo ambiente; veja `docs/railway-env-checklist.md`.
 - Redis/Upstash REST para rate limit compartilhado.
 - Stripe test mode em Preview/Staging.
 - Stripe live futuramente, somente em Production e após aprovação.

@@ -1,13 +1,14 @@
 import "dotenv/config";
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { rm } from "node:fs/promises";
+import { access, readFile, rm, writeFile } from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
 import bcrypt from "bcryptjs";
 import pg from "pg";
 
 const { Client } = pg;
+const integratedSuite = process.argv.includes("--all");
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -42,6 +43,23 @@ function assertPortIsFree(port) {
     server.once("error", (error) => reject(new Error(`Porta ${port} permaneceu ocupada: ${error.message}`)));
     server.listen({ host: "127.0.0.1", port, exclusive: true }, () => server.close(resolve));
   });
+}
+
+async function sanitizeBrowserReport(filename) {
+  let contents;
+  try {
+    contents = await readFile(filename, "utf8");
+  } catch (error) {
+    if (error.code === "ENOENT") return;
+    throw error;
+  }
+  const report = JSON.parse(contents);
+  const servers = Array.isArray(report.config?.webServer) ? report.config.webServer : [report.config?.webServer];
+  for (const server of servers) {
+    // Playwright serializes the server's env, including the disposable DB URL.
+    if (server) delete server.env;
+  }
+  await writeFile(filename, `${JSON.stringify(report, null, 2)}\n`);
 }
 
 async function main() {
@@ -84,6 +102,10 @@ async function main() {
       DATABASE_URL: databaseUrl,
       EMAIL_DRIVER: "disabled",
       PLAYWRIGHT_BASE_URL: "",
+      PLAYWRIGHT_PRODUCT_SLUG: "",
+      ...(integratedSuite ? {
+        PLAYWRIGHT_JSON_OUTPUT_FILE: process.env.PLAYWRIGHT_JSON_OUTPUT_FILE || path.resolve("output/playwright/integrated-results.json"),
+      } : {}),
       QA_CURRENT_ADMIN_LOGIN: currentLogin,
       QA_CURRENT_ADMIN_PASSWORD: currentPassword,
       QA_DATABASE_URL: databaseUrl,
@@ -107,6 +129,36 @@ async function main() {
     const database = new Client({ connectionString: databaseUrl });
     await database.connect();
     try {
+      // Select from this disposable seed, never from the developer's catalog.
+      // The public suite needs an actual photo and an enabled size selector.
+      const candidates = await database.query(
+        `SELECT p."slug", i."url" AS "imageUrl"
+           FROM "Product" p
+           JOIN "ProductImage" i ON i."productId" = p."id"
+          WHERE p."active" = true
+            AND EXISTS (
+              SELECT 1 FROM "ProductVariant" v
+               WHERE v."productId" = p."id" AND v."active" = true
+                 AND v."stock" > v."reservedStock" AND length(trim(v."size")) > 0
+            )
+          ORDER BY p."sortOrder", p."id", i."sortOrder", i."id"`,
+      );
+      const publicRoot = path.resolve(process.cwd(), "public");
+      for (const candidate of candidates.rows) {
+        if (!candidate.imageUrl.startsWith("/seed-products/")) continue;
+        const imagePath = path.resolve(publicRoot, `.${candidate.imageUrl}`);
+        assert(imagePath.startsWith(`${publicRoot}${path.sep}`), "Imagem seed fora do diretorio publico.");
+        try {
+          await access(imagePath);
+          qaEnvironment.PLAYWRIGHT_PRODUCT_SLUG = candidate.slug;
+          break;
+        } catch {
+          // A seed reference without a file cannot satisfy the browser contract.
+        }
+      }
+      assert(qaEnvironment.PLAYWRIGHT_PRODUCT_SLUG, "Seed QA sem produto publicado, imagem local e tamanho disponivel.");
+      console.log(`QA_PRODUCT_FIXTURE=${JSON.stringify({ slug: qaEnvironment.PLAYWRIGHT_PRODUCT_SLUG, imageVerified: true, activeVariantWithStock: true })}`);
+
       const [currentHash, pendingHash] = await Promise.all([
         bcrypt.hash(currentPassword, 12),
         bcrypt.hash(pendingPassword, 12),
@@ -134,15 +186,23 @@ async function main() {
 
     const playwrightCli = path.join(process.cwd(), "node_modules", "@playwright", "test", "cli.js");
     const startedAt = Date.now();
-    await runNode(
-      [playwrightCli, "test", "tests/e2e/admin-isolated.spec.ts", "--project=chromium-desktop"],
-      qaEnvironment,
-    );
-    await assertPortIsFree(3100);
-    await runNode(
-      [playwrightCli, "test", "tests/e2e/admin-isolated.spec.ts", "--project=chromium-mobile"],
-      qaEnvironment,
-    );
+    if (integratedSuite) {
+      try {
+        await runNode([playwrightCli, "test", "--reporter=list,json,html"], qaEnvironment);
+      } finally {
+        await sanitizeBrowserReport(qaEnvironment.PLAYWRIGHT_JSON_OUTPUT_FILE);
+      }
+    } else {
+      await runNode(
+        [playwrightCli, "test", "tests/e2e/admin-isolated.spec.ts", "--project=chromium-desktop"],
+        qaEnvironment,
+      );
+      await assertPortIsFree(3100);
+      await runNode(
+        [playwrightCli, "test", "tests/e2e/admin-isolated.spec.ts", "--project=chromium-mobile"],
+        qaEnvironment,
+      );
+    }
     await assertPortIsFree(3100);
     console.log(`ISOLATED_ADMIN_E2E={"status":"passed","elapsedSeconds":${Math.round((Date.now() - startedAt) / 100) / 10},"portReleased":true}`);
   } catch (error) {
@@ -157,6 +217,7 @@ async function main() {
     }
     await maintenance.end();
     await rm(storageDirectory, { recursive: true, force: true });
+    console.log(`QA_CLEANUP=${JSON.stringify({ databaseRemoved: databaseCreated, storageRemoved: true })}`);
   }
 
   if (failure) throw failure;

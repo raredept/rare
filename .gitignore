@@ -54,6 +54,7 @@ next-env.d.ts
 /.playwright-cli
 /output/
 /output/playwright
+/playwright-report
 V1_*_REPORT.md
 V1_*_CHECKLIST.md
 AUDIT_REPORT.md
