@@ -36,6 +36,19 @@ export function normalizeProductImageUrls(urls: string[], limit = PRODUCT_MEDIA_
   return normalized;
 }
 
+// Media URLs are rendered in <img>/<video> and forwarded to Stripe. Accept only
+// same-origin paths and http(s) URLs so a pasted javascript:/data: value never
+// reaches storage.
+export function isAllowedProductMediaUrl(value: string) {
+  if (value.startsWith("/")) return !value.startsWith("//") && !value.includes("\\");
+  try {
+    const url = new URL(value);
+    return (url.protocol === "https:" || url.protocol === "http:") && !url.username && !url.password;
+  } catch {
+    return false;
+  }
+}
+
 export function resolveProductImageSubmission({
   existingImageUrls,
   uploadedUrls,

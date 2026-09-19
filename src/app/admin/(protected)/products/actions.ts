@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { withAdminActionRefresh } from "@/lib/admin-action-refresh";
 import { prisma } from "@/lib/prisma";
-import { normalizeProductImageUrls, resolveProductImageSubmission } from "@/lib/admin-product-images";
+import { isAllowedProductMediaUrl, normalizeProductImageUrls, resolveProductImageSubmission } from "@/lib/admin-product-images";
 import { parseMoneyToCents } from "@/lib/money";
 import { requireAdmin } from "@/lib/auth";
 import { saveUploadedImage } from "@/lib/storage";
@@ -254,6 +254,9 @@ export async function saveProductAction(productId: string | null, formData: Form
       })
     : null;
   const existingImageUrls = parseImageUrls(formData);
+  if (!existingImageUrls.every(isAllowedProductMediaUrl)) {
+    redirectWithProductFormError(productId, "URL de mídia inválida. Use um caminho do site ou uma URL http(s).");
+  }
   let uploadedUrls: string[];
   try {
     uploadedUrls = await collectUploadedUrls(formData);

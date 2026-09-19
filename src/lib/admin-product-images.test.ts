@@ -6,6 +6,7 @@ import {
   clearProductImageUrls,
   getProductMediaLabel,
   getProductMediaTypeFromUrl,
+  isAllowedProductMediaUrl,
   makeProductImagePrimary,
   moveProductImageUrl,
   normalizeProductImageUrls,
@@ -148,5 +149,15 @@ describe("admin product image helpers", () => {
     expect(classifyProductImageUrl("/uploads/products/bag.png")).toBe("Local");
     expect(classifyProductImageUrl("https://media.rare.example/products/bag.webp")).toBe("R2");
     expect(abbreviateProductImageUrl("https://media.rare.example/products/2026/05/final-product-image.webp", 36)).toContain("...");
+  });
+});
+
+describe("isAllowedProductMediaUrl", () => {
+  it.each(["/uploads/products/2026/09/a.webp", "https://cdn.example/a.webp", "http://localhost:3000/a.webp"])("accepts %s", (url) => {
+    expect(isAllowedProductMediaUrl(url)).toBe(true);
+  });
+
+  it.each(["javascript:alert(1)", "data:text/html,<script>alert(1)</script>", "//evil.example/a.png", "/\\evil.example", "https://user:pass@cdn.example/a.png", "file:///etc/passwd", "relative/path.png"])("rejects %s", (url) => {
+    expect(isAllowedProductMediaUrl(url)).toBe(false);
   });
 });
