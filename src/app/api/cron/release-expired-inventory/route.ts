@@ -1,8 +1,13 @@
+import { createHash, timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { releaseExpiredReservations } from "@/lib/checkout";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+function safeEqual(actual: string, expected: string) {
+  return timingSafeEqual(createHash("sha256").update(actual).digest(), createHash("sha256").update(expected).digest());
+}
 
 function clean(value: string | undefined) {
   const trimmed = value?.trim();
@@ -18,8 +23,8 @@ function authorizeCron(request: NextRequest) {
     };
   }
 
-  const authorization = request.headers.get("authorization");
-  if (authorization !== `Bearer ${secret}`) {
+  const authorization = request.headers.get("authorization") ?? "";
+  if (!safeEqual(authorization, `Bearer ${secret}`)) {
     return {
       ok: false as const,
       response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
