@@ -63,4 +63,20 @@ describe("release expired inventory cron route", () => {
     expect(serialized).not.toContain("cron-secret-with-more-than-32-characters");
     expect(cronMocks.releaseExpiredReservations).toHaveBeenCalledTimes(1);
   });
+
+  it("accepts the previous secret during a rotation window and nothing else", async () => {
+    process.env.CRON_SECRET = "new-cron-secret-with-more-than-32-characters";
+    process.env.CRON_SECRET_PREVIOUS = "old-cron-secret-with-more-than-32-characters";
+
+    expect((await POST(request("new-cron-secret-with-more-than-32-characters") as never)).status).toBe(200);
+    expect((await POST(request("old-cron-secret-with-more-than-32-characters") as never)).status).toBe(200);
+    expect((await POST(request("third-cron-secret-with-more-than-32-characters") as never)).status).toBe(401);
+  });
+
+  it("stops accepting the old secret once the previous slot is cleared", async () => {
+    process.env.CRON_SECRET = "new-cron-secret-with-more-than-32-characters";
+    delete process.env.CRON_SECRET_PREVIOUS;
+
+    expect((await POST(request("old-cron-secret-with-more-than-32-characters") as never)).status).toBe(401);
+  });
 });

@@ -24,7 +24,11 @@ function authorizeCron(request: NextRequest) {
   }
 
   const authorization = request.headers.get("authorization") ?? "";
-  if (!safeEqual(authorization, `Bearer ${secret}`)) {
+  // CRON_SECRET_PREVIOUS lets the secret be rotated without downtime: deploy the
+  // new value to the app first, switch the caller, then drop the previous one.
+  const accepted = [secret, clean(process.env.CRON_SECRET_PREVIOUS)].filter((value): value is string => Boolean(value));
+  const matches = accepted.map((value) => safeEqual(authorization, `Bearer ${value}`));
+  if (!matches.some(Boolean)) {
     return {
       ok: false as const,
       response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),

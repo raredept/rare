@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getAdminSessionSecret, getAppUrl, getR2StorageConfig, isCheckoutEnabled, validateEnvironment } from "@/lib/env";
+import { assertUploadStorageReady, getAdminSessionSecret, getAppUrl, getR2StorageConfig, isCheckoutEnabled, isLocalStorageAllowedInProduction, validateEnvironment } from "@/lib/env";
 
 const originalEnv = process.env;
 
@@ -300,5 +300,39 @@ describe("environment validation", () => {
     };
 
     expect(getR2StorageConfig().publicBaseUrl).toBe("https://cdn.rare.example");
+  });
+
+  describe("local storage guard", () => {
+    const localInProduction = {
+      NODE_ENV: "production",
+      STORAGE_DRIVER: "local",
+      ALLOW_LOCAL_STORAGE_IN_PRODUCTION: "true",
+    };
+
+    it("never lets live production opt into ephemeral local storage", () => {
+      process.env = { ...process.env, ...localInProduction, APP_ENV: "production", APP_URL: "https://raredept.com.br" } as NodeJS.ProcessEnv;
+
+      const result = validateEnvironment();
+
+      expect(result.ok).toBe(false);
+      expect(result.errors.some((issue) => issue.variable === "STORAGE_DRIVER")).toBe(true);
+      expect(isLocalStorageAllowedInProduction()).toBe(false);
+      expect(() => assertUploadStorageReady()).toThrow("Upload local nao e permitido em producao");
+    });
+
+    it("also refuses when APP_ENV is absent", () => {
+      const env = { ...process.env, ...localInProduction } as Record<string, string | undefined>;
+      delete env.APP_ENV;
+      process.env = env as NodeJS.ProcessEnv;
+
+      expect(isLocalStorageAllowedInProduction()).toBe(false);
+    });
+
+    it("still allows the gated staging deploy that mounts a persistent volume", () => {
+      process.env = { ...process.env, ...localInProduction, APP_ENV: "staging", APP_URL: "https://staging.example.test" } as NodeJS.ProcessEnv;
+
+      expect(isLocalStorageAllowedInProduction()).toBe(true);
+      expect(() => assertUploadStorageReady()).not.toThrow();
+    });
   });
 });

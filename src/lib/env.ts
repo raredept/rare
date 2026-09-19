@@ -227,8 +227,12 @@ export function getR2StorageConfig(env: Record<string, string | undefined> = pro
   };
 }
 
+// Ephemeral local storage is only tolerable in a gated staging/preview deploy that
+// mounts a persistent volume. A live production environment (APP_ENV=production or
+// unset) can never opt in, so a stray flag cannot silently move uploads to disk.
 export function isLocalStorageAllowedInProduction(env: Record<string, string | undefined> = process.env) {
-  return clean(env.ALLOW_LOCAL_STORAGE_IN_PRODUCTION)?.toLowerCase() === "true";
+  const restricted = ["staging", "preview", "homologation"].includes(clean(env.APP_ENV)?.toLowerCase() ?? "");
+  return restricted && clean(env.ALLOW_LOCAL_STORAGE_IN_PRODUCTION)?.toLowerCase() === "true";
 }
 
 export function assertUploadStorageReady() {

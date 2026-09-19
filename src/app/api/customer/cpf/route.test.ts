@@ -125,4 +125,31 @@ describe("customer CPF route", () => {
     expect(body).toEqual({ cpfMasked: "***.456.789-**", hasCpf: true });
     expect(routeMocks.prisma.customer.update).not.toHaveBeenCalled();
   });
+
+  describe("rate limit identity", () => {
+    function post(headers: Record<string, string>) {
+      return POST(new Request("http://localhost/api/customer/cpf", { method: "POST", headers, body: "{}" }) as never);
+    }
+
+    it("cannot be evaded by rotating a client-supplied X-Forwarded-For prefix", async () => {
+      routeMocks.getCurrentCustomer.mockResolvedValue(null);
+      const statuses: number[] = [];
+
+      for (let i = 0; i < 40; i += 1) {
+        statuses.push((await post({ "x-forwarded-for": `10.9.8.${i}, 203.0.113.50` })).status);
+      }
+
+      expect(statuses.filter((status) => status === 429).length).toBe(10);
+      expect(statuses.slice(0, 30).every((status) => status === 401)).toBe(true);
+    });
+
+    it("keeps separate buckets for genuinely different edge-reported clients", async () => {
+      routeMocks.getCurrentCustomer.mockResolvedValue(null);
+
+      for (let i = 0; i < 31; i += 1) await post({ "cf-connecting-ip": "198.51.100.10" });
+
+      expect((await post({ "cf-connecting-ip": "198.51.100.10" })).status).toBe(429);
+      expect((await post({ "cf-connecting-ip": "198.51.100.11" })).status).toBe(401);
+    });
+  });
 });
