@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET } from "@/app/api/health/route";
 
 const healthMocks = vi.hoisted(() => ({
+  getCurrentAdmin: vi.fn(),
   prisma: {
     $queryRaw: vi.fn(),
     storeSettings: {
@@ -15,6 +16,10 @@ const healthMocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/prisma", () => ({
   prisma: healthMocks.prisma,
+}));
+
+vi.mock("@/lib/auth", () => ({
+  getCurrentAdmin: healthMocks.getCurrentAdmin,
 }));
 
 const originalEnv = process.env;
@@ -59,6 +64,7 @@ beforeEach(() => {
     freeShippingThresholdInCents: null,
   });
   healthMocks.prisma.product.count.mockResolvedValue(0);
+  healthMocks.getCurrentAdmin.mockResolvedValue({ id: "admin_1" });
 });
 
 afterEach(() => {
@@ -355,5 +361,44 @@ describe("health route readiness", () => {
     expect(body.status).toBe("error");
     expect(body.database.ok).toBe(false);
     expect(body.configuration.ok).toBe(true);
+  });
+
+  it("exposes only the verdict to anonymous callers", async () => {
+    healthMocks.getCurrentAdmin.mockResolvedValue(null);
+    process.env.DATABASE_URL = "postgresql://user:pass@db.example:5432/rare";
+    healthMocks.prisma.$queryRaw.mockResolvedValue([{ "?column?": 1 }]);
+
+    const response = await GET();
+    const body = await response.json();
+    const serialized = JSON.stringify(body);
+
+    expect(response.status).toBe(200);
+    expect(Object.keys(body).sort()).toEqual(["app", "configuration", "database", "status", "timestamp"]);
+    expect(body.database).toEqual({ ok: true });
+    expect(serialized).not.toContain("abcdef1234567890abcdef1234567890abcdef12");
+    expect(serialized).not.toContain("deployment-123");
+    expect(serialized).not.toContain("redis");
+    expect(serialized).not.toContain("STRIPE");
+    expect(serialized).not.toContain("R2_");
+    expect(serialized).not.toContain("melhorEnvio");
+  });
+
+  it("never names the failing configuration variables to anonymous callers", async () => {
+    healthMocks.getCurrentAdmin.mockResolvedValue(null);
+    delete process.env.ADMIN_SESSION_SECRET;
+
+    const body = await (await GET()).json();
+
+    expect(body.configuration.ok).toBe(false);
+    expect(body.configuration.errors.length).toBeGreaterThan(0);
+    expect(JSON.stringify(body)).not.toContain("ADMIN_SESSION_SECRET");
+  });
+
+  it("treats an authentication failure as anonymous", async () => {
+    healthMocks.getCurrentAdmin.mockRejectedValue(new Error("no request scope"));
+
+    const body = await (await GET()).json();
+
+    expect(body.app).toEqual({ ok: true });
   });
 });

@@ -138,6 +138,17 @@ function response(body: unknown, status: number) {
   });
 }
 
+// Deployment topology, commit and configuration gaps are reconnaissance data.
+// Anonymous callers (uptime probes, smoke checks) only receive the verdict.
+async function hasAdminDetailAccess() {
+  try {
+    const { getCurrentAdmin } = await import("@/lib/auth");
+    return Boolean(await getCurrentAdmin());
+  } catch {
+    return false;
+  }
+}
+
 export async function GET() {
   const env = validateEnvironment();
   const rateLimit = getRateLimitStatus();
@@ -210,6 +221,22 @@ export async function GET() {
   const operationalWarnings = storeSettingsShipping.warnings.map((message) => ({ scope: "shipping.storeSettings", message }));
   const status: HealthStatus =
     env.ok && database.ok ? (env.warnings.length || operationalWarnings.length ? "ok_with_warnings" : "ok") : "error";
+
+  if (!(await hasAdminDetailAccess())) {
+    return response(
+      {
+        status,
+        app: { ok: true },
+        database: { ok: database.ok },
+        configuration: {
+          ok: env.ok,
+          errors: env.errors.map(() => ({ message: "Configuration issue. Sign in to the Admin for details." })),
+        },
+        timestamp: new Date().toISOString(),
+      },
+      200,
+    );
+  }
 
   return response(
     {
