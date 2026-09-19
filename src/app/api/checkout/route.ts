@@ -25,6 +25,7 @@ const publicCheckoutErrors = new Set([
   "Produto indisponível.",
   "Estoque insuficiente para finalizar este carrinho.",
   "Variação inválida.",
+  "Cupom inválido ou disponível apenas na primeira compra.",
   "Informe um CEP válido para entrega.",
   "CEP de destino inválido.",
   "Carrinho vazio.",

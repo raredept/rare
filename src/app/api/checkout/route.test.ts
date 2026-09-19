@@ -182,3 +182,17 @@ describe("checkout route double submit", () => {
     expect(routeMocks.createCheckoutSession).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("checkout route coupon errors", () => {
+  it("tells the shopper an invalid coupon is a client error instead of an outage", async () => {
+    process.env.CHECKOUT_ENABLED = "true";
+    process.env.STRIPE_SECRET_KEY = "sk_test_123";
+    routeMocks.getCurrentCustomer.mockResolvedValue({ id: "customer_coupon", cpf: "12345678909" });
+    routeMocks.createCheckoutSession.mockRejectedValue(new Error("Cupom inválido ou disponível apenas na primeira compra."));
+
+    const response = await POST(new Request("http://localhost/api/checkout", { method: "POST", body: JSON.stringify({ items: [] }) }) as never);
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "Cupom inválido ou disponível apenas na primeira compra." });
+  });
+});
