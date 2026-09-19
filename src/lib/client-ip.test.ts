@@ -49,6 +49,22 @@ describe("getClientIp", () => {
   });
 });
 
+describe("getClientIp behind Cloudflare without a usable peer header", () => {
+  it("skips Cloudflare edge addresses in X-Forwarded-For instead of using them as the identity", () => {
+    expect(getClientIp(headers({ "x-forwarded-for": "9.9.9.9, 203.0.113.30, 172.71.10.20" }))).toBe("203.0.113.30");
+  });
+
+  it("falls back to the Cloudflare peer only when nothing better exists", () => {
+    expect(getClientIp(headers({ "x-real-ip": "172.71.10.20" }))).toBe("172.71.10.20");
+  });
+
+  it("still cannot be evaded by rotating the spoofed prefix", () => {
+    const a = getClientIp(headers({ "x-forwarded-for": "9.9.9.1, 203.0.113.30, 172.71.10.20" }));
+    const b = getClientIp(headers({ "x-forwarded-for": "9.9.9.2, 203.0.113.30, 172.71.10.20" }));
+    expect(a).toBe(b);
+  });
+});
+
 describe("isCloudflareAddress", () => {
   it.each(["173.245.48.1", "104.21.76.46", "172.67.187.174", "162.159.0.5", "2606:4700:3031::ac43:bbae"])("recognises %s", (ip) => {
     expect(isCloudflareAddress(ip)).toBe(true);

@@ -42,22 +42,27 @@ export type ClientIpResolution = { ip: string; source: "cf-connecting-ip" | "x-r
  *
  *  1. peer is Cloudflare  -> CF-Connecting-IP (authentic);
  *  2. peer is anyone else -> the peer itself;
- *  3. no peer header      -> right-most X-Forwarded-For entry (appended by the
- *                            closest proxy), never the client-controlled left side.
+ *  3. otherwise           -> right-most non-Cloudflare X-Forwarded-For entry (appended
+ *                            by our own proxies), never the client-controlled left side.
  */
 export function resolveClientIp(headers: HeaderReader): ClientIpResolution {
   const peer = validIp(headers.get("x-real-ip"));
+  if (peer && !isCloudflareAddress(peer)) return { ip: peer, source: "x-real-ip" };
+
   if (peer) {
-    if (isCloudflareAddress(peer)) {
-      const forwarded = validIp(headers.get("cf-connecting-ip"));
-      if (forwarded) return { ip: forwarded, source: "cf-connecting-ip" };
-    }
-    return { ip: peer, source: "x-real-ip" };
+    const forwarded = validIp(headers.get("cf-connecting-ip"));
+    if (forwarded) return { ip: forwarded, source: "cf-connecting-ip" };
   }
 
-  const chain = headers.get("x-forwarded-for")?.split(",") ?? [];
-  const last = validIp(chain[chain.length - 1]);
-  return last ? { ip: last, source: "x-forwarded-for" } : { ip: "local", source: "none" };
+  // Walk the chain from the right (entries appended by our own proxies) and skip
+  // Cloudflare's own addresses, so a shared edge address never becomes an identity.
+  const chain = (headers.get("x-forwarded-for")?.split(",") ?? []).reverse();
+  for (const entry of chain) {
+    const candidate = validIp(entry);
+    if (candidate && !isCloudflareAddress(candidate)) return { ip: candidate, source: "x-forwarded-for" };
+  }
+
+  return peer ? { ip: peer, source: "x-real-ip" } : { ip: "local", source: "none" };
 }
 
 export function getClientIp(headers: HeaderReader) {
