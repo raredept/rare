@@ -58,7 +58,7 @@ describe("notifyAdminsOfPaidOrder", () => {
     mocks.prisma.adminPushSubscription.findMany.mockResolvedValueOnce([
       {
         id: "sub_1",
-        endpoint: "https://push.example/sub_1",
+        endpoint: "https://fcm.googleapis.com/fcm/send/sub_1",
         p256dh: "p256dh-key",
         auth: "auth-key",
       },

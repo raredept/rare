@@ -18,7 +18,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 const subscription = {
-  endpoint: "https://push.example/subscription-1",
+  endpoint: "https://fcm.googleapis.com/fcm/send/subscription-1",
   keys: { p256dh: "public-encryption-key", auth: "auth-secret" },
 };
 
@@ -70,6 +70,18 @@ describe("admin push subscriptions route", () => {
 
   it("rejects malformed or oversized subscriptions", async () => {
     const response = await POST(request("POST", { endpoint: "not-a-url", keys: { p256dh: "", auth: "" } }) as never);
+
+    expect(response.status).toBe(400);
+    expect(mocks.upsert).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "http://fcm.googleapis.com/fcm/send/x",
+    "https://169.254.169.254/latest/meta-data",
+    "https://redis.railway.internal/x",
+    "https://evil.example/fcm.googleapis.com",
+  ])("refuses to store a non-push-service endpoint: %s", async (endpoint) => {
+    const response = await POST(request("POST", { ...subscription, endpoint }) as never);
 
     expect(response.status).toBe(400);
     expect(mocks.upsert).not.toHaveBeenCalled();

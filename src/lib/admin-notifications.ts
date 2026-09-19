@@ -1,6 +1,7 @@
 import webPush from "web-push";
 import { formatMoney } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
+import { isAllowedPushEndpoint } from "@/lib/push-endpoint";
 import { getWebPushConfig } from "@/lib/env";
 
 export const paidOrderNotificationType = "order_paid";
@@ -86,7 +87,7 @@ async function sendAdminPushNotification(payload: AdminNotificationPayload): Pro
   let disabled = 0;
 
   await Promise.all(
-    subscriptions.map(async (subscription) => {
+    subscriptions.filter((subscription) => isAllowedPushEndpoint(subscription.endpoint)).map(async (subscription) => {
       try {
         await webPush.sendNotification(
           {

@@ -2,12 +2,13 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getCurrentAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isAllowedPushEndpoint } from "@/lib/push-endpoint";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const pushSubscriptionSchema = z.object({
-  endpoint: z.url().max(2048),
+  endpoint: z.url().max(2048).refine(isAllowedPushEndpoint, "Unsupported push service."),
   keys: z.object({
     p256dh: z.string().min(1).max(512),
     auth: z.string().min(1).max(512),
