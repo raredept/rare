@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ZodError } from "zod";
 import { checkoutRequiresCpfMessage, checkoutRequiresLoginMessage, createCheckoutSession } from "@/lib/checkout";
+import { getClientIp } from "@/lib/client-ip";
 import { getCurrentCustomer } from "@/lib/customer-auth";
 import { isValidCpf } from "@/lib/cpf";
 import { getStripeSecretKey, isCheckoutEnabled } from "@/lib/env";
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: checkoutUnavailableMessage }, { status: 503 });
   }
 
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  const ip = getClientIp(request.headers);
   const limit = await rateLimit(`checkout:${ip}`, 20, 60_000);
 
   if (!limit.ok) {
@@ -98,6 +99,13 @@ export async function POST(request: NextRequest) {
   const customer = await getCurrentCustomer();
   if (!customer) {
     return NextResponse.json({ error: checkoutRequiresLoginMessage }, { status: 401 });
+  }
+
+  // Every session creation reserves stock for the checkout window. An identity
+  // based ceiling keeps one account from hoarding inventory by looping requests.
+  const customerLimit = await rateLimit(`checkout-customer:${customer.id}`, 6, 10 * 60_000);
+  if (!customerLimit.ok) {
+    return NextResponse.json({ error: "Muitas tentativas. Aguarde um instante." }, { status: 429 });
   }
 
   if (!isValidCpf(customer.cpf)) {

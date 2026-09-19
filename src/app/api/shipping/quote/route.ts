@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ZodError, z } from "zod";
+import { getClientIp } from "@/lib/client-ip";
 import { rateLimit } from "@/lib/rate-limit";
 import { isCheckoutEnabled } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
@@ -129,7 +130,7 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  const ip = getClientIp(request.headers);
   const limit = await rateLimit(`shipping-quote:${ip}`, 60, 60_000);
 
   if (!limit.ok) {
