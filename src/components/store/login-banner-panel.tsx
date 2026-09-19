@@ -1,7 +1,9 @@
 import type { CSSProperties } from "react";
+import Image from "next/image";
 import type { HomeBannerSlide } from "@/lib/home-banners";
 
 export function LoginBannerPanel({ banner }: { banner: HomeBannerSlide }) {
+  const optimizeLocalFallback = banner.imageUrl === "/brand/rare-logo.png" && !banner.mobileImageUrl;
   const style = {
     objectFit: banner.imageFit ?? "cover",
     "--login-position-desktop": `${banner.imagePositionX ?? 50}% ${banner.imagePositionY ?? 50}%`,
@@ -11,7 +13,11 @@ export function LoginBannerPanel({ banner }: { banner: HomeBannerSlide }) {
     <aside className="relative isolate flex min-h-64 flex-col justify-end overflow-hidden bg-black p-7 text-white sm:p-9 lg:min-h-full">
       <picture className="absolute inset-0 -z-20">
         {banner.mobileImageUrl ? <source media="(max-width: 1023px)" srcSet={banner.mobileImageUrl} /> : null}
-        <img src={banner.imageUrl} alt={banner.alt} width={800} height={1000} loading="eager" decoding="async" className="h-full w-full object-[var(--login-position-mobile)] lg:object-[var(--login-position-desktop)]" style={style} />
+        {optimizeLocalFallback ? (
+          <Image src={banner.imageUrl} alt={banner.alt} fill sizes="(min-width: 1024px) 480px, 100vw" loading="eager" decoding="async" className="object-[var(--login-position-mobile)] lg:object-[var(--login-position-desktop)]" style={style} />
+        ) : (
+          <img src={banner.imageUrl} alt={banner.alt} width={800} height={1000} loading="eager" decoding="async" className="h-full w-full object-[var(--login-position-mobile)] lg:object-[var(--login-position-desktop)]" style={style} />
+        )}
       </picture>
       <div className="absolute inset-0 -z-10 bg-gradient-to-t from-black via-black/60 to-black/10" />
       <div className="mt-20">

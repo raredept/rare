@@ -7,6 +7,9 @@ const restrictedEnvironment = ["staging", "preview", "homologation"].includes(pr
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Keep complete metadata in the initial head for crawlers and HTML auditors.
+  // This waits for generateMetadata instead of streaming its tags into the body.
+  htmlLimitedBots: /.*/,
   ...(deploymentId ? { deploymentId } : {}),
   // The image optimizer does not forward Basic credentials to local sources.
   // Protected previews serve images directly; production keeps optimization.
