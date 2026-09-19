@@ -1,6 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ZodError } from "zod";
-import { checkoutRequiresCpfMessage, checkoutRequiresLoginMessage, createCheckoutSession } from "@/lib/checkout";
+import {
+  checkoutInProgressMessage,
+  checkoutRequiresCpfMessage,
+  checkoutRequiresLoginMessage,
+  createCheckoutSession,
+  paymentInProgressMessage,
+} from "@/lib/checkout";
 import { getClientIp } from "@/lib/client-ip";
 import { getCurrentCustomer } from "@/lib/customer-auth";
 import { isValidCpf } from "@/lib/cpf";
@@ -14,6 +20,8 @@ export const dynamic = "force-dynamic";
 const publicCheckoutErrors = new Set([
   checkoutRequiresLoginMessage,
   checkoutRequiresCpfMessage,
+  checkoutInProgressMessage,
+  paymentInProgressMessage,
   "Produto indisponível.",
   "Estoque insuficiente para finalizar este carrinho.",
   "Variação inválida.",
@@ -37,7 +45,7 @@ function getPublicCheckoutError(error: unknown) {
   }
 
   if (error instanceof Error && publicCheckoutErrors.has(error.message)) {
-    return { message: error.message, status: error.message === checkoutRequiresLoginMessage ? 401 : 400, log: false };
+    return { message: error.message, status: error.message === checkoutRequiresLoginMessage ? 401 : error.message === checkoutInProgressMessage || error.message === paymentInProgressMessage ? 409 : 400, log: false };
   }
 
   if (error instanceof Error) {
@@ -88,6 +96,12 @@ export async function POST(request: NextRequest) {
 
   if (!isValidCpf(customer.cpf)) {
     return NextResponse.json({ error: checkoutRequiresCpfMessage }, { status: 400 });
+  }
+
+  // Double click / parallel tabs: only one session creation per customer at a time.
+  const inFlight = await rateLimit(`checkout-inflight:${customer.id}`, 1, 5_000);
+  if (!inFlight.ok) {
+    return NextResponse.json({ error: checkoutInProgressMessage }, { status: 409 });
   }
 
   try {

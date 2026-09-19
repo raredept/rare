@@ -45,6 +45,8 @@ type CheckoutOptions = {
 
 export const checkoutRequiresLoginMessage = "Para finalizar sua compra, entre ou crie sua conta.";
 export const checkoutRequiresCpfMessage = "Precisamos de um CPF válido para finalizar sua compra.";
+export const checkoutInProgressMessage = "Você já tem um checkout em andamento. Aguarde alguns instantes e tente novamente.";
+export const paymentInProgressMessage = "Você já tem um pagamento em andamento. Aguarde a confirmação antes de iniciar outra compra.";
 
 type CustomerAddressForCheckout = CheckoutAddressSource & {
   id: string;
@@ -405,6 +407,36 @@ async function releaseOrderReservation(
   return true;
 }
 
+/**
+ * One unpaid checkout per customer. Starting a new one closes the previous unpaid session
+ * at Stripe and releases its reservation, so retries, double clicks and abandoned attempts
+ * cannot pile up reserved stock. A payment already captured or still processing is never
+ * closed: the customer is told to wait instead. Ambiguous provider states keep the hold.
+ */
+export async function supersedeOpenCheckouts(customerId: string, now = new Date()) {
+  const open = await prisma.order.findMany({
+    where: { customerId, status: "awaiting_payment", reservationExpiresAt: { not: null } },
+    select: { id: true, createdAt: true, stripeCheckoutSessionId: true },
+    take: 10,
+  });
+  if (!open.length) return;
+
+  const { reconcileCheckoutExpiry } = await import("@/lib/checkout-expiry");
+  for (const order of open) {
+    // Session creation may still be in flight (the Stripe call happens after the order is stored).
+    if (!order.stripeCheckoutSessionId && now.getTime() - order.createdAt.getTime() < 120_000) {
+      throw new Error(checkoutInProgressMessage);
+    }
+    let outcome: string;
+    try {
+      outcome = (await reconcileCheckoutExpiry(order.id)).outcome;
+    } catch {
+      throw new Error(checkoutInProgressMessage);
+    }
+    if (outcome === "paid" || outcome === "processing") throw new Error(paymentInProgressMessage);
+  }
+}
+
 export async function createCheckoutSession(input: unknown, options: CheckoutOptions = {}) {
   if (!options.customerId) {
     throw new Error(checkoutRequiresLoginMessage);
@@ -441,6 +473,8 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
   if (!isValidCpf(checkoutCustomer.cpf)) {
     throw new Error(checkoutRequiresCpfMessage);
   }
+
+  await supersedeOpenCheckouts(checkoutCustomer.id);
 
   const paidOrderCount = parsed.couponCode
     ? await prisma.order.count({
