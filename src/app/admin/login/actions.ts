@@ -1,9 +1,8 @@
 "use server";
 
-import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
+import { checkLoginRateLimit, verifyPasswordConstantCost } from "@/lib/login-guard";
 import { prisma } from "@/lib/prisma";
-import { rateLimit } from "@/lib/rate-limit";
 import { loginSchema } from "@/lib/validators";
 import { setAdminSessionCookie, signAdminSession } from "@/lib/auth";
 
@@ -22,8 +21,7 @@ export async function loginAction(_state: LoginState, formData: FormData): Promi
   }
 
   const identifier = parsed.data.email.toLowerCase();
-  const limit = await rateLimit(`admin-login:${identifier}`, 8, 5 * 60_000);
-  if (!limit.ok) {
+  if (!(await checkLoginRateLimit("admin-login", identifier))) {
     return { error: "Muitas tentativas. Tente novamente em alguns minutos." };
   }
 
@@ -38,12 +36,8 @@ export async function loginAction(_state: LoginState, formData: FormData): Promi
     },
   });
 
-  if (!user) {
-    return { error: "Credenciais invalidas." };
-  }
-
-  const validPassword = await bcrypt.compare(parsed.data.password, user.passwordHash);
-  if (!validPassword) {
+  const validPassword = await verifyPasswordConstantCost(parsed.data.password, user?.passwordHash);
+  if (!user || !validPassword) {
     return { error: "Credenciais invalidas." };
   }
 

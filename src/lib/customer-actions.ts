@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { clearCustomerSessionCookie, requireCustomer, setCustomerSessionCookie, signCustomerSession } from "@/lib/customer-auth";
+import { checkLoginRateLimit, getActionClientIp, verifyPasswordConstantCost } from "@/lib/login-guard";
 import { normalizePhone, onlyDigits } from "@/lib/privacy";
 import { prisma } from "@/lib/prisma";
 import { rateLimit } from "@/lib/rate-limit";
@@ -85,8 +86,12 @@ export async function registerCustomerAction(_state: CustomerActionState, formDa
     };
   }
 
-  const limit = await rateLimit(`customer-register:${parsed.data.email}`, 5, 10 * 60_000);
-  if (!limit.ok) {
+  const registerIp = await getActionClientIp();
+  const limits = await Promise.all([
+    rateLimit(`customer-register:${parsed.data.email}`, 5, 10 * 60_000),
+    rateLimit(`customer-register-ip:${registerIp}`, 20, 10 * 60_000),
+  ]);
+  if (!limits.every((limit) => limit.ok)) {
     return { error: "Muitas tentativas. Aguarde alguns minutos." };
   }
 
@@ -130,8 +135,7 @@ export async function loginCustomerAction(_state: CustomerActionState, formData:
   }
 
   const email = parsed.data.email.toLowerCase();
-  const limit = await rateLimit(`customer-login:${email}`, 8, 5 * 60_000);
-  if (!limit.ok) {
+  if (!(await checkLoginRateLimit("customer-login", email))) {
     return { error: "Muitas tentativas. Tente novamente em alguns minutos." };
   }
 
@@ -147,12 +151,8 @@ export async function loginCustomerAction(_state: CustomerActionState, formData:
     },
   });
 
-  if (!customer) {
-    return { error: "Credenciais invalidas." };
-  }
-
-  const validPassword = await bcrypt.compare(parsed.data.password, customer.passwordHash);
-  if (!validPassword) {
+  const validPassword = await verifyPasswordConstantCost(parsed.data.password, customer?.passwordHash);
+  if (!customer || !validPassword) {
     return { error: "Credenciais invalidas." };
   }
 

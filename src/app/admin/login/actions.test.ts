@@ -113,7 +113,39 @@ describe("admin login action", () => {
         ],
       },
     });
-    expect(mocks.compare).not.toHaveBeenCalled();
+    // An unknown account still spends one bcrypt comparison so response time
+    // does not reveal whether the login exists.
+    expect(mocks.compare).toHaveBeenCalledTimes(1);
+    expect(mocks.setAdminSessionCookie).not.toHaveBeenCalled();
+  });
+
+  it("never authenticates an unknown account even if the comparison reports a match", async () => {
+    mocks.findFirst.mockResolvedValueOnce(null);
+    mocks.compare.mockResolvedValue(true);
+    const { loginAction } = await import("@/app/admin/login/actions");
+
+    await expect(loginAction({}, loginForm())).resolves.toEqual({ error: "Credenciais invalidas." });
+    expect(mocks.signAdminSession).not.toHaveBeenCalled();
+  });
+
+  it("applies per-identifier, per-address and per-account limits", async () => {
+    const { loginAction } = await import("@/app/admin/login/actions");
+
+    await expect(loginAction({}, loginForm())).rejects.toThrow("NEXT_REDIRECT");
+    const keys = mocks.rateLimit.mock.calls.map((call) => String(call[0]));
+    expect(keys).toEqual(expect.arrayContaining([
+      "admin-login:admin@example.com:local",
+      "admin-login-ip:local",
+      "admin-login-account:admin@example.com",
+    ]));
+  });
+
+  it("blocks the attempt when any limit is exhausted", async () => {
+    mocks.rateLimit.mockResolvedValueOnce({ ok: true }).mockResolvedValueOnce({ ok: false }).mockResolvedValueOnce({ ok: true });
+    const { loginAction } = await import("@/app/admin/login/actions");
+
+    await expect(loginAction({}, loginForm())).resolves.toEqual({ error: "Muitas tentativas. Tente novamente em alguns minutos." });
+    expect(mocks.findFirst).not.toHaveBeenCalled();
   });
 
   it("rejects an invalid payload before rate limiting or database access", async () => {
