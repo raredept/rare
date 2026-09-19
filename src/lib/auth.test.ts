@@ -120,4 +120,20 @@ describe("admin authorization", () => {
     await expect(getCurrentAdmin()).resolves.toBeNull();
     await expect(requireAdmin()).rejects.toThrow("NEXT_REDIRECT:/admin/login");
   });
+
+  it("never accepts a customer session, or a token signed with another secret, as an administrator", async () => {
+    const { SignJWT } = await import("jose");
+    const { verifyAdminSession } = await import("@/lib/auth");
+    const secret = new TextEncoder().encode("test-admin-session-secret-with-more-than-32-characters");
+    const forge = (role: string, key: Uint8Array) =>
+      new SignJWT({ email: "someone@example.com", role, credentialVersion: "x" })
+        .setProtectedHeader({ alg: "HS256" })
+        .setSubject("user-1")
+        .setExpirationTime("1h")
+        .sign(key);
+
+    await expect(verifyAdminSession(await forge("CUSTOMER", secret))).resolves.toBeNull();
+    await expect(verifyAdminSession(await forge("ADMIN", new TextEncoder().encode("another-secret-another-secret-another-secret")))).resolves.toBeNull();
+    await expect(verifyAdminSession(await forge("ADMIN", secret))).resolves.toMatchObject({ role: "ADMIN", sub: "user-1" });
+  });
 });
