@@ -17,7 +17,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
       <Suspense fallback={null}>
         <AdminToast />
       </Suspense>
-      <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-neutral-900 bg-[#080808] p-5 shadow-[20px_0_80px_rgba(0,0,0,0.34)] lg:block">
+      <aside aria-label="Menu lateral do Admin" className="fixed inset-y-0 left-0 hidden w-64 border-r border-neutral-900 bg-[#080808] p-5 shadow-[20px_0_80px_rgba(0,0,0,0.34)] lg:block">
         <Link href="/admin" className="block rounded-lg border border-neutral-800 bg-black px-4 py-3 text-lg font-black tracking-[0.18em] text-white">
           RARE
           <span className="admin-brand-subtitle mt-1 block text-[10px] font-black uppercase tracking-[0.22em]">Admin</span>

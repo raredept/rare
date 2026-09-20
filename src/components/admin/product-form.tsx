@@ -76,7 +76,7 @@ export function ProductForm({ product, categories, error, shippingDraft }: Produ
         <ProductImageManager images={product?.images ?? []} />
       </div>
 
-      <aside className="space-y-5">
+      <aside aria-label="Preço, categoria e publicação" className="space-y-5">
         <section className="space-y-4 rounded-lg border border-neutral-800 bg-neutral-950/70 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
           <Field label="Preço">
             <input name="price" defaultValue={product ? formatMoney(product.priceInCents) : ""} required className="admin-input" />

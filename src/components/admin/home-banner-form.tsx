@@ -295,7 +295,7 @@ export function HomeBannerForm({ banner, error, nextSortOrder }: HomeBannerFormP
         />
       </section>
 
-      <aside className="space-y-4">
+      <aside aria-label="Pré-visualização do banner" className="space-y-4">
         <BannerPreview title="Preview desktop" icon={<Monitor className="h-4 w-4" aria-hidden="true" />} ratio={isLogin ? "aspect-[4/5]" : "aspect-[16/7]"} state={state} />
         <BannerPreview title="Preview mobile" icon={<Smartphone className="h-4 w-4" aria-hidden="true" />} ratio={isLogin ? "aspect-[3/2]" : "aspect-[9/13]"} state={state} mobile />
       </aside>
