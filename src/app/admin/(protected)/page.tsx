@@ -116,7 +116,7 @@ export default async function AdminDashboardPage() {
         <h2 id="dashboard-actions" className="sr-only">
           Ações pendentes
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <ActionCard
             label="Pagos para separar"
             value={formatInteger(snapshot.paidAwaitingFulfilment)}
@@ -152,14 +152,14 @@ export default async function AdminDashboardPage() {
         <h2 id="dashboard-sales" className="text-lg font-black text-neutral-950">
           Vendas · últimos {snapshot.windowDays} dias
         </h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Metric title="Receita paga" value={formatMoney(snapshot.window.revenueInCents)} />
           <Metric title="Pedidos pagos" value={formatInteger(snapshot.window.paidOrders)} />
           <Metric title="Ticket médio" value={formatMoney(snapshot.window.averageTicketInCents)} />
           <Metric title="Itens vendidos" value={formatInteger(snapshot.window.itemsSold)} />
         </div>
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Metric title="Receita acumulada" value={formatMoney(snapshot.revenueAllTimeInCents)} subtitle="Desde o início" />
           <Metric title="Pedidos no total" value={formatInteger(snapshot.ordersTotal)} subtitle="Todos os status" />
           <Metric title="Produtos ativos" value={formatInteger(activeProducts)} />
@@ -179,7 +179,7 @@ export default async function AdminDashboardPage() {
         <div className="mt-4 divide-y divide-neutral-200">
           {recentNotifications.length ? (
             recentNotifications.map((notification) => (
-              <div key={notification.id} className="grid gap-3 py-3 text-sm md:grid-cols-[110px_1fr_90px] md:items-center">
+              <div key={notification.id} className="grid grid-cols-1 gap-3 py-3 text-sm md:grid-cols-[110px_1fr_90px] md:items-center">
                 <span
                   className={`w-fit rounded-full border px-2 py-1 text-[10px] font-black uppercase ${
                     notification.readAt
@@ -220,7 +220,7 @@ export default async function AdminDashboardPage() {
         <div className="mt-4 divide-y divide-neutral-200">
           {catalogIssues.length ? (
             catalogIssues.slice(0, 8).map((issue) => (
-              <div key={issue.id} className="grid gap-3 py-3 text-sm md:grid-cols-[120px_1fr_130px] md:items-center">
+              <div key={issue.id} className="grid grid-cols-1 gap-3 py-3 text-sm md:grid-cols-[120px_1fr_130px] md:items-center">
                 <CatalogIssueBadge issue={issue} />
                 <div>
                   <p className="font-black text-neutral-950">{issue.title}</p>
@@ -244,7 +244,7 @@ export default async function AdminDashboardPage() {
         ) : null}
       </section>
 
-      <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+      <div className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
         <section className="rounded-lg border border-neutral-200 bg-white p-5">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <h2 className="text-lg font-black text-neutral-950">Pedidos recentes</h2>
@@ -255,7 +255,7 @@ export default async function AdminDashboardPage() {
           <div className="mt-4 divide-y divide-neutral-200">
             {recentOrders.length ? (
               recentOrders.map((order) => (
-                <div key={order.id} className="grid gap-2 py-3 text-sm md:grid-cols-[130px_1fr_140px_110px_80px] md:items-center">
+                <div key={order.id} className="grid grid-cols-1 gap-2 py-3 text-sm md:grid-cols-[130px_1fr_140px_110px_80px] md:items-center">
                   <span className="font-black text-neutral-950">{order.orderNumber}</span>
                   <span className="font-semibold text-neutral-600">
                     {order.customer?.name ?? order.customerNameSnapshot ?? order.customerEmailSnapshot ?? "Cliente convidado"}
@@ -282,7 +282,7 @@ export default async function AdminDashboardPage() {
         </section>
       </div>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-2">
+      <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
         <section className="rounded-lg border border-neutral-200 bg-white p-5">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <h2 className="text-lg font-black text-neutral-950">Estoque crítico</h2>
@@ -369,7 +369,7 @@ function ReadinessSummaryCard({ report }: { report: ReadinessReport }) {
           <h2 className="mt-3 text-lg font-black text-neutral-950">Prontidão de Venda</h2>
           <p className="mt-1 max-w-3xl text-sm font-semibold leading-6 text-neutral-500">{report.summaryDescription}</p>
         </div>
-        <div className="grid gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
           <ReadinessCount label="OK" value={report.counts.ok} />
           <ReadinessCount label="Warnings" value={report.counts.warning} />
           <ReadinessCount label="Bloqueios" value={report.counts.blocked} />

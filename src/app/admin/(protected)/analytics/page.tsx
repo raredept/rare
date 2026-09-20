@@ -84,7 +84,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         <h2 id="analytics-sales" className="sr-only">
           Resumo de vendas
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <KpiTile
             label="Receita paga"
             value={formatMoney(totals.revenueInCents)}
@@ -111,7 +111,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           />
         </div>
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <KpiTile label="Itens por pedido" value={totals.averageItemsPerOrder.toFixed(2).replace(".", ",")} />
           <KpiTile label="Frete cobrado" value={formatMoney(totals.shippingInCents)} />
           <KpiTile label="Descontos concedidos" value={formatMoney(totals.discountInCents)} higherIsBetter={false} />
@@ -123,7 +123,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         </div>
       </section>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-2">
+      <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
         <ChartCard
           title="Receita paga por dia"
           description="Pedidos pagos, na data do pagamento. Reembolsados e cancelados não entram."
@@ -152,7 +152,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         </ChartCard>
       </div>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-2">
+      <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
         <ChartCard
           title="Pedidos por status"
           description="Todos os pedidos criados no período, inclusive os que nunca foram pagos."
@@ -168,7 +168,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         </ChartCard>
       </div>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-2">
+      <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
         <ChartCard title="Categorias mais vendidas" description="Categoria principal do produto no momento da consulta.">
           <MagnitudeBars rows={topCategoryRows} emptyMessage="Sem vendas pagas neste período." />
         </ChartCard>
@@ -186,7 +186,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           Posição atual do catálogo ativo; não depende do período selecionado.
         </p>
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <KpiTile label="Estoque total" value={formatInteger(inventory.totalStock)} hint="Unidades em variações ativas" />
           <KpiTile label="Vendável" value={formatInteger(inventory.sellableStock)} hint="Estoque menos reservas abertas" />
           <KpiTile label="Reservado" value={formatInteger(inventory.reservedStock)} hint="Checkouts em andamento" />
