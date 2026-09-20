@@ -6,10 +6,19 @@ import { formatCep } from "@/lib/cep";
 import { formatAddressSnapshotLines } from "@/lib/customer-order";
 import { formatMoney } from "@/lib/money";
 import { formatOrderStatus, formatPaymentMethod } from "@/lib/order-display";
+import { getManualStatusOptions } from "@/lib/order-status";
 import { maskCpf } from "@/lib/privacy";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
+
+const manualStatusLabels: Record<string, string> = {
+  processing: "Em preparo",
+  shipped: "Enviado",
+  delivered: "Entregue",
+  canceled: "Cancelado (pedido não pago)",
+  refunded: "Reembolsado",
+};
 
 type OrderDetailPageProps = {
   params: Promise<{ id: string }>;
@@ -28,6 +37,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
 
   if (!order) notFound();
   const addressLines = formatAddressSnapshotLines(order.shippingAddressSnapshot);
+  const nextStatuses = getManualStatusOptions(order.status);
 
   return (
     <div>
@@ -122,18 +132,22 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
           <form action={updateOrderStatusAction} className="rounded-lg border border-neutral-200 bg-white p-5">
             <input type="hidden" name="id" value={order.id} />
             <h2 className="text-lg font-black text-neutral-950">Atualizar envio</h2>
-            <select name="status" defaultValue={order.status} className="admin-input mt-4">
-              <option value="processing">Em preparo</option>
-              <option value="shipped">Enviado</option>
-              <option value="delivered">Entregue</option>
-              <option value="canceled">Cancelado</option>
-              <option value="refunded">Reembolsado</option>
-            </select>
-            <AdminSubmitButton
-              idleLabel="Salvar status"
-              pendingLabel="Salvando..."
-              className="mt-4 h-11 w-full rounded-lg bg-black text-sm font-black text-white"
-            />
+            {nextStatuses.length ? (
+              <>
+                <select name="status" defaultValue={nextStatuses[0]} className="admin-input mt-4">
+                  {nextStatuses.map((status) => (
+                    <option key={status} value={status}>{manualStatusLabels[status] ?? status}</option>
+                  ))}
+                </select>
+                <AdminSubmitButton
+                  idleLabel="Salvar status"
+                  pendingLabel="Salvando..."
+                  className="mt-4 h-11 w-full rounded-lg bg-black text-sm font-black text-white"
+                />
+              </>
+            ) : (
+              <p className="mt-4 text-sm font-semibold text-neutral-500">Nenhuma alteração manual disponível para o status atual.</p>
+            )}
           </form>
 
           <section className="rounded-lg border border-neutral-200 bg-white p-5">

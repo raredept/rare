@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ClearCartOnSuccess } from "@/components/store/clear-cart-on-success";
+import { OrderStatusRefresh } from "@/components/store/order-status-refresh";
 import { formatMoney } from "@/lib/money";
 import { formatOrderStatus } from "@/lib/order-display";
 import { prisma } from "@/lib/prisma";
@@ -67,6 +68,7 @@ export default async function OrderSuccessPage({ searchParams }: OrderSuccessPag
   return (
     <OrderSuccessShell eyebrow="Checkout iniciado" title="Pedido recebido pela RARE">
       <ClearCartOnSuccess />
+      <OrderStatusRefresh active={order.status === "awaiting_payment" || order.status === "pending"} />
       <p className="mt-4 text-neutral-600">
         Se o pagamento foi confirmado, a Stripe avisará a loja pelo webhook e o pedido aparecerá como pago no admin.
       </p>

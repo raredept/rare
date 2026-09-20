@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   checkoutRequiresCpfMessage,
   checkoutRequiresLoginMessage,
+  checkoutInProgressMessage,
   createCheckoutSession,
+  paymentInProgressMessage,
   processStripeCheckoutEvent,
   processStripePaymentIntentEvent,
 } from "@/lib/checkout";
@@ -50,8 +52,10 @@ const mocks = vi.hoisted(() => {
       },
       order: {
         update: vi.fn(),
+        findMany: vi.fn(),
       },
     },
+    reconcileCheckoutExpiry: vi.fn(),
     getStoreSettings: vi.fn(),
     getStripe: vi.fn(),
     normalizePaymentMethodTypes: vi.fn(),
@@ -60,6 +64,10 @@ const mocks = vi.hoisted(() => {
 
 vi.mock("@/lib/prisma", () => ({
   prisma: mocks.prisma,
+}));
+
+vi.mock("@/lib/checkout-expiry", () => ({
+  reconcileCheckoutExpiry: mocks.reconcileCheckoutExpiry,
 }));
 
 vi.mock("@/lib/settings", () => ({
@@ -179,6 +187,7 @@ beforeEach(() => {
   mocks.prisma.$transaction.mockImplementation(async (callback: (transaction: typeof mocks.tx) => unknown) =>
     callback(mocks.tx),
   );
+  mocks.prisma.order.findMany.mockResolvedValue([]);
   mocks.prisma.customer.findFirst.mockResolvedValue({
     id: "customer_1",
     name: "Cliente Teste",
@@ -424,9 +433,7 @@ describe("createCheckoutSession", () => {
             }),
           }),
         ],
-        shipping_address_collection: {
-          allowed_countries: ["BR"],
-        },
+        phone_number_collection: { enabled: false },
         payment_intent_data: {
           metadata: {
             orderId: "order_1",
@@ -442,6 +449,8 @@ describe("createCheckoutSession", () => {
       }),
       { idempotencyKey: "rare-checkout-session:order_1" },
     );
+    // The delivery address was chosen in the store; Stripe must not ask for a second one.
+    expect(mocks.stripeSessionsCreate.mock.calls[0][0]).not.toHaveProperty("shipping_address_collection");
   });
 
   it("validates fixed shipping from settings without trusting frontend freight values or origin CEP", async () => {
@@ -827,5 +836,47 @@ describe("Stripe webhook reconciliation", () => {
     );
     expect(mocks.tx.order.update).toHaveBeenCalledTimes(1);
     expect(mocks.tx.productVariant.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("one unpaid checkout per customer", () => {
+  const openOrder = { id: "order_open", createdAt: new Date(Date.now() - 5 * 60_000), stripeCheckoutSessionId: "cs_test_open" };
+
+  it("closes the customer's previous unpaid checkout before reserving stock again", async () => {
+    mocks.prisma.order.findMany.mockResolvedValue([openOrder]);
+    mocks.reconcileCheckoutExpiry.mockResolvedValue({ outcome: "released" });
+    mocks.prisma.customerAddress.findMany.mockRejectedValue(new Error("stop after supersede"));
+
+    await expect(createCheckoutSession(validCheckoutInput, checkoutOptions)).rejects.toThrow("stop after supersede");
+
+    expect(mocks.prisma.order.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ customerId: "customer_1", status: "awaiting_payment" }) }));
+    expect(mocks.reconcileCheckoutExpiry).toHaveBeenCalledWith("order_open");
+    expect(mocks.tx.order.create).not.toHaveBeenCalled();
+  });
+
+  it("refuses to start another checkout while a payment is already captured or processing", async () => {
+    for (const outcome of ["paid", "processing"]) {
+      mocks.prisma.order.findMany.mockResolvedValue([openOrder]);
+      mocks.reconcileCheckoutExpiry.mockResolvedValue({ outcome });
+
+      await expect(createCheckoutSession(validCheckoutInput, checkoutOptions)).rejects.toThrow(paymentInProgressMessage);
+    }
+    expect(mocks.tx.order.create).not.toHaveBeenCalled();
+    expect(mocks.stripeSessionsCreate).not.toHaveBeenCalled();
+  });
+
+  it("keeps the hold when the provider state is ambiguous instead of freeing stock", async () => {
+    mocks.prisma.order.findMany.mockResolvedValue([openOrder]);
+    mocks.reconcileCheckoutExpiry.mockRejectedValue(new Error("PROVIDER_NOT_EXPIRED"));
+
+    await expect(createCheckoutSession(validCheckoutInput, checkoutOptions)).rejects.toThrow(checkoutInProgressMessage);
+    expect(mocks.tx.order.create).not.toHaveBeenCalled();
+  });
+
+  it("does not close a checkout whose Stripe session is still being created", async () => {
+    mocks.prisma.order.findMany.mockResolvedValue([{ id: "order_new", createdAt: new Date(), stripeCheckoutSessionId: null }]);
+
+    await expect(createCheckoutSession(validCheckoutInput, checkoutOptions)).rejects.toThrow(checkoutInProgressMessage);
+    expect(mocks.reconcileCheckoutExpiry).not.toHaveBeenCalled();
   });
 });

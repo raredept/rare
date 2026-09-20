@@ -30,3 +30,25 @@ export async function enqueuePaidOrderEmail(
     skipDuplicates: true,
   });
 }
+
+// One "order shipped" message per order (unique orderId+kind). Enqueued in the same
+// transaction as the status change; delivery happens later in the outbox worker.
+export async function enqueueOrderShippedEmail(
+  tx: Pick<Prisma.TransactionClient, "emailOutbox">,
+  order: PaidOrderEmailSnapshot,
+) {
+  const kind = "order_shipped";
+  const key = createHash("sha256").update(`${order.id}:${kind}`).digest("hex");
+  return tx.emailOutbox.createMany({
+    data: [{
+      orderId: order.id,
+      kind,
+      recipient: order.customerEmailSnapshot,
+      customerName: order.customerNameSnapshot,
+      orderNumber: order.orderNumber,
+      totalInCents: order.totalInCents,
+      messageId: `<rare-${key}@raredept.com.br>`,
+    }],
+    skipDuplicates: true,
+  });
+}

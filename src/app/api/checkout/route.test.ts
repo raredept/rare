@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { resetRateLimitMemoryForTests } from "@/lib/rate-limit";
 import { POST } from "@/app/api/checkout/route";
 
 const routeMocks = vi.hoisted(() => ({
@@ -9,6 +10,8 @@ const routeMocks = vi.hoisted(() => ({
 vi.mock("@/lib/checkout", () => ({
   checkoutRequiresCpfMessage: "Precisamos de um CPF válido para finalizar sua compra.",
   checkoutRequiresLoginMessage: "Para finalizar sua compra, entre ou crie sua conta.",
+  checkoutInProgressMessage: "Você já tem um checkout em andamento. Aguarde alguns instantes e tente novamente.",
+  paymentInProgressMessage: "Você já tem um pagamento em andamento. Aguarde a confirmação antes de iniciar outra compra.",
   createCheckoutSession: routeMocks.createCheckoutSession,
 }));
 
@@ -19,6 +22,7 @@ vi.mock("@/lib/customer-auth", () => ({
 const originalEnv = process.env;
 
 beforeEach(() => {
+  resetRateLimitMemoryForTests();
   process.env = {
     ...originalEnv,
     CHECKOUT_ENABLED: "false",
@@ -159,5 +163,36 @@ describe("checkout route readiness", () => {
       orderNumber: "RARE-TEST",
     });
     expect(routeMocks.createCheckoutSession).toHaveBeenCalledWith(payload, { customerId: "customer_1" });
+  });
+});
+
+describe("checkout route double submit", () => {
+  it("answers 409 to a second session creation for the same customer within the guard window", async () => {
+    process.env.CHECKOUT_ENABLED = "true";
+    process.env.STRIPE_SECRET_KEY = "sk_test_123";
+    routeMocks.getCurrentCustomer.mockResolvedValue({ id: "customer_dbl", cpf: "12345678909" });
+    routeMocks.createCheckoutSession.mockResolvedValue({ url: "https://checkout.stripe.test/s", orderId: "o1" });
+    const make = () => POST(new Request("http://localhost/api/checkout", { method: "POST", body: JSON.stringify({ items: [] }) }) as never);
+
+    const first = await make();
+    const second = await make();
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(409);
+    expect(routeMocks.createCheckoutSession).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("checkout route coupon errors", () => {
+  it("tells the shopper an invalid coupon is a client error instead of an outage", async () => {
+    process.env.CHECKOUT_ENABLED = "true";
+    process.env.STRIPE_SECRET_KEY = "sk_test_123";
+    routeMocks.getCurrentCustomer.mockResolvedValue({ id: "customer_coupon", cpf: "12345678909" });
+    routeMocks.createCheckoutSession.mockRejectedValue(new Error("Cupom inválido ou disponível apenas na primeira compra."));
+
+    const response = await POST(new Request("http://localhost/api/checkout", { method: "POST", body: JSON.stringify({ items: [] }) }) as never);
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "Cupom inválido ou disponível apenas na primeira compra." });
   });
 });

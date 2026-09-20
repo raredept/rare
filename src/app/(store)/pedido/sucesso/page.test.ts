@@ -18,6 +18,10 @@ vi.mock("@/components/store/clear-cart-on-success", () => ({
   ClearCartOnSuccess: () => "CLEAR_CART_MARKER",
 }));
 
+vi.mock("@/components/store/order-status-refresh", () => ({
+  OrderStatusRefresh: ({ active }: { active: boolean }) => (active ? "REFRESH_ACTIVE_MARKER" : "REFRESH_IDLE_MARKER"),
+}));
+
 describe("OrderSuccessPage", () => {
   beforeEach(() => {
     vi.stubEnv("CHECKOUT_ENABLED", "true");
@@ -52,6 +56,7 @@ describe("OrderSuccessPage", () => {
     expect(html).toContain("CLEAR_CART_MARKER");
     expect(html).toContain("Pedido recebido pela RARE");
     expect(html).toContain("RARE-TEST");
+    expect(html).toContain("REFRESH_ACTIVE_MARKER");
     expect(successMocks.prisma.order.findUnique).toHaveBeenCalledWith({
       where: { stripeCheckoutSessionId: "cs_test_knownSession123" },
       select: {
@@ -60,6 +65,15 @@ describe("OrderSuccessPage", () => {
         totalInCents: true,
       },
     });
+  });
+
+  it("stops refreshing once the order is no longer waiting for payment", async () => {
+    successMocks.prisma.order.findUnique.mockResolvedValueOnce({ orderNumber: "RARE-PAID", status: "paid", totalInCents: 21500 });
+
+    const html = renderToStaticMarkup(await OrderSuccessPage({ searchParams: Promise.resolve({ session_id: "cs_test_knownSession123" }) }));
+
+    expect(html).toContain("REFRESH_IDLE_MARKER");
+    expect(html).not.toContain("REFRESH_ACTIVE_MARKER");
   });
 
   it("does not promise or inspect payment while checkout is paused", async () => {

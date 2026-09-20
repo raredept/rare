@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { EmailOutbox, PrismaClient } from "@prisma/client";
 import { formatMoney } from "@/lib/money";
 import { assertEmailRecipientAllowed, createSmtpEmailProvider, getSmtpEmailConfig } from "@/lib/smtp-email";
-import { deliverTransactionalEmail, EmailDeliveryError, renderPaymentApprovedEmail, type EmailDeliveryResult, type TransactionalEmailProvider } from "@/lib/transactional-email";
+import { deliverTransactionalEmail, EmailDeliveryError, renderOrderShippedEmail, renderPaymentApprovedEmail, type EmailDeliveryResult, type TransactionalEmailProvider } from "@/lib/transactional-email";
 
 const leaseMs = 5 * 60_000; // SMTP has a hard 45-second deadline.
 const maxAttempts = 5;
@@ -87,10 +87,11 @@ export async function processEmailOutbox(options: {
     summary.claimed += 1;
     let decision: DeliveryDecision;
     try {
-      if (row.kind !== "payment_approved" || !Number.isInteger(row.totalInCents) || row.totalInCents < 0) {
+      if (!["payment_approved", "order_shipped"].includes(row.kind) || !Number.isInteger(row.totalInCents) || row.totalInCents < 0) {
         throw new EmailDeliveryError("failed", "InvalidEmailSnapshot");
       }
-      const message = renderPaymentApprovedEmail({
+      const render = row.kind === "order_shipped" ? renderOrderShippedEmail : renderPaymentApprovedEmail;
+      const message = render({
         to: row.recipient ?? "",
         customerName: row.customerName ?? "Cliente RARE",
         orderNumber: row.orderNumber,

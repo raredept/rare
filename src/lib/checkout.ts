@@ -23,10 +23,10 @@ import { getStoreSettings } from "@/lib/settings";
 import { getStripe, normalizePaymentMethodTypes } from "@/lib/stripe";
 import { checkoutRequestSchema } from "@/lib/validators";
 import { makeOrderNumber } from "@/lib/slug";
-import { releasableReservationStatuses, shouldReleaseReservationOnStatusChange } from "@/lib/order-status";
+import { canTransitionManually, invalidOrderTransitionMessage, releasableReservationStatuses, shouldReleaseReservationOnStatusChange } from "@/lib/order-status";
 import { notifyAdminsOfPaidOrder } from "@/lib/admin-notifications";
 import { getFirstOrderCouponDiscount, paidOrderStatuses } from "@/lib/coupons";
-import { enqueuePaidOrderEmail } from "@/lib/email-outbox";
+import { enqueueOrderShippedEmail, enqueuePaidOrderEmail } from "@/lib/email-outbox";
 import { CHECKOUT_RESERVATION_MINUTES, STRIPE_SESSION_FALLBACK_SECONDS } from "@/lib/checkout-policy";
 
 type CheckoutSessionCreateParams = NonNullable<Parameters<Stripe["checkout"]["sessions"]["create"]>[0]>;
@@ -45,6 +45,8 @@ type CheckoutOptions = {
 
 export const checkoutRequiresLoginMessage = "Para finalizar sua compra, entre ou crie sua conta.";
 export const checkoutRequiresCpfMessage = "Precisamos de um CPF válido para finalizar sua compra.";
+export const checkoutInProgressMessage = "Você já tem um checkout em andamento. Aguarde alguns instantes e tente novamente.";
+export const paymentInProgressMessage = "Você já tem um pagamento em andamento. Aguarde a confirmação antes de iniciar outra compra.";
 
 type CustomerAddressForCheckout = CheckoutAddressSource & {
   id: string;
@@ -316,6 +318,8 @@ export async function releaseExpiredReservations(): Promise<number> {
 
 export async function updateOrderStatusWithReservationRelease(orderId: string, status: OrderStatus, reason: string) {
   const before = await prisma.order.findUnique({ where: { id: orderId } });
+  if (!before) throw new Error("Pedido não encontrado.");
+  if (!canTransitionManually(before.status, status)) throw new Error(invalidOrderTransitionMessage);
   const needsProviderConfirmation = before && shouldReleaseReservationOnStatusChange(before.status, status)
     && Boolean(before.stripeCheckoutSessionId || before.checkoutDeadlineAt);
   if (needsProviderConfirmation) {
@@ -332,6 +336,11 @@ export async function updateOrderStatusWithReservationRelease(orderId: string, s
       throw new Error("Pedido não encontrado.");
     }
 
+    // Re-check under the row lock: a webhook may have moved the order meanwhile.
+    if (!canTransitionManually(order.status, status)) {
+      throw new Error(invalidOrderTransitionMessage);
+    }
+
     if (needsProviderConfirmation && (releasableReservationStatuses.includes(order.status) || (paidOrderStatuses as readonly string[]).includes(order.status))) {
       throw new Error("Não foi possível confirmar o encerramento seguro deste pagamento.");
     }
@@ -345,6 +354,16 @@ export async function updateOrderStatusWithReservationRelease(orderId: string, s
       where: { id: order.id },
       data: { status },
     });
+
+    if (status === "shipped") {
+      await enqueueOrderShippedEmail(tx, {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        totalInCents: order.totalInCents,
+        customerEmailSnapshot: order.customerEmailSnapshot ?? order.customerEmail,
+        customerNameSnapshot: order.customerNameSnapshot ?? order.customerName,
+      });
+    }
   });
 }
 
@@ -398,6 +417,36 @@ async function releaseOrderReservation(
   return true;
 }
 
+/**
+ * One unpaid checkout per customer. Starting a new one closes the previous unpaid session
+ * at Stripe and releases its reservation, so retries, double clicks and abandoned attempts
+ * cannot pile up reserved stock. A payment already captured or still processing is never
+ * closed: the customer is told to wait instead. Ambiguous provider states keep the hold.
+ */
+export async function supersedeOpenCheckouts(customerId: string, now = new Date()) {
+  const open = await prisma.order.findMany({
+    where: { customerId, status: "awaiting_payment", reservationExpiresAt: { not: null } },
+    select: { id: true, createdAt: true, stripeCheckoutSessionId: true },
+    take: 10,
+  });
+  if (!open.length) return;
+
+  const { reconcileCheckoutExpiry } = await import("@/lib/checkout-expiry");
+  for (const order of open) {
+    // Session creation may still be in flight (the Stripe call happens after the order is stored).
+    if (!order.stripeCheckoutSessionId && now.getTime() - order.createdAt.getTime() < 120_000) {
+      throw new Error(checkoutInProgressMessage);
+    }
+    let outcome: string;
+    try {
+      outcome = (await reconcileCheckoutExpiry(order.id)).outcome;
+    } catch {
+      throw new Error(checkoutInProgressMessage);
+    }
+    if (outcome === "paid" || outcome === "processing") throw new Error(paymentInProgressMessage);
+  }
+}
+
 export async function createCheckoutSession(input: unknown, options: CheckoutOptions = {}) {
   if (!options.customerId) {
     throw new Error(checkoutRequiresLoginMessage);
@@ -434,6 +483,8 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
   if (!isValidCpf(checkoutCustomer.cpf)) {
     throw new Error(checkoutRequiresCpfMessage);
   }
+
+  await supersedeOpenCheckouts(checkoutCustomer.id);
 
   const paidOrderCount = parsed.couponCode
     ? await prisma.order.count({
@@ -739,17 +790,22 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
       },
       expires_at: Math.ceil(Date.now() / 1000) + STRIPE_SESSION_FALLBACK_SECONDS,
       custom_text: { submit: { message: "Finalize em até 15 minutos após iniciar a compra na RARE. A reserva termina no prazo informado pela loja; um pagamento já em processamento aguarda confirmação." } },
+      // The delivery address and phone were chosen and validated in the store (and are
+      // stored on the order); asking again at Stripe would let a different address be typed
+      // that we never ship to. Collect only what is missing.
       phone_number_collection: {
-        enabled: true,
+        enabled: !(order.customerPhoneSnapshot ?? order.customerPhone),
       },
       billing_address_collection: "auto",
     };
 
     if (stripeShippingOption) {
       sessionParams.shipping_options = [buildStripeShippingOption(stripeShippingOption)];
-      sessionParams.shipping_address_collection = {
-        allowed_countries: ["BR"],
-      };
+      if (!selectedShippingAddress) {
+        sessionParams.shipping_address_collection = {
+          allowed_countries: ["BR"],
+        };
+      }
     }
 
     if (paymentMethodTypes?.length) {
