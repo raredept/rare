@@ -22,12 +22,14 @@ export type TransactionalEmailProvider = {
 export type EmailDeliveryResult =
   | { status: "disabled" }
   | { status: "accepted"; provider: string; id: string }
-  | { status: "retry" | "failed" | "uncertain"; provider: string; code: string };
+  | { status: "retry" | "failed" | "uncertain"; provider: string; code: string; detail?: string };
 
 // Only explicit, sanitized codes cross the provider boundary. An unclassified
 // error may have occurred after SMTP accepted DATA, so it is never retried blind.
 export class EmailDeliveryError extends Error {
-  constructor(readonly outcome: "retry" | "failed" | "uncertain", readonly code: string) {
+  // `detail` is a sanitized server-side diagnostic (e.g. a provider error code). It is never
+  // persisted or shown to shoppers; only `code` is stored on the outbox row.
+  constructor(readonly outcome: "retry" | "failed" | "uncertain", readonly code: string, readonly detail?: string) {
     super(code);
     this.name = "EmailDeliveryError";
   }
@@ -137,7 +139,7 @@ export async function deliverTransactionalEmail(
     return { status: "accepted", provider: provider.name, id: result.id };
   } catch (error) {
     return error instanceof EmailDeliveryError
-      ? { status: error.outcome, provider: provider.name, code: error.code }
+      ? { status: error.outcome, provider: provider.name, code: error.code, ...(error.detail ? { detail: error.detail } : {}) }
       : { status: "uncertain", provider: provider.name, code: "UnclassifiedProviderFailure" };
   }
 }

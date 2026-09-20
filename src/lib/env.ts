@@ -324,7 +324,7 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
 
   const webPushPublicKey = clean(env.NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY);
   if (getEmailConfigurationStatus(env) === "missing_required_configuration") {
-    addIssue(issues, "error", "EMAIL_DRIVER", "Use EMAIL_DRIVER=disabled or a complete SMTP configuration with an explicit environment, delivery mode and test allowlist outside production.");
+    addIssue(issues, "error", "EMAIL_DRIVER", "Use EMAIL_DRIVER=disabled, or a complete smtp/zeptomail configuration with an explicit environment, delivery mode, backlog cutoff and test allowlist outside production.");
   }
   const webPushPrivateKey = clean(env.WEB_PUSH_VAPID_PRIVATE_KEY);
   if (production) {

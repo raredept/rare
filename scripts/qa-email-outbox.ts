@@ -138,6 +138,81 @@ async function main() {
     assert.equal((await run(accepted, { env: { ...env, EMAIL_SEND_NOT_BEFORE: new Date(time + 60_000).toISOString() } })).claimed, 0);
     proofs.push("explicit_activation_cutoff_does_not_flush_historical_backlog");
 
+    // ZeptoMail HTTPS driver against the REAL outbox/claim SQL and a REAL HTTP round trip to a
+    // loopback fake (no external call). Proves the concurrency guarantee is the outbox's, not a mock's.
+    {
+      const { createServer } = await import("node:http");
+      const { getZeptoMailEmailConfig } = await import("../src/lib/email-config");
+      const { createZeptoMailEmailProvider } = await import("../src/lib/zeptomail-email");
+      const secretToken = "qa-synthetic-zeptomail-token";
+      const seen: Array<{ authorized: boolean; reference: string; subject: string; to: string }> = [];
+      let respond: { status: number; body: unknown; delayMs: number } = { status: 200, body: { data: [{ code: "EM_104", message: "OK" }], message: "OK", request_id: "qa-req-1" }, delayMs: 0 };
+      const server = createServer((request, response) => {
+        let raw = "";
+        request.on("data", (chunk) => { raw += String(chunk); });
+        request.on("end", () => {
+          const payload = JSON.parse(raw);
+          seen.push({ authorized: request.headers.authorization === `Zoho-enczapikey ${secretToken}`, reference: payload.client_reference, subject: payload.subject, to: payload.to[0].email_address.address });
+          setTimeout(() => { response.writeHead(respond.status, { "content-type": "application/json" }); response.end(JSON.stringify(respond.body)); }, respond.delayMs);
+        });
+      });
+      await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+      const port = (server.address() as { port: number }).port;
+      try {
+        const zEnv = { ...env, EMAIL_DRIVER: "zeptomail", ZEPTOMAIL_SEND_TOKEN: secretToken } as Record<string, string | undefined>;
+        const zConfig = getZeptoMailEmailConfig(zEnv)!;
+        const zProvider = createZeptoMailEmailProvider(zConfig, { fetchImpl: (url, init) => fetch(url.replace("https://api.zeptomail.com", `http://127.0.0.1:${port}`), init) });
+        const logs: unknown[] = [];
+        const runZ = (extra: Partial<Parameters<typeof processEmailOutbox>[0]> = {}) => processEmailOutbox({ repository, provider: zProvider, env: zEnv, now, batchSize: 1, log: (event) => logs.push(event), ...extra });
+
+        // Rows left pending by the cutoff proof above are not part of this scenario.
+        await prisma.emailOutbox.updateMany({ where: { status: { in: ["pending", "retry"] } }, data: { status: "failed", lastErrorCode: "QaLeftover" } });
+        await order();
+        respond = { ...respond, delayMs: 250 };
+        const zraces = await Promise.all([runZ(), runZ(), runZ()]);
+        assert.equal(zraces.reduce((sum, value) => sum + value.claimed, 0), 1);
+        assert.equal(zraces.reduce((sum, value) => sum + value.accepted, 0), 1);
+        assert.equal(seen.length, 1);
+        assert.equal(seen[0].authorized, true);
+        assert.match(seen[0].subject, /Pagamento aprovado/);
+        proofs.push("zeptomail_three_concurrent_workers_one_https_request");
+
+        respond = { status: 503, body: {}, delayMs: 0 };
+        const zRetry = await order();
+        const beforeRetry = seen.length;
+        assert.equal((await runZ()).retry, 1);
+        assert.equal(seen.length, beforeRetry + 1);
+        assert.equal((await runZ()).claimed, 0);
+        assert.equal(seen.length, beforeRetry + 1);
+        respond = { status: 200, body: { data: [{ code: "EM_104" }], request_id: "qa-req-2" }, delayMs: 0 };
+        time += 61_000;
+        assert.equal((await runZ()).accepted, 1);
+        assert.equal(seen.length, beforeRetry + 2);
+        assert.equal(seen.at(-1)!.reference, seen.at(-2)!.reference);
+        assert.equal((await prisma.emailOutbox.findFirstOrThrow({ where: { orderId: zRetry.id } })).status, "accepted");
+        proofs.push("zeptomail_503_is_retried_only_by_the_outbox_backoff_with_the_same_reference");
+
+        await order("outside@example.com");
+        const beforeOutside = seen.length;
+        assert.equal((await runZ()).failed, 1);
+        assert.equal(seen.length, beforeOutside);
+        await order();
+        assert.equal((await runZ({ env: { ...zEnv, EMAIL_SEND_NOT_BEFORE: new Date(time + 60_000).toISOString() } })).claimed, 0);
+        assert.equal(seen.length, beforeOutside);
+        proofs.push("zeptomail_allowlist_and_backlog_cutoff_produce_zero_http_requests");
+
+        respond = { status: 500, body: { error: { code: "TM_9999" }, echo: secretToken }, delayMs: 0 };
+        const beforeLeak = seen.length;
+        await runZ();
+        assert(seen.length > beforeLeak);
+        const persisted = JSON.stringify(await prisma.emailOutbox.findMany());
+        assert.equal((persisted + JSON.stringify(logs)).includes(secretToken), false);
+        proofs.push("zeptomail_token_never_reaches_the_database_or_logs");
+      } finally {
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+      }
+    }
+
     // Exercise the operator CLI against this same disposable database. Reviewing
     // an ambiguous result must not send, touch a settled row twice, or ignore the
     // activation cutoff when an explicitly rejected message becomes retryable.

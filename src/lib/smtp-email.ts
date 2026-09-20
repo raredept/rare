@@ -58,7 +58,7 @@ export function classifySmtpError(error: unknown): EmailDeliveryError {
   return new EmailDeliveryError("uncertain", "SmtpAcceptanceUnknown");
 }
 
-export function assertEmailRecipientAllowed(message: TransactionalEmailMessage, config: SmtpEmailConfig) {
+export function assertEmailRecipientAllowed(message: TransactionalEmailMessage, config: Pick<SmtpEmailConfig, "mode" | "testRecipients">) {
   if (!isSingleEmailAddress(message.to)) throw new EmailDeliveryError("failed", "InvalidEmailRecipient");
   if (config.mode === "test" && !config.testRecipients.has(message.to.toLowerCase())) {
     throw new EmailDeliveryError("failed", "EmailRecipientNotAllowlisted");
