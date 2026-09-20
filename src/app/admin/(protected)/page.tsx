@@ -170,7 +170,7 @@ export default async function AdminDashboardPage() {
       <ReadinessSummaryCard report={readinessReport} />
 
       <section className="mt-8 rounded-lg border border-neutral-200 bg-white p-5">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <h2 className="text-lg font-black text-neutral-950">Notificações recentes</h2>
           <Link href="/admin/notifications" className="text-xs font-black uppercase tracking-wide text-neutral-600 hover:text-black">
             Ver todas
@@ -246,7 +246,7 @@ export default async function AdminDashboardPage() {
 
       <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
         <section className="rounded-lg border border-neutral-200 bg-white p-5">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <h2 className="text-lg font-black text-neutral-950">Pedidos recentes</h2>
             <Link href="/admin/orders" className="text-xs font-black uppercase tracking-wide text-neutral-600 hover:text-black">
               Ver todos
@@ -284,7 +284,7 @@ export default async function AdminDashboardPage() {
 
       <div className="mt-6 grid gap-6 xl:grid-cols-2">
         <section className="rounded-lg border border-neutral-200 bg-white p-5">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <h2 className="text-lg font-black text-neutral-950">Estoque crítico</h2>
             <Link href="/admin/analytics" className="text-xs font-black uppercase tracking-wide text-neutral-600 hover:text-black">
               Ver tudo
@@ -294,8 +294,8 @@ export default async function AdminDashboardPage() {
             {snapshot.criticalStock.length ? (
               snapshot.criticalStock.slice(0, 8).map((variant) => (
                 <div key={`${variant.productId}-${variant.size}`} className="flex items-center justify-between gap-4 py-3 text-sm">
-                  <div>
-                    <p className="font-black text-neutral-950">{variant.productTitle}</p>
+                  <div className="min-w-0">
+                    <p className="break-words font-black text-neutral-950">{variant.productTitle}</p>
                     <p className="font-semibold text-neutral-500">Tamanho {variant.size}</p>
                   </div>
                   <div className="text-right">

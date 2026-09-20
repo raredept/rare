@@ -190,8 +190,10 @@ export function MagnitudeBars({
     <ul className="space-y-3">
       {rows.map((row) => (
         <li key={row.id}>
+          {/* min-w-0: a flex item defaults to min-width:auto, so the truncating
+              label would refuse to shrink and push the row past the viewport. */}
           <div className="flex items-baseline justify-between gap-3">
-            <span className="truncate text-sm font-black text-neutral-950">
+            <span className="min-w-0 truncate text-sm font-black text-neutral-950">
               {row.label}
               {row.detail ? <span className="ml-2 font-semibold text-neutral-500">{row.detail}</span> : null}
             </span>

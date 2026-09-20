@@ -78,7 +78,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
         <SummaryMetric label="Sem imagem" value={missingImages} />
       </div>
 
-      <form className="grid gap-3 rounded-lg border border-neutral-800 bg-neutral-950/80 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.2)] md:grid-cols-[1fr_210px_150px_150px_190px]">
+      <form className="grid gap-3 rounded-lg border border-neutral-800 bg-neutral-950/80 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.2)] lg:grid-cols-[1fr_210px_150px_150px_190px]">
         <input name="q" defaultValue={filters.q ?? ""} placeholder="Buscar produto ou marca" aria-label="Buscar produto ou marca" className="admin-input" />
         <select name="category" defaultValue={filters.category ?? ""} aria-label="Filtrar por categoria" className="admin-input">
           <option value="">Todas categorias</option>
