@@ -19,7 +19,7 @@ test.use({
     ? { username: process.env.STAGING_ACCESS_USERNAME, password: process.env.STAGING_ACCESS_PASSWORD ?? "" }
     : undefined,
 });
-test.describe.configure({ mode: "serial" });
+test.describe.configure({ mode: "serial", timeout: 150_000 });
 
 async function signIn(page: Page) {
   await page.goto("/entrar");
@@ -56,7 +56,7 @@ test("pagamento aprovado volta à loja com o pedido pago", async ({ page }) => {
   await payWithCard(page, "4242424242424242");
   await page.waitForURL(/\/pedido\/sucesso/, { timeout: 90_000 });
   // The page refreshes itself while the webhook is in flight.
-  await expect(page.getByText(/Status: Pago/)).toBeVisible({ timeout: 75_000 });
+  await expect(page.getByRole("main").getByText(/Status: Pago/).first()).toBeVisible({ timeout: 75_000 });
 });
 
 test("cartão recusado permanece no Stripe com mensagem clara e sem cobrar", async ({ page }) => {
