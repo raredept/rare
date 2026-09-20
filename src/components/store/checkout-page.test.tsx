@@ -10,6 +10,9 @@ const checkoutPageMocks = vi.hoisted(() => ({
     customerAddress: {
       findMany: vi.fn(),
     },
+    order: {
+      count: vi.fn(),
+    },
   },
 }));
 
@@ -49,6 +52,7 @@ vi.mock("@/lib/shipping", () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv("CHECKOUT_ENABLED", "true");
+  checkoutPageMocks.prisma.order.count.mockResolvedValue(0);
   checkoutPageMocks.getStoreSettings.mockResolvedValue({
     shippingMode: "fixed",
     manualShippingInCents: 0,
