@@ -217,6 +217,19 @@ textarea {
 /* The brand link is inverted to a light panel by the a.bg-black rule below, so
    its subtitle needs ink for a light surface rather than the dark-mode muted
    step, which measured 2.58:1 there. */
+/* The unread badge has to stay legible on both nav states. Using Tailwind's
+   bg-white here broke in the dark theme, where .bg-white is remapped to the
+   panel colour and left black text on a near-black pill (about 1.05:1). */
+.admin-nav-badge {
+  background-color: #f5f5f5;
+  color: #0a0a0a;
+}
+
+.admin-dark a[aria-current="page"] .admin-nav-badge {
+  background-color: #0a0a0a;
+  color: #f5f5f5;
+}
+
 .admin-brand-subtitle {
   color: #52514e;
 }

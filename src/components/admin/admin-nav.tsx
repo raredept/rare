@@ -45,11 +45,7 @@ export function AdminNav({ compact = false, unreadNotifications = 0 }: { compact
             <span className="inline-flex items-center gap-2">
               <span>{item.label}</span>
               {item.href === "/admin/notifications" && unreadNotifications > 0 ? (
-                <span
-                  className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-black ${
-                    active ? "bg-black text-white" : "bg-white text-black"
-                  }`}
-                >
+                <span className="admin-nav-badge inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-black">
                   {unreadNotifications > 99 ? "99+" : unreadNotifications}
                 </span>
               ) : null}
