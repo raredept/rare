@@ -449,3 +449,53 @@ describe("shipping domain", () => {
     ).rejects.toThrow("MELHOR_ENVIO_ENV deve ser production ou sandbox.");
   });
 });
+
+describe("Melhor Envio provider failures", () => {
+  const request = () => ({
+    provider: "melhor_envio" as const,
+    originCep: "31170350",
+    destinationCep: "01001000",
+    package: buildPackageFromCart([packageItem()]),
+  });
+
+  it.each([
+    [401, "Não foi possível autenticar no Melhor Envio. Verifique o token."],
+    [403, "Não foi possível autenticar no Melhor Envio. Verifique o token."],
+    [422, "Não foi possível calcular o frete com os dados informados."],
+    [429, "Frete indisponível no momento. Tente novamente em alguns instantes."],
+    [500, "Frete indisponível no momento. Tente novamente em alguns instantes."],
+    [502, "Frete indisponível no momento. Tente novamente em alguns instantes."],
+    [503, "Frete indisponível no momento. Tente novamente em alguns instantes."],
+  ])("maps HTTP %i to a controlled internal error without provider text", async (status, message) => {
+    vi.stubEnv("MELHOR_ENVIO_TOKEN", "secret-token-value");
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>(async () => new Response(JSON.stringify({ message: "raw provider body with secret-token-value", trace: "stack" }), { status })));
+
+    const failure = await getShippingQuotes(request()).catch((error: Error) => error);
+
+    expect(failure).toBeInstanceOf(Error);
+    expect((failure as Error).message).toBe(message);
+    expect(JSON.stringify(failure)).not.toContain("secret-token-value");
+  });
+
+  it("treats a non-JSON provider response as unavailable instead of crashing", async () => {
+    vi.stubEnv("MELHOR_ENVIO_TOKEN", "secret-token-value");
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>(async () => new Response("<html>gateway</html>", { status: 200 })));
+
+    await expect(getShippingQuotes(request())).rejects.toThrow("Nenhuma opção de frete disponível para este CEP.");
+  });
+
+  it("drops quotes with an error, zero price or missing service, and keeps the valid ones", async () => {
+    vi.stubEnv("MELHOR_ENVIO_TOKEN", "secret-token-value");
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>(async () => new Response(JSON.stringify([
+      { id: 1, name: "PAC", price: "23.11", delivery_time: 6, company: { name: "Correios" } },
+      { id: 2, name: "SEDEX", error: "Serviço indisponível" },
+      { id: 3, name: "Grátis", price: "0", delivery_time: 1 },
+      { price: "10" },
+    ]), { status: 200 })));
+
+    const result = await getShippingQuotes(request());
+
+    expect(result.options.map((option) => option.service)).toEqual(["1"]);
+    expect(result.options[0].amountCents).toBe(2311);
+  });
+});
