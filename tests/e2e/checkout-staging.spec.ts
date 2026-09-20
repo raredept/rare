@@ -55,7 +55,8 @@ test("pagamento aprovado volta à loja com o pedido pago", async ({ page }) => {
   await addToCartAndOpenCheckout(page);
   await payWithCard(page, "4242424242424242");
   await page.waitForURL(/\/pedido\/sucesso/, { timeout: 90_000 });
-  await expect(page.getByText(/Status: Pago/)).toBeVisible({ timeout: 60_000 });
+  // The page refreshes itself while the webhook is in flight.
+  await expect(page.getByText(/Status: Pago/)).toBeVisible({ timeout: 75_000 });
 });
 
 test("cartão recusado permanece no Stripe com mensagem clara e sem cobrar", async ({ page }) => {
@@ -80,11 +81,15 @@ test("novo checkout fecha o anterior não pago e não duplica a reserva", async 
 
 async function checkoutBody(page: Page) {
   const cart = await page.evaluate(() => JSON.parse(localStorage.getItem("rare_store_cart") ?? "[]") as Array<{ productId: string; variantId: string; quantity: number }>);
+  const items = cart.map(({ productId, variantId, quantity }) => ({ productId, variantId, quantity }));
   const address = await page.locator('input[name="customerAddressId"]:checked').getAttribute("value");
+  // Ask the server for its own quote (fixed or Melhor Envio) instead of assuming a mode.
+  const quote = await (await page.request.post("/api/shipping/quote", { data: { cep: "30130010", items } })).json();
+  const option = quote.options[0];
   return {
-    items: cart.map(({ productId, variantId, quantity }) => ({ productId, variantId, quantity })),
+    items,
     customerAddressId: address ?? undefined,
-    shippingOptionId: "fixed", shippingOptionProvider: "fixed", shippingOptionService: "fixed", shippingDestinationCep: "30130010",
+    shippingOptionId: option.id, shippingOptionProvider: option.provider, shippingOptionService: option.service, shippingDestinationCep: "30130010",
   };
 }
 
