@@ -1,40 +1,27 @@
 import Link from "next/link";
+import { getDashboardSnapshot, LOW_STOCK_THRESHOLD } from "@/lib/admin-analytics";
 import { buildCatalogIssues, type CatalogIssue } from "@/lib/admin-catalog-issues";
 import { buildAdminReadiness, type ReadinessReport } from "@/lib/admin-readiness";
-import { buildOrderFlowCounts, calculateDashboardKpis, getSortedOrderFlowEntries } from "@/lib/admin-dashboard";
+import { MagnitudeBars, type MagnitudeRow } from "@/components/admin/analytics-charts";
 import { formatMoney } from "@/lib/money";
-import { formatOrderStatus, isPaidRevenueStatus } from "@/lib/order-display";
+import { formatOrderStatus } from "@/lib/order-display";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
+const DASHBOARD_WINDOW_DAYS = 30;
+
+function formatInteger(value: number) {
+  return new Intl.NumberFormat("pt-BR").format(value);
+}
+
 export default async function AdminDashboardPage() {
-  const [orders, variants, catalogProducts, catalogCategories, customers, settings, recentOrders, recentNotifications] = await Promise.all([
-    prisma.order.findMany({
-      select: {
-        id: true,
-        orderNumber: true,
-        status: true,
-        totalInCents: true,
-        createdAt: true,
-        customerEmailSnapshot: true,
-        customerNameSnapshot: true,
-        customer: { select: { name: true, email: true } },
-        items: {
-          select: {
-            productTitleSnapshot: true,
-            quantity: true,
-            totalInCents: true,
-          },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    }),
-    prisma.productVariant.findMany({
-      where: { active: true },
-      include: { product: { select: { id: true, title: true } } },
-      orderBy: { stock: "asc" },
-    }),
+  // Orders are aggregated in the database. The catalog queries stay row-level
+  // because the readiness and catalog-issue checks genuinely need each product,
+  // and the catalog is bounded by what the store sells rather than by how much
+  // it has sold.
+  const [snapshot, catalogProducts, catalogCategories, settings, recentOrders, recentNotifications] = await Promise.all([
+    getDashboardSnapshot(DASHBOARD_WINDOW_DAYS),
     prisma.product.findMany({
       select: {
         id: true,
@@ -44,13 +31,8 @@ export default async function AdminDashboardPage() {
         lengthCm: true,
         widthCm: true,
         heightCm: true,
-        images: {
-          orderBy: { sortOrder: "asc" },
-          select: { url: true },
-        },
-        variants: {
-          select: { active: true, stock: true, reservedStock: true },
-        },
+        images: { orderBy: { sortOrder: "asc" }, select: { url: true } },
+        variants: { select: { active: true, stock: true, reservedStock: true } },
       },
     }),
     prisma.category.findMany({
@@ -58,15 +40,9 @@ export default async function AdminDashboardPage() {
         id: true,
         name: true,
         active: true,
-        _count: {
-          select: {
-            products: true,
-            subcategoryProducts: true,
-          },
-        },
+        _count: { select: { products: true, subcategoryProducts: true } },
       },
     }),
-    prisma.customer.count({ where: { active: true } }),
     prisma.storeSettings.findUnique({
       where: { id: "store" },
       select: {
@@ -93,83 +69,109 @@ export default async function AdminDashboardPage() {
     prisma.adminNotification.findMany({
       orderBy: { createdAt: "desc" },
       take: 5,
-      select: {
-        id: true,
-        title: true,
-        body: true,
-        href: true,
-        readAt: true,
-        createdAt: true,
-      },
+      select: { id: true, title: true, body: true, href: true, readAt: true, createdAt: true },
     }),
   ]);
 
-  const activeProductRows = catalogProducts.filter((product) => product.active);
-  const soldOutProducts = activeProductRows.filter((product) => {
-    const activeVariants = product.variants.filter((variant) => variant.active);
-    if (!activeVariants.length) return true;
-    return activeVariants.every((variant) => variant.stock - variant.reservedStock <= 0);
-  }).length;
+  const activeProducts = catalogProducts.filter((product) => product.active).length;
   const catalogIssues = buildCatalogIssues({ products: catalogProducts, categories: catalogCategories });
   const readinessReport = buildAdminReadiness({
     settings,
     products: catalogProducts,
     categories: catalogCategories,
   });
-  const kpis = calculateDashboardKpis({
-    orders,
-    variants,
-    activeProducts: activeProductRows.length,
-    soldOutProducts,
-    customers,
-  });
-  const lowStockVariants = variants.filter((variant) => {
-    const available = variant.stock - variant.reservedStock;
-    return available > 0 && available <= 3;
-  });
-  const flowCounts = buildOrderFlowCounts(orders);
-  const flowEntries = getSortedOrderFlowEntries(flowCounts);
-  const maxFlowCount = Math.max(1, ...Object.values(flowCounts));
-  const bestSellers = new Map<string, { product: string; quantity: number; revenue: number }>();
 
-  for (const order of orders.filter((item) => isPaidRevenueStatus(item.status))) {
-    for (const item of order.items) {
-      const current = bestSellers.get(item.productTitleSnapshot) ?? {
-        product: item.productTitleSnapshot,
-        quantity: 0,
-        revenue: 0,
-      };
-      current.quantity += item.quantity;
-      current.revenue += item.totalInCents;
-      bestSellers.set(item.productTitleSnapshot, current);
-    }
-  }
-
-  const topProducts = [...bestSellers.values()].sort((a, b) => b.quantity - a.quantity).slice(0, 6);
+  const statusRows: MagnitudeRow[] = snapshot.ordersByStatus.map((entry) => ({
+    id: entry.status,
+    label: formatOrderStatus(entry.status),
+    value: entry.orders,
+    valueLabel: formatInteger(entry.orders),
+  }));
+  const topProductRows: MagnitudeRow[] = snapshot.topProducts.map((entry) => ({
+    id: entry.id,
+    label: entry.label,
+    value: entry.quantity,
+    valueLabel: `${formatInteger(entry.quantity)} un. · ${formatMoney(entry.grossRevenueInCents)}`,
+  }));
 
   return (
     <div>
-      <h1 className="text-2xl font-black text-neutral-950">Visao geral</h1>
-      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Metric title="Receita paga" value={formatMoney(kpis.revenueTotalInCents)} />
-        <Metric title="Receita 7 dias" value={formatMoney(kpis.revenue7DaysInCents)} />
-        <Metric title="Receita 30 dias" value={formatMoney(kpis.revenue30DaysInCents)} />
-        <Metric title="Ticket medio" value={formatMoney(kpis.averageTicketInCents)} />
-        <Metric title="Pedidos totais" value={kpis.ordersTotal.toString()} />
-        <Metric title="Pedidos pagos" value={kpis.paidOrders.toString()} />
-        <Metric title="Pendentes" value={kpis.pendingOrders.toString()} />
-        <Metric title="Cancelados/falhos" value={kpis.failedOrders.toString()} />
-        <Metric title="Produtos ativos" value={kpis.activeProducts.toString()} />
-        <Metric title="Produtos esgotados" value={kpis.soldOutProducts.toString()} />
-        <Metric title="Estoque baixo" value={kpis.lowStockVariants.toString()} />
-        <Metric title="Clientes ativos" value={kpis.customers.toString()} />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-black text-neutral-950">Visão geral</h1>
+          <p className="mt-1 text-sm font-semibold text-neutral-500">
+            Vendas dos últimos {snapshot.windowDays} dias e o que precisa de ação hoje.
+          </p>
+        </div>
+        <Link
+          href="/admin/analytics"
+          className="w-fit rounded-lg border border-neutral-300 px-4 py-2 text-xs font-black text-neutral-700 transition hover:border-neutral-950 hover:text-neutral-950"
+        >
+          Abrir Analytics
+        </Link>
       </div>
+
+      {/* What needs a person today, before any historical number. */}
+      <section aria-labelledby="dashboard-actions" className="mt-6">
+        <h2 id="dashboard-actions" className="sr-only">
+          Ações pendentes
+        </h2>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <ActionCard
+            label="Pagos para separar"
+            value={formatInteger(snapshot.paidAwaitingFulfilment)}
+            href="/admin/orders?status=paid"
+            tone={snapshot.paidAwaitingFulfilment > 0 ? "attention" : "calm"}
+            description="Pagos ou em preparo, ainda não enviados"
+          />
+          <ActionCard
+            label="Aguardando pagamento"
+            value={formatInteger(snapshot.awaitingPayment)}
+            href="/admin/orders?status=awaiting_payment"
+            tone="calm"
+            description="Reservam estoque até expirar"
+          />
+          <ActionCard
+            label="Variações críticas"
+            value={formatInteger(snapshot.inventory.lowStockVariants + snapshot.inventory.soldOutVariants)}
+            href="/admin/analytics"
+            tone={snapshot.inventory.soldOutVariants > 0 ? "attention" : "calm"}
+            description={`Até ${LOW_STOCK_THRESHOLD} unidades vendáveis`}
+          />
+          <ActionCard
+            label="Pendências do catálogo"
+            value={formatInteger(catalogIssues.length)}
+            href="/admin/products"
+            tone={catalogIssues.length > 0 ? "attention" : "calm"}
+            description="Itens a revisar antes de vender"
+          />
+        </div>
+      </section>
+
+      <section aria-labelledby="dashboard-sales" className="mt-8">
+        <h2 id="dashboard-sales" className="text-lg font-black text-neutral-950">
+          Vendas · últimos {snapshot.windowDays} dias
+        </h2>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <Metric title="Receita paga" value={formatMoney(snapshot.window.revenueInCents)} />
+          <Metric title="Pedidos pagos" value={formatInteger(snapshot.window.paidOrders)} />
+          <Metric title="Ticket médio" value={formatMoney(snapshot.window.averageTicketInCents)} />
+          <Metric title="Itens vendidos" value={formatInteger(snapshot.window.itemsSold)} />
+        </div>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <Metric title="Receita acumulada" value={formatMoney(snapshot.revenueAllTimeInCents)} subtitle="Desde o início" />
+          <Metric title="Pedidos no total" value={formatInteger(snapshot.ordersTotal)} subtitle="Todos os status" />
+          <Metric title="Produtos ativos" value={formatInteger(activeProducts)} />
+          <Metric title="Clientes ativos" value={formatInteger(snapshot.activeCustomers)} />
+        </div>
+      </section>
 
       <ReadinessSummaryCard report={readinessReport} />
 
       <section className="mt-8 rounded-lg border border-neutral-200 bg-white p-5">
         <div className="flex items-center justify-between gap-4">
-          <h2 className="text-lg font-black text-neutral-950">Notificacoes recentes</h2>
+          <h2 className="text-lg font-black text-neutral-950">Notificações recentes</h2>
           <Link href="/admin/notifications" className="text-xs font-black uppercase tracking-wide text-neutral-600 hover:text-black">
             Ver todas
           </Link>
@@ -199,7 +201,7 @@ export default async function AdminDashboardPage() {
               </div>
             ))
           ) : (
-            <p className="py-8 text-sm font-semibold text-neutral-500">Nenhuma notificacao registrada ainda.</p>
+            <p className="py-8 text-sm font-semibold text-neutral-500">Nenhuma notificação registrada ainda.</p>
           )}
         </div>
       </section>
@@ -207,11 +209,11 @@ export default async function AdminDashboardPage() {
       <section className="mt-8 rounded-lg border border-neutral-200 bg-white p-5">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
-            <h2 className="text-lg font-black text-neutral-950">Pendencias do catalogo</h2>
-            <p className="mt-1 text-sm font-semibold text-neutral-500">Itens que precisam de revisao antes da venda aberta.</p>
+            <h2 className="text-lg font-black text-neutral-950">Pendências do catálogo</h2>
+            <p className="mt-1 text-sm font-semibold text-neutral-500">Itens que precisam de revisão antes da venda aberta.</p>
           </div>
           <span className="w-fit rounded-lg border border-neutral-200 px-3 py-2 text-xs font-black uppercase tracking-wide text-neutral-600">
-            {catalogIssues.length} pendencia(s)
+            {catalogIssues.length} pendência(s)
           </span>
         </div>
 
@@ -224,18 +226,21 @@ export default async function AdminDashboardPage() {
                   <p className="font-black text-neutral-950">{issue.title}</p>
                   <p className="mt-1 font-semibold text-neutral-500">{issue.description}</p>
                 </div>
-                <Link href={issue.href} className="rounded-lg border border-neutral-300 px-3 py-2 text-center text-xs font-black text-neutral-700 transition hover:border-neutral-950 hover:text-neutral-950">
+                <Link
+                  href={issue.href}
+                  className="rounded-lg border border-neutral-300 px-3 py-2 text-center text-xs font-black text-neutral-700 transition hover:border-neutral-950 hover:text-neutral-950"
+                >
                   {issue.actionLabel}
                 </Link>
               </div>
             ))
           ) : (
-            <p className="py-8 text-sm font-semibold text-neutral-500">Nenhuma pendencia de catalogo encontrada.</p>
+            <p className="py-8 text-sm font-semibold text-neutral-500">Nenhuma pendência de catálogo encontrada.</p>
           )}
         </div>
 
         {catalogIssues.length > 8 ? (
-          <p className="mt-3 text-xs font-semibold text-neutral-500">Mostrando 8 de {catalogIssues.length} pendencias encontradas.</p>
+          <p className="mt-3 text-xs font-semibold text-neutral-500">Mostrando 8 de {catalogIssues.length} pendências encontradas.</p>
         ) : null}
       </section>
 
@@ -269,68 +274,89 @@ export default async function AdminDashboardPage() {
         </section>
 
         <section className="rounded-lg border border-neutral-200 bg-white p-5">
-          <h2 className="text-lg font-black text-neutral-950">Fluxo de pedidos</h2>
-          <div className="mt-4 space-y-3">
-            {flowEntries.map(([status, count]) => (
-              <div key={status}>
-                <div className="flex justify-between text-xs font-black uppercase tracking-wide text-neutral-500">
-                  <span>{formatOrderStatus(status)}</span>
-                  <span>{count}</span>
-                </div>
-                <div className="mt-1 h-2 rounded-full bg-neutral-100">
-                  <div className="h-2 rounded-full bg-neutral-950" style={{ width: `${Math.max(4, (count / maxFlowCount) * 100)}%` }} />
-                </div>
-              </div>
-            ))}
+          <h2 className="text-lg font-black text-neutral-950">Pedidos por status</h2>
+          <p className="mt-1 text-xs font-semibold text-neutral-500">Todos os pedidos já registrados.</p>
+          <div className="mt-4">
+            <MagnitudeBars rows={statusRows} emptyMessage="Nenhum pedido registrado ainda." />
           </div>
         </section>
       </div>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-2">
         <section className="rounded-lg border border-neutral-200 bg-white p-5">
-          <h2 className="text-lg font-black text-neutral-950">Produtos com estoque baixo</h2>
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-lg font-black text-neutral-950">Estoque crítico</h2>
+            <Link href="/admin/analytics" className="text-xs font-black uppercase tracking-wide text-neutral-600 hover:text-black">
+              Ver tudo
+            </Link>
+          </div>
           <div className="mt-4 divide-y divide-neutral-200">
-            {lowStockVariants.length ? (
-              lowStockVariants.slice(0, 8).map((variant) => (
-                <div key={variant.id} className="flex items-center justify-between gap-4 py-3 text-sm">
+            {snapshot.criticalStock.length ? (
+              snapshot.criticalStock.slice(0, 8).map((variant) => (
+                <div key={`${variant.productId}-${variant.size}`} className="flex items-center justify-between gap-4 py-3 text-sm">
                   <div>
-                    <p className="font-black text-neutral-950">{variant.product.title}</p>
-                    <p className="font-semibold text-neutral-500">Variacao {variant.size}</p>
+                    <p className="font-black text-neutral-950">{variant.productTitle}</p>
+                    <p className="font-semibold text-neutral-500">Tamanho {variant.size}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-black text-red-700">{variant.stock - variant.reservedStock} disponivel(is)</p>
-                    <Link href={`/admin/products/${variant.product.id}/edit`} className="text-xs font-black uppercase tracking-wide text-neutral-600">
+                    <p className={`font-black ${variant.sellable <= 0 ? "text-red-700" : "text-neutral-950"}`}>
+                      {variant.sellable <= 0 ? "Esgotado" : `${variant.sellable} disponível(is)`}
+                    </p>
+                    <Link
+                      href={`/admin/products/${variant.productId}/edit`}
+                      className="text-xs font-black uppercase tracking-wide text-neutral-600"
+                    >
                       Editar
                     </Link>
                   </div>
                 </div>
               ))
             ) : (
-              <p className="py-8 text-sm text-neutral-500">Nenhum estoque baixo no momento.</p>
+              <p className="py-8 text-sm text-neutral-500">Nenhuma variação ativa em nível crítico.</p>
             )}
           </div>
         </section>
 
         <section className="rounded-lg border border-neutral-200 bg-white p-5">
-          <h2 className="text-lg font-black text-neutral-950">Produtos mais vendidos</h2>
-          <div className="mt-4 divide-y divide-neutral-200">
-            {topProducts.length ? (
-              topProducts.map((product) => (
-                <div key={product.product} className="flex items-center justify-between gap-4 py-3 text-sm">
-                  <div>
-                    <p className="font-black text-neutral-950">{product.product}</p>
-                    <p className="font-semibold text-neutral-500">{product.quantity} unidade(s)</p>
-                  </div>
-                  <p className="whitespace-nowrap font-black text-neutral-950">{formatMoney(product.revenue)}</p>
-                </div>
-              ))
-            ) : (
-              <p className="py-8 text-sm text-neutral-500">Sem vendas pagas ainda.</p>
-            )}
+          <h2 className="text-lg font-black text-neutral-950">Mais vendidos · {snapshot.windowDays} dias</h2>
+          <p className="mt-1 text-xs font-semibold text-neutral-500">Receita bruta dos itens, antes do cupom do pedido.</p>
+          <div className="mt-4">
+            <MagnitudeBars rows={topProductRows} emptyMessage="Sem vendas pagas nesta janela." />
           </div>
         </section>
       </div>
     </div>
+  );
+}
+
+function ActionCard({
+  label,
+  value,
+  href,
+  description,
+  tone,
+}: {
+  label: string;
+  value: string;
+  href: string;
+  description: string;
+  tone: "attention" | "calm";
+}) {
+  return (
+    <Link
+      href={href}
+      className={`block rounded-lg border p-4 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${
+        tone === "attention"
+          ? "border-amber-200 bg-amber-50 hover:border-amber-400"
+          : "border-neutral-200 bg-white hover:border-neutral-950"
+      }`}
+    >
+      <p className={`text-[11px] font-black uppercase tracking-wide ${tone === "attention" ? "text-amber-700" : "text-neutral-500"}`}>
+        {label}
+      </p>
+      <p className="mt-2 text-2xl font-black text-neutral-950">{value}</p>
+      <p className="mt-1 text-[11px] font-semibold text-neutral-500">{description}</p>
+    </Link>
   );
 }
 
@@ -352,7 +378,10 @@ function ReadinessSummaryCard({ report }: { report: ReadinessReport }) {
       </div>
       <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <p className="text-xs font-semibold text-neutral-500">Esta visão é somente leitura e nunca exibe secrets.</p>
-        <Link href="/admin/readiness" className="w-fit rounded-lg border border-neutral-300 px-4 py-2 text-xs font-black text-neutral-700 transition hover:border-neutral-950 hover:text-neutral-950">
+        <Link
+          href="/admin/readiness"
+          className="w-fit rounded-lg border border-neutral-300 px-4 py-2 text-xs font-black text-neutral-700 transition hover:border-neutral-950 hover:text-neutral-950"
+        >
           Ver detalhes
         </Link>
       </div>
@@ -379,11 +408,12 @@ function ReadinessCount({ label, value }: { label: string; value: number }) {
   );
 }
 
-function Metric({ title, value }: { title: string; value: string }) {
+function Metric({ title, value, subtitle }: { title: string; value: string; subtitle?: string }) {
   return (
     <div className="rounded-lg border border-neutral-200 bg-white p-5">
       <p className="text-xs font-black uppercase tracking-wide text-neutral-500">{title}</p>
       <p className="mt-3 whitespace-nowrap text-2xl font-black text-neutral-950">{value}</p>
+      {subtitle ? <p className="mt-1 text-[11px] font-semibold text-neutral-500">{subtitle}</p> : null}
     </div>
   );
 }
@@ -395,9 +425,5 @@ function CatalogIssueBadge({ issue }: { issue: CatalogIssue }) {
     muted: "border-neutral-200 bg-neutral-50 text-neutral-600",
   }[issue.tone];
 
-  return (
-    <span className={`w-fit rounded-full border px-2 py-1 text-[10px] font-black uppercase ${classes}`}>
-      {issue.scope}
-    </span>
-  );
+  return <span className={`w-fit rounded-full border px-2 py-1 text-[10px] font-black uppercase ${classes}`}>{issue.scope}</span>;
 }

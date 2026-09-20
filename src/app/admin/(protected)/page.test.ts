@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
     },
     order: {
       findMany: vi.fn(),
+      groupBy: vi.fn(),
     },
     adminNotification: {
       findMany: vi.fn(),
@@ -25,6 +26,7 @@ const mocks = vi.hoisted(() => ({
     customer: {
       count: vi.fn(),
     },
+    $queryRaw: vi.fn(),
   },
 }));
 
@@ -73,6 +75,25 @@ beforeEach(() => {
     manualShippingInCents: 0,
   });
   mocks.prisma.order.findMany.mockResolvedValue([]);
+  mocks.prisma.order.groupBy.mockResolvedValue([]);
+  // The dashboard aggregates in SQL; every raw query returns a single empty row.
+  mocks.prisma.$queryRaw.mockResolvedValue([
+    {
+      paidOrders: 0,
+      revenueInCents: 0,
+      subtotalInCents: 0,
+      shippingInCents: 0,
+      discountInCents: 0,
+      itemsSold: 0,
+      totalStock: 0,
+      reservedStock: 0,
+      sellableStock: 0,
+      soldOutVariants: 0,
+      lowStockVariants: 0,
+      activeVariants: 0,
+      count: 0,
+    },
+  ]);
   mocks.prisma.adminNotification.findMany.mockResolvedValue([]);
   mocks.prisma.productVariant.findMany.mockResolvedValue([]);
   mocks.prisma.product.findMany.mockResolvedValue([
@@ -110,9 +131,9 @@ describe("AdminDashboardPage", () => {
     const element = await AdminDashboardPage();
     const html = renderToStaticMarkup(element as ReactElement);
 
-    expect(html).toContain("Pendencias do catalogo");
+    expect(html).toContain("Pendências do catálogo");
     expect(html).toContain("Prontidão de Venda");
-    expect(html).toContain("Notificacoes recentes");
+    expect(html).toContain("Notificações recentes");
     expect(html).toContain("Produto sem midia sem midia principal");
     expect(html).toContain('href="/admin/products/prod-no-media/edit"');
     expect(html).toContain("Bags ativa sem produtos");

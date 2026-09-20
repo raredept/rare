@@ -183,6 +183,22 @@ textarea {
   color: #a7f3d0;
 }
 
+.admin-dark .bg-amber-50 {
+  background-color: rgb(245 158 11 / 0.1);
+}
+
+.admin-dark .border-amber-200 {
+  border-color: rgb(245 158 11 / 0.32);
+}
+
+.admin-dark .border-amber-400 {
+  border-color: rgb(245 158 11 / 0.6);
+}
+
+.admin-dark .text-amber-700 {
+  color: #fde68a;
+}
+
 .admin-dark .bg-red-50 {
   background-color: rgb(239 68 68 / 0.1);
 }
