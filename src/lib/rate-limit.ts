@@ -46,10 +46,40 @@ function getRedisKey(key: string, prefix: string) {
   return `${prefix}:${hashRateLimitKey(key)}`;
 }
 
+// A bucket is only revisited when the same identity comes back, so expired
+// entries for one-shot identities (a guessed e-mail, a spoofed address) would
+// otherwise accumulate for the life of the process. This matters exactly when
+// the memory driver is load bearing: a Redis outage during an attack.
+export const MAX_MEMORY_BUCKETS = 50_000;
+
+function sweepExpiredBuckets(now: number) {
+  for (const [bucketKey, bucket] of buckets) {
+    if (bucket.resetAt <= now) buckets.delete(bucketKey);
+  }
+}
+
+function evictOldestBuckets() {
+  // Still at the cap after sweeping: drop the entries closest to expiring, one
+  // more than the overflow so the incoming identity has room.
+  const overflow = buckets.size - MAX_MEMORY_BUCKETS + 1;
+  const byResetAt = [...buckets].sort((first, second) => first[1].resetAt - second[1].resetAt);
+  for (const [bucketKey] of byResetAt.slice(0, overflow)) {
+    buckets.delete(bucketKey);
+  }
+}
+
+function enforceMemoryBucketCap(now: number) {
+  if (buckets.size < MAX_MEMORY_BUCKETS) return;
+  sweepExpiredBuckets(now);
+  if (buckets.size >= MAX_MEMORY_BUCKETS) evictOldestBuckets();
+}
+
 function memoryRateLimit(key: string, limit: number, windowMs: number): RateLimitResult {
   const now = Date.now();
   const bucketKey = getBucketKey(key);
   const current = buckets.get(bucketKey);
+
+  if (!current) enforceMemoryBucketCap(now);
 
   if (!current || current.resetAt <= now) {
     const resetAt = now + windowMs;
@@ -215,6 +245,10 @@ export async function rateLimit(key: string, limit: number, windowMs: number): P
   }
 
   return memoryRateLimit(key, normalizedLimit, normalizedWindowMs);
+}
+
+export function getMemoryBucketCountForTests() {
+  return buckets.size;
 }
 
 export function resetRateLimitMemoryForTests() {

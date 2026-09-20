@@ -150,3 +150,45 @@ describe("rate limit driver", () => {
     );
   });
 });
+
+describe("memory driver bucket growth", () => {
+  it("does not keep a bucket per one-shot identity forever", async () => {
+    const { getMemoryBucketCountForTests, MAX_MEMORY_BUCKETS } = await import("@/lib/rate-limit");
+    vi.useFakeTimers();
+
+    try {
+      // A short window, so every identity below is already expired by the time
+      // the cap is reached and the sweep can reclaim all of them.
+      for (let index = 0; index < MAX_MEMORY_BUCKETS; index += 1) {
+        await rateLimit(`sprayed-identity:${index}`, 5, 1_000);
+      }
+      expect(getMemoryBucketCountForTests()).toBe(MAX_MEMORY_BUCKETS);
+
+      vi.advanceTimersByTime(2_000);
+      await rateLimit("sprayed-identity:next", 5, 1_000);
+
+      expect(getMemoryBucketCountForTests()).toBe(1);
+    } finally {
+      vi.useRealTimers();
+      resetRateLimitMemoryForTests();
+    }
+  });
+
+  it("stays at the cap when every identity is still inside its window", async () => {
+    const { getMemoryBucketCountForTests, MAX_MEMORY_BUCKETS } = await import("@/lib/rate-limit");
+
+    for (let index = 0; index <= MAX_MEMORY_BUCKETS; index += 1) {
+      await rateLimit(`live-identity:${index}`, 5, 10 * 60_000);
+    }
+
+    expect(getMemoryBucketCountForTests()).toBeLessThanOrEqual(MAX_MEMORY_BUCKETS);
+  });
+
+  it("still counts an active identity correctly after a sweep", async () => {
+    const first = await rateLimit("kept-identity", 2, 60_000);
+    const second = await rateLimit("kept-identity", 2, 60_000);
+    const third = await rateLimit("kept-identity", 2, 60_000);
+
+    expect([first.ok, second.ok, third.ok]).toEqual([true, true, false]);
+  });
+});
