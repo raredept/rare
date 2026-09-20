@@ -226,7 +226,7 @@ function Badge({ children, tone }: { children: ReactNode; tone: "neutral" | "mut
   const classes = {
     neutral: "border-emerald-400/30 bg-emerald-500/10 text-emerald-200",
     muted: "border-neutral-700 bg-neutral-900 text-neutral-400",
-    dark: "border-white bg-white text-black",
+    dark: "admin-chip-strong",
     danger: "border-red-400/30 bg-red-500/10 text-red-200",
     warning: "border-amber-400/30 bg-amber-400/10 text-amber-100",
   };

@@ -478,7 +478,7 @@ function MediaBadge({ children, tone = "neutral" }: { children: string; tone?: "
   const toneClass = {
     danger: "border-red-400/30 bg-red-500/10 text-red-200",
     neutral: "border-neutral-700 bg-neutral-950 text-neutral-300",
-    strong: "border-white bg-white text-black",
+    strong: "admin-chip-strong",
   }[tone];
 
   return <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black uppercase ${toneClass}`}>{children}</span>;

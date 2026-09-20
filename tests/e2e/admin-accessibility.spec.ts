@@ -24,6 +24,8 @@ const adminRoutes = [
   { name: "Pedidos", path: "/admin/orders" },
   { name: "Pedidos (status inválido)", path: "/admin/orders?status=notastatus" },
   { name: "Produtos", path: "/admin/products" },
+  // Covers the media chips in the image manager, which the list page does not render.
+  { name: "Produto novo", path: "/admin/products/new" },
   { name: "Clientes", path: "/admin/customers" },
 ];
 

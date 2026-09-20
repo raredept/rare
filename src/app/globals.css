@@ -220,6 +220,15 @@ textarea {
 /* The unread badge has to stay legible on both nav states. Using Tailwind's
    bg-white here broke in the dark theme, where .bg-white is remapped to the
    panel colour and left black text on a near-black pill (about 1.05:1). */
+/* A high-contrast chip. The colours are spelled out instead of using bg-white,
+   because the dark theme remaps .bg-white to the panel colour and would leave
+   black text on a near-black chip (about 1.05:1). */
+.admin-chip-strong {
+  background-color: #f5f5f5;
+  border-color: #f5f5f5;
+  color: #0a0a0a;
+}
+
 .admin-nav-badge {
   background-color: #f5f5f5;
   color: #0a0a0a;
