@@ -8,6 +8,7 @@ import {
   paymentInProgressMessage,
 } from "@/lib/checkout";
 import { getClientIp } from "@/lib/client-ip";
+import { assertCheckoutCredentialsMatchEnvironment } from "@/lib/config-drift";
 import { getCurrentCustomer } from "@/lib/customer-auth";
 import { isValidCpf } from "@/lib/cpf";
 import { getStripeSecretKey, isCheckoutEnabled } from "@/lib/env";
@@ -107,6 +108,9 @@ export async function POST(request: NextRequest) {
 
   try {
     getStripeSecretKey();
+    // A live key in homologation, or a test key behind a live checkout, would
+    // take a payment that settles in the wrong place. Refuse before reserving.
+    assertCheckoutCredentialsMatchEnvironment();
   } catch {
     return NextResponse.json({ error: checkoutUnavailableMessage }, { status: 503 });
   }

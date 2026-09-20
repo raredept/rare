@@ -1,5 +1,6 @@
 import type { Instrumentation } from "next";
 import packageJson from "../package.json";
+import { detectConfigDrift } from "@/lib/config-drift";
 import { getStorageDriver, isLocalStorageAllowedInProduction, isProductionEnv } from "@/lib/env";
 import {
   buildServerActionErrorRecord,
@@ -18,6 +19,14 @@ export function register() {
     }
   } catch {
     console.error("[RARE application] misconfiguration: STORAGE_DRIVER is invalid.");
+  }
+
+  // Credentials belonging to another environment. Logged, never thrown: a boot
+  // refusal on a false positive would take the storefront down, and the payment
+  // path refuses on its own in assertCheckoutCredentialsMatchEnvironment.
+  for (const issue of detectConfigDrift()) {
+    const log = issue.level === "error" ? console.error : console.warn;
+    log(`[RARE application] config drift (${issue.level})`, { variable: issue.variable, message: issue.message });
   }
 }
 

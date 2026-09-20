@@ -1,5 +1,6 @@
 import { getRateLimitStatus } from "@/lib/rate-limit-config";
 import { getEmailConfigurationStatus } from "@/lib/email-config";
+import { detectConfigDrift } from "@/lib/config-drift";
 
 type EnvIssueLevel = "error" | "warning";
 
@@ -427,6 +428,12 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
         addIssue(issues, "error", "MELHOR_ENVIO_TIMEOUT_MS", "MELHOR_ENVIO_TIMEOUT_MS must be between 1000 and 30000.");
       }
     }
+  }
+
+  // Credentials pointing at the wrong environment: live keys in homologation,
+  // test keys in production, sandbox shipping behind a live checkout.
+  for (const issue of detectConfigDrift(env)) {
+    addIssue(issues, issue.level, issue.variable, issue.message);
   }
 
   const errors = issues.filter((issue) => issue.level === "error");
