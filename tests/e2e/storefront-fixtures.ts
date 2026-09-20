@@ -17,6 +17,21 @@ export const publicAuditRoutes = [
 ] as const;
 
 const expectedHosts = new Set(["127.0.0.1", "localhost"]);
+
+// When the suite is pointed at a deployed environment, that host IS the subject
+// under test, not a third party. Without this the specs abort their own
+// navigation with ERR_BLOCKED_BY_CLIENT and every one of them fails.
+function configuredBaseUrl() {
+  return process.env.PLAYWRIGHT_BASE_URL?.trim() || "http://127.0.0.1:3100";
+}
+
+function hostnameOf(url: string) {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return null;
+  }
+}
 const documentedDevelopmentConsoleWarnings = [
   // Next.js emits this advisory only in development when any responsive card
   // becomes the sampled LCP. The first route-level candidate is already eager;
@@ -24,11 +39,10 @@ const documentedDevelopmentConsoleWarnings = [
   /Image with src [\s\S]* was detected as the Largest Contentful Paint \(LCP\)[\s\S]*loading="eager"/,
 ];
 
-export async function blockExternalRequests(page: Page, baseURL?: string) {
+export async function blockExternalRequests(page: Page, baseURL = configuredBaseUrl()) {
   const allowedHosts = new Set(expectedHosts);
-  if (baseURL) {
-    allowedHosts.add(new URL(baseURL).hostname);
-  }
+  const host = hostnameOf(baseURL);
+  if (host) allowedHosts.add(host);
 
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
@@ -40,7 +54,7 @@ export async function blockExternalRequests(page: Page, baseURL?: string) {
   });
 }
 
-export function captureUnexpectedBrowserIssues(page: Page, baseURL = "http://127.0.0.1:3100") {
+export function captureUnexpectedBrowserIssues(page: Page, baseURL = configuredBaseUrl()) {
   const issues: string[] = [];
   const monitoredOrigin = new URL(baseURL).origin;
   const onConsole = (message: ConsoleMessage) => {

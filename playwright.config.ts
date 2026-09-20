@@ -17,6 +17,17 @@ export default defineConfig({
   },
   use: {
     baseURL,
+    // The homologation storefront sits behind a Basic gate. Supplying the
+    // credentials here lets the existing public specs run against staging
+    // unchanged, instead of each one re-declaring them.
+    ...(process.env.STAGING_ACCESS_USERNAME
+      ? {
+          httpCredentials: {
+            username: process.env.STAGING_ACCESS_USERNAME,
+            password: process.env.STAGING_ACCESS_PASSWORD ?? "",
+          },
+        }
+      : {}),
     locale: "pt-BR",
     timezoneId: "America/Sao_Paulo",
     colorScheme: "light",

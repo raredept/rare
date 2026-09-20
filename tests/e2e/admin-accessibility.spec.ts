@@ -53,7 +53,14 @@ test.describe("Admin accessibility", () => {
   let page: Page;
 
   test.beforeAll(async ({ browser }, testInfo) => {
-    context = await browser.newContext({ baseURL: testInfo.project.use.baseURL as string });
+    context = await browser.newContext({
+      baseURL: testInfo.project.use.baseURL as string,
+      // A homologation target also sits behind the Basic gate; this context is
+      // created directly, so it does not inherit the project-level credentials.
+      httpCredentials: process.env.STAGING_ACCESS_USERNAME
+        ? { username: process.env.STAGING_ACCESS_USERNAME, password: process.env.STAGING_ACCESS_PASSWORD ?? "" }
+        : undefined,
+    });
     page = await context.newPage();
     await page.goto("/admin/login");
     await page.getByLabel("Login ou e-mail").fill(login!);
