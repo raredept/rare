@@ -225,6 +225,7 @@ model Order {
   updatedAt               DateTime            @updatedAt
 
   @@index([status, createdAt])
+  @@index([status, paidAt])
   @@index([createdAt])
   @@index([customerId, createdAt])
   @@index([customerEmailSnapshot])
@@ -347,6 +348,7 @@ model OrderItem {
   updatedAt            DateTime            @updatedAt
 
   @@index([orderId])
+  @@index([orderId, productId])
   @@index([productId])
   @@index([variantId])
 }
