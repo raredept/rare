@@ -54,8 +54,8 @@ export default async function AdminCustomersPage({ searchParams }: CustomersPage
       </div>
 
       <form className="mt-6 grid gap-3 rounded-lg border border-neutral-200 bg-white p-4 md:grid-cols-[1fr_180px_120px]">
-        <input name="q" defaultValue={filters.q ?? ""} placeholder="Buscar por nome ou e-mail" className="admin-input" />
-        <select name="status" defaultValue={filters.status ?? ""} className="admin-input">
+        <input name="q" defaultValue={filters.q ?? ""} placeholder="Buscar por nome ou e-mail" aria-label="Buscar por nome ou e-mail" className="admin-input" />
+        <select name="status" defaultValue={filters.status ?? ""} aria-label="Filtrar por status" className="admin-input">
           <option value="">Todos status</option>
           <option value="active">Ativos</option>
           <option value="inactive">Inativos</option>

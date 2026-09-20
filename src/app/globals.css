@@ -163,12 +163,15 @@ textarea {
   color: #d4d4d4;
 }
 
+/* Both steps clear 4.5:1 against every admin surface (#000, #080808, #101010).
+   The previous values measured about 4.0:1 on the sidebar, which axe reported
+   as a colour-contrast violation on the nav labels and the "Admin" subtitle. */
 .admin-dark .text-neutral-500 {
-  color: #8b8b8b;
+  color: #9a9a9a;
 }
 
 .admin-dark .text-neutral-400 {
-  color: #737373;
+  color: #b0b0b0;
 }
 
 .admin-dark .bg-emerald-50 {
@@ -209,6 +212,13 @@ textarea {
 
 .admin-dark .text-red-700 {
   color: #fecaca;
+}
+
+/* The brand link is inverted to a light panel by the a.bg-black rule below, so
+   its subtitle needs ink for a light surface rather than the dark-mode muted
+   step, which measured 2.58:1 there. */
+.admin-brand-subtitle {
+  color: #52514e;
 }
 
 .admin-dark button.bg-black,

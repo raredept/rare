@@ -79,8 +79,8 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
       </div>
 
       <form className="grid gap-3 rounded-lg border border-neutral-800 bg-neutral-950/80 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.2)] md:grid-cols-[1fr_210px_150px_150px_190px]">
-        <input name="q" defaultValue={filters.q ?? ""} placeholder="Buscar produto ou marca" className="admin-input" />
-        <select name="category" defaultValue={filters.category ?? ""} className="admin-input">
+        <input name="q" defaultValue={filters.q ?? ""} placeholder="Buscar produto ou marca" aria-label="Buscar produto ou marca" className="admin-input" />
+        <select name="category" defaultValue={filters.category ?? ""} aria-label="Filtrar por categoria" className="admin-input">
           <option value="">Todas categorias</option>
           {categoryFilterOptions.map((category) => (
             <option key={category.id} value={category.id}>
@@ -88,17 +88,17 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
             </option>
           ))}
         </select>
-        <select name="status" defaultValue={filters.status ?? ""} className="admin-input">
+        <select name="status" defaultValue={filters.status ?? ""} aria-label="Filtrar por status" className="admin-input">
           <option value="">Todos status</option>
           <option value="active">Ativos</option>
           <option value="hidden">Ocultos</option>
         </select>
-        <select name="featured" defaultValue={filters.featured ?? ""} className="admin-input">
+        <select name="featured" defaultValue={filters.featured ?? ""} aria-label="Filtrar por destaque" className="admin-input">
           <option value="">Destaque: todos</option>
           <option value="true">Somente destaque</option>
         </select>
         <div className="flex gap-2">
-          <select name="stock" defaultValue={filters.stock ?? ""} className="admin-input">
+          <select name="stock" defaultValue={filters.stock ?? ""} aria-label="Filtrar por estoque" className="admin-input">
             <option value="">Estoque: todos</option>
             <option value="low">Estoque baixo</option>
             <option value="out">Esgotado</option>

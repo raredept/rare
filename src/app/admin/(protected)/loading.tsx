@@ -1,6 +1,8 @@
 export default function AdminLoading() {
   return (
-    <div className="space-y-6" aria-label="Carregando admin">
+    // aria-label is only honoured on an element with a role; a bare div made
+    // axe report aria-prohibited-attr and screen readers announced nothing.
+    <div className="space-y-6" role="status" aria-label="Carregando admin" aria-live="polite">
       <div className="admin-loading-shell rounded-lg border border-neutral-800 bg-neutral-950/80 p-5">
         <div className="h-3 w-28 rounded-full bg-neutral-800" />
         <div className="mt-4 h-8 w-full max-w-sm rounded-lg bg-neutral-800" />
