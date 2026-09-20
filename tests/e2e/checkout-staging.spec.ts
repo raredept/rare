@@ -67,6 +67,19 @@ test("cartão recusado permanece no Stripe com mensagem clara e sem cobrar", asy
   await expect(page).toHaveURL(/checkout\.stripe\.com/);
 });
 
+for (const scenario of [
+  { name: "CVC incorreto", card: "4000000000000127", message: /código de segurança|CVC|incorret/i },
+  { name: "erro de processamento", card: "4000000000000119", message: /erro ao processar|processing|tente novamente/i },
+]) {
+  test(`cartão com ${scenario.name} permanece no Stripe com mensagem clara e sem cobrar`, async ({ page }) => {
+    await signIn(page);
+    await addToCartAndOpenCheckout(page);
+    await payWithCard(page, scenario.card);
+    await expect(page.getByText(scenario.message).first()).toBeVisible({ timeout: 60_000 });
+    await expect(page).toHaveURL(/checkout.stripe.com/);
+  });
+}
+
 test("novo checkout fecha o anterior não pago e não duplica a reserva", async ({ page }) => {
   await signIn(page);
   await addToCartAndOpenCheckout(page);
