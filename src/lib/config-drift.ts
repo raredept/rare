@@ -95,6 +95,17 @@ export function detectConfigDrift(env: EnvLike = process.env): ConfigDrift[] {
     });
   }
 
+  // Unset means "whatever the Stripe Dashboard enables", which can include
+  // asynchronous methods (Pix, boleto) that homologation never exercised.
+  if (environment === "production" && !clean(env.STRIPE_PAYMENT_METHOD_TYPES)) {
+    drift.push({
+      level: "warning",
+      variable: "STRIPE_PAYMENT_METHOD_TYPES",
+      message:
+        "Métodos de pagamento não definidos em produção; a Stripe usará os que estiverem ligados no Dashboard. Defina card ou card,pix, os mesmos homologados.",
+    });
+  }
+
   const shippingProvider = clean(env.SHIPPING_PROVIDER)?.toLowerCase();
   if (shippingProvider === "melhor_envio") {
     const melhorEnvioMode = getMelhorEnvioMode(env);

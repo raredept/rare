@@ -36,6 +36,7 @@ beforeEach(() => {
     CHECKOUT_ENABLED: "true",
     STRIPE_SECRET_KEY: "stripe-secret-value-that-must-not-be-returned",
     STRIPE_WEBHOOK_SECRET: "stripe-webhook-value-that-must-not-be-returned",
+    STRIPE_PAYMENT_METHOD_TYPES: "card",
     NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY: "web-push-public-key",
     WEB_PUSH_VAPID_PRIVATE_KEY: "web-push-private-key",
     WEB_PUSH_CONTACT: "mailto:contato@raredept.com.br",

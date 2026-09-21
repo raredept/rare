@@ -15,8 +15,10 @@ const TEST_KEY = ["sk", "test", "notarealkey"].join("_");
 const LIVE_RESTRICTED_KEY = ["rk", "live", "notarealkey"].join("_");
 const TEST_RESTRICTED_KEY = ["rk", "test", "notarealkey"].join("_");
 
+// A correctly configured production pins the payment methods; tests that
+// care about the unset case pass STRIPE_PAYMENT_METHOD_TYPES: undefined.
 function drift(env: Record<string, string | undefined>) {
-  return detectConfigDrift(env);
+  return detectConfigDrift({ STRIPE_PAYMENT_METHOD_TYPES: "card", ...env });
 }
 
 function variables(env: Record<string, string | undefined>) {
@@ -186,5 +188,19 @@ describe("assertCheckoutCredentialsMatchEnvironment", () => {
         CHECKOUT_ENABLED: "true",
       }),
     ).not.toThrow();
+  });
+});
+
+describe("payment methods in production", () => {
+  it("warns when production leaves the methods to the Stripe Dashboard", () => {
+    const env = { APP_ENV: "production", NODE_ENV: "production", STRIPE_SECRET_KEY: LIVE_KEY, STRIPE_PAYMENT_METHOD_TYPES: undefined };
+    expect(variables(env)).toEqual(["warning:STRIPE_PAYMENT_METHOD_TYPES"]);
+    // A warning, never a checkout block.
+    expect(() => assertCheckoutCredentialsMatchEnvironment({ ...env, CHECKOUT_ENABLED: "true" })).not.toThrow();
+  });
+
+  it("is quiet once the methods are pinned, and outside production", () => {
+    expect(variables({ APP_ENV: "production", NODE_ENV: "production", STRIPE_SECRET_KEY: LIVE_KEY, STRIPE_PAYMENT_METHOD_TYPES: "card,pix" })).toEqual([]);
+    expect(variables({ APP_ENV: "staging", NODE_ENV: "production", STRIPE_SECRET_KEY: TEST_KEY, STRIPE_PAYMENT_METHOD_TYPES: undefined })).toEqual([]);
   });
 });
