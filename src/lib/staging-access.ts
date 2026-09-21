@@ -1,8 +1,9 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
+import { isRestrictedAppEnv } from "@/lib/deployment-environment";
 
 export function isRestrictedEnvironment(env: Record<string, string | undefined> = process.env) {
-  return ["staging", "preview", "homologation"].includes(env.APP_ENV?.trim().toLowerCase() ?? "");
+  return isRestrictedAppEnv(env);
 }
 
 function matches(actual: string, expected: string) {

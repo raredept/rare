@@ -1,3 +1,4 @@
+import { isRestrictedAppEnv } from "@/lib/deployment-environment";
 import type { Metadata } from "next";
 import { getProductMediaRenderPlan, isSafeProductOgImageUrl } from "@/lib/product-media";
 
@@ -66,7 +67,7 @@ function isProductionEnv(env: EnvLike) {
 
 export function isPublicIndexingEnabled(env: EnvLike = process.env) {
   if (!isProductionEnv(env)) return false;
-  if (["staging", "preview", "homologation"].includes(clean(env.APP_ENV)?.toLowerCase() ?? "")) return false;
+  if (isRestrictedAppEnv(env)) return false;
   const configured = clean(env.APP_URL) ?? clean(env.NEXT_PUBLIC_APP_URL);
   if (!configured) return true;
 

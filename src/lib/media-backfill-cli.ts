@@ -1,3 +1,4 @@
+import { getDeploymentEnvironment } from "@/lib/deployment-environment";
 export const MEDIA_BACKFILL_DEFAULT_LIMIT = 10;
 export const MEDIA_BACKFILL_MAX_LIMIT = 100;
 export const MEDIA_BACKFILL_DEFAULT_MAX_SOURCE_MB = 25;
@@ -26,8 +27,10 @@ export function parseMediaBackfillArgs(argv: string[], env: Record<string, strin
 }
 
 export function assertProductionMediaBackfillAuthorized(args: MediaBackfillArgs, env: Record<string, string | undefined> = process.env) {
-  const environment = (env.APP_ENV ?? env.NODE_ENV ?? "development").toLowerCase();
-  if (!args.dryRun && environment === "production" && env.MEDIA_BACKFILL_ALLOW_PRODUCTION !== "true") {
+  // Every production name counts (production, prod, live) and an unknown label on
+  // a production build does too; the literal-"production" check let APP_ENV=prod
+  // rewrite production media without authorization.
+  if (!args.dryRun && getDeploymentEnvironment(env) === "production" && env.MEDIA_BACKFILL_ALLOW_PRODUCTION !== "true") {
     throw new Error("Backfill em produção bloqueado. Exige autorização explícita e MEDIA_BACKFILL_ALLOW_PRODUCTION=true somente durante a execução aprovada.");
   }
 }

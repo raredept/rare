@@ -8,7 +8,16 @@
  * credentials themselves instead of being left to a human checklist.
  */
 
-export type DeploymentEnvironment = "production" | "restricted" | "development";
+import {
+  describeEnvironment,
+  getDeploymentEnvironment,
+  isUnknownAppEnv,
+  KNOWN_APP_ENVS,
+  normalizeAppEnv,
+  type DeploymentEnvironment,
+} from "@/lib/deployment-environment";
+
+export { describeEnvironment, getDeploymentEnvironment, type DeploymentEnvironment };
 
 export type ConfigDriftLevel = "error" | "warning";
 
@@ -20,27 +29,11 @@ export type ConfigDrift = {
 
 export type EnvLike = Record<string, string | undefined>;
 
-// Kept in sync with isRestrictedEnvironment in staging-access.ts.
-const RESTRICTED_APP_ENVS = ["staging", "preview", "homologation"];
-
 const CANONICAL_PRODUCTION_HOSTS = ["raredept.com.br", "www.raredept.com.br"];
 
 function clean(value: string | undefined) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
-}
-
-export function getDeploymentEnvironment(env: EnvLike = process.env): DeploymentEnvironment {
-  const appEnv = clean(env.APP_ENV)?.toLowerCase();
-  if (appEnv && RESTRICTED_APP_ENVS.includes(appEnv)) return "restricted";
-  if (clean(env.APP_ENV)?.toLowerCase() === "production") return "production";
-  return clean(env.NODE_ENV) === "production" ? "production" : "development";
-}
-
-export function describeEnvironment(environment: DeploymentEnvironment) {
-  if (environment === "production") return "produção";
-  if (environment === "restricted") return "homologação";
-  return "desenvolvimento";
 }
 
 /** "live" | "test" | null when the key is absent or not a recognisable Stripe secret key. */
@@ -70,6 +63,14 @@ function getHost(value: string | undefined) {
 export function detectConfigDrift(env: EnvLike = process.env): ConfigDrift[] {
   const drift: ConfigDrift[] = [];
   const environment = getDeploymentEnvironment(env);
+
+  if (isUnknownAppEnv(env)) {
+    drift.push({
+      level: "warning",
+      variable: "APP_ENV",
+      message: `APP_ENV="${(normalizeAppEnv(env) ?? "").replace(/[^a-z0-9_-]/g, "").slice(0, 32)}" não é reconhecido; os guards usam NODE_ENV e tratam este ambiente como ${describeEnvironment(environment)}. Use um de: ${KNOWN_APP_ENVS.join(", ")}.`,
+    });
+  }
   const checkoutEnabled = env.CHECKOUT_ENABLED === "true";
   const stripeMode = getStripeKeyMode(env.STRIPE_SECRET_KEY);
 
