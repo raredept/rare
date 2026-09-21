@@ -52,7 +52,10 @@ function formatViolations(violations: Awaited<ReturnType<AxeBuilder["analyze"]>>
 // identity and address in five minutes) long before the suite finishes, which
 // is the limiter doing its job rather than something to work around in the
 // application.
-test.describe.configure({ mode: "serial" });
+// Axe on a full Admin page takes ~1 s alone but over 10 s on WebKit under a
+// parallel run; with navigation and the fade wait that crossed the default
+// 30 s. The budget is raised, never the assertions.
+test.describe.configure({ mode: "serial", timeout: 60_000 });
 
 test.describe("Admin accessibility", () => {
   test.skip(!login || !password, "Requer QA_ADMIN_LOGIN e QA_ADMIN_PASSWORD.");
