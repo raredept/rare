@@ -18,7 +18,7 @@ const ME_TOKEN = "MECANARYTOKEN";
 const secrets = [LIVE_KEY, TEST_KEY, WEBHOOK_SECRET, ZEPTO_TOKEN, SMTP_PASSWORD, ME_TOKEN];
 
 const base = {
-  DATABASE_URL: "postgresql://rare:pw@db.internal:5432/rare",
+  DATABASE_URL: "postgresql://rare:pw@db.canary.local:5432/rare",
   ADMIN_SESSION_SECRET: "a".repeat(40),
   STORAGE_DRIVER: "r2",
   R2_ACCOUNT_ID: "acct",
