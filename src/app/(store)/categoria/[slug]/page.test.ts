@@ -118,6 +118,24 @@ describe("store category page", () => {
     expect(html).toContain("Camiseta RARE");
   });
 
+  it("renders the catch-all section of the complete catalog without a category link", async () => {
+    mocks.getCategoryPageData.mockResolvedValueOnce({
+      kind: "grouped",
+      slug: "tudo",
+      eyebrow: "Catálogo RARE",
+      title: "Catálogo completo",
+      description: "Explore todas as peças da RARE por categoria.",
+      sections: [{ name: "Outras peças", slug: "outras-pecas", href: null, products: [product], total: 1, hasMore: false }],
+    });
+
+    const element = await CategoryPage({ params: Promise.resolve({ slug: "tudo" }), searchParams: Promise.resolve({}) });
+    const html = renderToStaticMarkup(element as ReactElement);
+
+    expect(html).toContain("Outras peças");
+    expect(html).toContain("Camiseta RARE");
+    expect(html).not.toContain("/categoria/outras-pecas");
+  });
+
   it("renders grouped sections for a real parent category page", async () => {
     mocks.getCategoryPageData.mockResolvedValueOnce({
       kind: "grouped",

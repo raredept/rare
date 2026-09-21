@@ -242,6 +242,59 @@ describe("storefront catalog helpers", () => {
     );
   });
 
+  it("lists every active product in the complete catalog, whatever its category", async () => {
+    // Staging regression: every product sat in a category outside the old
+    // hardcoded list, and "Catálogo completo" said the catalog was empty.
+    mocks.prisma.product.findMany.mockResolvedValueOnce([
+      product({ id: "hml-1", category: { name: "Homologação", slug: "homologacao", active: true, sortOrder: 9 } }),
+      product({ id: "moletom-1", category: { name: "Moletons", slug: "moletons", active: true, sortOrder: 6 } }),
+      product({ id: "camiseta-1", category: { name: "Camisetas", slug: "camisetas", active: true, sortOrder: 1 } }),
+      product({
+        id: "bone-1",
+        category: { name: "Acessórios", slug: "acessorios", active: true, sortOrder: 7 },
+        subcategory: { name: "Bonés", slug: "bones", active: true, sortOrder: 2 },
+      }),
+      product({ id: "acessorio-1", category: { name: "Acessórios", slug: "acessorios", active: true, sortOrder: 7 } }),
+    ]);
+
+    const { getProductsGroupedByCategory } = await import("@/lib/storefront");
+    const sections = await getProductsGroupedByCategory({ limitPerCategory: 10 });
+
+    expect(sections.flatMap((section) => section.products.map((item) => item.id)).sort()).toEqual(
+      ["acessorio-1", "bone-1", "camiseta-1", "hml-1", "moletom-1"],
+    );
+    // Preferred order first; categories outside it next, by their sort order;
+    // Acessórios last, its own products before its subcategories.
+    expect(sections.map((section) => section.slug)).toEqual(["camisetas", "moletons", "homologacao", "acessorios", "bones"]);
+    expect(sections.every((section) => section.href?.startsWith(`/categoria/${section.slug}`))).toBe(true);
+  });
+
+  it("never links a section to an inactive category, and keeps its products reachable", async () => {
+    mocks.prisma.product.findMany.mockResolvedValueOnce([
+      product({
+        id: "sub-inativa",
+        category: { name: "Acessórios", slug: "acessorios", active: true },
+        subcategory: { name: "Meias", slug: "meias", active: false },
+      }),
+      ...Array.from({ length: 12 }, (_, index) =>
+        product({ id: `orfao-${index}`, category: { name: "Antiga", slug: "antiga", active: false } }),
+      ),
+      product({ id: "sem-categoria", category: null }),
+    ]);
+
+    const { getProductsGroupedByCategory } = await import("@/lib/storefront");
+    const sections = await getProductsGroupedByCategory({ limitPerCategory: 10 });
+
+    expect(sections.map((section) => [section.slug, section.href])).toEqual([
+      ["acessorios", "/categoria/acessorios"],
+      ["outras-pecas", null],
+    ]);
+    const catchAll = sections[1];
+    expect(catchAll.total).toBe(13);
+    expect(catchAll.products).toHaveLength(13);
+    expect(catchAll.hasMore).toBe(false);
+  });
+
   it("hides empty grouped categories and handles an empty catalog", async () => {
     mocks.prisma.product.findMany.mockResolvedValueOnce([]);
 

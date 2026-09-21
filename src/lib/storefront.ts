@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { Prisma } from "@prisma/client";
-import { accessoryCatalogSubcategories, groupedCatalogCategories, primaryCatalogCategories } from "@/lib/catalog-categories";
+import { accessoryCatalogSubcategories, primaryCatalogCategories } from "@/lib/catalog-categories";
+import { getPreferredCategoryOrder } from "@/lib/catalog-shortcuts";
 import { prisma } from "@/lib/prisma";
 import { isVariantPurchasable } from "@/lib/stock";
 import { buildCatalogPageHref, CATALOG_PAGE_SIZE, normalizeCatalogPage } from "@/lib/catalog-pagination";
@@ -17,14 +18,14 @@ export type StorefrontProduct = Prisma.ProductGetPayload<{ include: typeof produ
 export type GroupedCatalogSection = {
   name: string;
   slug: string;
-  href: string;
+  /** Null for the catch-all section, which has no category page to link to. */
+  href: string | null;
   products: StorefrontProduct[];
   total: number;
   hasMore: boolean;
 };
 
 const accessorySubcategoryOrder = new Map(accessoryCatalogSubcategories.map((category, index) => [category.slug, index]));
-const groupedCatalogCategorySlugs = new Set(groupedCatalogCategories.map((category) => category.slug));
 const productOrderBy = [{ featured: "desc" }, { sortOrder: "asc" }, { createdAt: "desc" }] satisfies Prisma.ProductOrderByWithRelationInput[];
 const featuredProductOrderBy = [
   { featuredSortOrder: { sort: "asc", nulls: "last" } },
@@ -120,7 +121,7 @@ function buildPublishedProductCountsByCategorySlug(products: CategoryAvailabilit
   return counts;
 }
 
-function getProductGroupingSlug(product: StorefrontProduct, groupedSlugs = groupedCatalogCategorySlugs) {
+function getProductGroupingSlug(product: StorefrontProduct, groupedSlugs: Set<string>) {
   const subcategorySlug = product.subcategory?.slug;
   if (subcategorySlug && groupedSlugs.has(subcategorySlug)) {
     return subcategorySlug;
@@ -297,6 +298,76 @@ export async function getHomeCategoryTiles(): Promise<HomeCategoryTiles> {
   };
 }
 
+type SectionCategory = { name: string; slug: string; active?: boolean; sortOrder?: number };
+
+const CATCH_ALL_SECTION = { name: "Outras peças", slug: "outras-pecas" };
+
+function isListedCategory(category: SectionCategory | null | undefined): category is SectionCategory {
+  return Boolean(category) && category?.active !== false;
+}
+
+/**
+ * The complete catalog ("Tudo") used to group products by a hardcoded list of
+ * category slugs, so every product in any other category — including one the
+ * operator creates in the Admin — silently vanished from it. On staging the
+ * page said the catalog was empty while six products were active.
+ *
+ * Sections now come from the products themselves: the product's active
+ * subcategory, else its active category, else a catch-all section with no
+ * link (there is no category page to send it to). Order follows the
+ * navigation: preferred category order, then the accessory subcategory order.
+ */
+function getCompleteCatalogSection(product: StorefrontProduct) {
+  const category = product.category as SectionCategory | null;
+  const subcategory = product.subcategory as SectionCategory | null;
+  const own = isListedCategory(subcategory) ? subcategory : isListedCategory(category) ? category : null;
+  if (!own) {
+    return { ...CATCH_ALL_SECTION, linked: false, rank: [Number.MAX_SAFE_INTEGER, 0, "", 0, 0, ""] as const };
+  }
+
+  const parent = own === subcategory && category ? category : own;
+  const isChild = own === subcategory && Boolean(category);
+  return {
+    name: own.name,
+    slug: own.slug,
+    linked: true,
+    rank: [
+      getPreferredCategoryOrder(parent),
+      parent.sortOrder ?? 0,
+      parent.name,
+      isChild ? accessorySubcategoryOrder.get(own.slug) ?? Number.MAX_SAFE_INTEGER : -1,
+      isChild ? own.sortOrder ?? 0 : -1,
+      own.name,
+    ] as const,
+  };
+}
+
+function compareRanks(first: readonly (number | string)[], second: readonly (number | string)[]) {
+  for (let index = 0; index < first.length; index += 1) {
+    const a = first[index];
+    const b = second[index];
+    const difference = typeof a === "number" && typeof b === "number" ? a - b : String(a).localeCompare(String(b));
+    if (difference) return difference;
+  }
+  return 0;
+}
+
+function buildSection(
+  meta: { name: string; slug: string; linked: boolean },
+  products: StorefrontProduct[],
+  limitPerCategory: number,
+  params?: { query?: string; brand?: string },
+): GroupedCatalogSection {
+  return {
+    name: meta.name,
+    slug: meta.slug,
+    href: meta.linked ? buildCatalogPageHref(meta.slug, params) : null,
+    products: limitPerCategory > 0 ? products.slice(0, limitPerCategory) : products,
+    total: products.length,
+    hasMore: limitPerCategory > 0 && products.length > limitPerCategory,
+  };
+}
+
 export async function getProductsGroupedByCategory(params?: {
   query?: string;
   brand?: string;
@@ -305,10 +376,25 @@ export async function getProductsGroupedByCategory(params?: {
   limitPerCategory?: number;
   includeEmpty?: boolean;
 }) {
-  const groupingCategories = params?.categories ?? groupedCatalogCategories;
-  const groupingSlugs = new Set(groupingCategories.map((category) => category.slug));
   const products = await getProducts({ query: params?.query, brand: params?.brand, categorySlug: params?.categorySlug });
+  const limitPerCategory = params?.limitPerCategory ?? 8;
 
+  if (!params?.categories) {
+    const sections = new Map<string, { meta: ReturnType<typeof getCompleteCatalogSection>; products: StorefrontProduct[] }>();
+    for (const product of products) {
+      const meta = getCompleteCatalogSection(product);
+      const section = sections.get(meta.slug) ?? { meta, products: [] };
+      section.products.push(product);
+      sections.set(meta.slug, section);
+    }
+    return [...sections.values()]
+      .sort((first, second) => compareRanks(first.meta.rank, second.meta.rank))
+      // The catch-all has no page behind a "Ver todos" link, so it shows everything.
+      .map(({ meta, products: sectionProducts }) => buildSection(meta, sectionProducts, meta.linked ? limitPerCategory : 0, params));
+  }
+
+  const groupingCategories = params.categories;
+  const groupingSlugs = new Set(groupingCategories.map((category) => category.slug));
   const groupedProducts = new Map<string, StorefrontProduct[]>();
 
   for (const product of products) {
@@ -320,27 +406,14 @@ export async function getProductsGroupedByCategory(params?: {
     groupedProducts.set(slug, productsForCategory);
   }
 
-  const limitPerCategory = params?.limitPerCategory ?? 8;
-
   return groupingCategories.flatMap<GroupedCatalogSection>((category) => {
     const productsForCategory = groupedProducts.get(category.slug) ?? [];
 
-    if (!productsForCategory.length && !params?.includeEmpty) {
+    if (!productsForCategory.length && !params.includeEmpty) {
       return [];
     }
 
-    const productsToShow = limitPerCategory > 0 ? productsForCategory.slice(0, limitPerCategory) : productsForCategory;
-
-    return [
-      {
-        name: category.name,
-        slug: category.slug,
-        href: buildCatalogPageHref(category.slug, params),
-        products: productsToShow,
-        total: productsForCategory.length,
-        hasMore: limitPerCategory > 0 && productsForCategory.length > limitPerCategory,
-      },
-    ];
+    return [buildSection({ ...category, linked: true }, productsForCategory, limitPerCategory, params)];
   });
 }
 

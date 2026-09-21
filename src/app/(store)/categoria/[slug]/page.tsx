@@ -136,12 +136,14 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
                       {section.total} produto{section.total === 1 ? "" : "s"}
                     </p>
                   </div>
-                  <Link
-                    href={section.href}
-                    className="inline-flex min-h-11 shrink-0 items-center rounded-full border border-neutral-300 px-4 text-xs font-black uppercase tracking-[0.16em] text-neutral-700 transition-[background-color,border-color,color,transform] duration-150 hover:-translate-y-px hover:border-neutral-950 hover:bg-neutral-950 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 active:translate-y-0"
-                  >
-                    {section.hasMore ? "Ver todos" : "Ver categoria"}
-                  </Link>
+                  {section.href ? (
+                    <Link
+                      href={section.href}
+                      className="inline-flex min-h-11 shrink-0 items-center rounded-full border border-neutral-300 px-4 text-xs font-black uppercase tracking-[0.16em] text-neutral-700 transition-[background-color,border-color,color,transform] duration-150 hover:-translate-y-px hover:border-neutral-950 hover:bg-neutral-950 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 active:translate-y-0"
+                    >
+                      {section.hasMore ? "Ver todos" : "Ver categoria"}
+                    </Link>
+                  ) : null}
                 </div>
                 <ProductGrid products={section.products} commerce={commerce} priorityFirst={sectionIndex === 0} />
               </section>
