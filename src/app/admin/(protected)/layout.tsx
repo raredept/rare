@@ -38,9 +38,21 @@ export default async function AdminLayout({ children }: { children: ReactNode })
       <div className="lg:pl-64">
         <header className="sticky top-0 z-30 border-b border-neutral-900 bg-black/85 px-4 py-4 backdrop-blur lg:px-8">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-neutral-500">RARE Admin</p>
-              <p className="text-sm font-semibold text-neutral-300">{admin.username ?? admin.email}</p>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-neutral-500">RARE Admin</p>
+                <p className="truncate text-sm font-semibold text-neutral-300">{admin.username ?? admin.email}</p>
+              </div>
+              {/* The sidebar, and its logout, is hidden below lg; without this a
+                  phone or tablet had no way to end the session. */}
+              <form action={logoutAction} className="shrink-0 lg:hidden">
+                <button
+                  className="h-11 rounded-lg border border-neutral-800 px-4 text-sm font-black text-neutral-300 transition hover:border-neutral-300 hover:bg-white hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                  type="submit"
+                >
+                  Sair
+                </button>
+              </form>
             </div>
             <div className="scrollbar-none flex gap-2 overflow-x-auto lg:hidden">
               <AdminNav compact unreadNotifications={unreadNotifications} />
