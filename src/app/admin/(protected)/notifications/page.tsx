@@ -67,7 +67,7 @@ export default async function AdminNotificationsPage() {
               <article
                 key={notification.id}
                 className={`grid gap-3 px-5 py-4 md:grid-cols-[1fr_auto] md:items-center ${
-                  notification.readAt ? "bg-white" : "bg-amber-50/50"
+                  notification.readAt ? "bg-white" : "bg-amber-50"
                 }`}
               >
                 <div>
