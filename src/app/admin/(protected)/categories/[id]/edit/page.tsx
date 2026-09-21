@@ -23,17 +23,30 @@ export default async function EditCategoryPage({ params }: EditCategoryPageProps
       <h1 className="text-2xl font-black text-neutral-950">Editar categoria</h1>
       <form action={saveCategoryAction} className="mt-6 max-w-xl space-y-4 rounded-lg border border-neutral-200 bg-white p-5">
         <input type="hidden" name="id" value={category.id} />
-        <input name="name" defaultValue={category.name} aria-label="Nome da categoria" required className="admin-input" />
-        <input name="slug" defaultValue={category.slug} aria-label="Slug" className="admin-input" />
-        <select name="parentId" defaultValue={category.parentId ?? ""} aria-label="Posição na hierarquia" className="admin-input">
-          <option value="">Categoria principal</option>
-          {categories.map((parent) => (
-            <option key={parent.id} value={parent.id}>
-              Subcategoria de {parent.name}
-            </option>
-          ))}
-        </select>
-        <input name="sortOrder" type="number" min={0} defaultValue={category.sortOrder} className="admin-input" />
+        {/* Visible labels: the fields used to show only their current values. */}
+        <label className="block">
+          <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Nome</span>
+          <input name="name" defaultValue={category.name} required className="admin-input" />
+        </label>
+        <label className="block">
+          <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Slug</span>
+          <input name="slug" defaultValue={category.slug} className="admin-input" />
+        </label>
+        <label className="block">
+          <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Posição na hierarquia</span>
+          <select name="parentId" defaultValue={category.parentId ?? ""} className="admin-input">
+            <option value="">Categoria principal</option>
+            {categories.map((parent) => (
+              <option key={parent.id} value={parent.id}>
+                Subcategoria de {parent.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block">
+          <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Ordem</span>
+          <input name="sortOrder" type="number" min={0} defaultValue={category.sortOrder} className="admin-input" />
+        </label>
         <label className="flex items-center gap-3 text-sm font-black text-neutral-800">
           <input name="active" type="checkbox" defaultChecked={category.active} className="h-4 w-4" />
           Ativa

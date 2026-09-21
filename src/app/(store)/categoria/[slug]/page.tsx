@@ -130,8 +130,10 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
             {pageData.sections.map((section, sectionIndex) => (
               <section key={section.slug} className="store-catalog-section border-b border-neutral-200 pb-10 last:border-b-0 last:pb-0">
                 <div className="mb-5 flex items-end justify-between gap-4">
-                  <div>
-                    <h2 className="text-2xl font-black tracking-tight text-neutral-950">{section.name}</h2>
+                  {/* min-w-0 + break-words: a long category name wraps instead of
+                      pushing the link off a 320 px screen. */}
+                  <div className="min-w-0">
+                    <h2 className="break-words text-2xl font-black tracking-tight text-neutral-950">{section.name}</h2>
                     <p className="mt-1 text-xs font-bold uppercase tracking-[0.16em] text-neutral-500">
                       {section.total} produto{section.total === 1 ? "" : "s"}
                     </p>
