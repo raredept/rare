@@ -1,4 +1,5 @@
 import { isValidCep, normalizeCep as normalizeCepValue, parseCep } from "@/lib/cep";
+import { getMelhorEnvioBaseUrlIssue } from "@/lib/melhor-envio-endpoint";
 import { assessProductShippingReadiness, type ProductShippingField } from "@/lib/product-shipping-readiness";
 
 export const shippingProviders = ["manual", "correios", "melhor_envio", "frenet"] as const;
@@ -563,13 +564,10 @@ function getMelhorEnvioToken() {
 export function getMelhorEnvioBaseUrl() {
   const configured = clean(process.env.MELHOR_ENVIO_BASE_URL);
   if (configured) {
-    try {
-      const url = new URL(configured);
-      if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error();
-      return configured.replace(/\/$/, "");
-    } catch {
-      throw new Error("MELHOR_ENVIO_BASE_URL inválida.");
-    }
+    // The token is sent to this host: only the Melhor Envio host for the
+    // configured mode, over https (see melhor-envio-endpoint.ts).
+    if (getMelhorEnvioBaseUrlIssue(configured)) throw new Error("MELHOR_ENVIO_BASE_URL inválida.");
+    return configured.replace(/\/$/, "");
   }
 
   const env = clean(process.env.MELHOR_ENVIO_ENV)?.toLowerCase();

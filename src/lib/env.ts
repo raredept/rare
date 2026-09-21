@@ -2,6 +2,7 @@ import { getRateLimitStatus } from "@/lib/rate-limit-config";
 import { getEmailConfigurationIssue, getEmailConfigurationStatus } from "@/lib/email-config";
 import { detectConfigDrift } from "@/lib/config-drift";
 import { isRestrictedAppEnv } from "@/lib/deployment-environment";
+import { getMelhorEnvioBaseUrlIssue } from "@/lib/melhor-envio-endpoint";
 
 type EnvIssueLevel = "error" | "warning";
 
@@ -421,8 +422,9 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
     }
 
     const melhorEnvioBaseUrl = clean(env.MELHOR_ENVIO_BASE_URL);
-    if (melhorEnvioBaseUrl && !isHttpUrl(melhorEnvioBaseUrl)) {
-      addIssue(issues, "error", "MELHOR_ENVIO_BASE_URL", "MELHOR_ENVIO_BASE_URL must be an absolute http(s) URL.");
+    const melhorEnvioBaseUrlIssue = melhorEnvioBaseUrl ? getMelhorEnvioBaseUrlIssue(melhorEnvioBaseUrl, env) : null;
+    if (melhorEnvioBaseUrlIssue) {
+      addIssue(issues, "error", "MELHOR_ENVIO_BASE_URL", melhorEnvioBaseUrlIssue);
     }
 
     const melhorEnvioTimeoutMs = clean(env.MELHOR_ENVIO_TIMEOUT_MS);
