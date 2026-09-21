@@ -30,7 +30,7 @@ export function AccountShell({
           {subtitle ? <p className="mt-2 max-w-2xl text-sm font-medium text-neutral-500">{subtitle}</p> : null}
         </div>
       </div>
-      <nav className="scrollbar-none mt-6 flex gap-2 overflow-x-auto border-b border-neutral-200 pb-3">
+      <nav aria-label="Seções da conta" className="scrollbar-none mt-6 flex gap-2 overflow-x-auto border-b border-neutral-200 pb-3">
         {accountLinks.map((link) => (
           <Link
             key={link.href}

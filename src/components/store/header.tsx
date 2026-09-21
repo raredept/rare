@@ -28,7 +28,7 @@ export async function StoreHeader({ categories }: { categories?: NavigationCateg
         </div>
       </div>
 
-      <nav className="hidden border-t border-white/10 bg-black lg:block">
+      <nav aria-label="Navegação por categoria" className="hidden border-t border-white/10 bg-black lg:block">
         <CategoryNav categories={navigationCategories} />
       </nav>
     </header>
