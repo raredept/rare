@@ -134,7 +134,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
             <h2 className="text-lg font-black text-neutral-950">Atualizar envio</h2>
             {nextStatuses.length ? (
               <>
-                <select name="status" defaultValue={nextStatuses[0]} className="admin-input mt-4">
+                <select name="status" defaultValue={nextStatuses[0]} aria-label="Novo status do pedido" className="admin-input mt-4">
                   {nextStatuses.map((status) => (
                     <option key={status} value={status}>{manualStatusLabels[status] ?? status}</option>
                   ))}

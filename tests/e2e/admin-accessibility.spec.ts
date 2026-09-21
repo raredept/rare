@@ -27,6 +27,11 @@ const adminRoutes = [
   // Covers the media chips in the image manager, which the list page does not render.
   { name: "Produto novo", path: "/admin/products/new" },
   { name: "Clientes", path: "/admin/customers" },
+  { name: "Categorias", path: "/admin/categories" },
+  { name: "Banners", path: "/admin/banners" },
+  { name: "Notificações", path: "/admin/notifications" },
+  { name: "Prontidão", path: "/admin/readiness" },
+  { name: "Configurações", path: "/admin/settings" },
 ];
 
 function formatViolations(violations: Awaited<ReturnType<AxeBuilder["analyze"]>>["violations"]) {
@@ -55,7 +60,14 @@ test.describe("Admin accessibility", () => {
   let page: Page;
 
   test.beforeAll(async ({ browser }, testInfo) => {
+    const { viewport, isMobile, hasTouch, userAgent, deviceScaleFactor } = testInfo.project.use;
     context = await browser.newContext({
+      // The project's device, so the mobile project really audits a phone.
+      viewport,
+      isMobile,
+      hasTouch,
+      userAgent,
+      deviceScaleFactor,
       baseURL: testInfo.project.use.baseURL as string,
       // A homologation target also sits behind the Basic gate; this context is
       // created directly, so it does not inherit the project-level credentials.
@@ -88,6 +100,29 @@ test.describe("Admin accessibility", () => {
       await expect(page.locator("main")).toHaveCount(1);
       await expect(page.locator("h1")).toHaveCount(1);
 
+      const results = await new AxeBuilder({ page }).analyze();
+      expect(results.violations, formatViolations(results.violations)).toEqual([]);
+
+      // No sideways scroll: on a phone the categories page was 518 px too wide
+      // because its grid had no base column below xl.
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      expect(overflow, "horizontal overflow in px").toBeLessThanOrEqual(0);
+    });
+  }
+
+  // Detail pages need an id, so they are reached from their list. The category
+  // edit form had inputs with neither a label nor a placeholder.
+  for (const detail of [
+    { name: "Editar categoria", list: "/admin/categories", link: 'a[href^="/admin/categories/"][href$="/edit"]' },
+    { name: "Detalhe do pedido", list: "/admin/orders", link: 'a[href^="/admin/orders/c"]' },
+  ]) {
+    test(`${detail.name} não tem violações Axe`, async () => {
+      await page.goto(detail.list);
+      const href = await page.locator(detail.link).first().getAttribute("href").catch(() => null);
+      test.skip(!href, `Nenhum registro em ${detail.list} para abrir.`);
+
+      await page.goto(href!, { waitUntil: "domcontentloaded" });
+      await expect(page.locator("h1")).toBeVisible();
       const results = await new AxeBuilder({ page }).analyze();
       expect(results.violations, formatViolations(results.violations)).toEqual([]);
     });

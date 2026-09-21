@@ -23,9 +23,9 @@ export default async function EditCategoryPage({ params }: EditCategoryPageProps
       <h1 className="text-2xl font-black text-neutral-950">Editar categoria</h1>
       <form action={saveCategoryAction} className="mt-6 max-w-xl space-y-4 rounded-lg border border-neutral-200 bg-white p-5">
         <input type="hidden" name="id" value={category.id} />
-        <input name="name" defaultValue={category.name} required className="admin-input" />
-        <input name="slug" defaultValue={category.slug} className="admin-input" />
-        <select name="parentId" defaultValue={category.parentId ?? ""} className="admin-input">
+        <input name="name" defaultValue={category.name} aria-label="Nome da categoria" required className="admin-input" />
+        <input name="slug" defaultValue={category.slug} aria-label="Slug" className="admin-input" />
+        <select name="parentId" defaultValue={category.parentId ?? ""} aria-label="Posição na hierarquia" className="admin-input">
           <option value="">Categoria principal</option>
           {categories.map((parent) => (
             <option key={parent.id} value={parent.id}>

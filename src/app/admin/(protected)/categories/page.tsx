@@ -82,16 +82,16 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
         <div className="space-y-4">
         <form action={saveCategoryAction} className="space-y-4 rounded-lg border border-neutral-800 bg-neutral-950/80 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.24)]">
           <div>
             <h2 className="text-lg font-black text-neutral-950">Nova categoria</h2>
             <p className="mt-1 text-xs font-semibold text-neutral-500">Use subcategoria para itens dentro de Acessorios.</p>
           </div>
-          <input name="name" placeholder="Nome" required className="admin-input" />
-          <input name="slug" placeholder="Slug opcional" className="admin-input" />
-          <select name="parentId" className="admin-input" defaultValue="">
+          <input name="name" placeholder="Nome" aria-label="Nome da categoria" required className="admin-input" />
+          <input name="slug" placeholder="Slug opcional" aria-label="Slug (opcional)" className="admin-input" />
+          <select name="parentId" aria-label="Posição na hierarquia" className="admin-input" defaultValue="">
             <option value="">Categoria principal</option>
             {topCategories.map((category) => (
               <option key={category.id} value={category.id}>
@@ -134,13 +134,13 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
 
         <section className="space-y-4">
           <form className="grid gap-3 rounded-lg border border-neutral-800 bg-neutral-950/80 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.2)] md:grid-cols-[minmax(0,1fr)_170px_210px_auto]">
-            <input name="q" defaultValue={filters.q ?? ""} placeholder="Buscar por nome, slug ou pai" className="admin-input" />
-            <select name="status" defaultValue={filters.status ?? ""} className="admin-input">
+            <input name="q" defaultValue={filters.q ?? ""} placeholder="Buscar por nome, slug ou pai" aria-label="Buscar categorias" className="admin-input" />
+            <select name="status" defaultValue={filters.status ?? ""} aria-label="Filtrar por status" className="admin-input">
               <option value="">Todos status</option>
               <option value="active">Ativas</option>
               <option value="hidden">Ocultas</option>
             </select>
-            <select name="parent" defaultValue={filters.parent ?? ""} className="admin-input">
+            <select name="parent" defaultValue={filters.parent ?? ""} aria-label="Filtrar por hierarquia" className="admin-input">
               <option value="">Todas hierarquias</option>
               <option value="root">Principais</option>
               {topCategories.map((category) => (
