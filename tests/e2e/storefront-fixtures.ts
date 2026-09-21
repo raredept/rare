@@ -91,3 +91,18 @@ export function formatAxeViolations(violations: Array<{ id: string; impact?: str
 export function isMobileProject(testInfo: TestInfo) {
   return testInfo.project.name === "chromium-mobile";
 }
+
+/**
+ * Pages fade in (store-page-transition, 180 ms). A contrast check taken mid-fade
+ * reads text blended toward the background (#737373 → #747474, 4.54 → 4.47) and
+ * fails intermittently although the final colours pass. Wait for the finite
+ * entrance animations; infinite ones (loading pulse, carousel) are ignored.
+ */
+export async function waitForEntranceAnimations(page: Page) {
+  await page.waitForFunction(() =>
+    document
+      .getAnimations()
+      .filter((animation) => animation.effect?.getTiming().iterations !== Infinity)
+      .every((animation) => animation.playState === "finished" || animation.playState === "idle"),
+  );
+}

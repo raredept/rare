@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { blockExternalRequests, formatAxeViolations, productPath, publicAuditRoutes } from "./storefront-fixtures";
+import { blockExternalRequests, formatAxeViolations, productPath, publicAuditRoutes, waitForEntranceAnimations } from "./storefront-fixtures";
 
 test.beforeEach(async ({ page }) => {
   await blockExternalRequests(page);
@@ -11,6 +11,7 @@ for (const route of publicAuditRoutes) {
     const response = await page.goto(route.path, { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBe(200);
     await expect(page.locator("h1")).toHaveCount(1);
+    await waitForEntranceAnimations(page);
 
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations, formatAxeViolations(results.violations)).toEqual([]);
