@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
 import type { EmailOutbox, PrismaClient } from "@prisma/client";
 import { formatMoney } from "@/lib/money";
-import { assertEmailRecipientAllowed, createSmtpEmailProvider, getSmtpEmailConfig } from "@/lib/smtp-email";
+import { createHash } from "node:crypto";
+import { getEmailDeliveryConfig, type EmailDeliveryConfig } from "@/lib/email-config";
+import { assertEmailRecipientAllowed, createSmtpEmailProvider } from "@/lib/smtp-email";
+import { createZeptoMailEmailProvider } from "@/lib/zeptomail-email";
 import { deliverTransactionalEmail, EmailDeliveryError, renderOrderShippedEmail, renderPaymentApprovedEmail, type EmailDeliveryResult, type TransactionalEmailProvider } from "@/lib/transactional-email";
 
 const leaseMs = 5 * 60_000; // SMTP has a hard 45-second deadline.
@@ -9,6 +12,27 @@ const maxAttempts = 5;
 type Database = Pick<PrismaClient, "$queryRaw" | "emailOutbox">;
 type ClaimedEmail = EmailOutbox & { leaseToken: string };
 type DeliveryDecision = Exclude<EmailDeliveryResult, { status: "disabled" }>;
+
+// The transport is chosen only by EMAIL_DRIVER. There is no automatic fallback between transports.
+export function createEmailProvider(config: EmailDeliveryConfig): TransactionalEmailProvider {
+  return config.driver === "zeptomail" ? createZeptoMailEmailProvider(config) : createSmtpEmailProvider(config);
+}
+
+// Sanitized operational log: opaque hashes and enums only. Never the recipient, subject/body,
+// customer name, order number, token or any provider response text.
+export type EmailDeliveryLog = {
+  provider: string;
+  messageKind: string;
+  order: string;
+  attempt: number;
+  status: string;
+  code: string | null;
+  providerErrorCode: string | null;
+  providerRequestId: string | null;
+  latencyMs: number;
+};
+const defaultLog = (event: EmailDeliveryLog) => console.log(JSON.stringify({ at: new Date().toISOString(), email: event }));
+const opaque = (value: string) => createHash("sha256").update(value).digest("hex").slice(0, 12);
 
 export function createEmailOutboxRepository(db: Database) {
   return {
@@ -70,22 +94,25 @@ export async function processEmailOutbox(options: {
   provider?: TransactionalEmailProvider;
   batchSize?: number;
   now?: () => Date;
+  log?: (event: EmailDeliveryLog) => void;
 }) {
   const env = options.env ?? process.env;
   const summary = { disabled: false, claimed: 0, accepted: 0, retry: 0, failed: 0, uncertain: 0, abandoned: 0 };
   // Validate all environment/SMTP requirements before modifying the queue.
-  const config = getSmtpEmailConfig(env);
+  const config = getEmailDeliveryConfig(env);
   if (!config) return { ...summary, disabled: true };
   const now = options.now ?? (() => new Date());
   const batchSize = options.batchSize ?? 10;
   if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > 50) throw new Error("Invalid email batch size.");
-  const provider = options.provider ?? createSmtpEmailProvider(config);
+  const provider = options.provider ?? createEmailProvider(config);
+  const log = options.log ?? defaultLog;
   summary.abandoned = await options.repository.recoverAbandoned(now());
   for (let index = 0; index < batchSize; index += 1) {
     const row = await options.repository.claim(now(), config.sendNotBefore);
     if (!row) break;
     summary.claimed += 1;
     let decision: DeliveryDecision;
+    const startedAt = Date.now();
     try {
       if (!["payment_approved", "order_shipped"].includes(row.kind) || !Number.isInteger(row.totalInCents) || row.totalInCents < 0) {
         throw new EmailDeliveryError("failed", "InvalidEmailSnapshot");
@@ -101,17 +128,28 @@ export async function processEmailOutbox(options: {
       assertEmailRecipientAllowed({ ...message, to: row.recipient ?? "" }, config);
       const result = await deliverTransactionalEmail(message, row.messageId, provider, env);
       decision = result.status === "disabled"
-        ? { status: "failed", provider: "smtp", code: "EmailDisabledDuringAttempt" }
+        ? { status: "failed", provider: config.driver, code: "EmailDisabledDuringAttempt" }
         : result;
     } catch (error) {
       decision = error instanceof EmailDeliveryError
-        ? { status: error.outcome, provider: "smtp", code: error.code }
-        : { status: "uncertain", provider: "smtp", code: "UnclassifiedWorkerFailure" };
+        ? { status: error.outcome, provider: config.driver, code: error.code, ...(error.detail ? { detail: error.detail } : {}) }
+        : { status: "uncertain", provider: config.driver, code: "UnclassifiedWorkerFailure" };
     }
     // Persistence errors stop this worker; the sending lease becomes uncertain.
     // Payment was already committed and the message is not sent again blindly.
     const status = await options.repository.finish(row, decision, now());
     summary[status] += 1;
+    log({
+      provider: config.driver,
+      messageKind: row.kind,
+      order: opaque(row.orderId),
+      attempt: row.attempts,
+      status,
+      code: decision.status === "accepted" ? null : decision.code,
+      providerErrorCode: decision.status !== "accepted" && decision.detail ? decision.detail : null,
+      providerRequestId: decision.status === "accepted" && decision.id.startsWith("zeptomail:") ? decision.id.slice("zeptomail:".length) : null,
+      latencyMs: Date.now() - startedAt,
+    });
   }
   return summary;
 }

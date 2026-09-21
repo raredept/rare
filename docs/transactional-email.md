@@ -1,6 +1,65 @@
 # E-mail de confirmação de pagamento
 
-O release implementa outbox persistente e adaptador SMTP compatível com Zoho. A entrega externa continua **não homologada** e produção mantém `EMAIL_DRIVER=disabled`. O proprietário confirmou a caixa Zoho `contato@raredept.com.br`; faltam host/região, credencial SMTP e destinatário controlado para o ensaio. Estado consolidado: [FINAL_RELEASE_STATUS.md](../FINAL_RELEASE_STATUS.md).
+O release implementa outbox persistente e dois transportes explícitos, `smtp` (compatível com Zoho) e `zeptomail` (REST/HTTPS, para ambientes que bloqueiam SMTP de saída). A entrega externa continua **não homologada** e produção mantém `EMAIL_DRIVER=disabled`. O proprietário confirmou a caixa Zoho `contato@raredept.com.br`; faltam host/região, credencial SMTP e destinatário controlado para o ensaio. Estado consolidado: [FINAL_RELEASE_STATUS.md](../FINAL_RELEASE_STATUS.md).
+
+## Drivers de transporte: `disabled`, `smtp`, `zeptomail`
+
+`EMAIL_DRIVER` escolhe **explicitamente** o transporte. Outbox, claim/finish, retries, idempotência `(orderId, kind)`, templates (`payment_approved`, `order_shipped`), `EMAIL_DELIVERY_MODE`, `EMAIL_TEST_RECIPIENTS` e `EMAIL_SEND_NOT_BEFORE` são os mesmos nos três; só a camada de envio muda. **Não existe fallback automático** entre transportes: se o driver escolhido falhar, a linha segue a regra do outbox e nunca é reenviada por outro transporte.
+
+| Driver | Uso | Observação |
+| --- | --- | --- |
+| `disabled` | padrão e **produção enquanto não autorizada** | não assume linhas, não abre conexão; a intenção continua sendo gravada |
+| `smtp` | local, outro provedor, fallback operacional **manual** | Nodemailer; a Railway bloqueia SMTP de saída (587/465/2525 em timeout), então não funciona em containers Railway |
+| `zeptomail` | Railway (HTTPS 443) | REST `POST https://api.zeptomail.com/v1.1/email`, `Authorization: Zoho-enczapikey <Send Mail token>` |
+
+### Variáveis do driver `zeptomail`
+
+| Variável | Requisito |
+| --- | --- |
+| `EMAIL_DRIVER` | `zeptomail` |
+| `ZEPTOMAIL_SEND_TOKEN` | **Segredo.** Send Mail token do *Mail Agent* (aceita com ou sem o prefixo `Zoho-enczapikey `). Somente Railway/servidor: nunca Git, log, relatório, bundle ou resposta de erro |
+| `ZEPTOMAIL_API_BASE` | Opcional. Padrão `https://api.zeptomail.com/v1.1`. Só aceita https e hosts oficiais da ZeptoMail (`api.zeptomail.{com,eu,in,com.au,jp,com.cn,sa,ca}`) com caminho `/v1.1`; qualquer outro valor invalida a configuração, para o token nunca ir a outro host. Use o host do **data center da sua conta** |
+| `EMAIL_FROM_ORDERS` | Remetente; precisa pertencer a um domínio **verificado** no Mail Agent |
+| `EMAIL_REPLY_TO` | Opcional (`contato@raredept.com.br`) |
+| `APP_ENV`, `EMAIL_DELIVERY_MODE`, `EMAIL_TEST_RECIPIENTS`, `EMAIL_SEND_NOT_BEFORE` | Iguais ao SMTP (abaixo). `SMTP_*` não são lidas por este driver e podem permanecer como legado |
+
+Configure nos **dois** serviços: web (enfileira) e worker (`rare-checkout-worker-staging` / `rare-cron`, que envia). Editar variável na Railway pode reaplicar o código do Git do serviço: confira o commit/hash implantado depois.
+
+### Como a requisição é feita
+
+- Corpo: `from`, `to` (um destinatário), `reply_to`, `subject`, `textbody`, `htmlbody`, `client_reference`, sem rastreio de abertura/clique. `client_reference` = `rare-` + 32 hex derivados do id da mensagem do outbox (sem PII, número de pedido ou segredo).
+- **Timeout explícito de 15 s** e sem redirecionamentos (o cabeçalho de autenticação nunca é reenviado).
+- **Uma única camada de repetição: o outbox** (até 5 tentativas, espera exponencial a partir de 1 min). A camada HTTP não repete nada.
+- Classificação: 2xx com corpo reconhecido → `accepted`; 2xx com corpo irreconhecível → `uncertain`; 429, 408 e 5xx → `retry`; falha de DNS, recusa, conexão ou TLS **antes do envio** → `retry`; timeout de resposta ou queda depois do envio → `uncertain` (pode ter sido aceito; sem retry cego, como no SMTP); 400, 401, 402, 403 e demais 4xx → `failed`. O código de erro da ZeptoMail (por exemplo `TM_3201`) vai só ao log do servidor; no banco fica apenas um código fixo (`ZeptoMailRateLimited`, `ZeptoMailAuthenticationFailed`…).
+- Risco residual: a API não tem chave de idempotência; um 5xx repetido pode, raramente, duplicar uma mensagem que o provedor chegou a processar.
+
+### Logs e health
+
+Cada tentativa registra uma linha JSON sanitizada: `provider`, `messageKind`, `order` (hash de 12 hex), `attempt`, `status`, `code`, `providerErrorCode`, `providerRequestId`, `latencyMs`. Nunca token, cabeçalho `Authorization`, destinatário, nome, número do pedido, corpo ou texto de resposta do provedor. O `/api/health` de **Admin** traz `environment.email = { driver, configured, deliveryMode }` (só enum e booleano); anônimo não recebe nada sobre e-mail.
+
+### Staging e produção
+
+- **Staging:** `APP_ENV=staging`, `EMAIL_DELIVERY_MODE=test`, `EMAIL_TEST_RECIPIENTS` com as caixas controladas, corte `EMAIL_SEND_NOT_BEFORE` no início do ensaio. Destinatário fora da lista → `EmailRecipientNotAllowlisted` e **zero** chamadas à ZeptoMail.
+- **Produção:** permanece `EMAIL_DRIVER=disabled` (com `CHECKOUT_ENABLED` e `SHIPPING_ENABLED` em `false`) até autorização explícita. Ao ativar: `APP_ENV=production`, `EMAIL_DELIVERY_MODE=production`, token de **produção** em Mail Agent próprio, corte no instante da ativação.
+- **DNS manual (ZeptoMail):** o domínio do remetente precisa ser adicionado e verificado no Mail Agent, com o DKIM e o CNAME de *bounce* que a própria ZeptoMail gera (valores exibidos no painel). O Zoho Mail atual (seletor `zoho`) **não** cobre automaticamente a ZeptoMail. Preserve MX, SPF do Zoho Mail e DMARC; não suba o DMARC de `p=none` sem histórico de entrega estável.
+
+### Troubleshooting
+
+| Sintoma (código no outbox ou no log) | Causa provável | Ação |
+| --- | --- | --- |
+| `MissingZEPTOMAIL_SEND_TOKEN`, `InvalidZeptoMailSendToken` | token ausente, com espaço ou quebra de linha | recolar o token no serviço (web **e** worker) |
+| `InvalidZeptoMailApiBase` | `ZEPTOMAIL_API_BASE` fora dos hosts oficiais | remover a variável ou usar o host do seu data center |
+| `ZeptoMailAuthenticationFailed` (401) | token inválido, revogado ou de outro data center | gerar novo Send Mail token; conferir o host |
+| `ZeptoMailForbidden` (403), `providerErrorCode` `AE_101`/`SERR_156` | conta bloqueada ou IP não autorizado no Mail Agent | resolver no painel da ZeptoMail |
+| `ZeptoMailCreditsUnavailable` (402) | créditos esgotados ou expirados | recarregar; depois revisar linhas `failed` |
+| `ZeptoMailRejectedRequest` (400) | remetente/domínio não verificado, campo inválido | conferir domínio verificado e `EMAIL_FROM_ORDERS` |
+| `ZeptoMailRateLimited`, `ZeptoMailServerError` | limite ou instabilidade | o outbox repete sozinho; após 5 tentativas vira `failed` (`RetryLimitReached`) |
+| `ZeptoMailDeadlineExceeded`, `ZeptoMailAcceptanceUnknown`, `ZeptoMailUnexpectedResponse` (`uncertain`) | pode ter sido aceito | conferir o *Email Logs* da ZeptoMail pelo `providerRequestId`/`client_reference`, depois `email:review-outbox` |
+| Aceito, mas em Spam | reputação e DNS | ver DNS acima; não é defeito da aplicação |
+
+### Rollback
+
+Parar os envios **não exige reverter código:** `EMAIL_DRIVER=disabled` nos serviços web e worker. O outbox segue enfileirando; ao religar, `EMAIL_SEND_NOT_BEFORE` impede enviar o backlog. Voltar ao SMTP é só `EMAIL_DRIVER=smtp` (as variáveis `SMTP_*` legadas ficam nos ambientes até a migração ser consolidada; a limpeza é tarefa separada).
 
 ## Pagamento, fila e falhas
 

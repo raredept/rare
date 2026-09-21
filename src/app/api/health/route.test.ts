@@ -349,6 +349,52 @@ describe("health route readiness", () => {
     }));
   });
 
+  it("shows an Admin the e-mail driver readiness without any credential or address", async () => {
+    process.env.DATABASE_URL = "postgresql://localhost:5432/rare_test";
+    process.env.APP_ENV = "staging";
+    process.env.EMAIL_DRIVER = "zeptomail";
+    process.env.EMAIL_DELIVERY_MODE = "test";
+    process.env.EMAIL_TEST_RECIPIENTS = "qa@homologacao.example.org";
+    process.env.EMAIL_FROM_ORDERS = "orders@raredept.com.br";
+    process.env.EMAIL_SEND_NOT_BEFORE = "2026-01-01T00:00:00Z";
+    process.env.ZEPTOMAIL_SEND_TOKEN = "synthetic-send-mail-token-not-a-credential";
+    healthMocks.prisma.$queryRaw.mockResolvedValue([{ ok: 1 }]);
+
+    const body = await (await GET()).json();
+    const serialized = JSON.stringify(body);
+
+    expect(body.environment.email).toEqual({ driver: "zeptomail", configured: true, deliveryMode: "test" });
+    expect(body.operational.summary.email).toBe("zeptomail_configured_delivery_unverified");
+    expect(serialized).not.toContain("synthetic-send-mail-token-not-a-credential");
+    expect(serialized).not.toContain("homologacao.example.org");
+    delete process.env.ZEPTOMAIL_SEND_TOKEN;
+  });
+
+  it("reports an incomplete zeptomail configuration as not configured", async () => {
+    process.env.DATABASE_URL = "postgresql://localhost:5432/rare_test";
+    process.env.APP_ENV = "staging";
+    process.env.EMAIL_DRIVER = "zeptomail";
+    process.env.EMAIL_DELIVERY_MODE = "test";
+    delete process.env.ZEPTOMAIL_SEND_TOKEN;
+    healthMocks.prisma.$queryRaw.mockResolvedValue([{ ok: 1 }]);
+
+    const body = await (await GET()).json();
+
+    expect(body.environment.email).toEqual({ driver: "zeptomail", configured: false, deliveryMode: "test" });
+    expect(body.operational.summary.email).toBe("missing_required_configuration");
+  });
+
+  it("never tells an anonymous caller which e-mail provider is in use", async () => {
+    healthMocks.getCurrentAdmin.mockResolvedValue(null);
+    process.env.DATABASE_URL = "postgresql://localhost:5432/rare_test";
+    process.env.EMAIL_DRIVER = "zeptomail";
+    healthMocks.prisma.$queryRaw.mockResolvedValue([{ ok: 1 }]);
+
+    const serialized = JSON.stringify(await (await GET()).json());
+
+    expect(serialized).not.toMatch(/zeptomail|smtp|email/i);
+  });
+
   it("returns 503 when the database check fails even if configuration is valid", async () => {
     process.env.DATABASE_URL = "postgresql://rare:password@localhost:5432/rare_test";
     process.env.RATE_LIMIT_DRIVER = "redis";

@@ -14,7 +14,7 @@ import {
 import { getProductShippingNotReadyWhere } from "@/lib/product-shipping-readiness-prisma";
 import { getServerRuntimeMetadata } from "@/lib/server-action-observability";
 import { getReleaseArtifact } from "@/lib/release-artifact";
-import { getEmailConfigurationStatus } from "@/lib/email-config";
+import { getEmailConfigurationStatus, getEmailReadiness } from "@/lib/email-config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -260,6 +260,8 @@ export async function GET(request?: Request) {
         nodeEnv: env.nodeEnv,
         checkoutEnabled: env.checkoutEnabled,
         storageDriver: env.storageDriver,
+        // Admin-only, booleans and enum names: never a host, token, mailbox or allowlist.
+        email: getEmailReadiness(),
         rateLimit: {
           checked: true,
           configuredDriver: rateLimit.configuredDriver,
