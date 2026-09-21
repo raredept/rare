@@ -102,7 +102,7 @@ test("first access blocks pages, API and a real Server Action, rotates the passw
   const rejectedTemporaryContext = await browser.newContext({ baseURL });
   const rejectedTemporaryPage = await rejectedTemporaryContext.newPage();
   await login(rejectedTemporaryPage, pendingLogin!, pendingPassword!);
-  await expect(rejectedTemporaryPage.getByText("Credenciais invalidas.")).toBeVisible();
+  await expect(rejectedTemporaryPage.getByText("Credenciais inválidas.")).toBeVisible();
 
   const replacementContext = await browser.newContext({ baseURL });
   const replacementPage = await replacementContext.newPage();

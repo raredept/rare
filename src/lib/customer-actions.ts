@@ -68,7 +68,7 @@ export async function registerCustomerAction(_state: CustomerActionState, formDa
     return {
       error: "Revise os campos do cadastro.",
       fieldErrors: {
-        password: ["A senha e longa demais. Use ate 72 caracteres simples ou reduza os caracteres especiais."],
+        password: ["A senha é longa demais. Use até 72 caracteres simples ou reduza os caracteres especiais."],
       },
     };
   }
@@ -102,9 +102,9 @@ export async function registerCustomerAction(_state: CustomerActionState, formDa
     });
   } catch (error) {
     if (isUniqueConstraintError(error)) {
-      return { error: "Ja existe um cadastro com este e-mail." };
+      return { error: "Já existe um cadastro com este e-mail." };
     }
-    return { error: "Nao foi possivel criar o cadastro agora." };
+    return { error: "Não foi possível criar o cadastro agora." };
   }
 
   const token = await signCustomerSession(customer);
@@ -119,7 +119,7 @@ export async function loginCustomerAction(_state: CustomerActionState, formData:
   });
 
   if (!parsed.success) {
-    return { error: "Informe e-mail e senha validos." };
+    return { error: "Informe e-mail e senha válidos." };
   }
 
   const email = parsed.data.email.toLowerCase();
@@ -142,7 +142,7 @@ export async function loginCustomerAction(_state: CustomerActionState, formData:
 
   const validPassword = await verifyPasswordConstantCost(parsed.data.password, customer?.passwordHash);
   if (!customer || !validPassword) {
-    return { error: "Credenciais invalidas." };
+    return { error: "Credenciais inválidas." };
   }
 
   const token = await signCustomerSession(customer);
@@ -205,7 +205,7 @@ export async function createCustomerAddressAction(
 
   if (!parsed.success) {
     return {
-      error: "Revise o endereco informado.",
+      error: "Revise o endereço informado.",
       fieldErrors: parsed.error.flatten().fieldErrors,
     };
   }
@@ -229,7 +229,7 @@ export async function createCustomerAddressAction(
   });
 
   revalidatePath("/minha-conta/enderecos");
-  return { success: "Endereco cadastrado com sucesso." };
+  return { success: "Endereço cadastrado com sucesso." };
 }
 
 export async function updateCustomerAddressAction(addressId: string, formData: FormData) {
@@ -237,7 +237,7 @@ export async function updateCustomerAddressAction(addressId: string, formData: F
   const parsed = parseAddressForm(formData);
 
   if (!parsed.success) {
-    redirect(addressFormPath("Revise os campos do endereco."));
+    redirect(addressFormPath("Revise os campos do endereço."));
   }
 
   const address = await prisma.customerAddress.findFirst({
@@ -249,7 +249,7 @@ export async function updateCustomerAddressAction(addressId: string, formData: F
   });
 
   if (!address) {
-    redirect(addressFormPath("Endereco nao encontrado."));
+    redirect(addressFormPath("Endereço não encontrado."));
   }
 
   await prisma.$transaction(async (tx) => {
@@ -273,7 +273,7 @@ export async function updateCustomerAddressAction(addressId: string, formData: F
 export async function deleteCustomerAddressAction(formData: FormData) {
   const customer = await requireCustomer("/minha-conta/enderecos");
   const id = getString(formData, "id");
-  if (!id) redirect(addressFormPath("Endereco nao encontrado."));
+  if (!id) redirect(addressFormPath("Endereço não encontrado."));
 
   await prisma.$transaction(async (tx) => {
     const address = await tx.customerAddress.findFirst({
@@ -305,7 +305,7 @@ export async function deleteCustomerAddressAction(formData: FormData) {
 export async function setDefaultCustomerAddressAction(formData: FormData) {
   const customer = await requireCustomer("/minha-conta/enderecos");
   const id = getString(formData, "id");
-  if (!id) redirect(addressFormPath("Endereco nao encontrado."));
+  if (!id) redirect(addressFormPath("Endereço não encontrado."));
 
   const address = await prisma.customerAddress.findFirst({
     where: { id, customerId: customer.id },
@@ -313,7 +313,7 @@ export async function setDefaultCustomerAddressAction(formData: FormData) {
   });
 
   if (!address) {
-    redirect(addressFormPath("Endereco nao encontrado."));
+    redirect(addressFormPath("Endereço não encontrado."));
   }
 
   await prisma.$transaction(async (tx) => {

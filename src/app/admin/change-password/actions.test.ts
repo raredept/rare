@@ -79,7 +79,7 @@ describe("forced admin password change", () => {
     const { changePasswordAction } = await import("@/app/admin/change-password/actions");
 
     await expect(changePasswordAction({}, passwordForm(password))).resolves.toEqual({
-      error: "A nova senha e longa demais. Use ate 72 caracteres simples ou reduza os caracteres especiais.",
+      error: "A nova senha é longa demais. Use até 72 caracteres simples ou reduza os caracteres especiais.",
     });
     expect(mocks.updateMany).not.toHaveBeenCalled();
     expect(mocks.setAdminSessionCookie).not.toHaveBeenCalled();

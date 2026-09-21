@@ -15,7 +15,7 @@ function validateNewPassword(password: string) {
   }
 
   if (bcrypt.truncates(password)) {
-    return "A nova senha e longa demais. Use ate 72 caracteres simples ou reduza os caracteres especiais.";
+    return "A nova senha é longa demais. Use até 72 caracteres simples ou reduza os caracteres especiais.";
   }
 
   if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/\d/.test(password)) {

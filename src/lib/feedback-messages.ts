@@ -106,7 +106,7 @@ export function resolveAdminSuccessMessage(raw: string | null) {
   return adminSuccessCodes.get(raw) ?? null;
 }
 
-export const CUSTOMER_ADDRESS_MESSAGES: ReadonlySet<string> = new Set(["Endereco nao encontrado.", "Revise os campos do endereco."]);
+export const CUSTOMER_ADDRESS_MESSAGES: ReadonlySet<string> = new Set(["Endereço não encontrado.", "Revise os campos do endereço."]);
 export const CUSTOMER_GENERIC_ERROR = "Não foi possível concluir a ação. Tente novamente.";
 
 export function resolveCustomerAddressError(raw: string | null | undefined) {

@@ -48,7 +48,7 @@ describe("resolveAdminSuccessMessage", () => {
 
 describe("resolveCustomerAddressError", () => {
   it("shows only the address messages the server sends", () => {
-    expect(resolveCustomerAddressError("Endereco nao encontrado.")).toBe("Endereco nao encontrado.");
+    expect(resolveCustomerAddressError("Endereço não encontrado.")).toBe("Endereço não encontrado.");
     expect(resolveCustomerAddressError("Seu cartão foi recusado, atualize em evil.example")).toBe(CUSTOMER_GENERIC_ERROR);
     expect(resolveCustomerAddressError(undefined)).toBeNull();
   });

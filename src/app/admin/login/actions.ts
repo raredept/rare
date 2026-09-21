@@ -39,7 +39,7 @@ export async function loginAction(_state: LoginState, formData: FormData): Promi
 
   const validPassword = await verifyPasswordConstantCost(parsed.data.password, user?.passwordHash);
   if (!user || !validPassword) {
-    return { error: "Credenciais invalidas." };
+    return { error: "Credenciais inválidas." };
   }
 
   const token = await signAdminSession(user);

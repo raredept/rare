@@ -139,7 +139,7 @@ describe("customer actions", () => {
     const result = await registerCustomerAction({}, buildRegisterFormData({ password, passwordConfirmation: password }));
 
     expect(result.fieldErrors?.password).toEqual([
-      "A senha e longa demais. Use ate 72 caracteres simples ou reduza os caracteres especiais.",
+      "A senha é longa demais. Use até 72 caracteres simples ou reduza os caracteres especiais.",
     ]);
     expect(actionMocks.hash).not.toHaveBeenCalled();
     expect(actionMocks.prisma.customer.create).not.toHaveBeenCalled();
@@ -204,7 +204,7 @@ describe("customer actions", () => {
     actionMocks.compare.mockResolvedValueOnce(false);
     const { loginCustomerAction } = await import("@/lib/customer-actions");
 
-    await expect(loginCustomerAction({}, buildLoginFormData())).resolves.toEqual({ error: "Credenciais invalidas." });
+    await expect(loginCustomerAction({}, buildLoginFormData())).resolves.toEqual({ error: "Credenciais inválidas." });
     expect(actionMocks.setCustomerSessionCookie).not.toHaveBeenCalled();
   });
 
@@ -219,7 +219,7 @@ describe("customer actions", () => {
     const { createCustomerAddressAction } = await import("@/lib/customer-actions");
 
     await expect(createCustomerAddressAction({}, buildAddressFormData())).resolves.toEqual({
-      success: "Endereco cadastrado com sucesso.",
+      success: "Endereço cadastrado com sucesso.",
     });
     expect(actionMocks.requireCustomer).toHaveBeenCalledWith("/minha-conta/enderecos");
     expect(actionMocks.tx.customerAddress.create).toHaveBeenCalledWith({
@@ -236,7 +236,7 @@ describe("customer actions", () => {
     const { createCustomerAddressAction } = await import("@/lib/customer-actions");
 
     const result = await createCustomerAddressAction({}, buildAddressFormData({ cep: "123" }));
-    expect(result.error).toBe("Revise o endereco informado.");
+    expect(result.error).toBe("Revise o endereço informado.");
     expect(actionMocks.prisma.$transaction).not.toHaveBeenCalled();
   });
 

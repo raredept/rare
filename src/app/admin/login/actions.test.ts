@@ -94,7 +94,7 @@ describe("admin login action", () => {
     mocks.compare.mockResolvedValueOnce(false);
     const { loginAction } = await import("@/app/admin/login/actions");
 
-    await expect(loginAction({}, loginForm())).resolves.toEqual({ error: "Credenciais invalidas." });
+    await expect(loginAction({}, loginForm())).resolves.toEqual({ error: "Credenciais inválidas." });
     expect(mocks.setAdminSessionCookie).not.toHaveBeenCalled();
   });
 
@@ -102,7 +102,7 @@ describe("admin login action", () => {
     mocks.findFirst.mockResolvedValueOnce(null);
     const { loginAction } = await import("@/app/admin/login/actions");
 
-    await expect(loginAction({}, loginForm())).resolves.toEqual({ error: "Credenciais invalidas." });
+    await expect(loginAction({}, loginForm())).resolves.toEqual({ error: "Credenciais inválidas." });
     expect(mocks.findFirst).toHaveBeenCalledWith({
       where: {
         role: "ADMIN",
@@ -124,7 +124,7 @@ describe("admin login action", () => {
     mocks.compare.mockResolvedValue(true);
     const { loginAction } = await import("@/app/admin/login/actions");
 
-    await expect(loginAction({}, loginForm())).resolves.toEqual({ error: "Credenciais invalidas." });
+    await expect(loginAction({}, loginForm())).resolves.toEqual({ error: "Credenciais inválidas." });
     expect(mocks.signAdminSession).not.toHaveBeenCalled();
   });
 
