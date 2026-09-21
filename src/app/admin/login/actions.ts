@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { checkLoginRateLimit, verifyPasswordConstantCost } from "@/lib/login-guard";
 import { prisma } from "@/lib/prisma";
+import { getSafeAdminNext } from "@/lib/safe-redirect";
 import { loginSchema } from "@/lib/validators";
 import { setAdminSessionCookie, signAdminSession } from "@/lib/auth";
 
@@ -48,7 +49,5 @@ export async function loginAction(_state: LoginState, formData: FormData): Promi
     redirect("/admin/change-password");
   }
 
-  const next = formData.get("next");
-  const target = typeof next === "string" && next.startsWith("/admin") && next !== "/admin/login" ? next : "/admin";
-  redirect(target);
+  redirect(getSafeAdminNext(formData.get("next")));
 }

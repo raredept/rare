@@ -9,6 +9,7 @@ import { checkLoginRateLimit, getActionClientIp, verifyPasswordConstantCost } fr
 import { normalizePhone, onlyDigits } from "@/lib/privacy";
 import { prisma } from "@/lib/prisma";
 import { rateLimit } from "@/lib/rate-limit";
+import { getSafeCustomerNext } from "@/lib/safe-redirect";
 import { customerAddressSchema, customerProfileSchema, customerRegisterSchema, loginSchema } from "@/lib/validators";
 
 export type CustomerActionState = {
@@ -20,20 +21,6 @@ export type CustomerActionState = {
 function getString(formData: FormData, key: string) {
   const value = formData.get(key);
   return typeof value === "string" ? value : "";
-}
-
-function getSafeCustomerNext(value: FormDataEntryValue | null) {
-  if (typeof value !== "string") return "/minha-conta";
-  if (
-    value.startsWith("/minha-conta") ||
-    value === "/cart" ||
-    value.startsWith("/cart?") ||
-    value === "/finalizar-compra" ||
-    value.startsWith("/finalizar-compra?")
-  ) {
-    return value;
-  }
-  return "/minha-conta";
 }
 
 function isUniqueConstraintError(error: unknown) {
