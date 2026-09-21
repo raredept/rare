@@ -1,6 +1,7 @@
 import { getRateLimitStatus } from "@/lib/rate-limit-config";
-import { getEmailConfigurationStatus } from "@/lib/email-config";
+import { getEmailConfigurationIssue, getEmailConfigurationStatus } from "@/lib/email-config";
 import { detectConfigDrift } from "@/lib/config-drift";
+import { isRestrictedAppEnv } from "@/lib/deployment-environment";
 
 type EnvIssueLevel = "error" | "warning";
 
@@ -232,7 +233,7 @@ export function getR2StorageConfig(env: Record<string, string | undefined> = pro
 // mounts a persistent volume. A live production environment (APP_ENV=production or
 // unset) can never opt in, so a stray flag cannot silently move uploads to disk.
 export function isLocalStorageAllowedInProduction(env: Record<string, string | undefined> = process.env) {
-  const restricted = ["staging", "preview", "homologation"].includes(clean(env.APP_ENV)?.toLowerCase() ?? "");
+  const restricted = isRestrictedAppEnv(env);
   return restricted && clean(env.ALLOW_LOCAL_STORAGE_IN_PRODUCTION)?.toLowerCase() === "true";
 }
 
@@ -325,7 +326,10 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
 
   const webPushPublicKey = clean(env.NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY);
   if (getEmailConfigurationStatus(env) === "missing_required_configuration") {
-    addIssue(issues, "error", "EMAIL_DRIVER", "Use EMAIL_DRIVER=disabled, or a complete smtp/zeptomail configuration with an explicit environment, delivery mode, backlog cutoff and test allowlist outside production.");
+    // The reason code says which rule failed (for example a production deployment in
+    // test delivery mode) without echoing any mailbox, host or token.
+    const reason = getEmailConfigurationIssue(env);
+    addIssue(issues, "error", "EMAIL_DRIVER", `Use EMAIL_DRIVER=disabled, or a complete smtp/zeptomail configuration with an explicit environment, delivery mode, backlog cutoff and test allowlist outside production.${reason ? ` Motivo: ${reason}.` : ""}`);
   }
   const webPushPrivateKey = clean(env.WEB_PUSH_VAPID_PRIVATE_KEY);
   if (production) {

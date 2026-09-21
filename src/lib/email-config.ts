@@ -1,3 +1,4 @@
+import { DEVELOPMENT_APP_ENVS, PRODUCTION_APP_ENVS, RESTRICTED_APP_ENVS } from "@/lib/deployment-environment";
 import { EmailDeliveryError, getTransactionalEmailDriver } from "@/lib/transactional-email";
 
 // Fields shared by every transport. Delivery policy (environment/mode, allowlist and the
@@ -90,8 +91,8 @@ export function getSmtpEmailConfig(env: Record<string, string | undefined> = pro
 // transport-specific values, then sender and cutoff.
 function readPolicyThen<T extends object>(env: Record<string, string | undefined>, invalidMailboxCode: string, readTransport: () => T) {
   const environment = requireValue(env, "APP_ENV").toLowerCase();
-  const production = ["production", "prod", "live"].includes(environment);
-  if (!production && !["test", "development", "staging", "preview", "homologation"].includes(environment)) {
+  const production = PRODUCTION_APP_ENVS.includes(environment);
+  if (!production && !RESTRICTED_APP_ENVS.includes(environment) && !DEVELOPMENT_APP_ENVS.includes(environment)) {
     throw new EmailDeliveryError("failed", "UnknownEmailEnvironment");
   }
   const mode = requireValue(env, "EMAIL_DELIVERY_MODE");
@@ -157,6 +158,18 @@ export function getEmailConfigurationStatus(env: Record<string, string | undefin
     return config.driver === "zeptomail" ? "zeptomail_configured_delivery_unverified" : "smtp_configured_delivery_unverified";
   } catch {
     return "missing_required_configuration";
+  }
+}
+
+// The fixed reason code for an invalid configuration, e.g. EmailEnvironmentModeMismatch
+// or MissingZEPTOMAIL_SEND_TOKEN. Codes name a rule or a variable, never a value, so
+// they are safe for operator-facing readiness output.
+export function getEmailConfigurationIssue(env: Record<string, string | undefined> = process.env): string | null {
+  try {
+    getEmailDeliveryConfig(env);
+    return null;
+  } catch (error) {
+    return error instanceof EmailDeliveryError && /^[A-Za-z_]{1,64}$/.test(error.code) ? error.code : "InvalidEmailConfiguration";
   }
 }
 
