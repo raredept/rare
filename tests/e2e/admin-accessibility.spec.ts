@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+import { waitForEntranceAnimations } from "./storefront-fixtures";
 
 /**
  * Accessibility pass over the authenticated Admin.
@@ -99,6 +100,8 @@ test.describe("Admin accessibility", () => {
       // A single main landmark and a single h1, so the page structure is unambiguous.
       await expect(page.locator("main")).toHaveCount(1);
       await expect(page.locator("h1")).toHaveCount(1);
+      // The Admin fades in too; axe must not sample text mid-fade.
+      await waitForEntranceAnimations(page);
 
       const results = await new AxeBuilder({ page }).analyze();
       expect(results.violations, formatViolations(results.violations)).toEqual([]);
@@ -123,6 +126,7 @@ test.describe("Admin accessibility", () => {
 
       await page.goto(href!, { waitUntil: "domcontentloaded" });
       await expect(page.locator("h1")).toBeVisible();
+      await waitForEntranceAnimations(page);
       const results = await new AxeBuilder({ page }).analyze();
       expect(results.violations, formatViolations(results.violations)).toEqual([]);
     });

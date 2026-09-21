@@ -77,6 +77,20 @@ export function captureUnexpectedBrowserIssues(page: Page, baseURL = configuredB
   return issues;
 }
 
+const MANIFEST_401 = "response 401: /manifest.webmanifest";
+
+/**
+ * Behind the staging Basic gate, browsers fetch the web manifest without
+ * credentials (WebKit always does) and get 401. Production has no gate. Only
+ * that is excused, only when the gate is configured, and the URL-less console
+ * line only when the manifest is the sole 401.
+ */
+export function withoutStagingGateNoise(issues: readonly string[]) {
+  if (!process.env.STAGING_ACCESS_USERNAME) return [...issues];
+  const onlyManifest401 = issues.filter((issue) => issue.startsWith("response 401:")).every((issue) => issue === MANIFEST_401);
+  return issues.filter((issue) => issue !== MANIFEST_401 && !(onlyManifest401 && /status of 401 \(\)$/.test(issue)));
+}
+
 export function formatAxeViolations(violations: Array<{ id: string; impact?: string | null; nodes: Array<{ target: unknown; failureSummary?: string }> }>) {
   return violations
     .map((violation) => {

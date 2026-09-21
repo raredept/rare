@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { blockExternalRequests, captureUnexpectedBrowserIssues } from "./storefront-fixtures";
+import { blockExternalRequests, captureUnexpectedBrowserIssues, withoutStagingGateNoise } from "./storefront-fixtures";
 
 /**
  * Product gallery with several images: thumbnails, previous/next, lightbox,
@@ -158,15 +158,5 @@ test("renders without console errors or failed requests", async ({ page }) => {
   const issues = captureUnexpectedBrowserIssues(page);
   await page.goto(`/produto/${slug}`, { waitUntil: "load" });
   await page.waitForTimeout(1_000);
-  // Behind the staging Basic gate, browsers fetch the web manifest without
-  // credentials and get 401. Production has no gate, so only that is excused.
-  // The console line has no URL, so it is excused only when the manifest is
-  // the sole 401 response.
-  const gated = Boolean(process.env.STAGING_ACCESS_USERNAME);
-  const manifest401 = "response 401: /manifest.webmanifest";
-  const onlyManifest401 = issues.filter((issue) => issue.startsWith("response 401:")).every((issue) => issue === manifest401);
-  const unexpected = issues.filter(
-    (issue) => !(gated && (issue === manifest401 || (onlyManifest401 && /status of 401 \(\)$/.test(issue)))),
-  );
-  expect(unexpected).toEqual([]);
+  expect(withoutStagingGateNoise(issues)).toEqual([]);
 });

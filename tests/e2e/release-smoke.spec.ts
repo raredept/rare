@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
   blockExternalRequests,
-  captureUnexpectedBrowserIssues,
+  captureUnexpectedBrowserIssues, withoutStagingGateNoise,
   productPath,
 } from "./storefront-fixtures";
 
@@ -54,7 +54,7 @@ test("rotas essenciais têm h1, canonical seguro, metadata limpa e nenhum overfl
     expect(overflow, route).toBeLessThanOrEqual(1);
   }
 
-  expect(issues).toEqual([]);
+  expect(withoutStagingGateNoise(issues)).toEqual([]);
 });
 
 test("produto ausente retorna 404 útil sem transformar o estado esperado em erro de console", async ({ page }) => {
@@ -64,6 +64,10 @@ test("produto ausente retorna 404 útil sem transformar o estado esperado em err
 });
 
 test("checkout, carrinho, frete automático e oferta comprável permanecem desativados", async ({ page, request }) => {
+  // The release assertion is "sales are paused" (production today). A
+  // homologation with commerce switched on declares RELEASE_EXPECT_COMMERCE=
+  // enabled; its commerce paths are exercised by the checkout homologation.
+  test.skip(process.env.RELEASE_EXPECT_COMMERCE === "enabled", "Alvo com comércio ligado declarado (RELEASE_EXPECT_COMMERCE=enabled).");
   await page.goto(productPath, { waitUntil: "domcontentloaded" });
   const pausedAction = page.getByRole("button", { name: /Compras temporariamente pausadas/i });
   await expect(pausedAction).toBeVisible();

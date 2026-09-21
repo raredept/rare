@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { blockExternalRequests, captureUnexpectedBrowserIssues, publicAuditRoutes } from "./storefront-fixtures";
+import { blockExternalRequests, captureUnexpectedBrowserIssues, publicAuditRoutes, withoutStagingGateNoise } from "./storefront-fixtures";
 
 test.beforeEach(async ({ page }) => {
   await blockExternalRequests(page);
@@ -21,6 +21,6 @@ for (const route of publicAuditRoutes) {
     // old wait did.
     await page.waitForTimeout(1_000);
 
-    expect(issues).toEqual([]);
+    expect(withoutStagingGateNoise(issues)).toEqual([]);
   });
 }
