@@ -6,6 +6,8 @@ import { withAdminActionRefresh } from "@/lib/admin-action-refresh";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slug";
+import { CATEGORY_SLUG_TAKEN_CODE } from "@/lib/feedback-messages";
+import { isUniqueViolationOn } from "@/lib/prisma-errors";
 import { categoryFormSchema } from "@/lib/validators";
 
 function value(formData: FormData, key: string) {
@@ -17,8 +19,8 @@ function categoryFormPath(id: string) {
   return id ? `/admin/categories/${id}/edit` : "/admin/categories";
 }
 
-function redirectWithCategoryError(id: string): never {
-  redirect(withAdminActionRefresh(`${categoryFormPath(id)}?error=category-save-failed`));
+function redirectWithCategoryError(id: string, code = "category-save-failed"): never {
+  redirect(withAdminActionRefresh(`${categoryFormPath(id)}?error=${code}`));
 }
 
 function revalidateCategoryPaths(currentSlug?: string, previousSlug?: string | null) {
@@ -46,8 +48,12 @@ export async function saveCategoryAction(formData: FormData) {
   const parsed = parsedResult.data;
   const slug = parsed.slug ? slugify(parsed.slug) : slugify(parsed.name);
   const previousCategory = id ? await prisma.category.findUnique({ where: { id }, select: { slug: true } }) : null;
+  const slugOwner = await prisma.category.findUnique({ where: { slug }, select: { id: true } });
+  if (slugOwner && slugOwner.id !== id) redirectWithCategoryError(id, CATEGORY_SLUG_TAKEN_CODE);
 
-  const savedCategory = id
+  let savedCategory;
+  try {
+    savedCategory = id
     ? await prisma.category.update({
         where: { id },
         data: {
@@ -67,6 +73,10 @@ export async function saveCategoryAction(formData: FormData) {
           active: parsed.active,
         },
       });
+  } catch (error) {
+    if (isUniqueViolationOn(error, "slug")) redirectWithCategoryError(id, CATEGORY_SLUG_TAKEN_CODE);
+    throw error;
+  }
 
   revalidateCategoryPaths(savedCategory.slug, previousCategory?.slug);
   redirect(withAdminActionRefresh(id ? `/admin/categories/${savedCategory.id}/edit?success=category-saved` : "/admin/categories?success=category-created"));

@@ -108,12 +108,18 @@ function buildProductFormData(
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.requireAdmin.mockResolvedValue({ id: "admin-1" });
-  mocks.prisma.product.findUnique.mockResolvedValue({
-    id: "prod-1",
-    slug: "supreme-bag",
-    category: { slug: "acessorios" },
-    subcategory: { slug: "bags" },
-  });
+  // Lookup by id returns the edited product; lookup by slug (the uniqueness
+  // pre-check) finds no other owner unless a test says so.
+  mocks.prisma.product.findUnique.mockImplementation(async ({ where }: { where: { id?: string; slug?: string } }) =>
+    where.slug
+      ? null
+      : {
+          id: "prod-1",
+          slug: "supreme-bag",
+          category: { slug: "acessorios" },
+          subcategory: { slug: "bags" },
+        },
+  );
   mocks.prisma.category.findMany.mockResolvedValue([
     { id: "cat-accessories", parentId: null },
     { id: "cat-bags", parentId: "cat-accessories" },
@@ -185,7 +191,9 @@ describe("product admin actions", () => {
       /^NEXT_REDIRECT:\/admin\/products\/new\?success=product-created&refresh=\d+$/,
     );
 
-    expect(mocks.prisma.product.findUnique).not.toHaveBeenCalled();
+    // No previous-product lookup when creating; the single lookup is the slug check.
+    expect(mocks.prisma.product.findUnique).toHaveBeenCalledTimes(1);
+    expect(mocks.prisma.product.findUnique).toHaveBeenCalledWith({ where: { slug: "supreme-bag-nova" }, select: { id: true } });
     expect(mocks.tx.product.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -348,4 +356,60 @@ describe("product admin actions", () => {
 
     expect(mocks.tx.product.create).not.toHaveBeenCalled();
   }, 60000);
+});
+
+describe("slug collisions (regression: a duplicate slug crashed the Admin)", () => {
+  const slugTaken = encodeURIComponent("Já existe um produto com este slug. Escolha outro slug e salve novamente.");
+
+  function slugOwnedBy(ownerId: string) {
+    mocks.prisma.product.findUnique.mockImplementation(async ({ where }: { where: { id?: string; slug?: string } }) =>
+      where.slug ? { id: ownerId } : { id: "prod-1", slug: "supreme-bag", category: { slug: "acessorios" }, subcategory: { slug: "bags" } },
+    );
+  }
+
+  it("rejects creating a product whose slug another product already uses", async () => {
+    slugOwnedBy("prod-other");
+    const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
+
+    await expect(saveProductAction(null, buildProductFormData())).rejects.toThrow(`NEXT_REDIRECT:`);
+    const url = mocks.redirect.mock.calls.at(-1)?.[0] as string;
+    expect(url).toContain("/admin/products/new?");
+    expect(url).toContain(`error=${slugTaken}`);
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("rejects renaming a product to another product's slug", async () => {
+    slugOwnedBy("prod-2");
+    const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
+
+    await expect(saveProductAction("prod-1", buildProductFormData())).rejects.toThrow("NEXT_REDIRECT:");
+    expect(mocks.redirect.mock.calls.at(-1)?.[0]).toContain(`error=${slugTaken}`);
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("lets a product keep its own slug", async () => {
+    slugOwnedBy("prod-1");
+    const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
+
+    await expect(saveProductAction("prod-1", buildProductFormData())).rejects.toThrow("NEXT_REDIRECT:");
+    expect(mocks.redirect.mock.calls.at(-1)?.[0]).toContain("success=product-saved");
+  });
+
+  it("turns a slug race lost inside the transaction into the same message", async () => {
+    const { Prisma } = await import("@prisma/client");
+    mocks.prisma.$transaction.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError("Unique constraint failed on the fields: (`slug`)", { code: "P2002", clientVersion: "test" }),
+    );
+    const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
+
+    await expect(saveProductAction(null, buildProductFormData())).rejects.toThrow("NEXT_REDIRECT:");
+    expect(mocks.redirect.mock.calls.at(-1)?.[0]).toContain(`error=${slugTaken}`);
+  });
+
+  it("does not disguise an unrelated database failure as a slug problem", async () => {
+    mocks.prisma.$transaction.mockRejectedValueOnce(new Error("connection reset"));
+    const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
+
+    await expect(saveProductAction(null, buildProductFormData())).rejects.toThrow("connection reset");
+  });
 });

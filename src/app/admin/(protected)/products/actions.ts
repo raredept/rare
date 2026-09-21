@@ -10,6 +10,8 @@ import { requireAdmin } from "@/lib/auth";
 import { saveUploadedImage } from "@/lib/storage";
 import { ACTIVE_PRODUCT_SHIPPING_DATA_ERROR, hasCompleteProductShippingData, productFormSchema } from "@/lib/validators";
 import { slugify } from "@/lib/slug";
+import { PRODUCT_SLUG_TAKEN_MESSAGE } from "@/lib/feedback-messages";
+import { isUniqueViolationOn } from "@/lib/prisma-errors";
 import { PRODUCT_SHIPPING_LIMITS, type ProductShippingField } from "@/lib/product-shipping-readiness";
 
 function productFormPath(productId: string | null) {
@@ -242,6 +244,13 @@ export async function saveProductAction(productId: string | null, formData: Form
   await validateActiveCategorySelection(productId, parsed.categoryId, parsed.subcategoryId);
 
   const slug = parsed.slug ? slugify(parsed.slug) : slugify(title);
+  // Two products with the same title and no explicit slug collide here. Saying
+  // so is the difference between a correctable form error and the store's
+  // generic crash page, which also threw away everything the operator typed.
+  const slugOwner = await prisma.product.findUnique({ where: { slug }, select: { id: true } });
+  if (slugOwner && slugOwner.id !== productId) {
+    redirectWithProductFormError(productId, PRODUCT_SLUG_TAKEN_MESSAGE, shippingDraft);
+  }
   const previousProduct = productId
     ? await prisma.product.findUnique({
         where: { id: productId },
@@ -270,7 +279,9 @@ export async function saveProductAction(productId: string | null, formData: Form
     replaceImages: formData.get("replaceImages") === "on",
   });
 
-  const savedProduct = await prisma.$transaction(async (tx) => {
+  let savedProduct;
+  try {
+    savedProduct = await prisma.$transaction(async (tx) => {
     const product = productId
       ? await tx.product.update({
           where: { id: productId },
@@ -374,6 +385,11 @@ export async function saveProductAction(productId: string | null, formData: Form
 
     return product;
   });
+  } catch (error) {
+    // Another save claimed the slug between the check above and this write.
+    if (isUniqueViolationOn(error, "slug")) redirectWithProductFormError(productId, PRODUCT_SLUG_TAKEN_MESSAGE, shippingDraft);
+    throw error;
+  }
 
   revalidateProductPaths(savedProduct, previousProduct);
   if (!productId) {
