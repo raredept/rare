@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { categoryNavReducer, initialCategoryNavState } from "@/components/store/category-nav-state";
 import { virtualCatalogCategories } from "@/lib/catalog-categories";
+import { sortByPreferredCategoryOrder } from "@/lib/catalog-shortcuts";
 
 type NavigationCategory = {
   id: string;
@@ -26,39 +27,13 @@ const categoryMenuLinkBaseClass =
 const activeCategoryMenuLinkClass = "bg-neutral-950 text-white hover:bg-neutral-900 focus-visible:bg-neutral-900";
 const inactiveCategoryMenuLinkClass = "text-neutral-900 hover:bg-neutral-100 focus-visible:bg-neutral-100";
 
-const preferredCategoryOrder = new Map([
-  ["camisetas", 10],
-  ["jaquetas", 20],
-  ["conjuntos", 30],
-  ["bermudas", 40],
-  ["calcas", 50],
-  ["acessorios", 90],
-]);
-
 function isPointerStillInside(currentTarget: EventTarget & HTMLElement, relatedTarget: EventTarget | null) {
   return relatedTarget instanceof Node && currentTarget.contains(relatedTarget);
-}
-
-function normalizeCategoryKey(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
 }
 
 function getActiveCategorySlug(pathname: string) {
   const match = /^\/categoria\/([^/?#]+)/.exec(pathname);
   return match?.[1] ?? null;
-}
-
-function getPreferredOrder(category: NavigationCategory) {
-  for (const value of [category.slug, category.name]) {
-    const order = preferredCategoryOrder.get(normalizeCategoryKey(value));
-    if (order) return order;
-  }
-
-  return 70;
 }
 
 function getCategoryPillClass(isActive: boolean) {
@@ -96,17 +71,7 @@ export function CategoryNav({ categories }: { categories: NavigationCategory[] }
     dispatchNav({ type: "select" });
   }, [clearHoverCloseTimer]);
 
-  const orderedCategories = useMemo(
-    () =>
-      categories
-        .map((category, index) => ({ category, index }))
-        .sort((first, second) => {
-          const orderDiff = getPreferredOrder(first.category) - getPreferredOrder(second.category);
-          return orderDiff || first.index - second.index;
-        })
-        .map(({ category }) => category),
-    [categories],
-  );
+  const orderedCategories = useMemo(() => sortByPreferredCategoryOrder(categories), [categories]);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {

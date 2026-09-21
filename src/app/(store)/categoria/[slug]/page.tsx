@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { ProductCard } from "@/components/store/product-card";
 import { buildCategoryMetadata, RARE_DEFAULT_SITE_URL } from "@/lib/seo";
 import { buildBreadcrumbListJsonLd, JsonLdScript } from "@/lib/structured-data";
-import { getCategoryPageData, type StorefrontProduct } from "@/lib/storefront";
+import { getCategoryPageData, getNavigationCategories, type StorefrontProduct } from "@/lib/storefront";
+import { buildCatalogShortcuts } from "@/lib/catalog-shortcuts";
 import { getStorefrontCommerceState, type StorefrontCommerceState } from "@/lib/storefront-commerce";
 import { buildCatalogPageHref, normalizeCatalogPage } from "@/lib/catalog-pagination";
 
@@ -84,9 +85,13 @@ function EmptyState({
 export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {
   const [{ slug }, { q, brand, page }] = await Promise.all([params, searchParams]);
   const filters = { query: q, brand };
-  const pageData = await getCategoryPageData(slug, { ...filters, page: normalizeCatalogPage(page) });
+  const [pageData, navigableCategories] = await Promise.all([
+    getCategoryPageData(slug, { ...filters, page: normalizeCatalogPage(page) }),
+    getNavigationCategories(),
+  ]);
 
   if (!pageData) notFound();
+  const shortcuts = buildCatalogShortcuts(navigableCategories);
   const commerce = getStorefrontCommerceState();
   const totalProducts = pageData.kind === "grouped"
     ? pageData.sections.reduce((total, section) => total + section.total, 0)
@@ -113,8 +118,8 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
           <Link href={buildCatalogPageHref(slug)} className="inline-flex min-h-11 items-center underline underline-offset-4">Limpar filtros</Link>
         </div> : null}
         <div className="scrollbar-none mt-6 flex gap-2 overflow-x-auto pb-1" aria-label="Atalhos do catálogo">
-          {[{href:"/categoria/tudo",label:"Tudo"},{href:"/categoria/destaques",label:"Destaques"},{href:"/categoria/camisetas",label:"Camisetas"},{href:"/categoria/jaquetas",label:"Jaquetas"},{href:"/categoria/acessorios",label:"Acessórios"}].map((item) => (
-            <Link key={item.href} href={item.href} className={`inline-flex min-h-10 shrink-0 items-center rounded-full border px-4 text-xs font-black uppercase tracking-[0.12em] ${item.href.endsWith(`/${slug}`) ? "border-black bg-black text-white" : "border-neutral-300 bg-white text-neutral-700 hover:border-black"}`}>{item.label}</Link>
+          {shortcuts.map((item) => (
+            <Link key={item.href} href={item.href} aria-current={item.slug === slug ? "page" : undefined} className={`inline-flex min-h-10 shrink-0 items-center rounded-full border px-4 text-xs font-black uppercase tracking-[0.12em] ${item.slug === slug ? "border-black bg-black text-white" : "border-neutral-300 bg-white text-neutral-700 hover:border-black"}`}>{item.label}</Link>
           ))}
         </div>
       </div>

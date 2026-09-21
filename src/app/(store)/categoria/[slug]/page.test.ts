@@ -7,6 +7,7 @@ import { absoluteUrl } from "@/lib/seo";
 const mocks = vi.hoisted(() => ({
   getAppUrl: vi.fn(),
   getCategoryPageData: vi.fn(),
+  getNavigationCategories: vi.fn(),
 }));
 
 vi.mock("next/link", () => ({
@@ -31,6 +32,7 @@ vi.mock("@/lib/env", () => ({
 
 vi.mock("@/lib/storefront", () => ({
   getCategoryPageData: mocks.getCategoryPageData,
+  getNavigationCategories: mocks.getNavigationCategories,
 }));
 
 const product = {
@@ -55,6 +57,7 @@ describe("store category page", () => {
     vi.stubEnv("APP_ENV", "production");
     vi.stubEnv("APP_URL", "https://raredept.com.br");
     mocks.getAppUrl.mockReturnValue("https://raredept.com.br");
+    mocks.getNavigationCategories.mockResolvedValue([]);
   });
 
   afterEach(() => vi.unstubAllEnvs());
@@ -356,5 +359,60 @@ describe("store category page", () => {
     expect(html).toContain('href="/categoria/destaques?q=Drop&amp;brand=BAPE"');
     expect(html).not.toContain('rel="next"');
     expect(html).not.toContain("Nenhum destaque ativo");
+  });
+});
+
+describe("catalog shortcut bar (regression: hardcoded slugs returned 404)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getAppUrl.mockReturnValue("https://raredept.com.br");
+    mocks.getCategoryPageData.mockResolvedValue({
+      kind: "flat",
+      title: "Tudo",
+      eyebrow: "Catálogo",
+      description: "Todas as peças",
+      products: [product],
+      page: 1,
+      hasNextPage: false,
+      hasPreviousPage: false,
+    });
+  });
+
+  async function shortcutHrefs(navigable: Array<{ id: string; name: string; slug: string; children: unknown[] }>) {
+    mocks.getNavigationCategories.mockResolvedValue(navigable);
+    const element = await CategoryPage({ params: Promise.resolve({ slug: "tudo" }), searchParams: Promise.resolve({}) });
+    const html = renderToStaticMarkup(element as ReactElement);
+    const bar = html.slice(html.indexOf('aria-label="Atalhos do catálogo"'));
+    const barHtml = bar.slice(0, bar.indexOf("</div>"));
+    return [...barHtml.matchAll(/href="([^"]+)"/g)].map((match) => match[1]);
+  }
+
+  it("never links a category the store cannot serve", async () => {
+    // Staging had no camisetas/jaquetas/acessorios; the old bar linked them anyway.
+    const hrefs = await shortcutHrefs([{ id: "c1", name: "Homologação", slug: "homologacao", children: [] }]);
+    expect(hrefs).toEqual(["/categoria/tudo", "/categoria/destaques", "/categoria/homologacao"]);
+    for (const missing of ["/categoria/camisetas", "/categoria/jaquetas", "/categoria/acessorios"]) {
+      expect(hrefs).not.toContain(missing);
+    }
+  });
+
+  it("links the real categories in the same order as the header", async () => {
+    const hrefs = await shortcutHrefs([
+      { id: "a", name: "Acessórios", slug: "acessorios", children: [] },
+      { id: "j", name: "Jaquetas", slug: "jaquetas", children: [] },
+      { id: "c", name: "Camisetas", slug: "camisetas", children: [] },
+    ]);
+    expect(hrefs).toEqual(["/categoria/tudo", "/categoria/destaques", "/categoria/camisetas", "/categoria/jaquetas", "/categoria/acessorios"]);
+  });
+
+  it("keeps the virtual collections even with no categories at all", async () => {
+    expect(await shortcutHrefs([])).toEqual(["/categoria/tudo", "/categoria/destaques"]);
+  });
+
+  it("marks the current collection for assistive technology", async () => {
+    mocks.getNavigationCategories.mockResolvedValue([]);
+    const element = await CategoryPage({ params: Promise.resolve({ slug: "tudo" }), searchParams: Promise.resolve({}) });
+    const html = renderToStaticMarkup(element as ReactElement);
+    expect(html).toMatch(/href="\/categoria\/tudo" aria-current="page"/);
   });
 });

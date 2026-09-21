@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { Prisma } from "@prisma/client";
 import { accessoryCatalogSubcategories, groupedCatalogCategories, primaryCatalogCategories } from "@/lib/catalog-categories";
 import { prisma } from "@/lib/prisma";
@@ -133,7 +134,9 @@ function getProductGroupingSlug(product: StorefrontProduct, groupedSlugs = group
   return null;
 }
 
-export async function getNavigationCategories() {
+// Memoised per request: the store layout and the category page both need it, and
+// it reads every active product to count what each category can show.
+export const getNavigationCategories = cache(async function getNavigationCategories() {
   const [categories, products] = await Promise.all([
     prisma.category.findMany({
       where: { active: true, parentId: null },
@@ -173,7 +176,7 @@ export async function getNavigationCategories() {
           : childrenWithProducts,
     };
   });
-}
+});
 
 function sortHomeCategoryTiles(first: HomeCategoryTile, second: HomeCategoryTile) {
   const availabilityDiff = Number(second.status === "available") - Number(first.status === "available");
