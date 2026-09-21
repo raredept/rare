@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ADMIN_ACTION_REFRESH_PARAM } from "@/lib/admin-action-refresh";
+import { resolveAdminErrorMessage, resolveAdminSuccessMessage } from "@/lib/feedback-messages";
 
 type ToastTone = "success" | "error" | "warning" | "info";
 
@@ -13,52 +14,25 @@ type ToastState = {
   message: string;
 };
 
-const successMessages = new Map([
-  ["product-created", "Produto criado com sucesso."],
-  ["product-saved", "Produto salvo com sucesso."],
-  ["product-hidden", "Produto ocultado."],
-  ["product-visible", "Produto ativado."],
-  ["product-deleted", "Produto removido."],
-  ["category-created", "Categoria criada com sucesso."],
-  ["category-saved", "Categoria salva com sucesso."],
-  ["category-hidden", "Categoria ocultada."],
-  ["category-visible", "Categoria ativada."],
-  ["category-deleted", "Categoria removida."],
-  ["banner-created", "Banner criado com sucesso."],
-  ["banner-saved", "Banner salvo com sucesso."],
-  ["banner-hidden", "Banner ocultado."],
-  ["banner-visible", "Banner ativado."],
-  ["banner-removed", "Banner removido."],
-  ["banner-reordered", "Ordem dos banners atualizada."],
-  ["settings-saved", "Configurações salvas."],
-  ["password-updated", "Senha atualizada com sucesso."],
-  ["order-status-saved", "Status do pedido atualizado."],
-]);
-
-const errorMessages = new Map([
-  ["product-save-failed", "Não foi possível salvar o produto."],
-  ["category-save-failed", "Não foi possível salvar a categoria."],
-  ["banner-save-failed", "Não foi possível salvar o banner."],
-  ["settings-save-failed", "Não foi possível salvar as configurações."],
-  ["order-status-failed", "Não foi possível atualizar o pedido."],
-]);
-
 function resolveToast(success: string | null, error: string | null, refreshMarker: string | null): ToastState | null {
   const keySuffix = refreshMarker ? `:${refreshMarker}` : "";
 
-  if (error) {
+  // Never render URL text verbatim: only known codes and server-produced messages.
+  const errorMessage = resolveAdminErrorMessage(error);
+  if (error && errorMessage) {
     return {
       key: `error:${error}${keySuffix}`,
       tone: "error",
-      message: errorMessages.get(error) ?? error,
+      message: errorMessage,
     };
   }
 
-  if (success) {
+  const successMessage = resolveAdminSuccessMessage(success);
+  if (success && successMessage) {
     return {
       key: `success:${success}${keySuffix}`,
       tone: "success",
-      message: successMessages.get(success) ?? success,
+      message: successMessage,
     };
   }
 

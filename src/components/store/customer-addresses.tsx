@@ -10,6 +10,7 @@ import {
   type CustomerActionState,
 } from "@/lib/customer-actions";
 import { formatCep } from "@/lib/cep";
+import { resolveCustomerAddressError } from "@/lib/feedback-messages";
 
 type Address = {
   id: string;
@@ -92,6 +93,8 @@ function AddressFields({ address, state }: { address?: Address; state?: Customer
 }
 
 export function CustomerAddresses({ addresses, pageError, checkoutEnabled = true }: { addresses: Address[]; pageError?: string; checkoutEnabled?: boolean }) {
+  // The message arrives in the URL; only the server's own messages are shown verbatim.
+  const resolvedPageError = resolveCustomerAddressError(pageError);
   const [state, formAction, pending] = useActionState<CustomerActionState, FormData>(createCustomerAddressAction, {});
 
   return (
@@ -116,7 +119,7 @@ export function CustomerAddresses({ addresses, pageError, checkoutEnabled = true
       </form>
 
       <section className="space-y-4">
-        {pageError ? <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">{pageError}</p> : null}
+        {resolvedPageError ? <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">{resolvedPageError}</p> : null}
         {addresses.length ? (
           addresses.map((address) => (
             <div key={address.id} className="rounded-lg border border-neutral-200 bg-white p-5">
