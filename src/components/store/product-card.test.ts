@@ -42,6 +42,15 @@ describe("ProductCard", () => {
     expect(html).toContain("/_next/image?url=");
   });
 
+  it("titles the product at h2 by default and at h3 under a section heading", () => {
+    const render = (headingLevel?: 2 | 3) =>
+      renderToStaticMarkup(createElement(ProductCard, { product: { ...baseProduct, images: [] }, headingLevel }) as ReactElement);
+
+    expect(render()).toMatch(/<h2[^>]*>Supreme Bag<\/h2>/);
+    expect(render(3)).toMatch(/<h3[^>]*>Supreme Bag<\/h3>/);
+    expect(render(3)).not.toContain("<h2");
+  });
+
   it("does not render hover media when the second sorted media is video", () => {
     const html = renderToStaticMarkup(
       createElement(ProductCard, {

@@ -27,11 +27,21 @@ export async function generateMetadata({ params }: Pick<CategoryPageProps, "para
   return buildCategoryMetadata(pageData);
 }
 
-function ProductGrid({ products, commerce, priorityFirst = false }: { products: StorefrontProduct[]; commerce: StorefrontCommerceState; priorityFirst?: boolean }) {
+function ProductGrid({
+  products,
+  commerce,
+  priorityFirst = false,
+  headingLevel = 2,
+}: {
+  products: StorefrontProduct[];
+  commerce: StorefrontCommerceState;
+  priorityFirst?: boolean;
+  headingLevel?: 2 | 3;
+}) {
   return (
     <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:gap-x-5 md:grid-cols-3 lg:grid-cols-4 lg:gap-x-6 lg:gap-y-10 xl:grid-cols-5 xl:gap-x-8">
       {products.map((product, index) => (
-        <ProductCard key={product.id} product={product} commerce={commerce} priority={priorityFirst && index === 0} />
+        <ProductCard key={product.id} product={product} commerce={commerce} priority={priorityFirst && index === 0} headingLevel={headingLevel} />
       ))}
     </div>
   );
@@ -147,7 +157,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
                     </Link>
                   ) : null}
                 </div>
-                <ProductGrid products={section.products} commerce={commerce} priorityFirst={sectionIndex === 0} />
+                <ProductGrid products={section.products} commerce={commerce} priorityFirst={sectionIndex === 0} headingLevel={3} />
               </section>
             ))}
           </div>

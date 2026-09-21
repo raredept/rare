@@ -22,9 +22,12 @@ type ProductCardProps = {
   };
   commerce?: StorefrontCommerceState;
   priority?: boolean;
+  /** 3 when the grid sits under a section h2, so the outline nests products under it. */
+  headingLevel?: 2 | 3;
 };
 
-export function ProductCard({ product, commerce, priority = false }: ProductCardProps) {
+export function ProductCard({ product, commerce, priority = false, headingLevel = 2 }: ProductCardProps) {
+  const Title = headingLevel === 3 ? "h3" : "h2";
   const commerceState = commerce ?? buildStorefrontCommerceState(true);
   const { primary: image, hover: hoverImage } = getProductCardMediaPair(product.images);
   const availableStock = product.variants
@@ -63,9 +66,9 @@ export function ProductCard({ product, commerce, priority = false }: ProductCard
           <p className="line-clamp-1 text-[10px] font-black uppercase tracking-[0.18em] text-neutral-500 sm:tracking-[0.2em]">
             {categoryName}
           </p>
-          <h2 className="mt-2 line-clamp-2 min-h-10 break-words text-[13px] font-black leading-5 text-neutral-950 sm:min-h-12 sm:text-base sm:leading-6">
+          <Title className="mt-2 line-clamp-2 min-h-10 break-words text-[13px] font-black leading-5 text-neutral-950 sm:min-h-12 sm:text-base sm:leading-6">
             {product.title}
-          </h2>
+          </Title>
           <div className="mt-auto flex min-w-0 flex-col gap-1 pt-3">
             <p className="whitespace-nowrap text-[1rem] font-black leading-tight text-neutral-950 sm:text-lg sm:leading-none">
               {formatMoney(product.priceInCents)}

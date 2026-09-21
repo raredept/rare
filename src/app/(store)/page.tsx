@@ -54,7 +54,19 @@ function getTrustItems(commerce: StorefrontCommerceState) {
 ] as const;
 }
 
-function ProductGrid({ products, commerce, columns = "featured", priorityFirst = false }: { products: StorefrontProduct[]; commerce: StorefrontCommerceState; columns?: "featured" | "recent"; priorityFirst?: boolean }) {
+function ProductGrid({
+  products,
+  commerce,
+  columns = "featured",
+  priorityFirst = false,
+  headingLevel = 2,
+}: {
+  products: StorefrontProduct[];
+  commerce: StorefrontCommerceState;
+  columns?: "featured" | "recent";
+  priorityFirst?: boolean;
+  headingLevel?: 2 | 3;
+}) {
   const gridClass =
     columns === "featured"
       ? "grid grid-cols-2 gap-x-3 gap-y-8 sm:gap-x-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 xl:gap-x-8"
@@ -63,7 +75,7 @@ function ProductGrid({ products, commerce, columns = "featured", priorityFirst =
   return (
     <div className={`${gridClass} lg:gap-x-6 lg:gap-y-10`}>
       {products.map((product, index) => (
-        <ProductCard key={product.id} product={product} commerce={commerce} priority={priorityFirst && index === 0} />
+        <ProductCard key={product.id} product={product} commerce={commerce} priority={priorityFirst && index === 0} headingLevel={headingLevel} />
       ))}
     </div>
   );
@@ -205,7 +217,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           action={{ href: "/categoria/destaques", label: "Ver todos os destaques" }}
         />
         {selectedFeaturedProducts.length ? (
-          <ProductGrid products={selectedFeaturedProducts} commerce={commerce} priorityFirst />
+          <ProductGrid products={selectedFeaturedProducts} commerce={commerce} priorityFirst headingLevel={3} />
         ) : (
           <div className="rounded-lg border border-dashed border-neutral-300 px-6 py-12 text-center">
             <h3 className="text-lg font-black text-neutral-950">Nenhum destaque ativo no momento.</h3>
@@ -226,7 +238,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             description="Peças recém adicionadas ao catálogo."
             action={{ href: "/categoria/tudo", label: "Ver catálogo completo" }}
           />
-          <ProductGrid products={recentProducts} commerce={commerce} columns="recent" />
+          <ProductGrid products={recentProducts} commerce={commerce} columns="recent" headingLevel={3} />
         </section>
       ) : null}
 
