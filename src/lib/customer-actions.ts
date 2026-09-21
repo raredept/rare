@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { clearCustomerSessionCookie, requireCustomer, setCustomerSessionCookie, signCustomerSession } from "@/lib/customer-auth";
+import { endCustomerSession, requireCustomer, setCustomerSessionCookie, signCustomerSession } from "@/lib/customer-auth";
 import { checkLoginRateLimit, getActionClientIp, verifyPasswordConstantCost } from "@/lib/login-guard";
 import { normalizePhone, onlyDigits } from "@/lib/privacy";
 import { prisma } from "@/lib/prisma";
@@ -110,6 +110,7 @@ export async function registerCustomerAction(_state: CustomerActionState, formDa
       select: {
         id: true,
         email: true,
+        sessionVersion: true,
       },
     });
   } catch (error) {
@@ -148,6 +149,7 @@ export async function loginCustomerAction(_state: CustomerActionState, formData:
       id: true,
       email: true,
       passwordHash: true,
+      sessionVersion: true,
     },
   });
 
@@ -162,7 +164,7 @@ export async function loginCustomerAction(_state: CustomerActionState, formData:
 }
 
 export async function logoutCustomerAction() {
-  await clearCustomerSessionCookie();
+  await endCustomerSession();
   redirect("/");
 }
 

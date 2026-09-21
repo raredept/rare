@@ -10,6 +10,8 @@ type CustomerSessionPayload = {
   sub: string;
   email: string;
   role: "CUSTOMER";
+  /** Tokens issued before this feature carry none and count as 0. */
+  sessionVersion: number;
 };
 
 export type CurrentCustomer = Pick<Customer, "id" | "name" | "email" | "phone" | "cpf" | "active">;
@@ -18,8 +20,12 @@ function getSessionSecret() {
   return new TextEncoder().encode(getAdminSessionSecret());
 }
 
-export async function signCustomerSession(customer: Pick<Customer, "id" | "email">) {
-  return new SignJWT({ email: customer.email, role: "CUSTOMER" } satisfies Omit<CustomerSessionPayload, "sub">)
+export async function signCustomerSession(customer: Pick<Customer, "id" | "email" | "sessionVersion">) {
+  return new SignJWT({
+    email: customer.email,
+    role: "CUSTOMER",
+    sessionVersion: customer.sessionVersion,
+  } satisfies Omit<CustomerSessionPayload, "sub">)
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(customer.id)
     .setIssuedAt()
@@ -32,7 +38,12 @@ export async function verifyCustomerSession(token?: string | null): Promise<Cust
 
   try {
     const { payload } = await jwtVerify(token, getSessionSecret());
-    if (payload.role !== "CUSTOMER" || typeof payload.sub !== "string" || typeof payload.email !== "string") {
+    if (
+      payload.role !== "CUSTOMER" ||
+      typeof payload.sub !== "string" ||
+      typeof payload.email !== "string" ||
+      (payload.sessionVersion !== undefined && !Number.isSafeInteger(payload.sessionVersion))
+    ) {
       return null;
     }
 
@@ -40,6 +51,7 @@ export async function verifyCustomerSession(token?: string | null): Promise<Cust
       sub: payload.sub,
       email: payload.email,
       role: "CUSTOMER",
+      sessionVersion: typeof payload.sessionVersion === "number" ? payload.sessionVersion : 0,
     };
   } catch {
     return null;
@@ -56,6 +68,7 @@ export async function getCurrentCustomer(): Promise<CurrentCustomer | null> {
     where: {
       id: session.sub,
       active: true,
+      sessionVersion: session.sessionVersion,
     },
     select: {
       id: true,
@@ -90,4 +103,28 @@ export async function setCustomerSessionCookie(token: string) {
 export async function clearCustomerSessionCookie() {
   const cookieStore = await cookies();
   cookieStore.delete(CUSTOMER_SESSION_COOKIE);
+}
+
+/**
+ * Logout. Deleting the cookie alone left the 30-day token valid, so a copy of
+ * it kept working after "Sair". Bumping sessionVersion invalidates every token
+ * issued for this account so far (logout ends the session on every device).
+ * Only a token with a valid signature can trigger it, and the cookie is
+ * cleared even if the database write fails.
+ */
+export async function endCustomerSession() {
+  const cookieStore = await cookies();
+  const session = await verifyCustomerSession(cookieStore.get(CUSTOMER_SESSION_COOKIE)?.value);
+  try {
+    if (session) {
+      await prisma.customer.updateMany({
+        where: { id: session.sub, sessionVersion: session.sessionVersion },
+        data: { sessionVersion: { increment: 1 } },
+      });
+    }
+  } catch (error) {
+    console.error("[auth] could not revoke customer sessions on logout", error instanceof Error ? error.name : "unknown");
+  } finally {
+    cookieStore.delete(CUSTOMER_SESSION_COOKIE);
+  }
 }

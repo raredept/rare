@@ -10,7 +10,7 @@ const actionMocks = vi.hoisted(() => ({
   }),
   signCustomerSession: vi.fn(),
   setCustomerSessionCookie: vi.fn(),
-  clearCustomerSessionCookie: vi.fn(),
+  endCustomerSession: vi.fn(),
   requireCustomer: vi.fn(),
   prisma: {
     customer: {
@@ -55,7 +55,7 @@ vi.mock("next/cache", () => ({
 }));
 
 vi.mock("@/lib/customer-auth", () => ({
-  clearCustomerSessionCookie: actionMocks.clearCustomerSessionCookie,
+  endCustomerSession: actionMocks.endCustomerSession,
   requireCustomer: actionMocks.requireCustomer,
   signCustomerSession: actionMocks.signCustomerSession,
   setCustomerSessionCookie: actionMocks.setCustomerSessionCookie,
@@ -182,6 +182,7 @@ describe("customer actions", () => {
       select: {
         id: true,
         email: true,
+        sessionVersion: true,
       },
     });
     expect(actionMocks.setCustomerSessionCookie).toHaveBeenCalledWith("customer-token");
@@ -207,11 +208,11 @@ describe("customer actions", () => {
     expect(actionMocks.setCustomerSessionCookie).not.toHaveBeenCalled();
   });
 
-  it("clears the customer session on logout", async () => {
+  it("ends the customer session on logout", async () => {
     const { logoutCustomerAction } = await import("@/lib/customer-actions");
 
     await expect(logoutCustomerAction()).rejects.toThrow("NEXT_REDIRECT:/");
-    expect(actionMocks.clearCustomerSessionCookie).toHaveBeenCalledOnce();
+    expect(actionMocks.endCustomerSession).toHaveBeenCalledOnce();
   });
 
   it("creates the first address as default after server-side validation", async () => {

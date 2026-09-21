@@ -12,6 +12,8 @@ type AdminSessionPayload = {
   role: "ADMIN";
   mustChangePassword: boolean;
   credentialVersion: string;
+  /** Tokens issued before this feature carry none and count as 0. */
+  sessionVersion: number;
 };
 
 function getSessionSecret() {
@@ -24,13 +26,14 @@ async function buildCredentialVersion(passwordHash: string) {
 }
 
 export async function signAdminSession(
-  user: Pick<User, "id" | "email" | "role" | "mustChangePassword" | "passwordHash">,
+  user: Pick<User, "id" | "email" | "role" | "mustChangePassword" | "passwordHash" | "sessionVersion">,
 ) {
   return new SignJWT({
     email: user.email,
     role: user.role,
     mustChangePassword: user.mustChangePassword,
     credentialVersion: await buildCredentialVersion(user.passwordHash),
+    sessionVersion: user.sessionVersion,
   } satisfies Omit<AdminSessionPayload, "sub">)
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(user.id)
@@ -48,7 +51,8 @@ export async function verifyAdminSession(token?: string | null): Promise<AdminSe
       payload.role !== "ADMIN" ||
       typeof payload.sub !== "string" ||
       typeof payload.email !== "string" ||
-      typeof payload.credentialVersion !== "string"
+      typeof payload.credentialVersion !== "string" ||
+      (payload.sessionVersion !== undefined && !Number.isSafeInteger(payload.sessionVersion))
     ) {
       return null;
     }
@@ -59,6 +63,7 @@ export async function verifyAdminSession(token?: string | null): Promise<AdminSe
       role: "ADMIN",
       mustChangePassword: payload.mustChangePassword === true,
       credentialVersion: payload.credentialVersion,
+      sessionVersion: typeof payload.sessionVersion === "number" ? payload.sessionVersion : 0,
     };
   } catch {
     return null;
@@ -85,10 +90,15 @@ export async function getCurrentAdmin() {
       role: true,
       mustChangePassword: true,
       passwordHash: true,
+      sessionVersion: true,
     },
   });
 
-  if (!admin || session.credentialVersion !== await buildCredentialVersion(admin.passwordHash)) {
+  if (
+    !admin ||
+    session.sessionVersion !== admin.sessionVersion ||
+    session.credentialVersion !== await buildCredentialVersion(admin.passwordHash)
+  ) {
     return null;
   }
 
@@ -99,6 +109,7 @@ export async function getCurrentAdmin() {
     username: admin.username,
     role: admin.role,
     mustChangePassword: admin.mustChangePassword,
+    sessionVersion: admin.sessionVersion,
   };
 }
 
@@ -123,4 +134,28 @@ export async function setAdminSessionCookie(token: string) {
 export async function clearAdminSessionCookie() {
   const cookieStore = await cookies();
   cookieStore.delete(ADMIN_SESSION_COOKIE);
+}
+
+/**
+ * Logout. Deleting the cookie alone left the token valid until it expired, so
+ * a copy of it (another device, a proxy log, a stolen cookie) kept working
+ * after "Sair". Bumping sessionVersion makes every token issued for this
+ * account so far invalid. Only a token with a valid signature can trigger it,
+ * and the cookie is cleared even if the database write fails.
+ */
+export async function endAdminSession() {
+  const cookieStore = await cookies();
+  const session = await verifyAdminSession(cookieStore.get(ADMIN_SESSION_COOKIE)?.value);
+  try {
+    if (session) {
+      await prisma.user.updateMany({
+        where: { id: session.sub, sessionVersion: session.sessionVersion },
+        data: { sessionVersion: { increment: 1 } },
+      });
+    }
+  } catch (error) {
+    console.error("[auth] could not revoke admin sessions on logout", error instanceof Error ? error.name : "unknown");
+  } finally {
+    cookieStore.delete(ADMIN_SESSION_COOKIE);
+  }
 }
