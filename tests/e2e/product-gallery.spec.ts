@@ -27,9 +27,24 @@ async function mainImageSrc(page: Page) {
 }
 
 async function openProduct(page: Page) {
-  const response = await page.goto(`/produto/${slug}`, { waitUntil: "domcontentloaded" });
+  const response = await page.goto(`/produto/${slug}`, { waitUntil: "load" });
   expect(response?.status()).toBe(200);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  // Server HTML arrives before React hydrates; a click in between is lost.
+  // Wait until the gallery reacts, then go back to the first image.
+  const next = page.getByRole("button", { name: "Próxima imagem" });
+  const first = await mainImageSrc(page);
+  await expect(async () => {
+    await next.click();
+    expect(await mainImageSrc(page)).not.toBe(first);
+  }).toPass({ timeout: 15_000 });
+  await page.getByRole("button", { name: /^Selecionar (imagem|mídia) 1$/i }).click();
+  await expect.poll(() => mainImageSrc(page)).toBe(first);
+}
+
+/** The gallery frame: the fixed 4:5 box that holds the main image. */
+function galleryFrame(page: Page) {
+  return page.locator("div.relative", { has: page.getByRole("button", { name: "Ampliar imagem do produto" }) }).last();
 }
 
 test("renders one thumbnail per image and marks the selected one", async ({ page }) => {
@@ -125,19 +140,33 @@ test("the gallery keeps its layout while a later image loads slowly", async ({ p
   });
 
   await openProduct(page);
-  const frame = page.locator("img.store-product-image").first();
+  // Measure the frame, not the <img>: the image scales 1.08 on hover by design.
+  const frame = galleryFrame(page);
   const before = await frame.boundingBox();
 
   await page.getByRole("button", { name: "Próxima imagem" }).click();
-  const during = await frame.boundingBox();
-  expect(during?.height ?? 0).toBeGreaterThan(0);
-  // No collapse or jump while the next image is in flight.
-  expect(Math.abs((during?.height ?? 0) - (before?.height ?? 0))).toBeLessThan(2);
+  for (let sample = 0; sample < 5; sample += 1) {
+    const during = await frame.boundingBox();
+    expect(during?.height ?? 0).toBeGreaterThan(0);
+    // No collapse or jump while the next image is in flight.
+    expect(Math.abs((during?.height ?? 0) - (before?.height ?? 0))).toBeLessThan(2);
+    await page.waitForTimeout(300);
+  }
 });
 
 test("renders without console errors or failed requests", async ({ page }) => {
   const issues = captureUnexpectedBrowserIssues(page);
   await page.goto(`/produto/${slug}`, { waitUntil: "load" });
   await page.waitForTimeout(1_000);
-  expect(issues).toEqual([]);
+  // Behind the staging Basic gate, browsers fetch the web manifest without
+  // credentials and get 401. Production has no gate, so only that is excused.
+  // The console line has no URL, so it is excused only when the manifest is
+  // the sole 401 response.
+  const gated = Boolean(process.env.STAGING_ACCESS_USERNAME);
+  const manifest401 = "response 401: /manifest.webmanifest";
+  const onlyManifest401 = issues.filter((issue) => issue.startsWith("response 401:")).every((issue) => issue === manifest401);
+  const unexpected = issues.filter(
+    (issue) => !(gated && (issue === manifest401 || (onlyManifest401 && /status of 401 \(\)$/.test(issue)))),
+  );
+  expect(unexpected).toEqual([]);
 });
