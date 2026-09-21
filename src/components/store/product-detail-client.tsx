@@ -486,6 +486,7 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
                     setImageIndex(index);
                   }}
                   aria-label={`Selecionar ${getProductMediaLabel(mediaType).toLowerCase()} ${index + 1}`}
+                  aria-pressed={index === imageIndex}
                 >
                   <ProductMedia
                     media={media}

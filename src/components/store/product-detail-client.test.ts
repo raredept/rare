@@ -99,6 +99,26 @@ describe("ProductDetailClient", () => {
     expect(html).toContain("1 / 2");
   });
 
+  it("tells assistive technology which gallery thumbnail is selected", () => {
+    const html = renderToStaticMarkup(
+      createElement(ProductDetailClient, {
+        product: {
+          ...product,
+          images: [
+            { url: "/uploads/camiseta-rare-1.webp", alt: "Frente" },
+            { url: "/uploads/camiseta-rare-2.webp", alt: "Costas" },
+          ],
+        },
+        productUrl: "https://raredept.com.br/produto/camiseta-rare",
+        whatsappNumber: "5511999999999",
+        whatsappMessage: "Tenho interesse.",
+      }) as ReactElement,
+    );
+
+    expect(html).toMatch(/aria-label="Selecionar imagem 1" aria-pressed="true"/);
+    expect(html).toMatch(/aria-label="Selecionar imagem 2" aria-pressed="false"/);
+  });
+
   it("renders the summary near the price and moves the full description to a details section", () => {
     const html = renderToStaticMarkup(
       createElement(ProductDetailClient, {
