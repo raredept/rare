@@ -1,8 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { blockExternalRequests, captureUnexpectedBrowserIssues, publicAuditRoutes, withoutStagingGateNoise } from "./storefront-fixtures";
+import { blockExternalRequests, captureUnexpectedBrowserIssues, isProductionBaseUrl, publicAuditRoutes, withoutStagingGateNoise } from "./storefront-fixtures";
 
-test.beforeEach(async ({ page }) => {
-  await blockExternalRequests(page);
+test.beforeEach(async ({ page, baseURL }) => {
+  // In production R2 media and Cloudflare scripts are part of the real page.
+  if (!isProductionBaseUrl(baseURL)) await blockExternalRequests(page);
 });
 
 for (const route of publicAuditRoutes) {

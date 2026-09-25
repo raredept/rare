@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import {
   blockExternalRequests,
   captureUnexpectedBrowserIssues, withoutStagingGateNoise,
+  isProductionBaseUrl,
   productPath,
 } from "./storefront-fixtures";
 
@@ -19,11 +20,6 @@ const publicRoutes = [
   "/privacidade-e-termos",
 ] as const;
 const privateSitemapPrefixes = ["/admin", "/api", "/finalizar-compra", "/minha-conta", "/pedido", "/pedidos"];
-
-function isProductionBaseUrl(baseURL: string) {
-  const hostname = new URL(baseURL).hostname.toLowerCase();
-  return hostname === "raredept.com.br" || hostname === "www.raredept.com.br";
-}
 
 test.beforeEach(async ({ page, baseURL }) => {
   // Production serves its real media from R2 and injects Cloudflare resources.

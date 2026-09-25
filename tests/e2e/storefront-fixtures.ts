@@ -120,3 +120,14 @@ export async function waitForEntranceAnimations(page: Page) {
       .every((animation) => animation.playState === "finished" || animation.playState === "idle"),
   );
 }
+
+/**
+ * Production serves its real media from R2 and Cloudflare injects its own
+ * scripts. Blocking those hosts there makes a smoke run report failures it
+ * created itself, so specs that measure console health leave them alone.
+ */
+export function isProductionBaseUrl(baseURL: string | undefined) {
+  if (!baseURL) return false;
+  const hostname = new URL(baseURL).hostname.toLowerCase();
+  return hostname === "raredept.com.br" || hostname === "www.raredept.com.br";
+}
