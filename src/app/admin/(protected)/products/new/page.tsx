@@ -1,5 +1,6 @@
 import { ProductForm } from "@/components/admin/product-form";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,9 @@ type NewProductPageProps = {
 };
 
 export default async function NewProductPage({ searchParams }: NewProductPageProps) {
+  // Checked here, not only in the layout: layouts do not re-render on client
+  // navigation, so every page verifies the session next to its data.
+  await requireAdmin();
   const params = await searchParams;
   const { error, refresh, success } = params;
   const categories = await prisma.category.findMany({

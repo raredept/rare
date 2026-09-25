@@ -7,6 +7,7 @@ import { getAdminCategoryFilterLabel, sortAdminCategoryFilterOptions } from "@/l
 import { classifyProductImageUrl, getProductMediaLabel, getProductMediaTypeFromUrl } from "@/lib/admin-product-images";
 import { formatMoney } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,9 @@ type ProductsPageProps = {
 };
 
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
+  // Checked here, not only in the layout: layouts do not re-render on client
+  // navigation, so every page verifies the session next to its data.
+  await requireAdmin();
   const filters = await searchParams;
   const categories = await prisma.category.findMany({
     where: { active: true },

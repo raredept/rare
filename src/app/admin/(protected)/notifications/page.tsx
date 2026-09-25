@@ -4,10 +4,14 @@ import { AdminPushSubscriptionControl } from "@/components/admin/admin-push-subs
 import { getWebPushVapidPublicKey } from "@/lib/env";
 import { formatMoney } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminNotificationsPage() {
+  // Checked here, not only in the layout: layouts do not re-render on client
+  // navigation, so every page verifies the session next to its data.
+  await requireAdmin();
   const [notifications, unreadCount, activeSubscriptionCount] = await Promise.all([
     prisma.adminNotification.findMany({
       orderBy: { createdAt: "desc" },

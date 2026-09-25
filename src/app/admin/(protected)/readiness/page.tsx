@@ -27,6 +27,7 @@ import {
   buildProductMediaVariantAuditEntries,
 } from "@/lib/media-variant-audit";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,9 @@ type AdminReadinessPageProps = {
 };
 
 export default async function AdminReadinessPage({ searchParams }: AdminReadinessPageProps = {}) {
+  // Checked here, not only in the layout: layouts do not re-render on client
+  // navigation, so every page verifies the session next to its data.
+  await requireAdmin();
   const params = (await searchParams) ?? {};
   const [settings, products, categories, banners, operationalEvidenceStorage] = await Promise.all([
     prisma.storeSettings.findUnique({

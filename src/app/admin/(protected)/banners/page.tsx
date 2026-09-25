@@ -12,6 +12,7 @@ import { ConfirmButton } from "@/components/admin/confirm-button";
 import { HomeBannerForm } from "@/components/admin/home-banner-form";
 import { getAdminHomeBannerSlides, getHomeBannerSummary, type HomeBannerSlide } from "@/lib/home-banners";
 import { bannerPlacements } from "@/lib/banner-placement";
+import { requireAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,9 @@ type BannersPageProps = {
 };
 
 export default async function BannersPage({ searchParams }: BannersPageProps = {}) {
+  // Checked here, not only in the layout: layouts do not re-render on client
+  // navigation, so every page verifies the session next to its data.
+  await requireAdmin();
   const params = (await searchParams) ?? {};
   const banners = await getAdminHomeBannerSlides();
   const editingBanner = params.edit ? banners.find((banner) => banner.id === params.edit) : undefined;

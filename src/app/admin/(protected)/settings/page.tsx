@@ -5,10 +5,14 @@ import { formatMoney } from "@/lib/money";
 import { getStoreSettings } from "@/lib/settings";
 import { getInstagramUrl } from "@/lib/store-social";
 import { getEffectiveFixedShippingInCents, getEffectiveFreeShippingThresholdInCents } from "@/lib/shipping";
+import { requireAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
+  // Checked here, not only in the layout: layouts do not re-render on client
+  // navigation, so every page verifies the session next to its data.
+  await requireAdmin();
   const settings = await getStoreSettings();
   const fixedShippingInCents = getEffectiveFixedShippingInCents(settings);
   const freeShippingThresholdInCents = getEffectiveFreeShippingThresholdInCents(settings);

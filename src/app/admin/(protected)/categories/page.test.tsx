@@ -1,6 +1,9 @@
 import { createElement, type ReactNode, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// Every Admin page checks the session itself; the page logic is what is under test here.
+vi.mock("@/lib/auth", () => ({ requireAdmin: vi.fn(async () => ({ id: "admin-1", role: "ADMIN" })) }));
 import CategoriesPage from "@/app/admin/(protected)/categories/page";
 
 const mocks = vi.hoisted(() => ({

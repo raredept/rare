@@ -3,6 +3,7 @@ import { formatMoney } from "@/lib/money";
 import { isPaidRevenueStatus } from "@/lib/order-display";
 import { maskCpf } from "@/lib/privacy";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,9 @@ type CustomersPageProps = {
 };
 
 export default async function AdminCustomersPage({ searchParams }: CustomersPageProps) {
+  // Checked here, not only in the layout: layouts do not re-render on client
+  // navigation, so every page verifies the session next to its data.
+  await requireAdmin();
   const filters = await searchParams;
   const query = filters.q?.trim();
   const customers = await prisma.customer.findMany({

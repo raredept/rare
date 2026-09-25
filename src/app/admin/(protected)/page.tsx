@@ -6,6 +6,7 @@ import { MagnitudeBars, type MagnitudeRow } from "@/components/admin/analytics-c
 import { formatMoney } from "@/lib/money";
 import { formatOrderStatus } from "@/lib/order-display";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,9 @@ function formatInteger(value: number) {
 }
 
 export default async function AdminDashboardPage() {
+  // Checked here, not only in the layout: layouts do not re-render on client
+  // navigation, so every page verifies the session next to its data.
+  await requireAdmin();
   // Orders are aggregated in the database. The catalog queries stay row-level
   // because the readiness and catalog-issue checks genuinely need each product,
   // and the catalog is bounded by what the store sells rather than by how much

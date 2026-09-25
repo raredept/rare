@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { saveCategoryAction } from "@/app/admin/(protected)/categories/actions";
 import { AdminSubmitButton } from "@/components/admin/admin-submit-button";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,9 @@ type EditCategoryPageProps = {
 };
 
 export default async function EditCategoryPage({ params }: EditCategoryPageProps) {
+  // Checked here, not only in the layout: layouts do not re-render on client
+  // navigation, so every page verifies the session next to its data.
+  await requireAdmin();
   const { id } = await params;
   const [category, categories] = await Promise.all([
     prisma.category.findUnique({ where: { id } }),

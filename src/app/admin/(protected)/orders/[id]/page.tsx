@@ -9,6 +9,7 @@ import { formatOrderStatus, formatPaymentMethod } from "@/lib/order-display";
 import { getManualStatusOptions } from "@/lib/order-status";
 import { maskCpf } from "@/lib/privacy";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,9 @@ type OrderDetailPageProps = {
 };
 
 export default async function OrderDetailPage({ params }: OrderDetailPageProps) {
+  // Checked here, not only in the layout: layouts do not re-render on client
+  // navigation, so every page verifies the session next to its data.
+  await requireAdmin();
   const { id } = await params;
   const order = await prisma.order.findUnique({
     where: { id },
