@@ -10,6 +10,7 @@ import { AdminNav } from "@/components/admin/admin-nav";
 const focusableSelector = "a[href],button:not([disabled]),[tabindex]:not([tabindex='-1'])";
 
 const routeLabels = [
+  { path: "/admin/analytics", label: "Analytics" },
   { path: "/admin/products/new", label: "Novo produto" },
   { path: "/admin/products", label: "Produtos" },
   { path: "/admin/categories", label: "Categorias" },
@@ -40,7 +41,7 @@ export function AdminHeader({
   adminLabel: string;
   unreadNotifications: number;
 }) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "/admin";
   const [menuOpen, setMenuOpen] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const triggerButtonRef = useRef<HTMLButtonElement>(null);
@@ -53,6 +54,11 @@ export function AdminHeader({
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+    const desktopViewport = window.matchMedia("(min-width: 1024px)");
+    const closeOnDesktop = () => {
+      if (desktopViewport.matches) setMenuOpen(false);
+    };
+    desktopViewport.addEventListener("change", closeOnDesktop);
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -66,7 +72,10 @@ export function AdminHeader({
       const firstElement = focusableElements[0];
       const lastElement = focusableElements.at(-1);
       if (!firstElement || !lastElement) return;
-      if (event.shiftKey && document.activeElement === firstElement) {
+      if (!dialogRef.current.contains(document.activeElement)) {
+        event.preventDefault();
+        (event.shiftKey ? lastElement : firstElement).focus();
+      } else if (event.shiftKey && document.activeElement === firstElement) {
         event.preventDefault();
         lastElement.focus();
       } else if (!event.shiftKey && document.activeElement === lastElement) {
@@ -78,6 +87,7 @@ export function AdminHeader({
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", closeOnEscape);
+      desktopViewport.removeEventListener("change", closeOnDesktop);
       window.requestAnimationFrame(() => triggerButton?.focus());
     };
   }, [menuOpen]);
@@ -109,6 +119,9 @@ export function AdminHeader({
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
+            <form action={logoutAction} className="lg:hidden">
+              <button type="submit" className="min-h-11 rounded-lg border border-neutral-800 px-3 text-xs font-black text-neutral-300 focus-visible:ring-2 focus-visible:ring-white/70">Sair</button>
+            </form>
             <Link
               href="/"
               className="hidden min-h-11 items-center gap-2 rounded-lg border border-neutral-800 px-3 text-xs font-black text-neutral-300 transition hover:border-neutral-600 hover:text-white sm:inline-flex"

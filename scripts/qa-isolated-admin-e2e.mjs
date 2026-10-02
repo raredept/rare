@@ -108,6 +108,9 @@ async function main() {
       } : {}),
       QA_CURRENT_ADMIN_LOGIN: currentLogin,
       QA_CURRENT_ADMIN_PASSWORD: currentPassword,
+      // Never inherit credentials for an external Admin when using this runner.
+      QA_ADMIN_LOGIN: currentLogin,
+      QA_ADMIN_PASSWORD: currentPassword,
       QA_DATABASE_URL: databaseUrl,
       QA_PENDING_ADMIN_LOGIN: pendingLogin,
       QA_PENDING_ADMIN_PASSWORD: pendingPassword,
@@ -184,6 +187,7 @@ async function main() {
       await database.end();
     }
 
+    await runNode([path.join(process.cwd(), "node_modules", "tsx", "dist", "cli.mjs"), "scripts/qa-admin-data-contract.ts"], qaEnvironment);
     const playwrightCli = path.join(process.cwd(), "node_modules", "@playwright", "test", "cli.js");
     const startedAt = Date.now();
     if (integratedSuite) {

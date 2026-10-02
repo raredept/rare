@@ -87,7 +87,7 @@ export default async function AdminCustomersPage({ searchParams }: CustomersPage
       </form>
 
       <section className="mt-6 overflow-hidden rounded-lg border border-neutral-200 bg-white">
-        <div className="hidden grid-cols-[1fr_130px_140px_140px_110px_110px] bg-neutral-50 px-5 py-3 text-xs font-black uppercase tracking-wide text-neutral-500 lg:grid">
+        <div className="hidden grid-cols-[1fr_130px_140px_140px_110px_110px] bg-neutral-50 px-5 py-3 text-xs font-black uppercase tracking-wide text-neutral-500 xl:grid">
           <span>Cliente</span>
           <span>Pedidos</span>
           <span>Receita paga</span>
@@ -97,7 +97,7 @@ export default async function AdminCustomersPage({ searchParams }: CustomersPage
         </div>
         <div className="divide-y divide-neutral-200">
           {customers.length ? customers.map((customer) => (
-            <div key={customer.id} className="grid gap-3 px-5 py-4 lg:grid-cols-[1fr_130px_140px_140px_110px_110px] lg:items-center">
+            <div key={customer.id} className="grid gap-3 px-5 py-4 xl:grid-cols-[1fr_130px_140px_140px_110px_110px] xl:items-center">
               <div>
                 <p className="font-black text-neutral-950">{customer.name}</p>
                 <p className="text-sm font-semibold text-neutral-600">{customer.email}</p>

@@ -60,7 +60,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
         <SummaryMetric label="Sem imagem" value={summary.missingImages} />
       </div>
 
-      <form className="grid gap-3 rounded-lg border border-neutral-800 bg-neutral-950/80 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.2)] lg:grid-cols-[minmax(0,1fr)_210px_150px_150px_190px]">
+      <form className="grid gap-3 rounded-lg border border-neutral-800 bg-neutral-950/80 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.2)] xl:grid-cols-[minmax(0,1fr)_210px_150px_150px_190px]">
         <input name="q" defaultValue={query ?? ""} maxLength={100} aria-label="Buscar produto ou marca" placeholder="Buscar produto ou marca" className="admin-input" />
         <select aria-label="Filtrar por categoria" name="category" defaultValue={category ?? ""} className="admin-input">
           <option value="">Todas categorias</option>
@@ -90,7 +90,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
       </form>
 
       <section className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-950/80 shadow-[0_22px_80px_rgba(0,0,0,0.28)]">
-        <div className="hidden grid-cols-[1fr_190px_120px_140px_190px] bg-black px-5 py-3 text-xs font-black uppercase tracking-wide text-neutral-500 lg:grid">
+        <div className="hidden grid-cols-[1fr_190px_120px_140px_190px] bg-black px-5 py-3 text-xs font-black uppercase tracking-wide text-neutral-500 xl:grid">
           <span>Produto</span>
           <span>Categoria</span>
           <span>Preço</span>
@@ -110,7 +110,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
             return (
               <div
                 key={product.id}
-                className="grid gap-4 px-5 py-4 transition hover:bg-white/[0.03] lg:grid-cols-[1fr_190px_120px_140px_190px] lg:items-center"
+                className="grid gap-4 px-5 py-4 transition hover:bg-white/[0.03] xl:grid-cols-[1fr_190px_120px_140px_190px] xl:items-center"
               >
                 <div className="flex items-center gap-4">
                   <div className="flex h-24 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-neutral-800 bg-black">
@@ -214,7 +214,7 @@ function Badge({ children, tone }: { children: ReactNode; tone: "neutral" | "mut
   const classes = {
     neutral: "border-emerald-400/30 bg-emerald-500/10 text-emerald-200",
     muted: "border-neutral-700 bg-neutral-900 text-neutral-400",
-    dark: "border-white bg-white text-black",
+    dark: "admin-chip-strong",
     danger: "border-red-400/30 bg-red-500/10 text-red-200",
     warning: "border-amber-400/30 bg-amber-400/10 text-amber-100",
   };

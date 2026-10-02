@@ -42,6 +42,6 @@ describe("AdminLayout logout", () => {
     // One lives in the sidebar (hidden below lg), the other only below lg, so
     // exactly one is visible at any width.
     expect(forms.some((formClass) => formClass.includes("lg:hidden"))).toBe(true);
-    expect(html).toMatch(/<aside[^>]*class="[^"]*hidden[^"]*lg:block/);
+    expect(html).toMatch(/<aside[^>]*aria-label="Menu lateral do Admin"[^>]*class="[^"]*hidden[^"]*lg:flex/);
   });
 });

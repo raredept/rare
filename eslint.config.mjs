@@ -19,6 +19,8 @@ const eslintConfig = defineConfig([
     "coverage/**",
     "node_modules/**",
     "output/**",
+    "playwright-report/**",
+    "test-results/**",
     "_internal/**",
     ".claude/worktrees/**",
     ".playwright-cli/**",

@@ -14,13 +14,13 @@ export default function AdminError({ error, reset }: { error: Error & { digest?:
       <p className="text-xs font-black uppercase tracking-[0.2em] text-red-200">Falha temporária</p>
       <h1 className="mt-3 text-2xl font-black text-white">Não foi possível carregar esta área.</h1>
       <p className="mt-2 text-sm leading-6 text-neutral-300">
-        Seus dados não foram alterados. Tente novamente ou volte para a visão geral.
+        Tente novamente ou volte para a visão geral para conferir o estado atual.
       </p>
       <div className="mt-6 flex flex-col gap-3 sm:flex-row">
         <button
           type="button"
           onClick={reset}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-white px-4 text-sm font-black text-black transition hover:bg-neutral-200"
+          className="admin-chip-strong inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-black transition hover:bg-neutral-200"
         >
           <RotateCcw aria-hidden="true" className="h-4 w-4" />
           Tentar novamente
