@@ -5,6 +5,7 @@ import { withAdminActionRefresh } from "@/lib/admin-action-refresh";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
+import { parseAdminEntityId } from "@/lib/admin-action-input";
 
 export async function markAllAdminNotificationsReadAction() {
   await requireAdmin();
@@ -21,7 +22,7 @@ export async function markAllAdminNotificationsReadAction() {
 
 export async function markAdminNotificationReadAction(formData: FormData) {
   await requireAdmin();
-  const id = String(formData.get("id") ?? "");
+  const id = parseAdminEntityId(formData.get("id"));
 
   if (!id) {
     throw new Error("Notificacao invalida.");

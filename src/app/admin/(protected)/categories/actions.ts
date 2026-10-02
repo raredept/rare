@@ -9,6 +9,7 @@ import { slugify } from "@/lib/slug";
 import { CATEGORY_SLUG_TAKEN_CODE } from "@/lib/feedback-messages";
 import { isUniqueViolationOn } from "@/lib/prisma-errors";
 import { categoryFormSchema } from "@/lib/validators";
+import { parseAdminEntityId } from "@/lib/admin-action-input";
 
 function value(formData: FormData, key: string) {
   const item = formData.get(key);
@@ -32,7 +33,9 @@ function revalidateCategoryPaths(currentSlug?: string, previousSlug?: string | n
 
 export async function saveCategoryAction(formData: FormData) {
   await requireAdmin();
-  const id = value(formData, "id");
+  const submittedId = value(formData, "id");
+  const id = submittedId ? (parseAdminEntityId(submittedId) ?? "") : "";
+  if (submittedId && !id) redirectWithCategoryError("");
   const parsedResult = categoryFormSchema.safeParse({
     name: value(formData, "name"),
     slug: value(formData, "slug"),
@@ -84,7 +87,8 @@ export async function saveCategoryAction(formData: FormData) {
 
 export async function deleteCategoryAction(formData: FormData) {
   await requireAdmin();
-  const id = value(formData, "id");
+  const id = parseAdminEntityId(formData.get("id"));
+  if (!id) redirectWithCategoryError("");
   const category = await prisma.category.findUnique({ where: { id }, select: { slug: true } });
   await prisma.category.delete({ where: { id } });
   revalidateCategoryPaths(undefined, category?.slug);
@@ -93,7 +97,8 @@ export async function deleteCategoryAction(formData: FormData) {
 
 export async function toggleCategoryActiveAction(formData: FormData) {
   await requireAdmin();
-  const id = value(formData, "id");
+  const id = parseAdminEntityId(formData.get("id"));
+  if (!id) redirectWithCategoryError("");
   const active = value(formData, "active") === "true";
   const category = await prisma.category.update({ where: { id }, data: { active: !active } });
   revalidateCategoryPaths(category.slug);

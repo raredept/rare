@@ -13,6 +13,7 @@ import { slugify } from "@/lib/slug";
 import { PRODUCT_SLUG_TAKEN_MESSAGE } from "@/lib/feedback-messages";
 import { isUniqueViolationOn } from "@/lib/prisma-errors";
 import { PRODUCT_SHIPPING_LIMITS, type ProductShippingField } from "@/lib/product-shipping-readiness";
+import { parseAdminEntityId } from "@/lib/admin-action-input";
 
 function productFormPath(productId: string | null) {
   return productId ? `/admin/products/${productId}/edit` : "/admin/products/new";
@@ -175,6 +176,11 @@ async function collectUploadedUrls(formData: FormData) {
 
 export async function saveProductAction(productId: string | null, formData: FormData) {
   await requireAdmin();
+  const normalizedProductId = productId ? parseAdminEntityId(productId) : null;
+  if (productId && !normalizedProductId) {
+    redirectWithProductsListError("Produto inválido.");
+  }
+  productId = normalizedProductId;
 
   let variants: ParsedVariant[];
   try {
@@ -401,8 +407,10 @@ export async function saveProductAction(productId: string | null, formData: Form
 
 export async function toggleProductActiveAction(formData: FormData) {
   await requireAdmin();
-  const id = getString(formData, "id");
+  const id = parseAdminEntityId(formData.get("id"));
   const active = getString(formData, "active") === "true";
+
+  if (!id) redirectWithProductsListError("Produto inválido.");
 
   if (!active) {
     const productForActivation = await prisma.product.findUnique({
@@ -434,7 +442,8 @@ export async function toggleProductActiveAction(formData: FormData) {
 
 export async function deleteProductAction(formData: FormData) {
   await requireAdmin();
-  const id = getString(formData, "id");
+  const id = parseAdminEntityId(formData.get("id"));
+  if (!id) redirectWithProductsListError("Produto inválido.");
   const product = await prisma.product.findUnique({
     where: { id },
     select: {
