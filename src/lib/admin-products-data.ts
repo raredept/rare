@@ -25,10 +25,10 @@ function buildPrismaWhere(filters: AdminProductListFilters): Prisma.ProductWhere
   return {
     ...(filters.query
       ? {
-          OR: [
+          AND: [{ OR: [
             { title: { contains: filters.query, mode: "insensitive" as const } },
             { brand: { contains: filters.query, mode: "insensitive" as const } },
-          ],
+          ] }],
         }
       : {}),
     ...(filters.category
@@ -64,7 +64,7 @@ export async function getAdminProductRows(filters: AdminProductListFilters) {
     const rows = await prisma.product.findMany({
       where: buildPrismaWhere(filters),
       include: productListInclude,
-      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }, { id: "asc" }],
       skip,
       take: ADMIN_PAGE_SIZE + 1,
     });
@@ -83,7 +83,7 @@ export async function getAdminProductRows(filters: AdminProductListFilters) {
     FROM "Product" AS product
     LEFT JOIN stock ON stock."productId" = product."id"
     WHERE ${Prisma.join(conditions, " AND ")}
-    ORDER BY product."sortOrder" ASC, product."createdAt" DESC
+    ORDER BY product."sortOrder" ASC, product."createdAt" DESC, product."id" ASC
     OFFSET ${skip}
     LIMIT ${ADMIN_PAGE_SIZE + 1}
   `);

@@ -28,6 +28,7 @@ const adminErrorCodes = new Map([
   [CATEGORY_SLUG_TAKEN_CODE, "Já existe uma categoria com este slug. Escolha outro slug e salve novamente."],
   ["banner-save-failed", "Não foi possível salvar o banner."],
   ["settings-save-failed", "Não foi possível salvar as configurações."],
+  ["settings-validation", "Revise os campos das configurações antes de salvar."],
   ["order-status-failed", "Não foi possível atualizar o pedido."],
 ]);
 
@@ -56,6 +57,7 @@ const adminSuccessCodes = new Map([
 /** Literal messages the Admin actions send as free text. */
 export const ADMIN_SERVER_MESSAGES: ReadonlySet<string> = new Set([
   // products
+  "Produto inválido.",
   "URL de mídia inválida. Use um caminho do site ou uma URL http(s).",
   "Selecione uma subcategoria ativa.",
   "Selecione uma categoria ativa.",

@@ -7,6 +7,8 @@ describe("admin pagination", () => {
     expect(normalizeAdminPage("0")).toBe(1);
     expect(normalizeAdminPage("2.5")).toBe(1);
     expect(normalizeAdminPage("invalid")).toBe(1);
+    expect(normalizeAdminPage("1000000000")).toBe(10_000);
+    expect(normalizeAdminPage(Number.MAX_SAFE_INTEGER + 1)).toBe(1);
   });
 
   it("preserves filters and omits the first page", () => {

@@ -434,34 +434,20 @@ async function countSoldOutActiveProducts() {
 }
 
 export async function getCriticalStock(): Promise<CriticalStockEntry[]> {
-  const variants = await prisma.productVariant.findMany({
-    where: {
-      active: true,
-      product: { active: true },
-    },
-    select: {
-      productId: true,
-      size: true,
-      stock: true,
-      reservedStock: true,
-      product: { select: { title: true } },
-    },
-    orderBy: [{ stock: "asc" }, { productId: "asc" }],
-    take: 200,
-  });
-
-  return variants
-    .map((variant) => ({
-      productId: variant.productId,
-      productTitle: variant.product.title,
-      size: variant.size,
-      stock: variant.stock,
-      reservedStock: variant.reservedStock,
-      sellable: variant.stock - variant.reservedStock,
-    }))
-    .filter((variant) => variant.sellable <= LOW_STOCK_THRESHOLD)
-    .sort((first, second) => first.sellable - second.sellable)
-    .slice(0, CRITICAL_STOCK_LIMIT);
+  // Filter and rank by sellable stock in Postgres. Taking 200 by physical
+  // stock first missed heavily reserved variants further down the catalog.
+  return prisma.$queryRaw<CriticalStockEntry[]>`
+    SELECT "v"."productId", "p"."title" AS "productTitle", "v"."size",
+      "v"."stock", "v"."reservedStock",
+      ("v"."stock" - "v"."reservedStock")::int AS "sellable"
+    FROM "ProductVariant" "v"
+    JOIN "Product" "p" ON "p"."id" = "v"."productId"
+    WHERE "v"."active" = true AND "p"."active" = true
+      AND "v"."stock" - "v"."reservedStock" <= ${LOW_STOCK_THRESHOLD}
+    ORDER BY ("v"."stock" - "v"."reservedStock") ASC,
+      "v"."productId" ASC, "v"."size" ASC
+    LIMIT ${CRITICAL_STOCK_LIMIT}
+  `;
 }
 
 async function countNewCustomers(period: AnalyticsPeriod) {

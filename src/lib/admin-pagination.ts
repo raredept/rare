@@ -2,8 +2,8 @@ export const ADMIN_PAGE_SIZE = 25;
 
 export function normalizeAdminPage(value?: string | number) {
   const page = Number(value ?? 1);
-  return Number.isSafeInteger(page) && page > 0 && page <= Math.floor(Number.MAX_SAFE_INTEGER / ADMIN_PAGE_SIZE)
-    ? page
+  return Number.isSafeInteger(page) && page > 0
+    ? Math.min(page, 10_000)
     : 1;
 }
 

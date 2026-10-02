@@ -26,6 +26,23 @@ beforeEach(() => {
 });
 
 describe("admin authorization", () => {
+  it("blocks an absent session before querying any Admin data", async () => {
+    const { requireAdmin } = await import("@/lib/auth");
+    mocks.cookieGet.mockReturnValue(undefined);
+    await expect(requireAdmin()).rejects.toThrow("NEXT_REDIRECT:/admin/login");
+    expect(mocks.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("requires an active Admin row even for a correctly signed session", async () => {
+    const { signAdminSession, requireAdmin } = await import("@/lib/auth");
+    const token = await signAdminSession({ id: "disabled-admin", email: "disabled@example.com", role: "ADMIN", mustChangePassword: false, passwordHash: "hash", sessionVersion: 0 });
+    mocks.cookieGet.mockReturnValue({ value: token });
+    // Real Prisma returns null when the account is deactivated or loses its role.
+    mocks.findFirst.mockResolvedValue(null);
+    await expect(requireAdmin()).rejects.toThrow("NEXT_REDIRECT:/admin/login");
+    expect(mocks.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "disabled-admin", active: true, role: "ADMIN" } }));
+  });
+
   it("keeps the password-change requirement in newly issued sessions", async () => {
     const { signAdminSession, verifyAdminSession } = await import("@/lib/auth");
     const token = await signAdminSession({

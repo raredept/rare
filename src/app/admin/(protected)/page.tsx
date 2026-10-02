@@ -7,6 +7,7 @@ import { formatMoney } from "@/lib/money";
 import { formatOrderStatus } from "@/lib/order-display";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
+import { ANALYTICS_TIME_ZONE } from "@/lib/analytics-period";
 
 export const dynamic = "force-dynamic";
 
@@ -106,6 +107,7 @@ export default async function AdminDashboardPage() {
           <p className="mt-1 text-sm font-semibold text-neutral-500">
             Vendas dos últimos {snapshot.windowDays} dias e o que precisa de ação hoje.
           </p>
+          <p className="mt-1 text-xs font-semibold text-neutral-500">Fuso comercial: {ANALYTICS_TIME_ZONE} · janela por data do pagamento.</p>
         </div>
         <Link
           href="/admin/analytics"
@@ -162,6 +164,7 @@ export default async function AdminDashboardPage() {
           <Metric title="Ticket médio" value={formatMoney(snapshot.window.averageTicketInCents)} />
           <Metric title="Itens vendidos" value={formatInteger(snapshot.window.itemsSold)} />
         </div>
+        <p className="mt-3 text-xs font-semibold text-neutral-500">Receita dos pedidos nos status pago, em preparo, enviado e entregue; inclui frete, após descontos. Cancelados, falhos e reembolsados não entram.</p>
 
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Metric title="Receita acumulada" value={formatMoney(snapshot.revenueAllTimeInCents)} subtitle="Desde o início" />

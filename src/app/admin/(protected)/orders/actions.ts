@@ -21,7 +21,7 @@ export async function updateOrderStatusAction(formData: FormData) {
   }
 
   try {
-    await updateOrderStatusWithReservationRelease(id, status, "Status atualizado manualmente no admin");
+    await updateOrderStatusWithReservationRelease(id, status as OrderStatus, "Status atualizado manualmente no admin");
   } catch (error) {
     const message = error instanceof Error && [invalidOrderTransitionMessage, "Pedido não encontrado."].includes(error.message) || (error instanceof Error && error.message.startsWith("Pagamento confirmado"))
       ? (error as Error).message
