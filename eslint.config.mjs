@@ -20,6 +20,7 @@ const eslintConfig = defineConfig([
     "node_modules/**",
     "output/**",
     "_internal/**",
+    ".claude/worktrees/**",
     ".playwright-cli/**",
     "public/uploads/**",
     "next-env.d.ts",

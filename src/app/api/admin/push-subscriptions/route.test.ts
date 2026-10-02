@@ -25,14 +25,19 @@ const subscription = {
 function request(method: "POST" | "DELETE", body: unknown) {
   return new Request("http://localhost/api/admin/push-subscriptions", {
     method,
-    headers: { "Content-Type": "application/json", "User-Agent": "test-browser" },
+    headers: {
+      "Content-Type": "application/json",
+      "User-Agent": "test-browser",
+      host: "localhost",
+      origin: "http://localhost",
+    },
     body: JSON.stringify(body),
   });
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.getCurrentAdmin.mockResolvedValue({ id: "admin-1" });
+  mocks.getCurrentAdmin.mockResolvedValue({ id: "admin-1", mustChangePassword: false });
   mocks.upsert.mockResolvedValue({ id: "push-1" });
   mocks.updateMany.mockResolvedValue({ count: 1 });
 });
@@ -45,6 +50,30 @@ describe("admin push subscriptions route", () => {
     expect((await DELETE(request("DELETE", { endpoint: subscription.endpoint }) as never)).status).toBe(401);
     expect(mocks.upsert).not.toHaveBeenCalled();
     expect(mocks.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("blocks every mutation until the temporary password is replaced", async () => {
+    mocks.getCurrentAdmin.mockResolvedValue({ id: "admin-1", mustChangePassword: true });
+
+    const postResponse = await POST(request("POST", subscription) as never);
+    const deleteResponse = await DELETE(request("DELETE", { endpoint: subscription.endpoint }) as never);
+
+    expect(postResponse.status).toBe(403);
+    expect(await postResponse.json()).toMatchObject({ code: "ADMIN_PASSWORD_CHANGE_REQUIRED" });
+    expect(deleteResponse.status).toBe(403);
+    expect(mocks.upsert).not.toHaveBeenCalled();
+    expect(mocks.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects cross-origin state changes", async () => {
+    const forgedRequest = new Request("http://localhost/api/admin/push-subscriptions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", host: "localhost", origin: "https://attacker.example" },
+      body: JSON.stringify(subscription),
+    });
+
+    expect((await POST(forgedRequest as never)).status).toBe(403);
+    expect(mocks.upsert).not.toHaveBeenCalled();
   });
 
   it("registers the current device idempotently by endpoint", async () => {

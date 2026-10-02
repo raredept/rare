@@ -7,6 +7,7 @@ import { createProductImagePreview, ProductImageEditorError } from "@/lib/produc
 import { readAuthorizedProductImage } from "@/lib/product-image-editor-storage";
 import { imageFramingSchema } from "@/lib/product-image-framing";
 import { SERVER_ROUTED_UPLOAD_LIMIT_BYTES } from "@/lib/upload-limits";
+import { isSameOriginRequest } from "@/lib/request-security";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,14 +19,6 @@ const requestSchema = z.discriminatedUnion("action", [
 
 function fail(error: unknown) {
   return NextResponse.json({ error: error instanceof ProductImageEditorError ? error.message : error instanceof z.ZodError ? "Enquadramento ou referência inválida." : "Não foi possível processar a imagem. A mídia anterior foi preservada." }, { status: 400 });
-}
-
-function sameOrigin(request: NextRequest) {
-  try {
-    const origin = new URL(request.headers.get("origin") ?? "");
-    return origin.host.toLowerCase() === request.headers.get("host")?.toLowerCase() &&
-      (origin.protocol === "https:" || (process.env.NODE_ENV !== "production" && origin.protocol === "http:"));
-  } catch { return false; }
 }
 
 export async function GET(request: NextRequest) {
@@ -42,7 +35,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const admin = await requireAdmin();
-  if (!sameOrigin(request)) return NextResponse.json({ error: "Origem inválida." }, { status: 403 });
+  if (!isSameOriginRequest(request)) return NextResponse.json({ error: "Origem inválida." }, { status: 403 });
   const limited = await rateLimit(`admin-image-editor:${admin.id}`, 60, 60_000);
   if (!limited.ok) return NextResponse.json({ error: "Aguarde um instante." }, { status: 429 });
   try {

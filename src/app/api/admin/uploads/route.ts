@@ -11,6 +11,7 @@ import {
   SERVER_ROUTED_UPLOAD_LIMIT_BYTES,
   serverRoutedUploadLimitMessage,
 } from "@/lib/upload-limits";
+import { isSameOriginRequest } from "@/lib/request-security";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,23 +20,6 @@ const maxFilesPerRequest = 10;
 
 function getMaxRequestBytes() {
   return SERVER_ROUTED_UPLOAD_LIMIT_BYTES * maxFilesPerRequest;
-}
-
-function isSameOriginRequest(request: NextRequest) {
-  const origin = request.headers.get("origin");
-  const host = request.headers.get("host")?.trim();
-  if (!origin || !host) return false;
-
-  try {
-    const parsedOrigin = new URL(origin);
-    const allowedProtocol =
-      parsedOrigin.protocol === "https:" ||
-      (process.env.NODE_ENV !== "production" && parsedOrigin.protocol === "http:");
-
-    return allowedProtocol && parsedOrigin.host.toLowerCase() === host.toLowerCase();
-  } catch {
-    return false;
-  }
 }
 
 export async function POST(request: NextRequest) {
