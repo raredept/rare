@@ -194,10 +194,48 @@ pelo Git e excluídos dos gates de fonte, sem excluir testes reais.
 
 ## Publicação e ações manuais
 
-Gates funcionais concluídos; publicação aguarda scan final e confirmação remota.
-Não fazer merge/deploy neste ciclo. URL do PR será registrada após sua criação.
+Push: concluído na branch `codex/admin-dashboard-reconciled-20261002`, sem force.
+PR: não criado. `gh` não está disponível e a integração GitHub retornou
+`403: Resource not accessible by integration` ao criar o PR; a permissão de push
+do Git não concede escrita de pull requests a esse conector. Não houve tentativa
+de contornar permissões ou obter tokens. Nenhum merge/deploy foi executado.
 
-1. Revisar o PR e warnings antes de qualquer merge autorizado.
+### PR preparado
+
+- PR_TITLE: `refactor(admin): reconcile dashboard master cycle with current main`
+- BASE: `main`
+- HEAD: `codex/admin-dashboard-reconciled-20261002`
+- Formulário: https://github.com/raredept/rare/pull/new/codex/admin-dashboard-reconciled-20261002
+
+PR_BODY:
+
+```markdown
+## Admin Master Cycle reconciliado com a main atual
+
+Base 4ea73f50 (70 commits incorporados). HEAD original f97090c9 preservado em
+backup/admin-dashboard-pre-reconcile. Dez conflitos resolvidos semanticamente.
+
+- Shell/header/drawer responsivos, foco/teclado, logout móvel e paginação limitada.
+- Dashboard reutiliza analytics da main: paidAt, America/Sao_Paulo e productId.
+- Estoque vendável filtrado/ordenado no SQL antes do LIMIT; filtros combinados.
+- Guards, revogação de sessão/senha, allowlists, pedidos e slugs preservados.
+- Next 16.3.8, Nodemailer 10.0.13, fast-uri 3.1.8; schema/migrations intactos.
+
+PASS: lint/TypeScript; 1.113 unit/integration; 133 testes críticos x3; SQL real x3;
+E2E 178 passed/62 skips condicionais/zero flaky; 54 Admin accessibility;
+11 rotas x8 larguras; drawer x3 por largura móvel; Prisma; 14 migrations QA;
+build standalone/28 Server Actions; release guard 6 OK/1 warning/0 FAIL.
+
+Warnings: rare_dev com duas migrations pendentes (QA descartável migrou todas);
+audit runtime 3 high Prisma/deepmerge-ts, completo 13 alertas; cron legado Vercel;
+storage local/frete fixed/produtos sem dimensões. Stripe staging e galeria multifoto
+opt-in não homologados. Detalhes em docs/cycles/ADMIN_MAIN_RECONCILIATION.md.
+
+Sem merge, deploy, secrets, infraestrutura ou ativação comercial.
+Dois documentos locais preexistentes não rastreados ficaram fora do PR.
+```
+
+1. Criar o PR com o conteúdo acima e revisar warnings antes de qualquer merge autorizado.
 2. Aplicar migrations em desenvolvimento/deploy em operação separada autorizada;
    usar banco shadow realmente descartável quando necessário.
 3. Confirmar cron Vercel externo e homologar Stripe/frete/email no ambiente correto,
