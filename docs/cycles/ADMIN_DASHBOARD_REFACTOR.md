@@ -1,7 +1,11 @@
 # RARE — Admin Dashboard Master Cycle
 
-Data: 2026-10-02  
-Branch: `codex/admin-dashboard-refactor-20261002`  
+> Relatório histórico da branch original, antes da reconciliação. Os resultados
+> e limitações atuais estão em `ADMIN_MAIN_RECONCILIATION.md`; este documento não
+> representa validação da branch reconciliada ou de produção.
+
+Data: 2026-10-02
+Branch: `codex/admin-dashboard-refactor-20261002`
 HEAD inicial: `7f52b1954c826276c3f7581cf8fdd7b53f896a8e`
 
 ## Baseline
