@@ -7,6 +7,8 @@ import { useEffect, useRef, useState } from "react";
 import { logoutAction } from "@/app/admin/(protected)/actions";
 import { AdminNav } from "@/components/admin/admin-nav";
 
+const focusableSelector = "a[href],button:not([disabled]),[tabindex]:not([tabindex='-1'])";
+
 const routeLabels = [
   { path: "/admin/products/new", label: "Novo produto" },
   { path: "/admin/products", label: "Produtos" },
@@ -40,21 +42,43 @@ export function AdminHeader({
 }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const triggerButtonRef = useRef<HTMLButtonElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const pageLabel = getPageLabel(pathname);
 
   useEffect(() => {
     if (!menuOpen) return;
+    const triggerButton = triggerButtonRef.current;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    closeButtonRef.current?.focus();
+    window.requestAnimationFrame(() => closeButtonRef.current?.focus());
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMenuOpen(false);
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setMenuOpen(false);
+        return;
+      }
+      if (event.key !== "Tab" || !dialogRef.current) return;
+      const focusableElements = Array.from(
+        dialogRef.current.querySelectorAll<HTMLElement>(focusableSelector),
+      );
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements.at(-1);
+      if (!firstElement || !lastElement) return;
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+      } else if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+      }
     };
-    window.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("keydown", closeOnEscape);
     return () => {
       document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("keydown", closeOnEscape);
+      window.requestAnimationFrame(() => triggerButton?.focus());
     };
   }, [menuOpen]);
 
@@ -64,6 +88,7 @@ export function AdminHeader({
         <div className="flex min-h-11 items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <button
+              ref={triggerButtonRef}
               type="button"
               className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-neutral-800 text-neutral-200 transition hover:border-neutral-600 hover:bg-neutral-900 focus-visible:ring-2 focus-visible:ring-white/70 lg:hidden"
               aria-expanded={menuOpen}
@@ -109,16 +134,23 @@ export function AdminHeader({
       </header>
 
       {menuOpen ? (
-        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Menu administrativo">
+        <div className="fixed inset-0 z-50 lg:hidden">
           <button
             type="button"
             className="absolute inset-0 bg-black/75"
             aria-label="Fechar menu administrativo"
             onClick={() => setMenuOpen(false)}
           />
-          <div id="admin-mobile-navigation" className="absolute inset-y-0 left-0 flex w-[min(88vw,20rem)] flex-col border-r border-neutral-800 bg-neutral-950 p-4 shadow-2xl">
+          <div
+            ref={dialogRef}
+            id="admin-mobile-navigation"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-mobile-navigation-title"
+            className="absolute inset-y-0 left-0 flex w-[min(88vw,20rem)] flex-col border-r border-neutral-800 bg-neutral-950 p-4 shadow-2xl"
+          >
             <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
-              <Link href="/admin" onClick={() => setMenuOpen(false)} className="text-lg font-black tracking-[0.18em] text-white">
+              <Link id="admin-mobile-navigation-title" href="/admin" onClick={() => setMenuOpen(false)} className="text-lg font-black tracking-[0.18em] text-white">
                 RARE <span className="text-xs tracking-[0.14em] text-neutral-500">ADMIN</span>
               </Link>
               <button
