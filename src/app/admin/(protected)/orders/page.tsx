@@ -143,7 +143,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
           {orders.length ? (
             orders.map((order) => (
               <div key={order.id} className="grid gap-3 px-5 py-4 lg:grid-cols-[160px_1fr_150px_140px_120px_100px] lg:items-center">
-                <span className="font-black text-neutral-950">{order.orderNumber}</span>
+                <span className="font-black text-neutral-950">{order.orderNumber}<span className="mt-1 block text-xs font-semibold text-neutral-500">{order.createdAt.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</span></span>
                 <span className="text-sm font-semibold text-neutral-600">
                   <span className="block break-words">
                     {order.customer?.name ?? order.customerNameSnapshot ?? order.customerEmailSnapshot ?? order.customerEmail ?? order.customerName ?? "Cliente"}

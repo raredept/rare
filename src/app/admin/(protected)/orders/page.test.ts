@@ -38,12 +38,12 @@ describe("admin orders page", () => {
         status: "awaiting_payment",
         paymentMethod: null,
         totalInCents: 21990,
+        createdAt: new Date("2030-01-01T12:00:00.000Z"),
         customerName: null,
         customerEmail: null,
         customerEmailSnapshot: null,
         customerNameSnapshot: "Cliente Teste",
         customerCpfSnapshot: null,
-        items: [],
         customer: {
           name: "Cliente Teste",
           email: "cliente@example.com",

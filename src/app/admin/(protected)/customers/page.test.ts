@@ -11,6 +11,9 @@ const customersPageMocks = vi.hoisted(() => ({
     customer: {
       findMany: vi.fn(),
     },
+    order: {
+      groupBy: vi.fn(),
+    },
   },
 }));
 
@@ -25,6 +28,7 @@ vi.mock("@/lib/prisma", () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  customersPageMocks.prisma.order.groupBy.mockResolvedValue([]);
 });
 
 describe("admin customers page", () => {
@@ -34,11 +38,10 @@ describe("admin customers page", () => {
         id: "customer_1",
         name: "Cliente Teste",
         email: "cliente@example.com",
-        phone: null,
         cpf: "12345678909",
         active: true,
         createdAt: new Date("2030-01-01T12:00:00.000Z"),
-        orders: [],
+        _count: { orders: 0 },
       },
     ]);
 

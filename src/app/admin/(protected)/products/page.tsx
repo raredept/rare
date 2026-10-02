@@ -1,74 +1,52 @@
 import Link from "next/link";
+import { requireAdmin } from "@/lib/auth";
 import type { ReactNode } from "react";
 import { AdminSubmitButton } from "@/components/admin/admin-submit-button";
 import { ConfirmButton } from "@/components/admin/confirm-button";
+import { AdminPagination } from "@/components/admin/admin-pagination";
 import { deleteProductAction, toggleProductActiveAction } from "@/app/admin/(protected)/products/actions";
 import { getAdminCategoryFilterLabel, sortAdminCategoryFilterOptions } from "@/lib/admin-category-options";
 import { classifyProductImageUrl, getProductMediaLabel, getProductMediaTypeFromUrl } from "@/lib/admin-product-images";
 import { formatMoney } from "@/lib/money";
+import { normalizeAdminPage } from "@/lib/admin-pagination";
+import { getAdminProductRows, getAdminProductSummary } from "@/lib/admin-products-data";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 type ProductsPageProps = {
-  searchParams: Promise<{ q?: string; category?: string; status?: string; featured?: string; stock?: string }>;
+  searchParams: Promise<{ page?: string; q?: string; category?: string; status?: string; featured?: string; stock?: string }>;
 };
 
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
-  // Checked here, not only in the layout: layouts do not re-render on client
-  // navigation, so every page verifies the session next to its data.
   await requireAdmin();
   const filters = await searchParams;
-  const categories = await prisma.category.findMany({
-    where: { active: true },
-    include: { parent: true },
-    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-  });
-  const products = await prisma.product.findMany({
-    where: {
-      ...(filters.q
-        ? {
-            OR: [
-              { title: { contains: filters.q.trim(), mode: "insensitive" } },
-              { brand: { contains: filters.q.trim(), mode: "insensitive" } },
-            ],
-          }
-        : {}),
-      ...(filters.category ? { OR: [{ categoryId: filters.category }, { subcategoryId: filters.category }] } : {}),
-      ...(filters.status === "active" ? { active: true } : {}),
-      ...(filters.status === "hidden" ? { active: false } : {}),
-      ...(filters.featured === "true" ? { featured: true } : {}),
-      ...(filters.stock === "low" ? { variants: { some: { stock: { lte: 3 } } } } : {}),
-    },
-    include: {
-      category: true,
-      subcategory: true,
-      variants: true,
-      images: { orderBy: { sortOrder: "asc" }, take: 1 },
-    },
-    orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
-  });
-  const visibleProducts =
-    filters.stock === "out"
-      ? products.filter((product) => product.variants.reduce((sum, variant) => sum + variant.stock - variant.reservedStock, 0) <= 0)
-      : products;
-  const activeProducts = products.filter((product) => product.active).length;
-  const hiddenProducts = products.length - activeProducts;
-  const missingImages = products.filter((product) => !product.images[0]).length;
-  const lowStockProducts = products.filter((product) => {
-    const availableStock = product.variants.reduce((sum, variant) => sum + variant.stock - variant.reservedStock, 0);
-    return availableStock > 0 && availableStock <= 3;
-  }).length;
+  const page = normalizeAdminPage(filters.page);
+  const query = filters.q?.trim().slice(0, 100);
+  const status: "active" | "hidden" | undefined = filters.status === "active" || filters.status === "hidden" ? filters.status : undefined;
+  const featured: "true" | undefined = filters.featured === "true" ? "true" : undefined;
+  const stock: "low" | "out" | undefined = filters.stock === "low" || filters.stock === "out" ? filters.stock : undefined;
+  const category = filters.category?.trim().slice(0, 100) || undefined;
+  const normalizedFilters = { page, query, status, featured, stock, category };
+  const [categories, productPage, summary] = await Promise.all([
+    prisma.category.findMany({
+      where: { active: true },
+      include: { parent: true },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    }),
+    getAdminProductRows(normalizedFilters),
+    getAdminProductSummary(),
+  ]);
+  const { products, hasNextPage } = productPage;
   const categoryFilterOptions = sortAdminCategoryFilterOptions(categories);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-neutral-500">Catalogo</p>
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-neutral-500">Catálogo</p>
           <h1 className="mt-2 text-2xl font-black text-neutral-950">Produtos</h1>
-          <p className="mt-1 text-sm text-neutral-500">Gerencie imagens, status, destaque, categorias e estoque por variacao.</p>
+          <p className="mt-1 text-sm text-neutral-500">Gerencie imagens, status, destaque, categorias e estoque por variação.</p>
         </div>
         <Link href="/admin/products/new" className="inline-flex h-11 items-center justify-center rounded-lg bg-black px-5 text-sm font-black text-white">
           Novo produto
@@ -76,15 +54,15 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <SummaryMetric label="Ativos" value={activeProducts} />
-        <SummaryMetric label="Ocultos" value={hiddenProducts} />
-        <SummaryMetric label="Estoque baixo" value={lowStockProducts} />
-        <SummaryMetric label="Sem imagem" value={missingImages} />
+        <SummaryMetric label="Ativos" value={summary.active} />
+        <SummaryMetric label="Ocultos" value={summary.hidden} />
+        <SummaryMetric label="Estoque baixo" value={summary.lowStock} />
+        <SummaryMetric label="Sem imagem" value={summary.missingImages} />
       </div>
 
-      <form className="grid gap-3 rounded-lg border border-neutral-800 bg-neutral-950/80 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.2)] lg:grid-cols-[1fr_210px_150px_150px_190px]">
-        <input name="q" defaultValue={filters.q ?? ""} placeholder="Buscar produto ou marca" aria-label="Buscar produto ou marca" className="admin-input" />
-        <select name="category" defaultValue={filters.category ?? ""} aria-label="Filtrar por categoria" className="admin-input">
+      <form className="grid gap-3 rounded-lg border border-neutral-800 bg-neutral-950/80 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.2)] lg:grid-cols-[minmax(0,1fr)_210px_150px_150px_190px]">
+        <input name="q" defaultValue={query ?? ""} maxLength={100} aria-label="Buscar produto ou marca" placeholder="Buscar produto ou marca" className="admin-input" />
+        <select aria-label="Filtrar por categoria" name="category" defaultValue={category ?? ""} className="admin-input">
           <option value="">Todas categorias</option>
           {categoryFilterOptions.map((category) => (
             <option key={category.id} value={category.id}>
@@ -92,22 +70,22 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
             </option>
           ))}
         </select>
-        <select name="status" defaultValue={filters.status ?? ""} aria-label="Filtrar por status" className="admin-input">
+        <select aria-label="Filtrar por status" name="status" defaultValue={status ?? ""} className="admin-input">
           <option value="">Todos status</option>
           <option value="active">Ativos</option>
           <option value="hidden">Ocultos</option>
         </select>
-        <select name="featured" defaultValue={filters.featured ?? ""} aria-label="Filtrar por destaque" className="admin-input">
+        <select aria-label="Filtrar por destaque" name="featured" defaultValue={featured ?? ""} className="admin-input">
           <option value="">Destaque: todos</option>
           <option value="true">Somente destaque</option>
         </select>
         <div className="flex gap-2">
-          <select name="stock" defaultValue={filters.stock ?? ""} aria-label="Filtrar por estoque" className="admin-input">
+          <select aria-label="Filtrar por estoque" name="stock" defaultValue={stock ?? ""} className="admin-input">
             <option value="">Estoque: todos</option>
             <option value="low">Estoque baixo</option>
             <option value="out">Esgotado</option>
           </select>
-          <button className="rounded-lg bg-black px-4 text-sm font-black text-white">Filtrar</button>
+          <button className="min-h-11 rounded-lg bg-black px-4 text-sm font-black text-white">Filtrar</button>
         </div>
       </form>
 
@@ -120,7 +98,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
           <span>Ações</span>
         </div>
         <div className="divide-y divide-neutral-200">
-          {visibleProducts.map((product) => {
+          {products.map((product) => {
             const stock = product.variants.reduce((sum, variant) => sum + variant.stock - variant.reservedStock, 0);
             const reservedStock = product.variants.reduce((sum, variant) => sum + variant.reservedStock, 0);
             const soldOut = stock <= 0;
@@ -178,7 +156,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Link href={`/admin/products/${product.id}/edit`} className="rounded-lg border border-neutral-700 px-3 py-2 text-xs font-black text-neutral-200 transition hover:border-neutral-300 hover:bg-white hover:text-black">
+                  <Link href={`/admin/products/${product.id}/edit`} className="inline-flex min-h-11 items-center rounded-lg border border-neutral-700 px-3 py-2 text-xs font-black text-neutral-200 transition hover:border-neutral-300 hover:bg-white hover:text-black">
                     Editar
                   </Link>
                   <form action={toggleProductActiveAction}>
@@ -187,7 +165,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                     <AdminSubmitButton
                       idleLabel={product.active ? "Ocultar" : "Ativar"}
                       pendingLabel={product.active ? "Ocultando..." : "Ativando..."}
-                      className="rounded-lg border border-neutral-700 px-3 py-2 text-xs font-black text-neutral-200 hover:border-neutral-300 hover:bg-white hover:text-black"
+                      className="min-h-11 rounded-lg border border-neutral-700 px-3 py-2 text-xs font-black text-neutral-200 hover:border-neutral-300 hover:bg-white hover:text-black"
                     />
                   </form>
                   <form action={deleteProductAction}>
@@ -195,7 +173,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                     <ConfirmButton
                       message="Excluir este produto? O histórico de pedidos será preservado por snapshot."
                       pendingChildren="Excluindo..."
-                      className="rounded-lg border border-red-200 px-3 py-2 text-xs font-black text-red-700 transition disabled:cursor-not-allowed disabled:opacity-60"
+                      className="min-h-11 rounded-lg border border-red-200 px-3 py-2 text-xs font-black text-red-700 transition disabled:cursor-not-allowed disabled:opacity-60"
                       type="submit"
                     >
                       Excluir
@@ -206,12 +184,18 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
             );
           })}
         </div>
-        {!visibleProducts.length ? (
+        {!products.length ? (
           <div className="border-t border-neutral-800 px-6 py-14 text-center">
             <h2 className="text-base font-black text-neutral-950">Nenhum produto encontrado</h2>
             <p className="mt-2 text-sm text-neutral-500">Revise a busca ou limpe os filtros para voltar a lista completa.</p>
           </div>
         ) : null}
+        <AdminPagination
+          basePath="/admin/products"
+          page={page}
+          hasNextPage={hasNextPage}
+          params={{ q: query, category, status, featured, stock }}
+        />
       </section>
     </div>
   );
@@ -230,7 +214,7 @@ function Badge({ children, tone }: { children: ReactNode; tone: "neutral" | "mut
   const classes = {
     neutral: "border-emerald-400/30 bg-emerald-500/10 text-emerald-200",
     muted: "border-neutral-700 bg-neutral-900 text-neutral-400",
-    dark: "admin-chip-strong",
+    dark: "border-white bg-white text-black",
     danger: "border-red-400/30 bg-red-500/10 text-red-200",
     warning: "border-amber-400/30 bg-amber-400/10 text-amber-100",
   };
