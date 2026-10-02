@@ -105,6 +105,7 @@ async function main() {
       PLAYWRIGHT_PRODUCT_SLUG: "",
       ...(integratedSuite ? {
         PLAYWRIGHT_JSON_OUTPUT_FILE: process.env.PLAYWRIGHT_JSON_OUTPUT_FILE || path.resolve("output/playwright/integrated-results.json"),
+        PLAYWRIGHT_HTML_OUTPUT_DIR: path.resolve("output/playwright/report"),
       } : {}),
       QA_CURRENT_ADMIN_LOGIN: currentLogin,
       QA_CURRENT_ADMIN_PASSWORD: currentPassword,

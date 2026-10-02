@@ -6,7 +6,7 @@ test("reconciled Admin fits all requested widths and keeps drawer focus containe
   test.skip(testInfo.project.name !== "chromium-desktop", "The desktop context exercises all eight widths explicitly.");
   test.skip(!process.env.QA_DATABASE_URL || !process.env.QA_CURRENT_ADMIN_LOGIN || !process.env.QA_CURRENT_ADMIN_PASSWORD,
     "Requires disposable PostgreSQL runner.");
-  test.setTimeout(240_000);
+  test.setTimeout(300_000);
   await page.goto("/admin/login");
   await page.getByLabel("Login ou e-mail").fill(process.env.QA_CURRENT_ADMIN_LOGIN!);
   await page.getByLabel("Senha").fill(process.env.QA_CURRENT_ADMIN_PASSWORD!);
@@ -25,6 +25,7 @@ test("reconciled Admin fits all requested widths and keeps drawer focus containe
     }
     if (width >= 1024) continue;
     const trigger = page.getByRole("button", { name: "Abrir menu administrativo" });
+    for (let run = 1; run <= 3; run++) {
     await trigger.click();
     const dialog = page.getByRole("dialog", { name: "RARE ADMIN" });
     await expect(dialog).toBeVisible();
@@ -48,5 +49,12 @@ test("reconciled Admin fits all requested widths and keeps drawer focus containe
     await expect(page).toHaveURL(/\/admin\/analytics$/);
     await expect(dialog).toBeHidden();
     await expect(page.getByRole("button", { name: "Sair", exact: true })).toBeVisible();
+    }
+    if (width === 390) {
+      await trigger.click();
+      await page.setViewportSize({ width: 1024, height: 1000 });
+      await expect(page.getByRole("dialog")).toBeHidden();
+      expect(await page.evaluate(() => document.body.style.overflow)).not.toBe("hidden");
+    }
   }
 });
