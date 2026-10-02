@@ -11,8 +11,10 @@ const mocks = vi.hoisted(() => ({
       findMany: vi.fn(),
     },
     product: {
+      count: vi.fn(),
       findMany: vi.fn(),
     },
+    $queryRaw: vi.fn(),
   },
 }));
 
@@ -38,6 +40,8 @@ vi.mock("@/app/admin/(protected)/products/actions", () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.prisma.product.count.mockResolvedValue(0);
+  mocks.prisma.$queryRaw.mockResolvedValue([{ count: 0 }]);
 });
 
 describe("admin catalog pages", () => {
