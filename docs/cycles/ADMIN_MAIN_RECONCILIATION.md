@@ -3,6 +3,9 @@
 Data: 2026-10-02. Escopo: reconciliação local, QA descartável e publicação da
 branch/PR, sem merge, deploy ou ativação comercial.
 
+> Snapshot histórico da reconciliação. Resultados e limites da revisão final de
+> 2026-10-03 estão em `ADMIN_FINAL_REVIEW.md`, incluindo auditoria atual e PR 403.
+
 ## Referências e estratégia
 
 - Base original: `7f52b1954c826276c3f7581cf8fdd7b53f896a8e`.

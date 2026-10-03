@@ -139,7 +139,7 @@ async function inspectDatabase(label: string, connectionString: string, expectCl
         `Banco conectado se identifica como template PostgreSQL (${db.database_name}); se for Prisma dev, confirme shadow limpo; se for Postgres compartilhado, nao use como banco da app.`,
       );
     } else if (expectClean && hasAppObjects) {
-      add("warn", label, "Banco shadow conectado, mas ja contem objetos da app; recrie/limpe antes de migrate dev.");
+      add("warn", label, "Shadow contem objetos que podem ser de replay anterior. Confirme banco dedicado, isolado e sem dados reais antes de migrate dev: Prisma faz soft reset. Este check nao limpa dados.");
     } else {
       add("ok", label, `Banco conectado (${db.database_name}) sem expor credenciais.`);
     }

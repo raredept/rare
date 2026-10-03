@@ -3,6 +3,8 @@
 > Relatório histórico da branch original, antes da reconciliação. Os resultados
 > e limitações atuais estão em `ADMIN_MAIN_RECONCILIATION.md`; este documento não
 > representa validação da branch reconciliada ou de produção.
+> A revisão de 2026-10-03 em `ADMIN_FINAL_REVIEW.md` supersede números de QA,
+> auditoria e a antiga recomendação de limpar o shadow manualmente.
 
 Data: 2026-10-02
 Branch: `codex/admin-dashboard-refactor-20261002`
