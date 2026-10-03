@@ -9,6 +9,11 @@ import pg from "pg";
 
 const { Client } = pg;
 const integratedSuite = process.argv.includes("--all");
+const grepIndex = process.argv.indexOf("--grep");
+const grep = grepIndex < 0 ? undefined : process.argv[grepIndex + 1];
+if (grepIndex >= 0 && (!integratedSuite || !grep || grep.startsWith("--"))) {
+  throw new Error("--grep requer --all e um filtro explicito.");
+}
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -193,7 +198,8 @@ async function main() {
     const startedAt = Date.now();
     if (integratedSuite) {
       try {
-        await runNode([playwrightCli, "test", "--reporter=list,json,html"], qaEnvironment);
+        console.log(`QA_SUITE_SCOPE=${grep ? "filtered" : "full"}`);
+        await runNode([playwrightCli, "test", ...(grep ? ["--grep", grep] : []), "--reporter=list,json,html"], qaEnvironment);
       } finally {
         await sanitizeBrowserReport(qaEnvironment.PLAYWRIGHT_JSON_OUTPUT_FILE);
       }

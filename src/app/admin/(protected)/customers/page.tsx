@@ -11,14 +11,14 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 type CustomersPageProps = {
-  searchParams: Promise<{ page?: string; q?: string; status?: string }>;
+  searchParams: Promise<{ page?: string | string[]; q?: string | string[]; status?: string | string[] }>;
 };
 
 export default async function AdminCustomersPage({ searchParams }: CustomersPageProps) {
   await requireAdmin();
   const filters = await searchParams;
   const page = normalizeAdminPage(filters.page);
-  const query = filters.q?.trim().slice(0, 100);
+  const query = typeof filters.q === "string" ? filters.q.trim().slice(0, 100) : undefined;
   const status = filters.status === "active" || filters.status === "inactive" ? filters.status : undefined;
   const where: Prisma.CustomerWhereInput = {
     ...(status === "active" ? { active: true } : {}),
@@ -43,7 +43,7 @@ export default async function AdminCustomersPage({ searchParams }: CustomersPage
       createdAt: true,
       _count: { select: { orders: true } },
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ createdAt: "desc" }, { id: "asc" }],
     skip: (page - 1) * ADMIN_PAGE_SIZE,
     take: ADMIN_PAGE_SIZE + 1,
   });
@@ -87,7 +87,7 @@ export default async function AdminCustomersPage({ searchParams }: CustomersPage
       </form>
 
       <section className="mt-6 overflow-hidden rounded-lg border border-neutral-200 bg-white">
-        <div className="hidden grid-cols-[1fr_130px_140px_140px_110px_110px] bg-neutral-50 px-5 py-3 text-xs font-black uppercase tracking-wide text-neutral-500 xl:grid">
+        <div className="hidden grid-cols-[minmax(0,1fr)_130px_140px_140px_110px_110px] bg-neutral-50 px-5 py-3 text-xs font-black uppercase tracking-wide text-neutral-500 xl:grid">
           <span>Cliente</span>
           <span>Pedidos</span>
           <span>Receita paga</span>
@@ -97,8 +97,8 @@ export default async function AdminCustomersPage({ searchParams }: CustomersPage
         </div>
         <div className="divide-y divide-neutral-200">
           {customers.length ? customers.map((customer) => (
-            <div key={customer.id} className="grid gap-3 px-5 py-4 xl:grid-cols-[1fr_130px_140px_140px_110px_110px] xl:items-center">
-              <div>
+            <div key={customer.id} className="grid gap-3 px-5 py-4 xl:grid-cols-[minmax(0,1fr)_130px_140px_140px_110px_110px] xl:items-center">
+              <div className="min-w-0 [overflow-wrap:anywhere]">
                 <p className="font-black text-neutral-950">{customer.name}</p>
                 <p className="text-sm font-semibold text-neutral-600">{customer.email}</p>
                 {customer.cpf ? <p className="text-xs font-semibold text-neutral-500">CPF {maskCpf(customer.cpf)}</p> : null}

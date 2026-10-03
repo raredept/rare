@@ -100,7 +100,7 @@ export default async function AdminDashboardPage() {
   }));
 
   return (
-    <div>
+    <div className="min-w-0 [overflow-wrap:anywhere]">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-black text-neutral-950">Visão geral</h1>
@@ -262,7 +262,7 @@ export default async function AdminDashboardPage() {
           <div className="mt-4 divide-y divide-neutral-200">
             {recentOrders.length ? (
               recentOrders.map((order) => (
-                <div key={order.id} className="grid grid-cols-1 gap-2 py-3 text-sm md:grid-cols-[130px_1fr_140px_110px_80px] md:items-center">
+                <div key={order.id} className="grid grid-cols-1 gap-2 py-3 text-sm 2xl:grid-cols-[130px_minmax(0,1fr)_140px_110px_80px] 2xl:items-center">
                   <span className="font-black text-neutral-950">{order.orderNumber}</span>
                   <span className="font-semibold text-neutral-600">
                     {order.customer?.name ?? order.customerNameSnapshot ?? order.customerEmailSnapshot ?? "Cliente convidado"}

@@ -93,7 +93,7 @@ describe("admin orders page", () => {
     const html = renderToStaticMarkup(element);
 
     expect(ordersPageMocks.prisma.order.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ skip: 100, take: 50 }),
+      expect.objectContaining({ skip: 100, take: 50, orderBy: [{ createdAt: "desc" }, { id: "asc" }] }),
     );
     expect(html).toContain("Página 3 de 7");
   });

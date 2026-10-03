@@ -27,7 +27,7 @@ async function main() {
     }
     // Persisted only for the following browser run in the same disposable DB.
     const customer = await prisma.customer.create({ data: {
-      id: "cqa-reconciliation-customer", name: "Cliente QA Reconciliação", email: "qa-customer@rare.invalid",
+      id: "cqa-reconciliation-customer", name: `ClienteQA${"x".repeat(80)}`, email: `${"q".repeat(64)}@rare.invalid`,
       passwordHash: "disabled-qa-fixture", active: false,
     } });
     for (const status of ["paid", "canceled"] as const) {
@@ -54,6 +54,12 @@ async function main() {
       assert.equal(dashboard.ordersTotal, 2);
       console.log(`ADMIN_DATABASE_CONTRACT_RUN_${run}=PASS`);
     }
+    // Long valid content must not disappear behind overflow-hidden list panels.
+    await prisma.product.create({ data: {
+      id: "cqa-long-admin-product", slug: "qa-long-admin-product", title: `ProdutoQA${"x".repeat(90)}`,
+      brand: `MarcaQA${"x".repeat(80)}`, description: "Disposable responsive fixture", shortDescription: "QA",
+      priceInCents: 1000, active: false, sortOrder: 9999,
+    } });
   } finally {
     // Exact IDs, only in the verified disposable database.
     await prisma.product.deleteMany({ where: { id: { in: productIds } } });

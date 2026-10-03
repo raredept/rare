@@ -129,7 +129,7 @@ export default async function AdminReadinessPage({ searchParams }: AdminReadines
   const groupedItems = groupReadinessItems(report.items);
 
   return (
-    <div>
+    <div className="min-w-0 [overflow-wrap:anywhere]">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h1 className="text-2xl font-black text-neutral-950">Prontidão de Venda</h1>

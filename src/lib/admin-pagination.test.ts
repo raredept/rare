@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { buildAdminListHref, normalizeAdminPage } from "@/lib/admin-pagination";
 
 describe("admin pagination", () => {
+  it("rejects repeated page parameters rather than coercing arrays", () => {
+    expect(normalizeAdminPage(["2"])).toBe(1);
+    expect(normalizeAdminPage(["2", "3"])).toBe(1);
+  });
   it("normalizes invalid pages", () => {
     expect(normalizeAdminPage("2")).toBe(2);
     expect(normalizeAdminPage("0")).toBe(1);

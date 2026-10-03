@@ -21,6 +21,11 @@ test("reconciled Admin fits all requested widths and keeps drawer focus containe
       await expect(page.locator("h1")).toBeVisible();
       await waitForEntranceAnimations(page);
       expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), `${route} at ${width}px`).toBeLessThanOrEqual(0);
+      if (["/admin/orders", "/admin/products", "/admin/customers"].includes(route)) {
+        // overflow-hidden can hide clipped columns without overflowing the document.
+        const list = page.locator("main section").first();
+        expect(await list.evaluate(node => node.scrollWidth - node.clientWidth), `${route} internal clipping at ${width}px`).toBeLessThanOrEqual(1);
+      }
       if (route === "/admin") await page.screenshot({ path: testInfo.outputPath(`admin-${width}.png`), fullPage: true });
     }
     if (width >= 1024) continue;

@@ -15,18 +15,18 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 type ProductsPageProps = {
-  searchParams: Promise<{ page?: string; q?: string; category?: string; status?: string; featured?: string; stock?: string }>;
+  searchParams: Promise<{ page?: string | string[]; q?: string | string[]; category?: string | string[]; status?: string | string[]; featured?: string | string[]; stock?: string | string[] }>;
 };
 
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
   await requireAdmin();
   const filters = await searchParams;
   const page = normalizeAdminPage(filters.page);
-  const query = filters.q?.trim().slice(0, 100);
+  const query = typeof filters.q === "string" ? filters.q.trim().slice(0, 100) : undefined;
   const status: "active" | "hidden" | undefined = filters.status === "active" || filters.status === "hidden" ? filters.status : undefined;
   const featured: "true" | undefined = filters.featured === "true" ? "true" : undefined;
   const stock: "low" | "out" | undefined = filters.stock === "low" || filters.stock === "out" ? filters.stock : undefined;
-  const category = filters.category?.trim().slice(0, 100) || undefined;
+  const category = typeof filters.category === "string" ? filters.category.trim().slice(0, 100) || undefined : undefined;
   const normalizedFilters = { page, query, status, featured, stock, category };
   const [categories, productPage, summary] = await Promise.all([
     prisma.category.findMany({
@@ -90,7 +90,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
       </form>
 
       <section className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-950/80 shadow-[0_22px_80px_rgba(0,0,0,0.28)]">
-        <div className="hidden grid-cols-[1fr_190px_120px_140px_190px] bg-black px-5 py-3 text-xs font-black uppercase tracking-wide text-neutral-500 xl:grid">
+        <div className="hidden grid-cols-[minmax(0,1fr)_190px_120px_140px_190px] bg-black px-5 py-3 text-xs font-black uppercase tracking-wide text-neutral-500 xl:grid">
           <span>Produto</span>
           <span>Categoria</span>
           <span>Preço</span>
@@ -110,9 +110,9 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
             return (
               <div
                 key={product.id}
-                className="grid gap-4 px-5 py-4 transition hover:bg-white/[0.03] xl:grid-cols-[1fr_190px_120px_140px_190px] xl:items-center"
+                className="grid gap-4 px-5 py-4 transition hover:bg-white/[0.03] xl:grid-cols-[minmax(0,1fr)_190px_120px_140px_190px] xl:items-center"
               >
-                <div className="flex items-center gap-4">
+                <div className="flex min-w-0 items-center gap-4">
                   <div className="flex h-24 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-neutral-800 bg-black">
                     {mainImage && mediaType === "video" ? (
                       <video src={mainImage.url} aria-label={product.title} muted playsInline preload="metadata" className="h-full w-full object-cover" />
@@ -122,7 +122,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                       <span className="px-2 text-center text-[10px] font-black uppercase tracking-wide text-neutral-500">Sem imagem</span>
                     )}
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 [overflow-wrap:anywhere]">
                     <p className="font-black text-neutral-950">{product.title}</p>
                     <p className="mt-1 text-xs font-semibold text-neutral-500">{product.brand ?? "Marca não informada"}</p>
                     <div className="mt-2 flex flex-wrap gap-1">
@@ -144,7 +144,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                     </div>
                   </div>
                 </div>
-                <div className="text-sm font-semibold text-neutral-600">
+                <div className="min-w-0 text-sm font-semibold text-neutral-600 [overflow-wrap:anywhere]">
                   <p>{product.category?.name ?? "Sem categoria"}</p>
                   <p className="mt-1 text-xs text-neutral-500">{product.subcategory ? `Subcategoria: ${product.subcategory.name}` : "Sem subcategoria"}</p>
                 </div>

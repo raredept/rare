@@ -1,6 +1,7 @@
 import { createElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { requireAdmin } from "@/lib/auth";
 
 // Every Admin page checks the session itself; the page logic is what is under test here.
 vi.mock("@/lib/auth", () => ({ requireAdmin: vi.fn(async () => ({ id: "admin-1", role: "ADMIN" })) }));
@@ -40,11 +41,29 @@ vi.mock("@/app/admin/(protected)/products/actions", () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.prisma.category.findMany.mockReset();
+  mocks.prisma.product.findMany.mockReset();
   mocks.prisma.product.count.mockResolvedValue(0);
   mocks.prisma.$queryRaw.mockResolvedValue([{ count: 0 }]);
 });
 
 describe("admin catalog pages", () => {
+  it("authorizes before loading product data or summaries", async () => {
+    vi.mocked(requireAdmin).mockRejectedValueOnce(new Error("Unauthorized"));
+    const { default: ProductsPage } = await import("@/app/admin/(protected)/products/page");
+    await expect(ProductsPage({ searchParams: Promise.resolve({}) })).rejects.toThrow("Unauthorized");
+    expect(mocks.prisma.product.findMany).not.toHaveBeenCalled();
+    expect(mocks.prisma.$queryRaw).not.toHaveBeenCalled();
+  });
+
+  it("ignores repeated product text and category filters without crashing", async () => {
+    mocks.prisma.category.findMany.mockResolvedValueOnce([]);
+    mocks.prisma.product.findMany.mockResolvedValueOnce([]);
+    const { default: ProductsPage } = await import("@/app/admin/(protected)/products/page");
+    await ProductsPage({ searchParams: Promise.resolve({ q: ["a", "b"], category: ["a", "b"] }) });
+    expect(mocks.prisma.product.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
+  });
+
   it("renders categories with hierarchy, status and basic counts", async () => {
     mocks.prisma.category.findMany.mockResolvedValueOnce([
       {

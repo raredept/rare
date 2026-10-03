@@ -62,7 +62,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
         customerCpfSnapshot: true,
         customer: { select: { name: true, email: true, cpf: true } },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
       skip: filters.skip,
       take: filters.take,
     }),
@@ -131,7 +131,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
       </form>
 
       <section className="mt-6 overflow-hidden rounded-lg border border-neutral-200 bg-white">
-        <div className="hidden grid-cols-[160px_1fr_150px_140px_120px_100px] bg-neutral-50 px-5 py-3 text-xs font-black uppercase tracking-wide text-neutral-500 xl:grid">
+        <div className="hidden grid-cols-[160px_minmax(0,1fr)_150px_140px_120px_100px] bg-neutral-50 px-5 py-3 text-xs font-black uppercase tracking-wide text-neutral-500 xl:grid">
           <span>Pedido</span>
           <span>Cliente</span>
           <span>Status pedido</span>
@@ -142,10 +142,10 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
         <div className="divide-y divide-neutral-200">
           {orders.length ? (
             orders.map((order) => (
-              <div key={order.id} className="grid gap-3 px-5 py-4 xl:grid-cols-[160px_1fr_150px_140px_120px_100px] xl:items-center">
+              <div key={order.id} className="grid gap-3 px-5 py-4 xl:grid-cols-[160px_minmax(0,1fr)_150px_140px_120px_100px] xl:items-center">
                 <span className="font-black text-neutral-950">{order.orderNumber}<span className="mt-1 block text-xs font-semibold text-neutral-500">{order.createdAt.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</span></span>
-                <span className="text-sm font-semibold text-neutral-600">
-                  <span className="block break-words">
+                <span className="min-w-0 text-sm font-semibold text-neutral-600">
+                  <span className="block [overflow-wrap:anywhere]">
                     {order.customer?.name ?? order.customerNameSnapshot ?? order.customerEmailSnapshot ?? order.customerEmail ?? order.customerName ?? "Cliente"}
                   </span>
                   {maskCpf(order.customer?.cpf ?? order.customerCpfSnapshot) ? (
