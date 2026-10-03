@@ -5,9 +5,11 @@ const mocks = vi.hoisted(() => ({
   getCurrentAdmin: vi.fn(),
   upsert: vi.fn(),
   updateMany: vi.fn(),
+  rateLimit: vi.fn(),
 }));
 
 vi.mock("@/lib/auth", () => ({ getCurrentAdmin: mocks.getCurrentAdmin }));
+vi.mock("@/lib/rate-limit", () => ({ rateLimit: mocks.rateLimit }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     adminPushSubscription: {
@@ -40,9 +42,35 @@ beforeEach(() => {
   mocks.getCurrentAdmin.mockResolvedValue({ id: "admin-1", mustChangePassword: false });
   mocks.upsert.mockResolvedValue({ id: "push-1" });
   mocks.updateMany.mockResolvedValue({ count: 1 });
+  mocks.rateLimit.mockResolvedValue({ ok: true });
 });
 
 describe("admin push subscriptions route", () => {
+  it.each([POST, DELETE])("limits actual bytes even without a trustworthy content-length", async (handler) => {
+    const method = handler === POST ? "POST" : "DELETE";
+    const oversized = request(method, { ...subscription, padding: "x".repeat(4096) });
+    oversized.headers.set("content-length", "1");
+    expect((await handler(oversized as never)).status).toBe(413);
+    expect(mocks.upsert).not.toHaveBeenCalled();
+    expect(mocks.updateMany).not.toHaveBeenCalled();
+  });
+
+  it.each([POST, DELETE])("rejects an unexpected content type before mutation", async (handler) => {
+    const value = request(handler === POST ? "POST" : "DELETE", subscription);
+    value.headers.set("content-type", "text/plain");
+    expect((await handler(value as never)).status).toBe(415);
+    expect(mocks.upsert).not.toHaveBeenCalled();
+    expect(mocks.updateMany).not.toHaveBeenCalled();
+  });
+
+  it.each([POST, DELETE])("rate limits both mutation methods per Admin", async (handler) => {
+    mocks.rateLimit.mockResolvedValue({ ok: false });
+    expect((await handler(request(handler === POST ? "POST" : "DELETE", subscription) as never)).status).toBe(429);
+    expect(mocks.rateLimit).toHaveBeenCalledWith("admin-push:admin-1", 120, 60_000);
+    expect(mocks.upsert).not.toHaveBeenCalled();
+    expect(mocks.updateMany).not.toHaveBeenCalled();
+  });
+
   it("protects registration and removal with Admin authentication", async () => {
     mocks.getCurrentAdmin.mockResolvedValue(null);
 

@@ -12,6 +12,7 @@ import {
   serverRoutedUploadLimitMessage,
 } from "@/lib/upload-limits";
 import { isSameOriginRequest } from "@/lib/request-security";
+import { readBoundedRequestBody, RequestBodyTooLargeError } from "@/lib/request-body";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,7 +41,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: serverRoutedUploadLimitMessage("Upload") }, { status: 413 });
     }
 
-    const formData = await request.formData();
+    const contentType = request.headers.get("content-type") ?? "";
+    if (contentType.split(";", 1)[0].trim().toLowerCase() !== "multipart/form-data") {
+      return NextResponse.json({ error: "Envie os arquivos como multipart/form-data." }, { status: 415 });
+    }
+    const bytes = await readBoundedRequestBody(request, maxRequestBytes);
+    const formData = await new Response(bytes, { headers: { "Content-Type": contentType } }).formData();
     const uploadContext = normalizeUploadContext(formData.get("uploadContext"));
     const files = formData.getAll("files").filter((value): value is File => value instanceof File);
 
@@ -64,6 +70,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ uploads });
   } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return NextResponse.json({ error: serverRoutedUploadLimitMessage("Upload") }, { status: 413 });
+    }
     const message = getPublicUploadErrorMessage(error);
     if (message === "Falha ao processar ou armazenar a mídia.") {
       console.error("admin_upload_failure", getUploadFailureDiagnostic(error));
