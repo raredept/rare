@@ -1,5 +1,10 @@
 # Checklist de variaveis de ambiente Railway — RARE
 
+> Para discovery live e preparação atual (2026-10-03), use
+> [STAGING_SAFETY.md](runbooks/STAGING_SAFETY.md) e [CRON_OWNERSHIP.md](runbooks/CRON_OWNERSHIP.md).
+> Exemplos históricos de URL/cron abaixo não são inventário live nem autorização de redeploy:
+> o pre-deploy atual aplica migrations e exige checkpoint/executor/autorização antes do deploy.
+
 Este documento e o checklist operacional para configurar a RARE na Railway. Ele usa somente nomes de variaveis encontrados no projeto e nao contem secrets reais.
 
 ## 1. Avisos importantes
