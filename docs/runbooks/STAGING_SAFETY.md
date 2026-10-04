@@ -1,5 +1,10 @@
 # Staging safety / external homologation gate
 
+> Final preflight 2026-10-04: [STAGING_BOOTSTRAP_APPROVAL.md](../cycles/STAGING_BOOTSTRAP_APPROVAL.md)
+> is the current blocked approval dossier, including immutable candidate, config-file/executor trap,
+> failed read-only DB access, credential containment, proposed delta and abort/rollback sequence.
+> This older discovery snapshot does not authorize changing staging.
+
 Read-only discovery: 2026-10-03. **STAGING_DEPLOY_BLOCKED** and **DEPLOY_BLOCKED_BY_MIGRATION_RISK**. No external configuration, deployment, database, scheduler or provider was modified. This is an existing test laboratory, not the requested closed bootstrap and not the Admin candidate.
 
 ## Actual target and evidence boundary

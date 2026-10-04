@@ -1,5 +1,13 @@
 # PR / staging preparation — 2026-10-03
 
+## Final preflight update — 2026-10-04
+
+[STAGING_BOOTSTRAP_APPROVAL.md](STAGING_BOOTSTRAP_APPROVAL.md) is the current approval dossier. CANDIDATE_SHA=`b06ef6e437ee2d28fbeffeb5f91144c389aaa518`, frozen before these documentation edits; CODE_CANDIDATE_SHA=`7a820b62bb1515f7b30ccf31badf1f0881a6bd84` (subsequent commits through b06ef6e are docs only). DOCUMENTATION_HEAD is the final pushed preflight commit reported at closure; it does not silently replace the deployment artifact. Main remains 4ea73f50cafdbf67e16dc71de985052075feca42; starting ahead/behind 24/0, final docs commit count reported after push.
+
+Fresh exact head/base all-state search: no PR. gh remains unavailable. This preflight's one authorized Draft attempt returned 403 Resource not accessible by integration; PR_CREATION_BLOCKED_BY_PERMISSION, no more automated attempts. Frozen-SHA remote inspection: zero check-runs, individual statuses and Actions runs; NOT CONFIGURED / none reported, not CI green. Required reviews/protection UNKNOWN, not waived. Manual URL/title/base/head/body below remain ready to copy.
+
+Actual staging source/deploy/config revalidated read-only: integration/pre-go-live / 4ea73f5; candidate not deployed. History/backlog remain STAGING_MIGRATION_HISTORY_NOT_VERIFIED (strict TLS trust failure; SSH requires key registration); BACKUP_NOT_VERIFIED. Worker config-file selector/effective predeploy must be reviewed before source promotion, because default railway.json could introduce a second migration executor. Configuration changes/deploys/transactions/quotes/email/storage writes remain unauthorized. A diagnostic credential exposure is recorded in the approval package as an owner-led P0 containment gate; no secret values are in versioned docs, and production remediation requires separate explicit approval.
+
 Repository raredept/rare; base main; branch codex/admin-dashboard-reconciled-20261002. Scope: remote PR/CI discovery and safe existing-staging preparation only. No new Admin audit/refactor, runtime/dependency/config modification, real migration or provider side effect.
 
 ## Remote review boundary
@@ -46,6 +54,7 @@ PR_BODY:
 - docs/runbooks/PENDING_MIGRATIONS.md: real staging schema/checkpoint/executor/authorization required BEFORE web deploy; live pre-deploy runs migrate deploy with advisory locking disabled.
 - docs/runbooks/CRON_OWNERSHIP.md: Railway deployments/DB targets inventoried; KEEP existing workers. Vercel live inventory UNKNOWN; no service disabled; processing not proven.
 - docs/PRODUCTION_READINESS.md: explicit DEPENDENCY RESIDUAL RISK; UPSTREAM_WAIT on Prisma/config/deepmerge; owner release disposition required, not accepted by Codex.
+- docs/cycles/STAGING_BOOTSTRAP_APPROVAL.md: immutable b06ef6e deployment checkpoint versus documentation HEAD, exact staging-only delta, single web migration executor/config selectors, abort/rollback and sequential H1..H7 gates. DB history/checkpoint and credential containment remain blocked; no bootstrap authorization.
 - Actual PR final-HEAD checks/protection/reviews/conflicts require maintainer verification. No reported CI does not mean green CI.
 
 ## Limits
@@ -66,5 +75,7 @@ No migration history/backup was inferred from provider variables. No email recip
 Docs-only validation: git diff --check PASS; six edited/new documents have zero broken local links, balanced Markdown fences and zero secret-shaped hits. release:guard rerun: 6 OK / 1 unchanged legacy-Vercel-cron warning / 0 FAIL (repository/diff secrets, artifacts, safe defaults, public-variable allowlist, existing browser bundle). Full app suites were not rerun because runtime/main/configuration did not change; previous-cycle evidence remains explicitly dated above.
 
 READY FOR MERGE: NO until actual PR/required remote gates. READY FOR STAGING/HOMOLOGATION: NO until approved closed bootstrap, candidate source, migration checkpoint/executor/authorization and verification gates. READY FOR PRODUCTION: NO, separate release approval required.
+
+Final preflight adds READY FOR STAGING BOOTSTRAP: NO and AUTHORIZED FOR STAGING BOOTSTRAP: NO. Completed documentation is an approval dossier, not permission to deploy.
 
 Minimal human actions: (1) create Draft PR/confirm required gates; (2) approve existing staging repurpose or another isolated target, safe flags, checkpoint and single migration executor/window; (3) approve controlled fixtures/recipients and owner-led provider/monitoring/rollback/residual-risk gates. No production activation implied.

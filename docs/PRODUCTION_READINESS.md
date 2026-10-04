@@ -2,6 +2,18 @@
 
 Assessment: 2026-10-03, branch `codex/admin-dashboard-reconciled-20261002`. This cycle prepares a reviewable release; it does **not** authorize merge, deployment, migrations on a real database or activation of commerce. No production environment or provider was changed.
 
+## Final preflight update — 2026-10-04
+
+Current decision dossier: [STAGING_BOOTSTRAP_APPROVAL.md](cycles/STAGING_BOOTSTRAP_APPROVAL.md). Immutable deployment checkpoint b06ef6e437ee2d28fbeffeb5f91144c389aaa518; last runtime/test commit 7a820b62bb1515f7b30ccf31badf1f0881a6bd84, with only docs changes afterward. New documentation HEAD is reported after push, not another homologated code version. Main unchanged, initial ahead/behind 24/0; no app suite rerun or Admin refactor.
+
+Read-only Railway inventory/flags/domain/mounts/provider registration remain as below. Web/worker/PG/Redis each have one running instance, one active deployment and one configured replica. Configured staging DB/Redis and mounted-volume IDs differ from production; worker Redis absent (DB-backed queue, no added dependency). Candidate not deployed. The two rare_dev pending migrations cannot be inferred for staging: direct read-only PG attempt failed trusted TLS, and SSH path needs key registration. No trust bypass/access setup, query result, backlog count or migration was obtained. STAGING_MIGRATION_HISTORY_NOT_VERIFIED and BACKUP_NOT_VERIFIED remain blockers.
+
+Web-only migration execution is a proposed gate, not proven for a future source change: verify explicit /railway.json web and /railway.cron.json worker selectors/effective manifests so code-config precedence cannot make the worker migrate too. Checkout=false does not pause expiry reconciliation or webhooks; they can update existing TEST orders and expire TEST sessions. Only new checkout/quote/email initiation is closed by the proposed three flags after runtime verification. Approved quiescence/backlog handling is required; no scheduler/process was stopped here.
+
+**P0 credential containment required:** an erroneous PowerShell comparison emitted staging/production Stripe keys and webhook/Admin-session/cron secret values into a tool-output record in this conversation. No values are copied into repository files. Corrected comparisons emit classifications only; a file secret scan does not undo record exposure. Owner-led rotation/revocation and coordinated consumer/session/webhook recovery are required; production changes need separate explicit approval. No automatic rotation was performed and no confidentiality guarantee is claimed.
+
+PR remains absent after fresh search/one 403 creation attempt; required reviews/protection UNKNOWN, zero reported checks/statuses/Actions on frozen SHA. READY FOR STAGING BOOTSTRAP: NO; AUTHORIZED FOR STAGING BOOTSTRAP: NO; READY FOR EXTERNAL HOMOLOGATION: NO. Existing merge/production NO decisions remain. Prisma registry re-read 2026-10-04 shows unchanged 7.10.0/config deepmerge-ts 7.1.5 and latest 8 prerelease; UPSTREAM_WAIT unchanged. Audit counts below are dated previous-cycle results, not a new audit run.
+
 ## Evidence boundary
 
 Local QA uses synthetic data and disabled external side effects. PASS in Code means the inspected implementation/contract passed relevant local tests, not an externally homologated integration. LOCAL VERIFIED means the observed local environment only. Staging and Production describe verification of **this candidate**, not an assertion that the existing live service is broken or absent. No staging URL, provider callback, secret value or live catalog inventory is inferred.
