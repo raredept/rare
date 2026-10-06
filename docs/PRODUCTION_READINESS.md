@@ -1,5 +1,17 @@
 # RARE — production readiness
 
+## P0 containment update — 2026-10-06
+
+**RELEASE_SECURITY_FREEZE=ACTIVE.** Current decision artifact: [CREDENTIAL_ROTATION_APPROVAL.md](security/CREDENTIAL_ROTATION_APPROVAL.md), with [sanitized incident/evidence](security/CREDENTIAL_INCIDENT_202610.md). Staging and production credential containment require separate approval and actual verified completion; neither phase is authorized. Production rotation is urgent independently of the Admin release. No credential/environment/service/DB change or cleanup was executed.
+
+Fresh Git entry local/remote 06981b8c844590b4f1c94cc3a41898cf7bd3404b, main unchanged, 25 ahead / 0 behind. CODE_CANDIDATE_SHA remains 7a820b62bb1515f7b30ccf31badf1f0881a6bd84; STAGING_DEPLOYMENT_CHECKPOINT remains b06ef6e437ee2d28fbeffeb5f91144c389aaa518; documentation does not replace either. Both environments' web/worker pairs remain on 4ea73f5 in read-only inventory. All four affected categories remain COMPROMISED pending closure evidence; current presence/difference is not revocation proof.
+
+Current/reachable-history scan found no confirmed real affected credential in versionable files/text blobs (207 commits / 1,709 text blobs). Local ignored root env and five generated standalone env copies contain the configured TEST key; PowerShell history contains additional credentialed URLs of unknown validity, not matching current PG passwords. Local Codex transcript content was inaccessible due to file use, not a clean scan. Binary/encoded/unreachable/remote-retention gaps remain explicit. Repository cleanliness does not restore credential confidentiality.
+
+Both staging AND production web predeploys run migrate deploy with advisory locking disabled. Secret refresh cannot silently authorize DDL, deploy the candidate or restore compromised variables via native rollback. ADMIN_SESSION_SECRET rotation logs out customers as well as Admins. CRON_SECRET_PREVIOUS support exists in current/deployed scoped source but is absent in live web config; retaining the compromised previous value requires explicit incident risk acceptance and deadline, not an automatic continuity workaround.
+
+PR remains absent; no creation retry; main protection read 403. Entry-HEAD check-runs/statuses and all repository Actions runs 0: NOT CONFIGURED / none reported, never PASS. READY FOR MERGE=NO; READY FOR STAGING BOOTSTRAP=NO; READY FOR EXTERNAL HOMOLOGATION=NO; READY FOR PRODUCTION=NO. Credential containment and migration/checkpoint/executor approval are cumulative. STAGING_MIGRATION_HISTORY_NOT_VERIFIED and BACKUP_NOT_VERIFIED remain; no DB access attempt/full E2E rerun/dependency change here. Earlier dated sections are historical evidence, not waiver of this freeze.
+
 Assessment: 2026-10-03, branch `codex/admin-dashboard-reconciled-20261002`. This cycle prepares a reviewable release; it does **not** authorize merge, deployment, migrations on a real database or activation of commerce. No production environment or provider was changed.
 
 ## Final preflight update — 2026-10-04

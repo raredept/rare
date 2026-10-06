@@ -1,5 +1,7 @@
 # Staging safety / external homologation gate
 
+> P0 update 2026-10-06: **RELEASE_SECURITY_FREEZE=ACTIVE**. [Separate staging/production rotation approval](../security/CREDENTIAL_ROTATION_APPROVAL.md) and [sanitized incident assessment](../security/CREDENTIAL_INCIDENT_202610.md) precede bootstrap. Planning alone does not contain credentials; no rotation/configuration/deploy/migration authorized. Existing reconciliation remains active despite checkout flags; safe process activation and migration approval remain cumulative gates.
+
 > Final preflight 2026-10-04: [STAGING_BOOTSTRAP_APPROVAL.md](../cycles/STAGING_BOOTSTRAP_APPROVAL.md)
 > is the current blocked approval dossier, including immutable candidate, config-file/executor trap,
 > failed read-only DB access, credential containment, proposed delta and abort/rollback sequence.

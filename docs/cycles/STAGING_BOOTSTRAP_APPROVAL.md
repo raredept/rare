@@ -1,5 +1,7 @@
 RARE — STAGING BOOTSTRAP APPROVAL
 
+> 2026-10-06: **RELEASE_SECURITY_FREEZE=ACTIVE**. First decision: [CREDENTIAL_ROTATION_APPROVAL.md](../security/CREDENTIAL_ROTATION_APPROVAL.md); evidence: [credential incident](../security/CREDENTIAL_INCIDENT_202610.md). Phase S must be executed and verified under new approval before candidate bootstrap; Phase P is separately urgent and never authorized by staging approval. Both live webs have migration predeploy, so credential refresh itself needs a reviewed migration-free activation path or independent migration authorization. No rotation/bootstrap/deploy/migration performed. All NO readiness/authorization states below remain.
+
 Candidate: `b06ef6e437ee2d28fbeffeb5f91144c389aaa518` (immutable deployment checkpoint; see code/documentation distinction below).
 Current staging SHA: `4ea73f50cafdbf67e16dc71de985052075feca42`.
 Environment: Railway Rare / staging / `d8399691-dacf-41e9-a9d5-060c97672e39`.

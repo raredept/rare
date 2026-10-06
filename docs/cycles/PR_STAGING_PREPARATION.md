@@ -1,5 +1,11 @@
 # PR / staging preparation — 2026-10-03
 
+## P0 release recovery update — 2026-10-06
+
+**RELEASE_SECURITY_FREEZE=ACTIVE.** [CREDENTIAL_ROTATION_APPROVAL.md](../security/CREDENTIAL_ROTATION_APPROVAL.md) is the current decision artifact. Both rotation phases remain unauthorized/unverified; no merge/bootstrap/provider homologation until containment and existing cumulative gates pass. Production incident response must not wait for this PR. Fresh exact PR search absent, main protection 403, no automated creation retry after established PR_CREATION_BLOCKED_BY_PERMISSION. Entry local/remote documentation HEAD 06981b8c844590b4f1c94cc3a41898cf7bd3404b, 25 ahead / 0 behind; final pushed documentation hash/count and exact checks reported at closure.
+
+Runtime/test candidate 7a820b62bb1515f7b30ccf31badf1f0881a6bd84 and deployment checkpoint b06ef6e437ee2d28fbeffeb5f91144c389aaa518 are unchanged; only docs separate these checkpoints. No new runtime/config/dependency/migration candidate, no full QA rerun. Keep public PR incident wording generic: **security containment gate requires credential rotation**. Do not attach raw diagnostics, credential identifiers/fingerprints, secret values or recipient/customer details. Manual title/base/head/body below remain available; creating/reviewing a Draft does not lift freeze or authorize merge.
+
 ## Final preflight update — 2026-10-04
 
 [STAGING_BOOTSTRAP_APPROVAL.md](STAGING_BOOTSTRAP_APPROVAL.md) is the current approval dossier. CANDIDATE_SHA=`b06ef6e437ee2d28fbeffeb5f91144c389aaa518`, frozen before these documentation edits; CODE_CANDIDATE_SHA=`7a820b62bb1515f7b30ccf31badf1f0881a6bd84` (subsequent commits through b06ef6e are docs only). DOCUMENTATION_HEAD is the final pushed preflight commit reported at closure; it does not silently replace the deployment artifact. Main remains 4ea73f50cafdbf67e16dc71de985052075feca42; starting ahead/behind 24/0, final docs commit count reported after push.
@@ -49,6 +55,7 @@ PR_BODY:
 - Docs-only preparation does not rerun these full suites. Runtime audit refreshed: 3 high / 0 critical; prior full audit 16 high including 13 dev/tooling.
 
 ## Operational gates / evidence
+- Security containment gate requires credential rotation; release security freeze remains active. Staging and production require independent authorization/verification before release recovery.
 - docs/runbooks/STAGING_SAFETY.md: actual Railway staging identified, separate DB/Redis and TEST secrets, mounted dedicated media volume; not this candidate artifact. Web checkout/shipping true and SMTP test do not meet closed bootstrap. No external state changed.
 - Stripe TEST webhook registration/account read is configuration evidence, not payment/webhook homologation. Sandbox freight/email/media/monitoring/rollback remain untested.
 - docs/runbooks/PENDING_MIGRATIONS.md: real staging schema/checkpoint/executor/authorization required BEFORE web deploy; live pre-deploy runs migrate deploy with advisory locking disabled.
