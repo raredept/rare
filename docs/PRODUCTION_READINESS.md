@@ -1,6 +1,36 @@
 # RARE — production readiness
 
-## Current staging recovery-gate attempt — 2026-10-06
+## Current backup reconciliation / trusted metadata audit — 2026-10-06
+
+**INCOMPLETE — SAFE ABORT; ENDPOINT_SECURITY_BLOCKER; RELEASE_SECURITY_FREEZE=ACTIVE; PHASE_S_CAN_RESUME=NO.** Real staging migration history is still not known; the authorized success criterion was not achieved. Current evidence: [staging database gate](security/STAGING_DATABASE_GATE.md), [incident timeline](security/CREDENTIAL_INCIDENT_202610.md), [provider support handoff](security/RAILWAY_BACKUP_SUPPORT_HANDOFF.md) and [rotation approval boundary](security/CREDENTIAL_ROTATION_APPROVAL.md). Support remains DRAFT ONLY / SUPPORT_NOT_CONTACTED.
+
+Entry local/remote documentation HEAD 30104ad071bac4df6c0b31524358c262f5b33b25; origin/main/deployed source 4ea73f50cafdbf67e16dc71de985052075feca42; 29 ahead / 0 behind. Final documentation SHA/count/remote equality are reported at closure. One exact all-state head/base PR search this turn returned none; no PR creation attempt/retry or merge. PR_CREATION_BLOCKED_BY_PERMISSION remains unresolved; absence of a PR is not green CI.
+
+### Backup / access outcome
+
+The exact API-verified staging project 72ed12be-9a2a-4e13-8594-30ffd8ffa565, environment d8399691-dacf-41e9-a9d5-060c97672e39, PG service ed0a374e-79da-4aab-9e3a-bb684fb829d1 and volume instance c5910985-a38a-479b-9274-e65ec6753c77 were retained. No late snapshot was visible at 2026-10-06T17:30:27.210Z. The separately authorized **second and final** creation request at 2026-10-06T17:30:46.574Z returned HTTP 200 / INTERNAL_SERVER_ERROR with no workflow ID. Successful readbacks at 17:30:48.048Z, 17:32:38.169Z and 17:52:44.877Z on the same date all returned 0 snapshots / 0 schedules. Cumulative creation requests **2; NO_THIRD_ATTEMPT**. TRACE_ID=NOT_CAPTURED; backend outcome/cost UNKNOWN; BACKUP_PROVIDER_BLOCKER=YES; BACKUP_AVAILABLE=NO; STAGING_BACKUP_VERIFIED=NO; RESTORE_DRILL_VERIFIED=NO. Empty inventories do not rule out internal work, delayed snapshots or charges; no schedule, deletion, resize or restore was attempted.
+
+Metadata-only READ ONLY SQL was authorized independently of backup availability in this cycle. However, local transient pairs failed the encrypted-key guard and were all removed, with no preexisting-key deletion. Five related McAfee log entries confirm the ASKPASS helper as QUARANTINED and establish the endpoint-security blocker. No bypass, antivirus restore/exclusion/change or unencrypted fallback was used. Personal key inventory remained 0 before / 0 after; workspace inventory was not asserted. No key-registration attempt, SSH or SQL occurred. Remote deletion NOT APPLICABLE; remote personal-key absence verified YES; local transient keys removed YES. API IDs are verified, but the intended SSH service-instance runtime target 3b37cfd9-f315-40df-a8a6-35673912d346 was not verified remotely.
+
+| Release gate | Current evidence / decision |
+|---|---|
+| READ ONLY enforcement / explicit ROLLBACK | NOT VERIFIED / NOT EXECUTED because no SQL ran |
+| DB version; applied/pending/failed/rolled-back counts; actual checksum comparison | UNKNOWN |
+| Schema, analytics indexes and sessionVersion state | UNKNOWN; no full-drift or deployed-Git-equals-applied claim |
+| Migration history verified / history clean | NO / NOT VERIFIED |
+| Migrate-deploy no-op / PHASE_M_REQUIRED | UNKNOWN / UNKNOWN |
+| MIGRATION_BLOCKER | YES — unknown history, not an identified corrupt or pending migration |
+| SAFE_SECRET_ACTIVATION_PATH / PHASE_S_CAN_RESUME | NOT PROVEN / NO |
+| Credential incident / rotation / release freeze | COMPROMISED / NO / ACTIVE |
+| READY FOR MERGE/STAGING BOOTSTRAP/EXTERNAL HOMOLOGATION/PRODUCTION | NO for all |
+
+Fresh staging web/worker readbacks retain deployed SHA 4ea73f50cafdbf67e16dc71de985052075feca42 and stored source branch integration/pre-go-live; stored source is distinct from next-deployment proof. Stored web predeploy migrates with advisory locking disabled; worker, PG and Redis predeploy NONE. Current stored executor count 1; future count UNKNOWN. Config selectors/root directories remain null and the recorded 2026-09-25 resolved-config snapshot is empty; EFFECTIVE_NEXT_DEPLOY_CONFIG=NOT VERIFIED. No source/runtime/config/variable change, deploy/restart, migration/DDL/DML, credential rotation, commercial-provider/commerce or production action occurred. Independent runtime writes were not paused or audited; sensitive recovery copies and incident evidence were preserved.
+
+Next: owner/provider triage of the two ambiguous backup requests through the unsent handoff, plus legitimate owner review of endpoint quarantine. No third request, automatic SQL retry or Phase S continuation follows this safe stop. Documentation remains incomplete operational recovery, not containment or release approval; only documentation checks are handled at closure, with no E2E/build/runtime-suite rerun. Historical sections below preserve their original authority and observations, not this cycle's independent SQL authorization.
+
+## Historical first staging recovery-gate attempt — 2026-10-06
+
+This first attempt is superseded by the current cycle above. Its single backup request, backup-before-SSH prerequisite and no-local-key statements are historical, not cumulative totals or current execution authority.
 
 **RELEASE_SECURITY_FREEZE=ACTIVE; PHASE_S_CAN_RESUME=NO.** [STAGING_DATABASE_GATE.md](security/STAGING_DATABASE_GATE.md) is the current execution dossier; [incident timeline](security/CREDENTIAL_INCIDENT_202610.md) and [rotation approval boundary](security/CREDENTIAL_ROTATION_APPROVAL.md) agree. One authorized backup-create request targeted the exact verified staging PG instance and returned INTERNAL_SERVER_ERROR without workflowId; three post-listings remain 0 snapshots / 0 schedules. MANUAL_BACKUP_FAILED; BACKUP_AVAILABLE=NO; STAGING_BACKUP_VERIFIED=NO; RESTORE_DRILL_VERIFIED=NO. Backend outcome/cost UNKNOWN; no retry, deletion/schedule or restore.
 

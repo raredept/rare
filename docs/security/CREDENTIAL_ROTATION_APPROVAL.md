@@ -1,6 +1,43 @@
 # RARE — CREDENTIAL ROTATION APPROVAL
 
-## Current recovery attempt / rotation still not authorized — 2026-10-06
+## Current cycle — backup reconciliation + trusted audit ABORT — 2026-10-06
+
+**RELEASE_SECURITY_FREEZE=ACTIVE; PHASE_S_CAN_RESUME=NO; BACKUP_PROVIDER_BLOCKER=YES; ENDPOINT_SECURITY_BLOCKER=YES; MIGRATION_BLOCKER=YES.** The [current staging database gate](STAGING_DATABASE_GATE.md) records the aborted recovery/access cycle. The [Railway backup support handoff](RAILWAY_BACKUP_SUPPORT_HANDOFF.md) is **DRAFT ONLY / SUPPORT_NOT_CONTACTED**. All affected credentials remain **COMPROMISED**, rotated **NO**; Phase M/S/P is not authorized by this package and all release readiness remains **NO**.
+
+Entry local/origin HEAD matched 30104ad071bac4df6c0b31524358c262f5b33b25; main stayed 4ea73f50cafdbf67e16dc71de985052075feca42; **29 ahead / 0 behind**. These are entry evidence, not a claimed final documentation HEAD.
+
+### Latest authority and actual outcome
+
+The owner separately authorized a second/final manual backup attempt after fresh reconciliation and trusted metadata-only SQL **regardless of backup availability**. The first recovery attempt's checkpoint-before-SSH rule is historical. No Phase M/S/P, credential replacement/revocation, migration, deploy/restart, restore, schedule change, PITR enable or endpoint-security bypass was authorized by implication.
+
+Exact staging PG targets were verified: project 72ed12be-9a2a-4e13-8594-30ffd8ffa565; environment d8399691-dacf-41e9-a9d5-060c97672e39; service ed0a374e-79da-4aab-9e3a-bb684fb829d1; service instance 3b37cfd9-f315-40df-a8a6-35673912d346; volume a0b78a5e-0dec-40ab-9d8c-c298be29ca5d; volume instance c5910985-a38a-479b-9274-e65ec6753c77.
+
+| Current item | Verified result / boundary |
+|---|---|
+| Fresh backup reconciliation | 2026-10-06T17:30:27.210Z: 0 snapshots / 0 schedules; no late first-attempt snapshot observed |
+| Second and final creation request | 2026-10-06T17:30:46.574Z: HTTP 200 / INTERNAL_SERVER_ERROR; no usable workflow ID |
+| Bounded readbacks | 2026-10-06T17:30:48.048Z, 17:32:38.169Z and 17:52:44.877Z: each 0 snapshots / 0 schedules |
+| Attempt limit | Cumulative requests 2 across separate authorizations; **NO_THIRD_ATTEMPT** |
+| Trace / provider outcome | TRACE_ID=NOT_CAPTURED in sanitized evidence, not asserted absent from every raw-response location; backend outcome/cost UNKNOWN |
+| Backup / recovery | BACKUP_AVAILABLE=NO verified backup; STAGING_BACKUP_VERIFIED=NO; RESTORE_DRILL_VERIFIED=NO; no restore/schedule/delete/PITR/dump |
+| Temporary local key | Validation rejected transient pairs; all removed, no preexisting key deleted; LOCAL_TEMP_KEY_CLEANUP=YES |
+| Remote personal keys | Inventory 0 before/after; KEY_REGISTERED=NO; REMOTE_KEY_ABSENCE_VERIFIED=YES; remote deletion NOT APPLICABLE |
+| Endpoint security | McAfee evidence confirmed helper QUARANTINED, five related events; ENDPOINT_SECURITY_BLOCKER=YES; no restoration/exclusion/bypass or unencrypted-key fallback |
+| Trusted SQL | SSH_SQL_EXECUTED=NO; READ ONLY transaction / ROLLBACK NOT EXECUTED; not a backup-prerequisite refusal |
+| History / schema | PG version, actual counts/checksums/checksum match/schema UNKNOWN; STAGING_MIGRATION_HISTORY_VERIFIED=NO; STAGING_MIGRATION_HISTORY_CLEAN=NOT VERIFIED |
+| Migration decision | MIGRATE_NOOP=UNKNOWN; PHASE_M_REQUIRED=UNKNOWN; MIGRATION_BLOCKER=YES because history is unverified, not because corruption/failed migration was found |
+
+The backup provider blocker does not identify a structural, billing, quota or permission cause. Empty inventories do not prove no internal work, no eventual snapshot or zero cost. No SQL success or recovery proof is claimed.
+
+Fresh stored web predeploy remains `PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=true npx prisma migrate deploy`; worker/PG/Redis NONE. CURRENT_STORED_MIGRATION_EXECUTOR_COUNT=1; advisory locking DISABLED. Web/worker selectors/root directories remain null, with empty September 25 resolved manifests. FUTURE_MIGRATION_EXECUTOR_COUNT=UNKNOWN; EFFECTIVE_NEXT_DEPLOY_CONFIG=NOT VERIFIED; SAFE_SECRET_ACTIVATION_PATH=NOT PROVEN. No config/source/variable/commerce/production mutation or rotation occurred.
+
+### Next owner decision — no automatic retry
+
+Owner/provider triage of the backup requests and legitimate endpoint-quarantine/trusted-SSH review are the next decisions. The support draft has not been sent. No third create, automatic key registration/access retry, quarantine reversal or security bypass is approved by this package. Future authorized SQL remains a separate evidence-gathering operation, not permission to migrate or proof of recoverability. Any later Phase M/S/P or service-config/activation operation needs exact new authority and independently satisfied gates. READY FOR MERGE/STAGING BOOTSTRAP/EXTERNAL HOMOLOGATION/PRODUCTION=NO.
+
+Everything below, including previous backup/checkpoint conditions and conditional Phase S approval, is retained as historical evidence or a conditional plan. It supplies **no current execution authority** and cannot override the latest instruction/outcome above.
+
+## Historical first recovery attempt / rotation still not authorized — 2026-10-06
 
 **PHASE_S_CAN_RESUME=NO; RELEASE_SECURITY_FREEZE=ACTIVE.** [Current staging database gate](STAGING_DATABASE_GATE.md) records authority for exactly one staging PG manual backup and temporary personal SSH/metadata access conditional on availability, not Phase M/S/P or secret rotation. Exact targets verified; the one create request returned INTERNAL_SERVER_ERROR / no workflowId. Three post-attempt lists remain empty. MANUAL_BACKUP_FAILED; BACKUP_AVAILABLE=NO; STAGING_BACKUP_VERIFIED=NO; backend outcome/cost UNKNOWN; RESTORE_DRILL_VERIFIED=NO. No creation retry, restore or schedule.
 

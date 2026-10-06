@@ -1,8 +1,42 @@
 # RARE — secret activation & migration gate
 
-## Current recovery-gate attempt — 2026-10-06
+## Current cycle — backup reconciliation + trusted audit ABORT — 2026-10-06
 
-**MANUAL_BACKUP_FAILED; RELEASE_SECURITY_FREEZE=ACTIVE; PHASE_S_CAN_RESUME=NO.** Current execution record: [STAGING_DATABASE_GATE.md](STAGING_DATABASE_GATE.md). Owner authorized exactly one staging PG backup and conditional temporary personal SSH/metadata access after availability, not Phase M/S/P. All target IDs were matched. One volumeInstanceBackupCreate request at 2026-10-06T16:52:38.126Z returned HTTP 200 / INTERNAL_SERVER_ERROR without workflowId; three subsequent listings showed 0 snapshots / 0 schedules, last at 16:55:22.004Z. BACKUP_AVAILABLE=NO; STAGING_BACKUP_VERIFIED=NO; backend outcome/cost UNKNOWN. No second create or retry.
+**ABORT; BACKUP_PROVIDER_BLOCKER=YES; ENDPOINT_SECURITY_BLOCKER=YES; MIGRATION_BLOCKER=YES. RELEASE_SECURITY_FREEZE=ACTIVE; PHASE_S_CAN_RESUME=NO.** The [staging database gate](STAGING_DATABASE_GATE.md) contains the current execution record; the [Railway backup support handoff](RAILWAY_BACKUP_SUPPORT_HANDOFF.md) is a sanitized draft only, **SUPPORT_NOT_CONTACTED**. This cycle did not complete trusted SQL access or obtain a verified backup. All affected staging/production credentials remain **COMPROMISED**, rotated **NO**; all release readiness remains **NO**.
+
+Entry local/origin documentation HEAD matched 30104ad071bac4df6c0b31524358c262f5b33b25; main remained 4ea73f50cafdbf67e16dc71de985052075feca42; **29 ahead / 0 behind**. Final Git publication is reported separately, not embedded as a self-referential final HEAD.
+
+### Current authority and exact target
+
+The latest owner instruction authorized one **second and final** backup request only after a fresh empty inventory, plus trusted metadata-only SQL **irrespective of backup success**. The prior checkpoint-before-SSH condition is historical and does not govern this cycle. Neither permission authorized Phase M/S/P, rotation, migration, deployment, restart, restore or endpoint-security bypass. No third backup attempt is authorized.
+
+Target IDs were reverified: Rare project 72ed12be-9a2a-4e13-8594-30ffd8ffa565; staging d8399691-dacf-41e9-a9d5-060c97672e39; Postgres-MlyZ service ed0a374e-79da-4aab-9e3a-bb684fb829d1; service instance 3b37cfd9-f315-40df-a8a6-35673912d346; volume a0b78a5e-0dec-40ab-9d8c-c298be29ca5d; volume instance c5910985-a38a-479b-9274-e65ec6753c77. Service-instance and volume-instance IDs are distinct.
+
+### Backup outcome — second and final request
+
+Fresh inventory at 2026-10-06T17:30:27.210Z showed 0 snapshots / 0 schedules, with no late backup from the first attempt observed. The separately authorized second request at 2026-10-06T17:30:46.574Z returned HTTP 200 / INTERNAL_SERVER_ERROR without a usable workflow ID. Readbacks at 2026-10-06T17:30:48.048Z, 2026-10-06T17:32:38.169Z and 2026-10-06T17:52:44.877Z each showed 0 snapshots / 0 schedules. Cumulative creation requests across both authorizations: **2; NO_THIRD_ATTEMPT**.
+
+TRACE_ID=NOT_CAPTURED: no correlation ID is available in sanitized evidence; the initial parser did not cover all possible locations, so raw-response absence is not asserted. BACKUP_AVAILABLE=NO verified backup; STAGING_BACKUP_VERIFIED=NO; backend outcome and cost UNKNOWN. The provider blocker is an operational result, not proof of a structural, permission, quota or billing cause. Empty readbacks do not prove no internal work or no possible later snapshot. No restore, schedule change, delete/lock, PITR enable or dump was performed.
+
+### Trusted access outcome — independent endpoint-security abort
+
+Local temporary key-generation validation rejected transient key pairs; no validated usable key was obtained. All transient pairs were removed, without deleting any preexisting key. The personal Railway key inventory was 0 before and after: **KEY_REGISTERED=NO; REMOTE_KEY_ABSENCE_VERIFIED=YES; REMOTE_KEY_DELETE=NOT APPLICABLE; LOCAL_TEMP_KEY_CLEANUP=YES**.
+
+Sanitized McAfee log evidence confirmed the helper was **QUARANTINED**, with five related events. **ENDPOINT_SECURITY_BLOCKER=YES.** No quarantine restoration, antivirus bypass/exclusion, unencrypted-key fallback or alternative access workaround was used. SSH_SQL_EXECUTED=NO; the planned READ ONLY transaction and ROLLBACK were **NOT EXECUTED**. This abort was not caused by applying the old backup prerequisite.
+
+PostgreSQL version, actual migration applied/pending/failed/rolled-back counts, database checksums, checksum match and actual schema remain **UNKNOWN**. STAGING_MIGRATION_HISTORY_VERIFIED=NO; STAGING_MIGRATION_HISTORY_CLEAN=NOT VERIFIED; MIGRATE_NOOP=UNKNOWN; PHASE_M_REQUIRED=UNKNOWN. MIGRATION_BLOCKER=YES means missing trustworthy history/schema evidence, **not confirmed corruption or a discovered failed migration**.
+
+### Current configuration and next decision
+
+Fresh stored configuration still has web predeploy `PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=true npx prisma migrate deploy`; worker/PG/Redis predeploy NONE. CURRENT_STORED_MIGRATION_EXECUTOR_COUNT=1, with advisory locking disabled; FUTURE_MIGRATION_EXECUTOR_COUNT=UNKNOWN. Web/worker selectors and root directories remain null; September 25 resolved snapshots retain empty manifests. EFFECTIVE_NEXT_DEPLOY_CONFIG=NOT VERIFIED; SAFE_SECRET_ACTIVATION_PATH=NOT PROVEN. Current stored/snapshot evidence does not certify the next deployment or a migration-free activation path.
+
+Next: owner/provider triage of the two backup requests using the draft handoff, and legitimate owner review of endpoint quarantine/trusted SSH access. **No automatic backup retry, quarantine reversal, key registration or access retry follows from this dossier.** No current SQL success, no-op migrate, recovery proof, Phase M requirement or Phase S readiness is asserted. No source/predeploy/selector/variable/commerce/production change or credential rotation was performed. READY FOR MERGE/STAGING BOOTSTRAP/EXTERNAL HOMOLOGATION/PRODUCTION=NO.
+
+Everything below is historical evidence or conditional analysis, including earlier checkpoint requirements, backup proposals and Phase S approvals. It is not current execution authority; the current cycle and explicit owner direction above take precedence.
+
+## Historical first recovery attempt — 2026-10-06
+
+**MANUAL_BACKUP_FAILED; RELEASE_SECURITY_FREEZE=ACTIVE; PHASE_S_CAN_RESUME=NO.** Historical execution record: [STAGING_DATABASE_GATE.md](STAGING_DATABASE_GATE.md). Owner then authorized exactly one staging PG backup and conditional temporary personal SSH/metadata access after availability, not Phase M/S/P. All target IDs were matched. One volumeInstanceBackupCreate request at 2026-10-06T16:52:38.126Z returned HTTP 200 / INTERNAL_SERVER_ERROR without workflowId; three subsequent listings showed 0 snapshots / 0 schedules, last at 16:55:22.004Z. BACKUP_AVAILABLE=NO; STAGING_BACKUP_VERIFIED=NO; backend outcome/cost UNKNOWN. No second create or retry in that first attempt.
 
 No key generated/registered, SSH or SQL: the backup prerequisite failed. Migration counts, version and schema remain UNKNOWN; STAGING_MIGRATION_HISTORY_VERIFIED=NO; PHASE_M_REQUIRED=UNKNOWN. Stored web predeploy and worker NONE reverified; selectors still null, old resolved manifests empty. EFFECTIVE_NEXT_DEPLOY_CONFIG=NOT VERIFIED; SAFE_SECRET_ACTIVATION_PATH=NOT PROVEN. Latest staging deployments/mount/state unchanged in readback. No runtime/source/config/variable/production change, rotation, migration or restore performed; credentials remain COMPROMISED.
 

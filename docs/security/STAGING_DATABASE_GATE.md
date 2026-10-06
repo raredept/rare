@@ -1,5 +1,88 @@
 # RARE — staging database & recovery gate
 
+## Current reconciliation / trusted audit ABORT — 2026-10-06
+
+**BACKUP_PROVIDER_BLOCKER=YES; ENDPOINT_SECURITY_BLOCKER=YES; RELEASE_SECURITY_FREEZE=ACTIVE; PHASE_S_CAN_RESUME=NO.** Backup reconciliation and the separately authorized second/final request are complete. The metadata audit was safely aborted before registration, SSH or SQL because McAfee quarantined the local passphrase helper. **MIGRATION HISTORY = KNOWN was NOT achieved.** History remains UNKNOWN; neither clean history nor corruption is inferred.
+
+[Secret activation gate](SECRET_ACTIVATION_GATE.md), [incident timeline](CREDENTIAL_INCIDENT_202610.md), [rotation approval](CREDENTIAL_ROTATION_APPROVAL.md), [support handoff — draft only](RAILWAY_BACKUP_SUPPORT_HANDOFF.md), [release readiness](../PRODUCTION_READINESS.md).
+
+### Current authority / Git / target
+
+The current owner instruction authorizes metadata-only SQL **independently of backup availability**, superseding the previous backup-before-SSH requirement only for observational access. Backup still gates migration execution, risky redeploy and Phase S. Exactly one second/final backup request was authorized after reconciliation; no third request. A temporary personal ED25519 key, exact staging PG access, cleanup and documentation commit/push were authorized, not Phase M/S/P. The only provider write reached this cycle was that backup request; no SSH-key mutation was reached.
+
+Production selection/access/change, deploy/redeploy/restart, migrations/DDL/DML, restore/PITR/dump/schedule/resize/new database, application/provider credential creation/rotation/revocation, Railway variable/source/config-selector changes, commerce/commercial-provider/webhook/cron/email actions and main merge remain prohibited. The sole authorized access-credential exception is the dedicated temporary personal SSH key and its cleanup; no registration/removal mutation was reached. No endpoint-protection or access-control workaround occurred.
+
+Entry local/remote HEAD after fetch: **30104ad071bac4df6c0b31524358c262f5b33b25**; branch codex/admin-dashboard-reconciled-20261002; main/deployed web/worker source **4ea73f50cafdbf67e16dc71de985052075feca42**; **29 ahead / 0 behind**. Final documentation SHA/count/equality are reported after push, not embedded self-referentially. Runtime candidate 7a820b62bb1515f7b30ccf31badf1f0881a6bd84 and checkpoint b06ef6e437ee2d28fbeffeb5f91144c389aaa518 stay frozen/not deployed. Both preexisting untracked user documents are preserved/excluded. A fresh exact all-state head/base PR search returned none; no PR retry/CI trigger/merge.
+
+All IDs/names/attachment/mount in the target table below were matched again before the second request. Read-only SSH resolution additionally verified staging PG service-instance ID **3b37cfd9-f315-40df-a8a6-35673912d346**. This is control-plane target proof, not an SSH runtime connection. Volume remains READY, no pending deletion, 5000 MB capacity / 187.531264 MB used; region UNKNOWN. Usage about 3.75% gives **DOCUMENTED_50_PERCENT_LIMIT_NOT_INDICATED**, not a cause diagnosis. Latest staging deployment IDs below remain unchanged/SUCCESS; web/worker still deploy 4ea73f50cafdbf67e16dc71de985052075feca42. Independent application writers were not paused/audited.
+
+### Backup reconciliation — UTC
+
+| Evidence | Actual result |
+|---|---|
+| Prior first request | 2026-10-06T16:52:38.126Z; HTTP 200 / INTERNAL_SERVER_ERROR; no workflow ID; three later inventories 0/0 through 16:55:22.004Z |
+| Fresh reconciliation | 2026-10-06T17:30:27.210Z; 0 snapshots / 0 schedules; LATE_BACKUP_FOUND=NO |
+| Second/final request | 2026-10-06T17:30:46.574Z; same exact volumeInstanceBackupCreate target; HTTP 200 / INTERNAL_SERVER_ERROR; no workflow ID |
+| Post-second inventories | 17:30:48.048Z, 17:32:38.169Z and 17:52:44.877Z; each 0 snapshots / 0 schedules |
+| Requests this cycle / cumulative | 1 / **2**; no automatic retry; **NO_THIRD_ATTEMPT** |
+| Backup ID / status / created / expiry | NONE LISTED / no available snapshot verified / NOT AVAILABLE / NOT AVAILABLE |
+| Workflow completion / backend outcome / cost | UNKNOWN / UNKNOWN / UNKNOWN |
+| Trace ID | NOT_CAPTURED; none available in sanitized evidence, not proof of absence in the raw response |
+| BACKUP_AVAILABLE / STAGING_BACKUP_VERIFIED / RESTORE_DRILL_VERIFIED | **NO / NO / NO** |
+| BACKUP_PROVIDER_BLOCKER | **YES**, operational blocker, not structural/root-cause diagnosis |
+
+HTTP 200 does not prove mutation success; the [Railway API contract](https://docs.railway.com/integrations/api#errors) permits generic internal errors for unexpected failure or authorization denial, and an errored write may have side effects. No damage/quota/billing/permission cause or zero-cost outcome is established. Empty inventories do not preclude a delayed snapshot; never repeat creation to obtain a trace ID. [Manual-backup limit](https://docs.railway.com/volumes/backups).
+
+The [support handoff](RAILWAY_BACKUP_SUPPORT_HANDOFF.md) is **DRAFT ONLY / SUPPORT_NOT_CONTACTED**. Official status observations at 17:29 UTC and again around 17:52 UTC displayed [Fully Operational](https://status.railway.com/), without a broad backup-specific incident confirmed. The page excludes smaller/isolated issues; it does not certify this request healthy. No backup deletion/lock, schedule, resize, PITR, logical dump, restore or paid recovery resource was attempted.
+
+### SSH / endpoint-security abort / cleanup
+
+Complete personal Railway key inventories before preparation and after abort both showed **0 registered personal keys**. Workspace inventory was not separately queried and no claim is made about workspace-owned keys. Dedicated owner-only-ACL temporary directories outside Git were used for ED25519 generation; passphrases stayed in process memory, never argv, secret environment, files or tool output. No system ssh-agent was started. Generation required verified OpenSSH encryption, two authorized ASKPASS responses and a corresponding public key. Exit zero alone did not pass: no responses/encryption were verified, so every transient pair was rejected and removed before registration. A revised installed Git OpenSSH path also failed; no unencrypted fallback was accepted.
+
+The helper disappeared after launch. Read-only endpoint diagnosis confirmed **five McAfee records for this exact helper with QUARANTINED status**. A bounded no-key/no-network/no-credential launch diagnostic also failed and left it absent. This confirms a local helper execution barrier; false-positive status and a general SSH/Railway block remain NOT PROVEN. Retries stopped. No quarantine restoration, antivirus exclusion/disablement, permission change or replacement transport was used to escape the barrier.
+
+| SSH / SQL field | Actual outcome |
+|---|---|
+| Temporary key created | YES locally, transient/rejected; no usable encrypted audit key verified |
+| Registered / registration mutation / scope | **NO / NOT EXECUTED / NOT APPLICABLE**; intended PERSONAL, not workspace-wide |
+| Target verified | YES via explicit staging control-plane IDs; SSH runtime target NOT VERIFIED |
+| Credentials printed | **NO**; no private/public key content, passphrase or credentialed connection detail |
+| SSH / SQL / read-only mode verified | **NO / NO / NO**; no transaction established |
+| ROLLBACK / database session closed | NOT EXECUTED / NOT APPLICABLE; no DB session existed |
+| Remote key deletion | NOT APPLICABLE, never registered; new-key absence verified in empty inventory |
+| Local dedicated pairs removed / preexisting keys deleted | **YES / NO**; private/public file absence confirmed after each rejected attempt |
+| ENDPOINT_SECURITY_BLOCKER | **YES**; legitimate owner review of quarantine required |
+
+The prepared/reviewed SQL was never executed: first BEGIN READ ONLY; local statement_timeout 5000ms / lock_timeout 2000ms; verify transaction_read_only=on before main SELECTs; bounded history using only migration_name/checksum/started_at/finished_at/rolled_back_at, minimal catalogs, final ROLLBACK and close. No application rows or migration logs. Proposed task-private accept-new TOFU would reject changed host keys but is not independent fingerprint trust; no host pin/connection was established. No tunnel-only, tmux/session setup, TLS weakening or new public database exposure.
+
+### Database / configuration / release decision
+
+| Field / gate | Current result |
+|---|---|
+| PostgreSQL version | UNKNOWN |
+| Repository migrations | **14**, deployed Git blobs; canonical reference table below remains valid, DB comparison NOT EXECUTED |
+| APPLIED / PENDING / FAILED / ROLLED_BACK / CHECKSUM_MISMATCH | **UNKNOWN / UNKNOWN / UNKNOWN / UNKNOWN / UNKNOWN** |
+| STAGING_MIGRATION_HISTORY_VERIFIED / MIGRATION_HISTORY_CLEAN | **NO / NOT VERIFIED** |
+| analytics_paid_at_index / session_version | **UNKNOWN / UNKNOWN**; no actual index/column metadata retrieved |
+| MIGRATE_DEPLOY_EXPECTED_NOOP / PHASE_M_REQUIRED | **UNKNOWN / UNKNOWN** |
+| Backup / migration / config-resolution blockers | **YES / YES / YES**; migration blocker is unknown history, not a discovered integrity defect |
+| EFFECTIVE_NEXT_DEPLOY_CONFIG / SAFE_SECRET_ACTIVATION_PATH | **NOT VERIFIED / NOT PROVEN** |
+| Credentials compromised / rotation performed / release freeze | **YES / NO / ACTIVE** |
+| PHASE_S_CAN_RESUME | **NO** |
+| READY FOR MERGE / STAGING BOOTSTRAP / EXTERNAL HOMOLOGATION / PRODUCTION | **NO / NO / NO / NO** |
+
+Prisma original/LF/CRLF and historical checksum-format semantics were accounted for in the prepared comparator, but no DB checksum was obtained. Any later failed/partial/inconsistent history or genuine mismatch requires P0_MIGRATION_INTEGRITY_BLOCKER=YES, stop and no repair. The conditional manifest below remains relevant until trusted history narrows pending operations; no no-DDL/no-op conclusion is supported. No migration/schema/application-data change was made.
+
+Fresh staging-only serviceInstance/environment.config(decryptVariables:false)/deployment reads retain stored source integration/pre-go-live, web migrate predeploy with advisory locking disabled and worker/PG/Redis predeploy NONE. **CURRENT_STORED_MIGRATION_EXECUTOR_COUNT=1; FUTURE_MIGRATION_EXECUTOR_COUNT=UNKNOWN.** Web/worker selectors/root remain null, resolved configFile null, fileManifest empty and resolution timestamps 2026-09-25. Old snapshots are not next-deploy proof; no config/source/variable change. Redeploy/image reuse retains predeploy risk; restart fresh-secret loading is unproved. Activation was evaluated only theoretically.
+
+Recommended: owner reviews the endpoint detection through the legitimate antivirus channel; no automatic restoration/exclusion or protection disablement. Obtain an approved trusted SSH transport before a fresh observational audit. Independently use the draft handoff for owner/provider triage of both ambiguous backup requests. No third create or support contact here. Prove effective next web/worker config separately; decide Phase M only after known history and adequate recovery, and Phase S only under new explicit authority.
+
+Only the five requested Markdown files plus the new authorized support handoff change. Current documentation checks: git diff --check PASS; release:guard **6 OK / 1 unchanged legacy Vercel cron WARNING / 0 FAIL**, 323 source/document files and 43 existing browser-bundle files. Scoped six-doc/working-and-staged Git-diff scan privately checks four affected staging categories plus staging DB URL/password: **0 exact credential hits / 0 credential-pattern hits**. All **52 relative file links** resolve, fences balance and all **14 canonical checksum references** match deployed Git blobs. No production configuration is read by the scanner. Final staged recheck, pushed SHA and remote equality are reported at closure. Historical validation counts below are not current checks or new compromise-closure evidence. No E2E/build/runtime suite is run. Railway guidance informed exact target/readbacks/no retry; Postgres guidance bounded the prepared observational SQL, which did not execute. **STOP after docs commit/push and report.**
+
+## Historical first recovery attempt — superseded
+
+Everything below records the previous cycle and its backup-before-SSH prerequisite, one-request limit, unknown history and validation counts. It is historical evidence, not current execution authority or the current cycle result. The reconciliation section above takes precedence; canonical deployed checksum/target references are retained for audit continuity.
+
 Assessment: 2026-10-06. **MANUAL_BACKUP_FAILED; RELEASE_SECURITY_FREEZE=ACTIVE; PHASE_S_CAN_RESUME=NO.** The authorized success criterion was not achieved. One backup creation request was sent; no available snapshot was verified. The prerequisite for SSH was not met, so no key was generated/registered and no SSH/SQL was executed. No creation retry is authorized by this record.
 
 [Secret activation gate](SECRET_ACTIVATION_GATE.md), [incident timeline](CREDENTIAL_INCIDENT_202610.md), [rotation approval](CREDENTIAL_ROTATION_APPROVAL.md), [release readiness](../PRODUCTION_READINESS.md).
