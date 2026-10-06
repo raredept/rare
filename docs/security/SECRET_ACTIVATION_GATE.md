@@ -1,5 +1,17 @@
 # RARE — secret activation & migration gate
 
+## Current recovery-gate attempt — 2026-10-06
+
+**MANUAL_BACKUP_FAILED; RELEASE_SECURITY_FREEZE=ACTIVE; PHASE_S_CAN_RESUME=NO.** Current execution record: [STAGING_DATABASE_GATE.md](STAGING_DATABASE_GATE.md). Owner authorized exactly one staging PG backup and conditional temporary personal SSH/metadata access after availability, not Phase M/S/P. All target IDs were matched. One volumeInstanceBackupCreate request at 2026-10-06T16:52:38.126Z returned HTTP 200 / INTERNAL_SERVER_ERROR without workflowId; three subsequent listings showed 0 snapshots / 0 schedules, last at 16:55:22.004Z. BACKUP_AVAILABLE=NO; STAGING_BACKUP_VERIFIED=NO; backend outcome/cost UNKNOWN. No second create or retry.
+
+No key generated/registered, SSH or SQL: the backup prerequisite failed. Migration counts, version and schema remain UNKNOWN; STAGING_MIGRATION_HISTORY_VERIFIED=NO; PHASE_M_REQUIRED=UNKNOWN. Stored web predeploy and worker NONE reverified; selectors still null, old resolved manifests empty. EFFECTIVE_NEXT_DEPLOY_CONFIG=NOT VERIFIED; SAFE_SECRET_ACTIVATION_PATH=NOT PROVEN. Latest staging deployments/mount/state unchanged in readback. No runtime/source/config/variable/production change, rotation, migration or restore performed; credentials remain COMPROMISED.
+
+The earlier backup authorization proposal below is historical: current authority was used for one request, not an unbounded retry. Recommended next decision is owner/provider triage and read-only outcome reconciliation, then fresh exact authority for any additional creation attempt. Keep freeze; do not advance to SSH/Phase S without the checkpoint. One PR search still absent; no creation retry. Only five requested docs change; final validation/Git publication results are reported at closure.
+
+## Historical read-only investigation — superseded execution snapshot
+
+Everything below records the previous cycle, including its no-backup-create and MANUAL_BACKUP_AUTHORIZATION_REQUIRED statements. It is retained as dated evidence/conditional analysis, not the current execution result or authorization. Refer to the current recovery record above for this cycle.
+
 Assessment: 2026-10-06. **READ-ONLY investigation; RELEASE_SECURITY_FREEZE=ACTIVE. PHASE_S_CAN_RESUME=NO.** This instruction supersedes execution authority for this cycle: do not resume the previous conditional Phase S attempt. No credential creation, rotation, revocation, config change, deploy, restart, migration, backup creation/restore or provider side effect was performed. Existing sensitive local copies/evidence were preserved.
 
 ## Current incident state

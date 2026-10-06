@@ -1,6 +1,14 @@
 # RARE — production readiness
 
-## Secret activation / migration gate update — 2026-10-06
+## Current staging recovery-gate attempt — 2026-10-06
+
+**RELEASE_SECURITY_FREEZE=ACTIVE; PHASE_S_CAN_RESUME=NO.** [STAGING_DATABASE_GATE.md](security/STAGING_DATABASE_GATE.md) is the current execution dossier; [incident timeline](security/CREDENTIAL_INCIDENT_202610.md) and [rotation approval boundary](security/CREDENTIAL_ROTATION_APPROVAL.md) agree. One authorized backup-create request targeted the exact verified staging PG instance and returned INTERNAL_SERVER_ERROR without workflowId; three post-listings remain 0 snapshots / 0 schedules. MANUAL_BACKUP_FAILED; BACKUP_AVAILABLE=NO; STAGING_BACKUP_VERIFIED=NO; RESTORE_DRILL_VERIFIED=NO. Backend outcome/cost UNKNOWN; no retry, deletion/schedule or restore.
+
+The backup prerequisite prevented key generation/registration and SSH/SQL. Actual DB version/schema/applied/pending/failed/rolled-back/checksum mismatch remain UNKNOWN; history not verified, no no-op assertion, PHASE_M_REQUIRED=UNKNOWN. Latest staging deployments/mount/READY state unchanged; web predeploy still migrates with advisory lock disabled, worker NONE; exact next configuration remains NOT VERIFIED. SAFE_SECRET_ACTIVATION_PATH=NOT PROVEN. No source/runtime/config/variables/deployment/credential rotation/commercial-provider/commerce or production action performed. Independent runtime writes were not paused or audited.
+
+Entry Git local/remote b781aa0287a8a676792a8ef6c60671fd4e2b2489, main/deployed source 4ea73f50cafdbf67e16dc71de985052075feca42, 28 ahead / 0 behind. Final doc HEAD/count/equality are reported after push. One exact PR search returned none; PR_CREATION_BLOCKED_BY_PERMISSION retained, no create retry. Credentials still COMPROMISED; all READY FOR MERGE/STAGING BOOTSTRAP/EXTERNAL HOMOLOGATION/PRODUCTION=NO. Recommended next gate: owner triages the failed request and reconciles any delayed snapshot before fresh authority for another creation; no SSH/Phase S without checkpoint. Only five requested docs change; no E2E/build/runtime-suite rerun. All older no-backup-create statements below are historical, not this attempt's result.
+
+## Historical secret activation / migration gate update — 2026-10-06
 
 **RELEASE_SECURITY_FREEZE=ACTIVE; PHASE_S_CAN_RESUME=NO.** Current [SECRET_ACTIVATION_GATE.md](security/SECRET_ACTIVATION_GATE.md) and [incident update](security/CREDENTIAL_INCIDENT_202610.md) supersede execution authority for this read-only cycle. Rotation, deploy/restart/migration/config/provider writes and backup/restore were not performed; credentials remain COMPROMISED and local sensitive copies preserved.
 

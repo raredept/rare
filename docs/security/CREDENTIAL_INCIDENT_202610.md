@@ -1,6 +1,16 @@
 # RARE — credential incident / October 2026
 
-## Secret activation / migration gate investigation — 2026-10-06
+## Current staging recovery-gate attempt — 2026-10-06
+
+**MANUAL_BACKUP_FAILED; RELEASE_SECURITY_FREEZE=ACTIVE.** [STAGING_DATABASE_GATE.md](STAGING_DATABASE_GATE.md) records the current narrow authorization and actual outcome. Entry local/remote HEAD b781aa0287a8a676792a8ef6c60671fd4e2b2489, main 4ea73f50cafdbf67e16dc71de985052075feca42, 28 ahead / 0 behind. Exactly one backup request targeted verified staging PG volume instance c5910985-a38a-479b-9274-e65ec6753c77 at 2026-10-06T16:52:38.126Z. Response HTTP 200 / INTERNAL_SERVER_ERROR, no workflowId; three successful post-readbacks showed 0 snapshots / 0 schedules through 16:55:22.004Z. BACKUP_AVAILABLE=NO; STAGING_BACKUP_VERIFIED=NO; RESTORE_DRILL_VERIFIED=NO. Backend creation outcome/cost remain UNKNOWN; no claim that an eventual snapshot or charge is impossible. No retry, schedule, deletion, resize or restore.
+
+Backup availability was required before SSH, so no key generated/registered, SSH or SQL was performed; cleanup NOT APPLICABLE. Metadata/history/version/counts remain UNKNOWN. Deployed Git checksum references for all 14 migrations were recomputed without SQL/seed output; actual DB comparison NOT EXECUTED. Current deployments/mount/READY state and stored predeploy remain unchanged; next-config selectors/resolution remain unproved. No credential value was printed, token newly created, TLS weakened or production selected. No runtime/config/source/variable change, migration/DDL/DML, rotation, commercial-provider or commerce action.
+
+All affected credential categories remain COMPROMISED; rotated NO; sensitive local copies/evidence preserved. SAFE_SECRET_ACTIVATION_PATH=NOT PROVEN; PHASE_M_REQUIRED=UNKNOWN; PHASE_S_CAN_RESUME=NO; all release readiness NO. Owner must reconcile the one failed/ambiguous request before any fresh backup authorization; no SSH or Phase S continuation without checkpoint. One PR search returned none; known permission blocker retained, no creation retry. Five requested docs only are validated and committed/pushed; historical scan results below are not new containment proof.
+
+## Historical secret activation / migration gate investigation — 2026-10-06
+
+This prior read-only snapshot is superseded by the current recovery attempt above; its no-backup-create statements and authorization proposal apply only to that earlier cycle.
 
 **RELEASE_SECURITY_FREEZE=ACTIVE. READ-ONLY cycle; PHASE_S_CAN_RESUME=NO.** [SECRET_ACTIVATION_GATE.md](SECRET_ACTIVATION_GATE.md) is the current decision dossier. This instruction does not retry the earlier conditional Phase S authorization. No replacement/rotation/revocation, variable/config/source change, deploy/restart, SQL write/migration, backup/restore or provider action performed. Sensitive local copies/evidence preserved; credentials still COMPROMISED. No secret, credentialed connection detail, recipient or raw response emitted/saved.
 

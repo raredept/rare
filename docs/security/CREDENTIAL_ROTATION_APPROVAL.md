@@ -1,6 +1,16 @@
 # RARE — CREDENTIAL ROTATION APPROVAL
 
-## Current read-only gate / no Phase S execution — 2026-10-06
+## Current recovery attempt / rotation still not authorized — 2026-10-06
+
+**PHASE_S_CAN_RESUME=NO; RELEASE_SECURITY_FREEZE=ACTIVE.** [Current staging database gate](STAGING_DATABASE_GATE.md) records authority for exactly one staging PG manual backup and temporary personal SSH/metadata access conditional on availability, not Phase M/S/P or secret rotation. Exact targets verified; the one create request returned INTERNAL_SERVER_ERROR / no workflowId. Three post-attempt lists remain empty. MANUAL_BACKUP_FAILED; BACKUP_AVAILABLE=NO; STAGING_BACKUP_VERIFIED=NO; backend outcome/cost UNKNOWN; RESTORE_DRILL_VERIFIED=NO. No creation retry, restore or schedule.
+
+No key generated/registered, SSH or SQL because availability was not verified. Real migration counts/checksum match/version/schema remain UNKNOWN; PHASE_M_REQUIRED=UNKNOWN. Stored/snapshot web migrate predeploy, worker NONE and null selectors reverified; EFFECTIVE_NEXT_DEPLOY_CONFIG=NOT VERIFIED; SAFE_SECRET_ACTIVATION_PATH=NOT PROVEN. No predeploy/selector/source/variable/deploy/restart change. Credentials remain COMPROMISED, rotated NO. All release readiness NO.
+
+Current recommendation supersedes the old Option C backup-authorization proposal: owner first triages/reconciles the single failed/ambiguous request; additional creation needs fresh exact authority, not a repeat under this exhausted authorization. Resume metadata access only after a checkpoint is verified and renewed direction; exact next-config proof remains separate. No Phase S/production rotation or migration authorization is inherited. Earlier plan sections are historical/conditional; sensitive copies remain preserved.
+
+## Historical read-only gate / no Phase S execution — 2026-10-06
+
+This prior no-backup-create/authorization-required snapshot is retained as historical evidence; current attempt/result above takes precedence.
 
 **PHASE_S_CAN_RESUME=NO; RELEASE_SECURITY_FREEZE=ACTIVE.** Current [activation/migration dossier](SECRET_ACTIVATION_GATE.md) supersedes execution authority for this cycle: no rotation, secret creation/revocation, deploy/restart, migration, config change, backup/restore or provider side effect authorized or performed. Earlier conditional Phase S was aborted and is not being retried; Phase P remains unauthorized. All affected categories remain COMPROMISED; sensitive copies remain preserved.
 
