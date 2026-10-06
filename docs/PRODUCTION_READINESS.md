@@ -1,5 +1,15 @@
 # RARE — production readiness
 
+## Secret activation / migration gate update — 2026-10-06
+
+**RELEASE_SECURITY_FREEZE=ACTIVE; PHASE_S_CAN_RESUME=NO.** Current [SECRET_ACTIVATION_GATE.md](security/SECRET_ACTIVATION_GATE.md) and [incident update](security/CREDENTIAL_INCIDENT_202610.md) supersede execution authority for this read-only cycle. Rotation, deploy/restart/migration/config/provider writes and backup/restore were not performed; credentials remain COMPROMISED and local sensitive copies preserved.
+
+Fresh Git entry documentation HEAD 4b78a32623958dd8b0ed36b530a08df08e7c0639, main unchanged 4ea73f50cafdbf67e16dc71de985052075feca42, 27 ahead / 0 behind. Staging web/worker still deploy that main baseline. Web snapshot/stored migration predeploy confirmed, worker NONE; API selectors null. Current stored executor count 1 does not prove future count. Exact current file attribution/next config remains unresolved. Restart secret refresh and any no-DDL activation path NOT PROVEN; redeploy/caching retains predeploy risk.
+
+DB identity boundary verified privately; existing proxy strict-TLS access failed SELF_SIGNED_CERT_IN_CHAIN before SQL, noninteractive SSH failed NO_EXISTING_SSH_KEY; no TLS bypass/access registration. STAGING_MIGRATION_HISTORY_VERIFIED=NO; all real migration counts/DDL pending UNKNOWN. Backup API now confirms 0 snapshots/0 schedules on the exact staging PG volume instance; no adequate PITR/logical dump/restore proof. BACKUP_AVAILABLE=NO verified adequate checkpoint; RESTORE_DRILL_VERIFIED=NO; STAGING_BACKUP_VERIFIED=NO. This resolves volume inventory, not recovery readiness.
+
+Recommended Option C: keep freeze, resolve legitimate access/trust, separately authorize exact backup/recovery and verify next config. Any migration-dependent route must separate Phase M from subsequently authorized Phase S. READY FOR MERGE/STAGING BOOTSTRAP/EXTERNAL HOMOLOGATION/PRODUCTION=NO. One PR search still absent; permission blocker retained with no creation retry; empty statuses/PR-triggered Actions are not green CI. No full E2E/build/activation experiment rerun. Historical sections below do not grant authority.
+
 ## Phase S execution update — 2026-10-06
 
 **RELEASE_SECURITY_FREEZE=ACTIVE. PHASE_S_FAILED — preflight abort before mutation. ABORT — DEPLOY_BLOCKED_BY_MIGRATION_RISK.** Staging credential rotation is now conditionally authorized by the owner, but the no-migration activation prerequisite failed. Production rotation remains unauthorized. [Execution evidence](security/CREDENTIAL_INCIDENT_202610.md#phase-s-authorized-execution-attempt--2026-10-06) and [current conditional approval/production plan](security/CREDENTIAL_ROTATION_APPROVAL.md) supersede the historical authorization statuses below.

@@ -1,6 +1,16 @@
 # RARE — CREDENTIAL ROTATION APPROVAL
 
-## Current authorization / Phase S execution gate — 2026-10-06
+## Current read-only gate / no Phase S execution — 2026-10-06
+
+**PHASE_S_CAN_RESUME=NO; RELEASE_SECURITY_FREEZE=ACTIVE.** Current [activation/migration dossier](SECRET_ACTIVATION_GATE.md) supersedes execution authority for this cycle: no rotation, secret creation/revocation, deploy/restart, migration, config change, backup/restore or provider side effect authorized or performed. Earlier conditional Phase S was aborted and is not being retried; Phase P remains unauthorized. All affected categories remain COMPROMISED; sensitive copies remain preserved.
+
+Stored and current snapshot web migration predeploy verified; worker NONE. Exact Dashboard/code attribution and EFFECTIVE_NEXT_DEPLOY_CONFIG remain UNKNOWN/NOT VERIFIED with null selectors. Restart staged-secret loading NOT PROVEN; redeploy and skipped build retain predeploy; temporary override / same-image / API skip path NOT PROVEN. Do not clear predeploy or change selectors on inferred permission.
+
+Trusted in-memory public-proxy access failed SELF_SIGNED_CERT_IN_CHAIN before SQL; SSH failed NO_EXISTING_SSH_KEY without registration. STAGING_MIGRATION_HISTORY_VERIFIED=NO; applied/pending/failed/rolled-back UNKNOWN. The 14 migrations match deployed source, not necessarily DB state; Admin seed SQL has conditional DML/auth effects. Backup API successfully confirmed 0 staging PG snapshots/0 schedules; no functional PITR/dump/restore proof. BACKUP_AVAILABLE=NO verified adequate checkpoint; RESTORE_DRILL_VERIFIED=NO; STAGING_BACKUP_VERIFIED=NO.
+
+**Recommended Option C:** legitimate trust/access evidence, exact separately authorized staging PG manual backup/recovery plan, then effective web/worker next-config proof. No-DDL Option A is NOT PROVEN / not ready for authorization on current evidence. Conditional MIGRATION_AND_ROTATION_COMBINED_GATE separates Phase M (exact pending set, recovery, single executor/window) from Phase S (new explicit instruction, consumer cutover/retirement); neither is approved here. No silent migration/no-op assumption, no native rollback to compromised variables, no commerce/source/production change. All release readiness remains NO. See the dossier for exact services/backup instance, abort conditions and scope.
+
+## Historical conditional authorization / Phase S execution gate — 2026-10-06
 
 The owner authorized **Phase S staging rotation only**, conditional on a proven no-migration activation path, in the subsequent execution instruction. AUTHORIZED_PHASE_S=YES (conditional). AUTHORIZED_PHASE_P=NO. RELEASE_SECURITY_FREEZE=ACTIVE. **PHASE_S_FAILED: preflight abort before any mutation; ABORT — DEPLOY_BLOCKED_BY_MIGRATION_RISK.** See the [execution record](CREDENTIAL_INCIDENT_202610.md#phase-s-authorized-execution-attempt--2026-10-06).
 
