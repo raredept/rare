@@ -1,6 +1,40 @@
 # RARE — production readiness
 
-## Current backup reconciliation / trusted metadata audit — 2026-10-06
+## Current official identity cycle — 2026-10-06
+
+**INCOMPLETE — SAFE STOP; SSH_PATH=BLOCKED; SSH_IDENTITY_HUMAN_ACTION_REQUIRED=YES; RELEASE_SECURITY_FREEZE=ACTIVE; PHASE_S_CAN_RESUME=NO.** The real staging migration-history goal remains UNKNOWN, not achieved. The intended official path no longer depends on the abandoned helper, but no usable official identity or SSH/SQL access was established. Current [staging database gate](security/STAGING_DATABASE_GATE.md), [incident record](security/CREDENTIAL_INCIDENT_202610.md) and [owner-ready support handoff](security/RAILWAY_BACKUP_SUPPORT_HANDOFF.md) retain the evidence boundary. Support is READY DRAFT / NOT SENT.
+
+Entry local/origin documentation HEAD b9d7cbf5a47648fa0486414d0392b043b04efd29; origin/main and web/worker deployed source 4ea73f50cafdbf67e16dc71de985052075feca42; **30 ahead / 0 behind**. Final documentation SHA/count/remote equality are reported at closure. One fresh exact head/base PR query returned `issues: []`; no PR creation/retry or merge, and PR_CREATION_BLOCKED_BY_PERMISSION remains unresolved. No absent check/PR is treated as PASS.
+
+### Identity / helper / SQL outcome
+
+Railway CLI 5.26.0 personal-key listing at 2026-10-06T20:39:30.516Z exited 0 with verified empty inventory. Local `.ssh` contains 1 file / 0 public-key and 0 private-key candidates. Native `ssh -G` at 2026-10-06T20:41:35.258Z identified 7 configured paths / 0 existing private identities, without connecting. `ssh-add -l` exited 2 / agent unavailable / 0 returned keys; native agent remains Stopped (not started), SSH_AUTH_SOCK absent and Pageant not running. RAILWAY_API_TOKEN / RAILWAY_TOKEN environment variables are absent; existing personal login/default context was used.
+
+The official `gitHubSshKeys` read at 2026-10-06T20:42:26.595Z returned HTTP 200 / GraphQL INTERNAL_SERVER_ERROR without key metadata. Availability remains **UNKNOWN**, not zero; no ACL or other root cause is proved. `ssh keys github` was **NOT EXECUTED**: [v5.26.0](https://github.com/railwayapp/cli/blob/v5.26.0/src/commands/ssh/keys.rs#L404) can automatically import one key, or the first without a TTY, without proving possession of the private half. No token hunt, key import/add/delete/create/copy/move or change to preexisting keys occurred; removals NOT APPLICABLE.
+
+QUARANTINED_HELPER=ABANDONED; trust UNKNOWN. Five recorded Real Protect-LS McAfee events concern that exact ASKPASS helper and quarantine; timestamps lack timezone offsets and no file hash was measured. False-positive or maliciousness conclusions are not proved. No restore/trust/execute/recompile/rename/new helper or executable, AV configuration/exclusion change or unencrypted-key generation occurred. The helper-specific quarantine persists; no general native SSH/Railway antivirus block is established. Current access blocker: official identity availability, not an asserted resolution of endpoint security. **No SSH, SQL or DB session; READ ONLY enforcement NOT VERIFIED; explicit ROLLBACK NOT EXECUTED.**
+
+### Fresh target / remaining release gates
+
+At 2026-10-06T20:41:33.034Z the same API target was verified: project 72ed12be-9a2a-4e13-8594-30ffd8ffa565; staging d8399691-dacf-41e9-a9d5-060c97672e39; PG service ed0a374e-79da-4aab-9e3a-bb684fb829d1; intended SSH instance 3b37cfd9-f315-40df-a8a6-35673912d346; volume a0b78a5e-0dec-40ab-9d8c-c298be29ca5d; volume instance c5910985-a38a-479b-9274-e65ec6753c77. SSH runtime target not verified; no production selection. PG volume READY / 5000 MB capacity / **187.547648 MB used**, versus prior 187.531264 MB; region UNKNOWN. Volume occupancy is not DB size. All four staging deployments remain unchanged SUCCESS; web/worker remain on 4ea73f50cafdbf67e16dc71de985052075feca42.
+
+Final backup read at 2026-10-06T20:43:01.586Z: **0 snapshots / 0 schedules**, no late snapshot visible. Cumulative create requests **2; NO_THIRD_ATTEMPT**; this cycle's provider writes **0**. BACKUP_AVAILABLE=NO; STAGING_BACKUP_VERIFIED=NO; RESTORE_DRILL_VERIFIED=NO; BACKUP_PROVIDER_BLOCKER=YES; TRACE_ID=NOT_AVAILABLE in retained evidence. Backend outcome/cause/cost UNKNOWN; no delayed-effect or zero-cost guarantee. Support has not been sent and no backup/create/restore/schedule/delete/resize occurred here.
+
+| Gate | Current decision / boundary |
+|---|---|
+| PG version; applied/pending/failed/rolled-back counts; DB checksums/schema | UNKNOWN |
+| All 14 repository migration states, including admin_temporary_password / analytics / session-version effects | UNKNOWN; no known applied, clean or pending result |
+| Migration history verified / clean / migrate-deploy no-op / PHASE_M_REQUIRED | NO / UNKNOWN / UNKNOWN / UNKNOWN |
+| MIGRATION_BLOCKER | YES due to unknown trustworthy history, not identified corruption |
+| EFFECTIVE_NEXT_DEPLOY_CONFIG / SAFE_SECRET_ACTIVATION_PATH | NOT VERIFIED / NOT PROVEN; no fresh config read or mutation here |
+| Credentials / rotation / freeze / PHASE_S_CAN_RESUME | Four categories COMPROMISED / NO / ACTIVE / NO |
+| READY FOR MERGE/STAGING BOOTSTRAP/EXTERNAL HOMOLOGATION/PRODUCTION | NO for all |
+
+Earlier stored single-executor/predeploy evidence is historical, not current next-deployment proof. No source/runtime/config/variable change, deploy/restart, migration/DDL/DML, credential rotation, commercial-provider/commerce or production action occurred; no E2E/build/runtime suite was run. Next is legitimate owner action for an approved personal identity with its available Windows private key, linked-GitHub metadata availability review, and submission of the ready unsent support draft. Proposed subject: **Manual volume backup returns INTERNAL_SERVER_ERROR with no snapshot created**. No automatic keygen, AV change, third backup, SQL continuation or Phase S resumption is approved by this safe stop.
+
+## Historical backup reconciliation / trusted metadata audit — 2026-10-06
+
+This previous helper-based abort and second/final backup cycle is superseded above. Its current-blocker and config-readback statements are historical; they do not prove official SSH access, new SQL evidence or an endpoint-security resolution.
 
 **INCOMPLETE — SAFE ABORT; ENDPOINT_SECURITY_BLOCKER; RELEASE_SECURITY_FREEZE=ACTIVE; PHASE_S_CAN_RESUME=NO.** Real staging migration history is still not known; the authorized success criterion was not achieved. Current evidence: [staging database gate](security/STAGING_DATABASE_GATE.md), [incident timeline](security/CREDENTIAL_INCIDENT_202610.md), [provider support handoff](security/RAILWAY_BACKUP_SUPPORT_HANDOFF.md) and [rotation approval boundary](security/CREDENTIAL_ROTATION_APPROVAL.md). Support remains DRAFT ONLY / SUPPORT_NOT_CONTACTED.
 
