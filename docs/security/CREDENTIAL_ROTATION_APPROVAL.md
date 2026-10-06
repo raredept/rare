@@ -1,5 +1,39 @@
 # RARE — CREDENTIAL ROTATION APPROVAL
 
+## Current authorization / Phase S execution gate — 2026-10-06
+
+The owner authorized **Phase S staging rotation only**, conditional on a proven no-migration activation path, in the subsequent execution instruction. AUTHORIZED_PHASE_S=YES (conditional). AUTHORIZED_PHASE_P=NO. RELEASE_SECURITY_FREEZE=ACTIVE. **PHASE_S_FAILED: preflight abort before any mutation; ABORT — DEPLOY_BLOCKED_BY_MIGRATION_RISK.** See the [execution record](CREDENTIAL_INCIDENT_202610.md#phase-s-authorized-execution-attempt--2026-10-06).
+
+Entry Git local/remote 42d0ca92c7816f870d2e543c13b847ecc9bcdc0f, main unchanged 4ea73f50cafdbf67e16dc71de985052075feca42, 26 ahead / 0 behind. Runtime candidate/checkpoint unchanged. Fresh staging web/worker still deploy the existing 4ea73f5 artifact; named staging PG/Redis identities are confirmed by configuration comparisons, not DB queries. Web/worker API credentials PRESENT / TEST / MATCH, different from production. All affected web categories PRESENT; original exposure/revocation state cannot be inferred from present values.
+
+| Operation considered | Verified evidence | Execution decision |
+|---|---|---|
+| Restart existing deployment | Official restart documentation reuses the image; original configuration is retained by documented deployment restart | No proof that new stored values would activate; NOT EXECUTED |
+| Redeploy / apply variable changes | Official redeploy applies variable changes; live staging web predeploy includes migrate deploy with advisory lock disabled | No safe unknown-history no-DDL proof; NOT EXECUTED |
+| Variable changes without deployment | Stored configuration is not active-process proof | NOT EXECUTED; no partial configuration or mixed-consumer cutover |
+| Remove/change predeploy or config selector | This is a separate service configuration/activation delta, not a secret replacement | NOT AUTHORIZED by implication; no override/suppression applied |
+| Expire old provider credentials before activation | Owner sequence requires safe cutover before revocation | NOT EXECUTED; no emergency provider requirement established |
+
+References re-read: [restart](https://docs.railway.com/cli/restart), [redeploy](https://docs.railway.com/cli/redeploy), [deployment actions](https://docs.railway.com/deployments/deployment-actions), [predeploy](https://docs.railway.com/deployments/pre-deploy-command). No secret creation/provider UI exploration began after the activation abort. BLOCKED_BY_PROVIDER_UI is therefore not asserted. No values or new secrets were generated, no services restarted/deployed, no migrations or production mutations performed.
+
+### Required decision to resume Phase S
+
+Prove a supported mechanism that uses replacements on the existing artifact without DDL, including all web instances and the worker. If this requires temporary migration suppression, provide separate explicit staging service IDs, exact predeploy/config-selector delta, pin/activation method, window/restoration and verification; the agent must verify code-config precedence and side effects before mutation. This package does not implement or certify that proposal. A migration-based alternative needs separate exact authorization and trusted history/checkpoint/window/single-executor gates. Unknown caller/webhook recovery and approved synthetic auth fixtures remain subsequent gates, not waived by fixing activation. Do not change commerce flags, promote the Admin candidate or reset database/session state.
+
+Local copy treatment follows verified rotation: privately replace/remove the old TEST key in root .env; confirm recovery use before targeted generated-copy SANITIZE/REMOVE; preserve sanitized incident metadata and privately triage credential-bearing PowerShell URLs before selective history cleanup. All sensitive files remain untouched during this aborted attempt. Scanner coverage/limits are recorded in the incident document.
+
+### Phase P exact conditional plan — NOT EXECUTED
+
+Updated with the actual Phase S finding: **no migration-free activation procedure was proved**, so there are no successful staging cutover lessons to certify for production. Post-success production live preparation was not started; earlier LIVE consumer/endpoint/session/cron observations below remain dated, not refreshed by this failed phase. PRODUCTION_ROTATION_AUTHORIZED=NO; PRODUCTION_MUTATIONS=NONE; PRODUCTION_ROTATION_REQUIRED=YES.
+
+1. CREATE / preflight: obtain independent Phase P authorization; revalidate exact LIVE web/worker/account/webhook endpoints and actual cron callers privately. Resolve activation first, retaining current compatible 4ea73f5 artifact; if migration is possible, verify history/pending manifest/checkpoint/window/single executor before separate approval. Only then create independent production replacements through private provider controls; no value in chat/arguments/logs.
+2. CONFIGURE / ACTIVATE / VERIFY: coordinate all actual consumers and a fixed provider overlap/revocation deadline, communicate Admin/customer logout, preserve retries/dedup/orders/reservations/outbox and approve reconciliation/maintenance. Activate only through the proved no-DDL procedure or separately approved migration route. Verify replacements on every instance, correct LIVE account with nontransactional reads and controlled auth/security tests; never restore compromised values.
+3. REVOKE / POST-CHECK: after all approved consumers and health pass, revoke old API/signing credentials, reject old session/cron signatures and eliminate previous fallbacks. Account for late/missed events and unknown callers; verify no mixed instances, no secret versioned, no incidental commercial change. Record sanitized results and remain frozen until independent release gates pass.
+
+Expected impact: **ALL ACTIVE AUTH SESSIONS MAY BE INVALIDATED** for customers and Admins; ordinary re-login/temporary-password controls remain. API/webhook mismatches can interrupt payment reconciliation; finite retries require explicit recovery. Cron cutover can break unknown callers; VERCEL_RUNTIME_STATE=UNKNOWN. Production migration risk remains unresolved; no production restart/redeploy is approved. READY FOR MERGE/STAGING BOOTSTRAP/EXTERNAL HOMOLOGATION/PRODUCTION=NO. STOP: this failed Phase S does not authorize starting Phase P.
+
+## Initial approval package — historical pre-authorization snapshot
+
 Prepared 2026-10-06. **P0; RELEASE_SECURITY_FREEZE=ACTIVE. PLAN ONLY.** Incident/evidence: [CREDENTIAL_INCIDENT_202610.md](CREDENTIAL_INCIDENT_202610.md). No secrets, replacements, fingerprints or recipient/customer data are included. No credentials were created/rotated/revoked, no environment was changed, no service was deployed/restarted and no migration was run.
 
 STAGING_CREDENTIAL_ROTATION_REQUIRED=YES. PRODUCTION_CREDENTIAL_ROTATION_REQUIRED=YES. AUTHORIZED_PHASE_S=NO. AUTHORIZED_PHASE_P=NO. Production urgency is independent of the Admin release; do not postpone Phase P until staging/bootstrap/merge.

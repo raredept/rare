@@ -1,6 +1,53 @@
 # RARE — credential incident / October 2026
 
-Assessment: 2026-10-06. Severity **P0**. Incident discovered and disclosed during the 2026-10-04 staging preflight. **RELEASE_SECURITY_FREEZE=ACTIVE** is an operational/documentary state, not a new environment variable. No rotation, revocation, configuration change, deploy/restart, migration, provider transaction or cleanup was performed in this cycle.
+## Phase S authorized execution attempt — 2026-10-06
+
+**PHASE_S_FAILED — preflight abort, before mutation. ABORT — DEPLOY_BLOCKED_BY_MIGRATION_RISK. RELEASE_SECURITY_FREEZE=ACTIVE.** The new owner instruction authorizes staging credential rotation and necessary safe process activation, not production or schema migration. AUTHORIZED_PHASE_S=YES (conditional); AUTHORIZED_PHASE_P=NO. No replacement was created, configured, activated or revoked by this attempt. No secret value, prefix/suffix, fingerprint, recipient or connection URL was emitted. No local sensitive copy or incident evidence was modified/deleted.
+
+Entry Git after fetch: local/remote documentation HEAD 42d0ca92c7816f870d2e543c13b847ecc9bcdc0f; main 4ea73f50cafdbf67e16dc71de985052075feca42; 26 ahead / 0 behind. No SOURCE_CHANGED_DURING_INCIDENT observed. Runtime candidate 7a820b62bb1515f7b30ccf31badf1f0881a6bd84 and deployment checkpoint b06ef6e437ee2d28fbeffeb5f91144c389aaa518 remain frozen and were not deployed. Final documentation HEAD/count are reported after push.
+
+### Fresh staging-only execution gates
+
+Railway CLI 5.26.0 authenticated; explicit Rare project 72ed12be-9a2a-4e13-8594-30ffd8ffa565 and staging environment d8399691-dacf-41e9-a9d5-060c97672e39 revalidated. Staging service IDs/names match the inventory below. Web and worker latest deployments remain SUCCESS at source 4ea73f50cafdbf67e16dc71de985052075feca42. Their configured DB identities match each other and dedicated Postgres-MlyZ; web Redis matches dedicated Redis-w0Fa. Staging DB/Redis host identities differ from production. Comparisons exclude credentials and are configuration evidence, not database queries or migration/backup verification.
+
+Staging web and worker API credentials: PRESENT / TEST / MATCH; staging versus production key: MISMATCH. Expected provider account identity/context was not reauthenticated: step 3 aborted before provider rotation/read-validation. Web webhook/session/cron categories remain PRESENT; worker has the API credential only among affected categories. No LIVE staging credential was observed. This is not historical old-key revocation proof.
+
+Fresh staging web predeploy is `PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=true npx prisma migrate deploy`; worker predeploy is absent, start remains `npm run checkout:worker`, no cron schedule. No config selector/predeploy/source/commerce change was made to bypass that gate.
+
+- [Restart](https://docs.railway.com/cli/restart) reuses the deployment image; [deployment actions](https://docs.railway.com/deployments/deployment-actions) preserve original image/configuration on restart. The reviewed documentation does not prove that restart loads changed stored variables. No restart was attempted as an experiment.
+- [Redeploy](https://docs.railway.com/cli/redeploy) can apply variable changes; the current web deployment configuration includes a [pre-deploy command](https://docs.railway.com/deployments/pre-deploy-command). A supported fresh-secret activation path with no predeploy/DDL was not established. This is an unresolved gate, not a claim that every Railway mechanism is impossible.
+- Unknown real staging migration history/backup prevents treating migrate deploy as a harmless no-op. No DB access attempt, migration, schema change, backup, restart or deployment was performed. No replacement was partially staged and no consumer was deliberately put on a mixed secret.
+
+Read-only public health returned HTTP 200 / ok_with_warnings. This is unchanged-service health, not new-credential activation proof. No signed webhook, valid cron, login/logout, checkout, PaymentIntent, quote, email, media write or additional worker run was invoked. Rotation-specific positive/negative tests are NOT EXECUTED because cutover never began.
+
+### Per-credential execution state
+
+| Staging credential | Incident | REPLACEMENT_CREATED | CONFIGURED | ACTIVE | OLD_REVOKED / retired | VERIFIED |
+|---|---|---|---|---|---|---|
+| Stripe TEST API | COMPROMISED pending closure | NO | NO | UNKNOWN for replacement / not attempted | UNKNOWN externally; none revoked by this attempt | NO |
+| Webhook signing secret | COMPROMISED pending closure | NO | NO | UNKNOWN for replacement / not attempted | UNKNOWN externally; none retired by this attempt | NO |
+| Admin/customer session secret | COMPROMISED pending closure | NO | NO | UNKNOWN for replacement / not attempted | Old-signature rejection NOT TESTED | NO |
+| Cron secret | COMPROMISED pending closure | NO | NO | UNKNOWN for replacement / not attempted | None removed; no previous fallback configured by this attempt | NO |
+
+CRON_CALLER_INVENTORY_BLOCKER remains: current continuous worker does not use HTTP cron; Vercel/manual/external activity remains UNKNOWN. No caller was invented or disabled. Phase S completion is NOT achieved; Phase P execution and its post-success live preparation were not started. Only the conditional production plan receives the failed-activation lesson; previous production evidence remains explicitly dated.
+
+### Local containment disposition / recovery
+
+Root .env: SANITIZE after a verified new TEST key is active; no edit now. Five generated standalone env copies: PRESERVE_FOR_INCIDENT pending cutover and private recovery-use decision; then REMOVE if disposable or SANITIZE if retained. Do not delete build directories or recovery evidence implicitly. PowerShell credential-bearing history: PRESERVE_FOR_INCIDENT pending private provenance review; selective SANITIZE/REMOVE plan only, not database-rotation authority. Other artifacts: UNKNOWN outside the bounded scanner scope. No raw incident transcript was reopened/copied.
+
+No partial external changes need rollback. Resume only after a supported existing-artifact/no-DDL activation path is proved, or a separately reviewed exact staging-only temporary predeploy/configuration delta is explicitly authorized; alternatively a separately authorized migration gate requires trusted history/checkpoint/window/single-executor evidence. Do not suppress migrations, restore old secrets or expire the API/webhook before consumers can safely cut over under this instruction. Any emergency expiry requires an explicit continuity/recovery decision. Production mutations: NONE; production rotation still required and unauthorized. All release readiness remains NO.
+
+### Aborted-attempt validation — 2026-10-06
+
+Repeated bounded scanner: 507 current versionable files, 208 reachable commits / 1,723 unique blobs / 1,715 text blobs, 15,773 readable artifact/config/history files. Zero exact current configured affected credential matches in versionable files or reachable text history. Existing template/synthetic candidates remain triage findings, not provider-confirmed historic credentials. The broad pass skips 1,618 binaries and four oversized files; dependencies/cache and unreachable/encoded/external surfaces remain outside scope. No remote logs/archive/image/transcript claim is added. This is NOT post-rotation verification: no replacement exists, and inaccessible original incident values were not replayed.
+
+The broad pass found five ignored current TEST-key copies (root env plus four output copies); the separate targeted check confirmed .next/standalone/.env too. Thus root .env plus all five generated standalone env copies still MATCH the configured staging TEST key; Git ignores all six. None was changed or removed. Historical credential-bearing PowerShell material remains privately triaged, not cleared by this scan.
+
+Four changed docs: zero credential-shaped hits, zero broken relative file links, balanced fences; git diff --check PASS. npm run release:guard: 6 OK / 1 unchanged legacy Vercel cron WARNING / 0 FAIL, 320 source/document files and 43 existing browser-bundle files checked. No full E2E, rebuild, dependency audit or rotation-specific live auth/webhook/cron/provider test performed. Exact current-value doc checks are repeated before publication. One exact head/base all-state PR search returned absent; no creation retry. Entry-HEAD individual statuses and PR-triggered workflow runs were absent; final-HEAD checks/Actions are reported after push. Empty aggregate pending is not a running or passed check. PR_CREATION_BLOCKED_BY_PERMISSION is the retained earlier creation failure, not a new retry. Prior records below are historical snapshots, not current authorization.
+
+## Initial incident assessment — historical pre-authorization snapshot
+
+Assessment: 2026-10-06. Severity **P0**. Incident discovered and disclosed during the 2026-10-04 staging preflight. **RELEASE_SECURITY_FREEZE=ACTIVE** is an operational/documentary state, not a new environment variable. No rotation, revocation, configuration change, deploy/restart, migration, provider transaction or cleanup was performed in that initial cycle.
 
 Primary decision artifact: [CREDENTIAL_ROTATION_APPROVAL.md](CREDENTIAL_ROTATION_APPROVAL.md). Existing bootstrap dossier: [STAGING_BOOTSTRAP_APPROVAL.md](../cycles/STAGING_BOOTSTRAP_APPROVAL.md). A plan is not containment. Staging and production remain separate, independently authorized phases.
 

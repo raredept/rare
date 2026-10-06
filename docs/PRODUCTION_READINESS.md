@@ -1,6 +1,14 @@
 # RARE — production readiness
 
-## P0 containment update — 2026-10-06
+## Phase S execution update — 2026-10-06
+
+**RELEASE_SECURITY_FREEZE=ACTIVE. PHASE_S_FAILED — preflight abort before mutation. ABORT — DEPLOY_BLOCKED_BY_MIGRATION_RISK.** Staging credential rotation is now conditionally authorized by the owner, but the no-migration activation prerequisite failed. Production rotation remains unauthorized. [Execution evidence](security/CREDENTIAL_INCIDENT_202610.md#phase-s-authorized-execution-attempt--2026-10-06) and [current conditional approval/production plan](security/CREDENTIAL_ROTATION_APPROVAL.md) supersede the historical authorization statuses below.
+
+Fresh Git entry local/remote 42d0ca92c7816f870d2e543c13b847ecc9bcdc0f; main unchanged; 26 ahead / 0 behind. Existing staging web/worker source remains 4ea73f5. TEST keys match across those consumers and differ from production; configured staging DB/Redis match dedicated services. Web still has migrate deploy predeploy. Restart did not establish fresh-variable activation; redeploy cannot be treated as migration-free. No replacements, variable/config changes, restart/deploy, migration, local sensitive-copy cleanup or provider mutation performed. Health HTTP 200 / ok_with_warnings is baseline evidence, not containment.
+
+All four staging and production categories remain compromised pending verified closure. No old-key/signature retirement or new session/webhook/cron behavior proved. Production plan updated only conditionally with the failed activation lesson; Phase P live preparation/execution not started. STAGING_MIGRATION_HISTORY_NOT_VERIFIED and BACKUP_NOT_VERIFIED remain. READY FOR MERGE/STAGING BOOTSTRAP/EXTERNAL HOMOLOGATION/PRODUCTION=NO. Documentation alone does not lift freeze or deploy either frozen candidate SHA.
+
+## Initial P0 containment update — historical snapshot, 2026-10-06
 
 **RELEASE_SECURITY_FREEZE=ACTIVE.** Current decision artifact: [CREDENTIAL_ROTATION_APPROVAL.md](security/CREDENTIAL_ROTATION_APPROVAL.md), with [sanitized incident/evidence](security/CREDENTIAL_INCIDENT_202610.md). Staging and production credential containment require separate approval and actual verified completion; neither phase is authorized. Production rotation is urgent independently of the Admin release. No credential/environment/service/DB change or cleanup was executed.
 
