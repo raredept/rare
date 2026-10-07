@@ -8,14 +8,14 @@ RELEASE_SECURITY_FREEZE=ACTIVE
 RUNTIME_CANDIDATE_SHA=7a820b62bb1515f7b30ccf31badf1f0881a6bd84
 STAGING_SHA=4ea73f50cafdbf67e16dc71de985052075feca42
 MAIN_SHA=4ea73f50cafdbf67e16dc71de985052075feca42
-AHEAD=36
+AHEAD=37
 BEHIND=0
 PR=NONE
 PR_OBSERVATION=HISTORICAL_NONE_20261007T134733Z
 STAGING_STATUS=BLOCKED
 PRODUCTION_STATUS=NOT_AUTHORIZED
 LAST_GATE=PHASE_2_BLOCKED_BY_COMMON_SSH_PATH_AFTER_TCP_AND_BACKUP_PROVIDER
-NEXT_GATE=OWNER_RAILWAY_NETWORK_DIAGNOSTICS_OR_APPROVED_NETWORK_TEST
+NEXT_GATE=OWNER_A_B_RESULT_AND_WARP_RESTORATION_CONFIRMATION
 BASELINE_VERIFIED=YES
 STAGING_MIGRATION_HISTORY_VERIFIED=NO
 BACKUP_AVAILABLE=NO
@@ -24,6 +24,7 @@ SSH_IDENTITY_HUMAN_ACTION_REQUIRED=NO
 SSH_ACCESS_HUMAN_ACTION_REQUIRED=YES
 SSH_AGENT=AVAILABLE
 SSH_AGENT_EXPECTED_FINGERPRINT=MATCH
+SSH_IDENTITY_OBSERVATION=HISTORICAL_20261007T142925Z
 OWNER_PROVIDED_IDENTITY_PATH=VERIFIED
 SSH_IDENTITY_PATH_INVALID=NO
 SSH_KEY_PAIR_METADATA_MATCH=YES
@@ -37,6 +38,8 @@ SSH_KEY_SCOPE=PERSONAL
 SSH_KEY_CLEANUP=VERIFIED_REMOVED
 SSH_KEY_REMOVAL_REQUIRES_HUMAN_2FA=NO
 SSH_ATTEMPTED=YES
+SSH_ATTEMPTED_THIS_CYCLE=NO
+SSH_RESULT_OBSERVATION=HISTORICAL_20261007T143554Z_TO_143845Z
 SSH_RUNTIME_TARGET_VERIFIED=NO
 DNS_RESOLUTION=PASS
 TCP_22=REACHABLE
@@ -48,11 +51,23 @@ WEB_SSH=TIMEOUT
 RAILWAY_SSH_GATEWAY_OR_LOCAL_ROUTE_BLOCKER=YES
 OBSERVED_FAILURE_STAGE=NATIVE_SSH_AFTER_TCP_ESTABLISHED
 FAILURE_CAUSE=UNKNOWN
+SSH_FAILURE_LAYER=UNKNOWN
+RAILWAY_NETWORK_DIAGNOSTICS=OWNER_REPORTED_COMPLETED_TIMESTAMP_NOT_SUPPLIED
+WARP_STATE_BASELINE=UNKNOWN
+WARP_CURRENT_STATE=CONNECTED
+WARP_CURRENT_STATE_OBSERVED_AT=2026-10-07T15:11:41.592Z
+SSH_WITH_WARP=OTHER
+SSH_WITH_WARP_EVIDENCE=HISTORICAL_TIMEOUT_NOT_TIME_ALIGNED_TO_WARP_STATUS
+SSH_WITHOUT_WARP=OTHER
+SSH_WITHOUT_WARP_EVIDENCE=RESULT_NOT_SUPPLIED_CODEX_NOT_EXECUTED_OWNER_EXECUTION_UNKNOWN
+WARP_RECONNECTED_AFTER_TEST=UNKNOWN
+WARP_SSH_INTERFERENCE=UNDETERMINED
+RAILWAY_SSH_GATEWAY_FAILURE=NOT_PROVEN
 DATABASE_ACCESS_PATH=NONE
 WEB_DATABASE_TARGET_MATCH=NOT_VERIFIED
-AUDIT_EXECUTION=NOT_EXECUTED_COMMON_SSH_PATH_BLOCKED
+AUDIT_EXECUTION=NOT_EXECUTED_OWNER_A_B_RESULT_REQUIRED
 EFFECTIVE_NEXT_DEPLOY_CONFIG=NOT VERIFIED
-CREDENTIAL_INCIDENT=P0_ACTIVE
+CREDENTIAL_INCIDENT=P0_OPEN
 STAGING_CREDENTIALS=COMPROMISED
 PRODUCTION_CREDENTIALS=COMPROMISED
 PHASE_S_CAN_RESUME=NO
@@ -64,11 +79,11 @@ AUTHORIZED_FOR_PRODUCTION=NO
 AUTHORIZED_FOR_PRODUCTION_SECURITY_CHANGE=NO
 ```
 
-Cycle date: **2026-10-07, America/Sao_Paulo**. Current timeout-isolation checks are around 11:29–11:39 local / 14:29–14:39 UTC; older observations are explicitly historical. This file is the canonical current state. Update it in place on future executions; [Master log](RARE_MASTER_LOG.md) records relevant events, and specialized runbooks retain dated evidence and conditional plans. Current authority is the owner's Phase 2 Railway SSH timeout-isolation instruction: layered diagnostics and conditional web-host READ ONLY fallback, not earlier approval options.
+Cycle date: **2026-10-07, America/Sao_Paulo**. Current authority is the owner's **Phase 2 Cloudflare WARP A/B isolation** instruction. The owner controls any temporary WARP disconnect/reconnect; Codex must not change WARP, McAfee, Windows Firewall, Railway/staging configuration, credentials or production. This file is the canonical current state; [Master log](RARE_MASTER_LOG.md) records events. Earlier 14:29–14:39 UTC SSH/identity/target observations are historical, not re-executed in this A/B cycle.
 
 ## Baseline / evidence boundary
 
-Entry local and remote release HEAD were both **50b0a78e63f517ef5a27967190a904369ef584cb**, **35 ahead / 0 behind** after fetch --all --prune; branch and main remained unchanged. The material-evidence documentation commit was created and its actual count verified as **36 ahead / 0 behind**; the top records that verified post-commit count in the same unpublished commit. Verify local/remote equality after normal push. The runtime candidate remains distinct from documentation; no runtime deployment occurred here. Resolve the containing documentation commit with `git log -1 --format=%H -- docs/cycles/RARE_MASTER_STATUS.md`; a document cannot contain its own immutable commit hash. The two unrelated preexisting untracked user files remain preserved/excluded.
+WARP A/B entry local and remote release HEAD were both **c8788b37f92a8a6cffb2feb3ec60329c7ba5ac1d**, **36 ahead / 0 behind** after fetch --all --prune; main remains **4ea73f50cafdbf67e16dc71de985052075feca42**. The material-evidence documentation commit was created and its actual count verified as **37 ahead / 0 behind**, recorded in the same unpublished commit; verify normal-push equality at closure. The runtime candidate remains distinct from documentation; no runtime deployment occurred here. Resolve the containing documentation commit with `git log -1 --format=%H -- docs/cycles/RARE_MASTER_STATUS.md`; a document cannot contain its own immutable commit hash. The two unrelated preexisting untracked user files remain preserved/excluded.
 
 BASELINE_VERIFIED=YES means the baseline inventory was reconciled with explicit unknowns and observed failures. It is **not** a database, security, remote CI, runtime-health, homologation or release PASS. No production configuration or runtime was inspected this cycle.
 
@@ -83,7 +98,17 @@ BASELINE_VERIFIED=YES means the baseline inventory was reconciled with explicit 
 | Backup inventory, historical 2026-10-07T13:59:32.490Z | Last verified listing: **0 snapshots / 0 schedules**, no late snapshot then. Not queried this isolation cycle. No verified recovery checkpoint; two create attempts cumulative, no third request. |
 | Credential incident | All four affected categories in staging AND production remain COMPROMISED until rotation/revocation is proved. Presence or TEST classification does not close compromise. Rotation/revocation not executed. |
 
-## Phase 2 — entry, work, gate, exit
+## Current Phase 2 — WARP A/B awaiting owner result
+
+**Material new owner-reported evidence:** official Railway Network Diagnostics completed, execution timestamp not supplied: Railway HTTP endpoint **PASS / HTTP200**, edge **gru1**, traceroute **COMPLETED**, ping loss **0%**, latency approximately **19ms**; system resolver **connectivity-check.warp-svc / 127.0.2.2** experienced timeouts before resolution, Cloudflare **1.1.1.1 lookup PASS**, observed egress **AS13335**. This is the owner's sanitized report, not independently executed/reproduced by Codex. HTTP-path health and observed Cloudflare routing do not prove SSH health or an internal WARP defect.
+
+**Current independent read-only check:** installed `warp-cli --help` confirmed `status`; `warp-cli status` at **2026-10-07T15:11:41.592Z** returned **CONNECTED**, exit0. Only classification was emitted; no settings, registration, connect/disconnect or configuration command ran. Current CONNECTED does **not** establish the historical SSH baseline or that an A/B test occurred and WARP was restored afterward.
+
+**Missing owner evidence:** controlled with-WARP SSH result/state/time, without-WARP result and tested service, and explicit reconnection confirmation. Previous PG/web TIMEOUT observations remain historical and are not time-aligned with a verified WARP state. `SSH_WITH_WARP=OTHER` means no controlled baseline was reconciled; `SSH_WITHOUT_WARP=OTHER` means result not supplied and not executed by Codex; external owner execution remains UNKNOWN, not a measured failure. No new SSH, agent/key/provider operation, SQL/DB connection, backup listing/mutation, secret read/rotation, deployment, configuration or production action occurred in this cycle. WARP baseline **UNKNOWN**, interference **UNDETERMINED**, gateway failure **NOT PROVEN**; no A/B cause is inferred.
+
+**Next / conditional audit:** owner supplies the A/B result and restoration confirmation. WITH timeout / WITHOUT pass confirms **CLOUDFLARE_WARP_PATH / CONFIRMED_BY_A_B**, not an internal mechanism; both timeout means **NOT_CONFIRMED**, with Railway/upstream only a triage hypothesis, not exclusion of local/authentication causes. Future options are a temporary owner-approved disconnect for the metadata audit or a separately approved split-tunnel/policy review; **no permanent WARP change is authorized**. Only successful official Railway SSH plus fresh exact staging/runtime identity permits the already-approved metadata audit: BEGIN READ ONLY first, local statement_timeout5000ms/lock_timeout2000ms, verify transaction_read_only=on before only five migration fields/necessary allowlisted catalogs, then confirmed ROLLBACK and session closure. No application rows/logs, migration, fix, deploy or next phase. All DB counts remain UNKNOWN; backup provider blockerYES/no third; incidentP0_OPEN/rotationNO/freezeACTIVE/readinessNO.
+
+## Historical Phase 2 — SSH timeout isolation entry, work, gate, exit
 
 **Entry / current authorization:** use the same owner-loaded Windows OpenSSH Agent and existing **%USERPROFILE%/.ssh/rare_staging_db_audit_20261007**/.pub; matching public-key PERSONAL registration if absent and scoped removal are authorized. Diagnose DNS/TCP first, preview config with --dry-run only, verify Service/Service Instance/Deployment Instance distinctions, then one noninteractive `true` per authorized path: PG service, PG active deployment instance only after service timeout, and web staging. Web-host metadata fallback is conditional on WEB_SSH=PASS and private proof that it targets the same staging PG. No passphrase request/read/store, new identity/helper, arbitrary import/workspace key, firewall/AV/TLS/host-trust bypass, public DB exposure, backup/restore/rotation/deploy/redeploy/restart/migration or production action. Support remains owner-led; no later phase.
 
@@ -148,7 +173,7 @@ All 14 database migration states are UNKNOWN, explicitly including **20260907150
 
 Future approved PG-host SQL requires runtime proof, then BEGIN READ ONLY first; local statement_timeout5000ms/lock_timeout2000ms, verify on, server version and only five approved migration fields, minimal schema only if inconsistency requires it, ROLLBACK/closure. Web fallback requires WEB_SSH=PASS, exact web-runtime identity and private proof of the same PG target; only temporary stdin execution with existing Node/Prisma, no app/server/file/package changes. First transaction user SQL SET TRANSACTION READ ONLY, then SHOW on before metadata; prove actual transaction end/rollback and await disconnect before publishing results. A caught Prisma sentinel alone is not rollback proof. If protection/modules/binding cannot be proved, STOP without metadata. No such fallback/runtime/SQL check executed here. Old key-generating orchestration/unconditional schema collection/classifier must not be reused. Integrity failures take priority over pending/no-op conclusions, without repair authority.
 
-The [Railway support handoff](../security/RAILWAY_BACKUP_SUPPORT_HANDOFF.md) remains **READY DRAFT; OWNER_HANDLES_EXTERNALLY**, now materially expanded with sanitized SSH routing evidence. No Codex message/ticket/diagnostic-tool download/execution or owner result was supplied. Two historical HTTP200/INTERNAL_SERVER_ERROR create attempts remain unresolved; last verified prior-cycle inventory **2026-10-07T13:59:32.490Z** is0/0/no late snapshot then, not refreshed here. Workflow/cause/cost/recoverability UNKNOWN; BACKUP_AVAILABLE=NO verified checkpoint / provider blockerYES. No third create, backup/restore/schedule/PITR/dump/resize. Read-query trace IDs are not historical backup-attempt IDs.
+The [Railway support handoff](../security/RAILWAY_BACKUP_SUPPORT_HANDOFF.md) remains **READY DRAFT; OWNER_HANDLES_EXTERNALLY**, materially expanded with the owner's diagnostic report and unresolved A/B gate. Codex sent no message/ticket and downloaded/executed no diagnostic tool; owner external contact/result is not verified. Two historical HTTP200/INTERNAL_SERVER_ERROR create attempts remain unresolved; last verified prior-cycle inventory **2026-10-07T13:59:32.490Z** is0/0/no late snapshot then, not refreshed here. Workflow/cause/cost/recoverability UNKNOWN; BACKUP_AVAILABLE=NO verified checkpoint / provider blockerYES. No third create, backup/restore/schedule/PITR/dump/resize. Read-query trace IDs are not historical backup-attempt IDs.
 
 ### Closed staging / providers
 
@@ -181,9 +206,13 @@ Stripe Card TEST / PIX / webhook / Melhor Envio Sandbox / email delivery / stora
 | HOMOLOGATION / Phases 6–7 | NOT EXECUTED externally |
 | PRODUCTION / Phases 9–13 | NOT AUTHORIZED / NOT EXECUTED |
 
-P0: compromised staging/production credentials; freeze active. Migration integrity UNKNOWN, not an established corruption incident. P1: **owner Network Diagnostics/approved-network comparison required for the common post-TCP SSH path**, backup failure, unknown history/next config, unverified closed bootstrap/candidate/homologation/PR gates. P2: historical legacy Vercel-cron warning and dependency UPSTREAM_WAIT, not fresh audit results. No dependency modernization or full audit.
+P0: compromised staging/production credentials; freeze active. Migration integrity UNKNOWN, not an established corruption incident. P1: **owner WARP A/B result and restoration confirmation required; diagnostics already owner-reported**, backup failure, unknown history/next config, unverified closed bootstrap/candidate/homologation/PR gates. P2: historical legacy Vercel-cron warning and dependency UPSTREAM_WAIT, not fresh audit results. No dependency modernization or full audit.
 
 ## HUMAN ACTION REQUIRED
+
+Provide the controlled with-/without-WARP SSH results, tested target and restoration confirmation; the current status is CONNECTED, but A/B completion is unknown. Owner retains control of WARP. No other protection or permanent policy may be changed. Do not share key bodies, passphrases, credentials or raw diagnostic files. Phase 2 is BLOCKED; no new SSH/SQL runs while this evidence is missing. No Railway support message is sent by Codex.
+
+## Historical timeout-isolation human-action package — superseded by the A/B gate
 
 **Current phase:** 2 — DATABASE_VISIBILITY_AND_RECOVERY. **Reason:** DNS/TCP PASS and matching default/active-instance targets, but all three official SSH probes timed out at the native path after TCP Established. Limited audit authority remains; next requirement is owner official Network Diagnostics or approved alternate-network evidence, not another identity or a passphrase. No automatic retry follows this cycle.
 
@@ -210,6 +239,8 @@ A/B address official access, not the already resolved unavailable-agent gate; C 
 
 ## Validation / publication
 
-Current proportional checks: **git diff --check PASS; release:guard 6 OK / 1 unchanged legacy Vercel-cron WARNING / 0 FAIL**, 325 tracked files / 43 browser-bundle files. Eight scoped docs/current diffs: **0 exact configured-secret hits / 0 credential-pattern hits; 91 relative links / 0 broken; 0 unbalanced fences; 14 canonical references / 0 incorrect; canonical state/Git counts match**. Additional six-doc/working/staged/branch-diff scan: **0 supplied-public-body hits / 0 public-key-body patterns**, private material not read. Cross-review completed; scope is five canonical docs plus the explicitly requested materially expanded support handoff, no runtime source change. Staging credential values/authentication used privately only as validation needles, no production read. Recheck staged docs, actual post-commit count and normal-push equality at closure; one material-evidence commit, no unchanged-blocker churn.
+Previous timeout-isolation documentation validation: **git diff --check PASS; release:guard 6 OK / 1 unchanged legacy Vercel-cron WARNING / 0 FAIL**, 325 tracked files / 43 browser-bundle files; eight-doc configured/pattern hits0, 91links/0broken, balanced fences,14correct canonical references, state/countsMATCH and public-body scan0. These are dated previous-cycle results, not fresh A/B validation. Current documentation is limited to material owner diagnostic evidence and the read-only WARP state; proportional offline checks and normal publication must pass before closure. No configured credential/authentication value is read for this A/B cycle; no runtime source change.
+
+Current WARP A/B documentation checks: **diff check PASS; release:guard6 OK / 1 unchanged legacy warning / 0 FAIL**; eight-doc/working/staged/branch-diff credential and key-body pattern hits **0**, **102 relative links / 0 broken**, balanced fences, **14 correct canonical checksum references**, state/Git counts MATCH. These are offline/pattern checks, not a fresh exact-configured-secret comparison or a provider/DB/SSH/A/B test. Read-only cross-review precision findings fixed. Stage only the six material-evidence docs, record actual post-commit counts, normal push/equality readback, then STOP Phase2 pending owner results; preserve both unrelated untracked files.
 
 No full E2E/application suite/build or new dependency audit. Railway guidance kept official dry-run/identifier distinctions, bounded native probes and scoped personal-key cleanup; Postgres guidance kept fallback SQL blocked without web/runtime/binding/READ ONLY proof. Neither skill proves the unresolved gateway/local cause, database history or recovery.

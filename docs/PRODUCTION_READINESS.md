@@ -1,6 +1,29 @@
 # RARE — production readiness
 
-## Current Master Cycle / Case B: post-TCP SSH blocker — 2026-10-07
+## Current Phase 2 / WARP A/B awaiting owner result — 2026-10-07
+
+Canonical current state: [RARE_MASTER_STATUS.md](cycles/RARE_MASTER_STATUS.md); events: [RARE_MASTER_LOG.md](cycles/RARE_MASTER_LOG.md); [database gate](security/STAGING_DATABASE_GATE.md), [secret activation gate](security/SECRET_ACTIVATION_GATE.md) and [owner-led support handoff](security/RAILWAY_BACKUP_SUPPORT_HANDOFF.md). **CURRENT_PHASE=2; PHASE_RESULT=BLOCKED; RELEASE_SECURITY_FREEZE=ACTIVE.** Next gate: owner A/B SSH results and WARP restoration confirmation. No without-WARP SSH PASS or cause confirmation is assumed.
+
+**New owner-reported diagnostic; execution time NOT PROVIDED:** official Railway Network Diagnostics returned HTTP 200 / edge gru1, traceroute COMPLETED, ping loss 0% and about 19 ms latency. System resolver `connectivity-check.warp-svc / 127.0.2.2` reportedly timed out before resolution; Cloudflare 1.1.1.1 lookup PASS; client egress AS13335. Attribute these facts to the owner report, not a direct Codex test or proof that SSH/gateway/WARP is healthy or faulty. Codex did not download/execute the tool or contact support.
+
+Read-only local `warp-cli help/status` at **2026-10-07T15:11:41.592Z** separately reported **CONNECTED**; no configuration change. Current connected state does not prove the prior probes ran with WARP or that the owner completed/restored an A/B cycle.
+
+```text
+WARP_STATE_BASELINE=UNKNOWN
+SSH_WITH_WARP=HISTORICAL_TIMEOUT_NOT_TIME_ALIGNED
+SSH_WITHOUT_WARP=NOT_REPORTED_OR_EXECUTED
+WARP_RECONNECTED_AFTER_TEST=UNKNOWN
+WARP_SSH_INTERFERENCE=UNDETERMINED
+RAILWAY_SSH_GATEWAY_FAILURE=NOT_PROVEN
+```
+
+No without-WARP result was supplied and Codex executed no such test; external owner execution is unknown, not denied. The historical timeouts are not a time-aligned A/B baseline. The owner controls WARP and must supply baseline state, with/without results and restoration confirmation. No permanent WARP change or disabling another protection is authorized; no McAfee/firewall/TLS/host-trust bypass, credential sharing or automatic SSH retry.
+
+No new SSH, key registration/removal, provider read/write, SQL, backup, rotation, configuration, commerce or production operation occurred in this awaiting-result cycle. Prior PERSONAL cleanup remains historical; agent/provider/runtime status was not refreshed by the WARP status read. All 14 database migration states, PostgreSQL version and five counts remain UNKNOWN; history verified NO. Last verified backup **2026-10-07T13:59:32.490Z** remains a historical 0 snapshots / 0 schedules observation, with **2 cumulative creates / NO_THIRD_ATTEMPT**. Effective next-deploy config **NOT VERIFIED** / safe activation **NOT PROVEN**, all four affected categories in staging and production **COMPROMISED / ROTATION=NO / FREEZE=ACTIVE**. **PHASE_S_CAN_RESUME=NO; READY FOR MERGE / STAGING / EXTERNAL HOMOLOGATION / PRODUCTION=NO; AUTHORIZED FOR PRODUCTION=NO.** Support remains **CODEX_NOT_SENT / OWNER_STATUS_NOT_VERIFIED**.
+
+Only after official Railway SSH PASS and fresh exact staging/runtime target proof may the already approved metadata audit begin: **BEGIN READ ONLY** first; local statement timeout **5000ms**, lock timeout **2000ms**, **SHOW transaction_read_only** must return **on** before metadata, otherwise ROLLBACK/ABORT. Collect approved server version and only `migration_name, checksum, started_at, finished_at, rolled_back_at`; finish with **ROLLBACK and verified session closure**. No SQL/read-only/rollback was executed here; no install/app change, migration, deploy/redeploy or commercial activation is authorized. **STOP pending owner A/B/restoration; no Phase 3/4/5.** All earlier dated sections are historical, not current execution authority.
+
+## Historical Master Cycle / Case B: post-TCP SSH blocker — 2026-10-07 (14:29–14:39 UTC)
 
 Canonical current state: [RARE_MASTER_STATUS.md](cycles/RARE_MASTER_STATUS.md); events: [RARE_MASTER_LOG.md](cycles/RARE_MASTER_LOG.md); specialized gates: [staging database gate](security/STAGING_DATABASE_GATE.md), [secret activation gate](security/SECRET_ACTIVATION_GATE.md), and [expanded owner-led support handoff](security/RAILWAY_BACKUP_SUPPORT_HANDOFF.md). **CURRENT_PHASE=2; PHASE_RESULT=BLOCKED; CASE=B; RAILWAY_SSH_GATEWAY_OR_LOCAL_ROUTE_BLOCKER=YES; RELEASE_SECURITY_FREEZE=ACTIVE.** Native SSH failed after established TCP on PostgreSQL service, current PostgreSQL deployment-instance, and staging web. Actual gateway/local-route/authentication root cause remains **UNKNOWN**; the evidence does not confirm a basic TCP block, incorrect target, or PostgreSQL-only issue.
 

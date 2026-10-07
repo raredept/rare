@@ -4,6 +4,14 @@ Assessment updated: 2026-10-07. **READY / DRAFT ONLY — OWNER_HANDLES_EXTERNALL
 
 The title describes the observed lack of a verified, listed snapshot. It does not establish that the backend performed no work or that a snapshot cannot appear later. Only preserved sanitized local evidence and current sanitized documents were inspected for an allowlisted trace ID: **TRACE_ID=NOT AVAILABLE**. No raw response, session transcript, environment file, credential or authentication configuration was opened or reproduced for that search. The initial capture did not cover every possible trace-ID location; raw-response absence is not asserted.
 
+## Current owner diagnostic report / WARP A/B gate — 2026-10-07
+
+The owner reports completion of official Railway Network Diagnostics; **execution timestamp was not supplied**. Sanitized results: HTTP endpoint **PASS/HTTP200**, edge **gru1**, traceroute **COMPLETED**, ping loss **0%**, latency approximately **19ms**, system resolver **connectivity-check.warp-svc / 127.0.2.2** with timeouts before resolution, Cloudflare **1.1.1.1 lookup PASS**, egress **AS13335**. Codex did not independently run/reproduce that diagnostic, download its tool or contact support. This new HTTP/DNS/routing evidence does not prove SSH health, provider failure or an internal WARP cause.
+
+Codex's only current network-client operation was installed `warp-cli --help` and read-only `status`: **CONNECTED**, exit0, at **2026-10-07T15:11:41.592Z**, classification-only output/no configuration change. Historical SSH timeouts below lack a time-aligned verified WARP state. Controlled baseline **UNKNOWN**, without-WARP result **NOT SUPPLIED / NOT EXECUTED BY CODEX / OWNER EXECUTION UNKNOWN**, restoration after test **UNKNOWN**; current CONNECTED does not prove A/B completion/restoration. **WARP_SSH_INTERFERENCE=UNDETERMINED; RAILWAY_SSH_GATEWAY_FAILURE=NOT_PROVEN.** Await the owner's A/B results/target and restoration confirmation rather than repeating SSH. A timeout in both paths would leave local/authentication causes possible; Railway/upstream is only a triage hypothesis. A pass only without WARP would confirm traffic-path interference by A/B, not its internal mechanism.
+
+WARP remains owner-controlled; no permanent WARP/split-tunnel/policy change or McAfee/Firewall/TLS/host-trust bypass is authorized. No new SSH/key/provider/SQL/backup/credential/configuration/deployment/production operation occurred. Historical personal-key cleanup remains verified; no fresh registration was attempted. Metadata audit remains conditional on official SSH PASS and exact current staging/runtime identity plus verified READ ONLY and final ROLLBACK/closure; no migration or later phase. Backup provider blockerYES/no third, rotationNO/freezeACTIVE remain independent.
+
 ## Exact staging target
 
 | Field | Verified target / metadata |
@@ -158,7 +166,7 @@ This addendum requests diagnosis only. It does not authorize another backup, key
 
 Thank you.
 
-Owner-led next evidence may use the [official Railway Network Diagnostics guidance](https://docs.railway.com/networking/troubleshooting/network-diagnostics), or a separately owner-approved other-network comparison, with only a reviewed sanitized report shared through a legitimate support channel. Codex did not contact support or download/execute a diagnostic tool in this cycle; no owner ticket/result reference was provided, and external owner contact is not inferred. Do not disable or weaken antivirus, firewall, TLS or SSH host trust, alter SSH/global configuration, reuse the abandoned helper, or resume retries/provider mutations without exact new authority.
+The [official Railway Network Diagnostics](https://docs.railway.com/networking/troubleshooting/network-diagnostics) are now owner-reported complete; the next evidence is the owner-controlled WARP A/B outcome and restoration confirmation described above, not an instruction to repeat the diagnostic. Codex did not contact support or download/execute a diagnostic tool; owner external contact/result is not inferred. Share only reviewed sanitized evidence through a legitimate owner-approved channel. Do not disable or weaken antivirus, firewall, TLS or SSH host trust, change permanent WARP/SSH/global configuration, reuse the abandoned helper, or resume retries/provider mutations without the current access gate and exact authority.
 
 ## Scope and stop
 

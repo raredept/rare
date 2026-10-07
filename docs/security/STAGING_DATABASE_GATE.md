@@ -1,6 +1,30 @@
 # RARE — staging database & recovery gate
 
-## Current Phase 2 / TCP REACHABLE, THREE SSH TIMEOUTS — 2026-10-07
+## Current Phase 2 / WARP A/B PENDING OWNER — 2026-10-07
+
+Canonical current state: [RARE_MASTER_STATUS.md](../cycles/RARE_MASTER_STATUS.md); events: [RARE_MASTER_LOG.md](../cycles/RARE_MASTER_LOG.md). **CURRENT_PHASE=2; PHASE_RESULT=BLOCKED; STAGING_MIGRATION_HISTORY_VERIFIED=NO; RELEASE_SECURITY_FREEZE=ACTIVE.** The owner reported material official Railway Network Diagnostics evidence, without an execution timestamp: Railway HTTP endpoint **PASS / HTTP 200**, edge **gru1**, traceroute **COMPLETED**, ping loss **0%**, latency approximately **19ms**; system resolver **connectivity-check.warp-svc / 127.0.2.2** experienced timeouts before resolution, Cloudflare **1.1.1.1** lookup **PASS**, egress through **AS13335**. This is owner-reported HTTP/network evidence, not proof of an SSH session, an authenticated runtime target or a specific internal WARP defect.
+
+Root's read-only local `warp-cli status` at **2026-10-07T15:11:41.592Z** returned **CONNECTED**; no WARP configuration was changed. The previous three SSH timeouts below remain historical and are not a controlled, time-aligned WITH_WARP baseline. The owner has not supplied the without-WARP result or restoration confirmation.
+
+| A/B gate | Current evidence |
+|---|---|
+| WARP_STATE_BASELINE | UNKNOWN for a controlled SSH A/B |
+| SSH_WITH_WARP | Historical TIMEOUT observations only; controlled baseline NOT VERIFIED |
+| SSH_WITHOUT_WARP | NOT REPORTED |
+| WARP_RECONNECTED_AFTER_TEST | UNKNOWN |
+| WARP_SSH_INTERFERENCE | NOT CONFIRMED; no A/B classification published |
+
+**No SSH, SQL, provider/key operation, backup read or backup mutation occurred in this cycle.** No new runner/payload was implemented and the abandoned helper must not be reused. Static local reference review found **14 deployed-Git migration paths / 14 unique canonical rows / 14 SHA-256 matches**; UTF-8 and LF/CRLF variants were checked in memory without emitting SQL/seed values. This is not database evidence: PostgreSQL version, all five migration counts, all 14 actual migration states and the three critical migrations remain **UNKNOWN**; integrity/clean/no-op/Phase M remain UNKNOWN. No corruption or failed migration was established.
+
+Next gate: obtain the owner's sanitized, comparable WITH_WARP / WITHOUT_WARP SSH result, exact target and timing, plus **WARP restoration confirmation**. Current CONNECTED status alone does not prove that an A/B test or restoration happened. Do not infer WARP causation from HTTP PASS, resolver timeouts or AS13335; do not repeat SSH automatically, alter WARP permanently, weaken McAfee/firewall/TLS/host trust or download/execute another tool. A confirmed A/B may support the owner's requested traffic-path classification, not an internal WARP mechanism or a proven Railway gateway fault.
+
+Only after owner-confirmed trusted official SSH **PASS** and exact staging runtime/database-target MATCH may the already-approved metadata audit proceed: **BEGIN READ ONLY first**, local statement timeout **5000ms** / lock timeout **2000ms**, verify **SHOW transaction_read_only = on before metadata**, then only server version and `_prisma_migrations` **migration_name, checksum, started_at, finished_at, rolled_back_at**, plus minimal authorized catalogs if necessary. No migration logs or business/account/seed rows. Require **ROLLBACK verified and session closure confirmed** before publishing a completed audit; a caught wrapper sentinel or disconnect alone is not ROLLBACK proof. If read-only is not on, ROLLBACK and ABORT without metadata. No audit is executed while A/B/SSH/runtime gates are missing.
+
+Classify the **14 canonical migrations**, not raw attempt-row totals: a historical ROLLED_BACK attempt may be followed by a valid APPLIED attempt; a migration with only rolled-back attempts is not effectively applied and cannot justify no-op. Compare deployed-SHA Git blobs with the documented Prisma LF/CRLF equivalence, never blind Windows worktree bytes. Clean/no-op requires all 14 effectively APPLIED, no unresolved failure/inconsistency or genuine checksum mismatch, complete bounded history and verified transaction closure; PENDING=0 / FAILED=0 / CHECKSUM_MISMATCH=0 alone is insufficient if rolled-back-only or unknown/extra history remains. Prioritize integrity blockers over pending; no automatic repair/migration authority follows.
+
+**BACKUP_PROVIDER_BLOCKER=YES; THIRD_BACKUP_ATTEMPT=NO; CREDENTIAL_INCIDENT=P0_OPEN; ROTATION=NO; RELEASE_SECURITY_FREEZE=ACTIVE; PHASE_S_CAN_RESUME=NO; all release readiness=NO.** Backup evidence is still the dated previous-cycle checkpoint below, not a fresh listing or verified recoverability. STOP at Phase 2; no deploy/redeploy/restart, migration, rotation or production action is authorized.
+
+## Historical Phase 2 / TCP REACHABLE, THREE SSH TIMEOUTS — 2026-10-07
 
 Canonical current state: [RARE_MASTER_STATUS.md](../cycles/RARE_MASTER_STATUS.md); events: [RARE_MASTER_LOG.md](../cycles/RARE_MASTER_LOG.md). **PHASE_RESULT=BLOCKED; SSH_PATH=BLOCKED; RAILWAY_SSH_GATEWAY_OR_LOCAL_ROUTE_BLOCKER=YES; STAGING_MIGRATION_HISTORY_VERIFIED=NO; RELEASE_SECURITY_FREEZE=ACTIVE.** The existing owner identity is AVAILABLE in Windows OpenSSH Agent / expected ED25519 fingerprint MATCH; the private/.pub files outside E:/rare remain unchanged. DNS and TCP/22 passed, but exactly three bounded, runtime-only `true` probes timed out after establishing the expected native SSH TCP socket: Postgres service instance, its explicit RUNNING deployment instance, and web service instance. This isolates failure to the native SSH path after TCP, not a basic TCP block, target mismatch or proven Postgres-specific defect. Gateway/local-route/authentication root cause remains UNKNOWN; SSH runtime target is NOT VERIFIED. This is Case B, not an unavailable-agent or passphrase-unlock gate. Authorized matching `.pub` PERSONAL registration and scoped cleanup were completed.
 
