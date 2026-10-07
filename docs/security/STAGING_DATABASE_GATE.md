@@ -1,6 +1,37 @@
 # RARE — staging database & recovery gate
 
-## Current official identity gate / HUMAN ACTION REQUIRED — 2026-10-06
+## Current human-assisted Phase 2 / IDENTITY LOCATION REQUIRED — 2026-10-07
+
+Canonical current state: [RARE_MASTER_STATUS.md](../cycles/RARE_MASTER_STATUS.md); events: [RARE_MASTER_LOG.md](../cycles/RARE_MASTER_LOG.md). **PHASE_RESULT=BLOCKED; SSH_PATH=BLOCKED; STAGING_MIGRATION_HISTORY_VERIFIED=NO; RELEASE_SECURITY_FREEZE=ACTIVE.** The owner has already authorized use of an existing legitimate personal private identity and, if absent, registration of only its matching `.pub` in PERSONAL scope. No renewed generic audit/registration approval is needed. The missing input is the exact private/public file paths or usable approved-agent access; none was supplied or identified in the permitted local inspection. This does not establish that the owner has no identity elsewhere.
+
+### Fresh evidence / actual execution
+
+Entry local/origin documentation HEAD **d1679a55db13902a4a8c7815879caeef93a879c6**, branch **codex/admin-dashboard-reconciled-20261002**, main **4ea73f50cafdbf67e16dc71de985052075feca42**, **32 ahead / 0 behind** after fetch. Resolve final publication/counts from the canonical status/Git. One exact all-state head/base PR query at **2026-10-07 11:51:48 UTC** returned none; no creation/retry/merge or new CI query. Runtime candidate **7a820b62bb1515f7b30ccf31badf1f0881a6bd84** remains undeployed; both unrelated user documents are preserved/excluded.
+
+| Time / boundary | Verified result |
+|---|---|
+| 2026-10-07T11:52:01.284Z, permitted local metadata | 0 public/private key-name candidates; 7 native default paths/0 existing private files. `ssh-add -l` exit 2 / agent unavailable, key count UNKNOWN; native agent stopped/not started. No key body/custom config/unrelated-drive search. |
+| 2026-10-07T11:52:03.381Z, official personal Railway inventory | Exit 0 / EMPTY; no workspace scope or public-key body output. Matching-key status/algorithm/fingerprint UNKNOWN without the owner's `.pub`. |
+| Installed native Railway CLI 5.26.0 help | `ssh --identity-file/-i` supported with explicit project/environment/service; personal `keys add --key/--name`, no `--workspace`; cleanup may require 2FA. No SSH/registration/removal executed. |
+| 2026-10-07T11:52:06.171Z, explicit control-plane target | Rare **72ed12be-9a2a-4e13-8594-30ffd8ffa565** / staging **d8399691-dacf-41e9-a9d5-060c97672e39** / Postgres-MlyZ **ed0a374e-79da-4aab-9e3a-bb684fb829d1** matched. Four unchanged SUCCESS deployments; web/worker source remains main. SSH runtime target NOT VERIFIED. |
+| Canonical Git inventory | 14 migration blobs / 14 unique checksum-reference rows / 14 SHA-256 matches / valid UTF-8; LF/CRLF variants computed in memory. This verifies the reference, not the database. |
+| 2026-10-07T11:53:30.918Z, one read-only backup listing | Exact known volume instance **c5910985-a38a-479b-9274-e65ec6753c77**: 0 snapshots / 0 schedules. LATE_SNAPSHOT=NO; BACKUP_AVAILABLE=NO; BACKUP_PROVIDER_BLOCKER=YES; third creation NO. Volume capacity/attachment evidence below remains historical. |
+
+**SSH_EXECUTED=NO; SQL_EXECUTED=NO; READ_ONLY_VERIFIED=NOT VERIFIED; ROLLBACK=NOT EXECUTED; KEY_REGISTERED=NO; KEY_CLEANUP=NOT APPLICABLE; CREDENTIALS_PRINTED=NO.** No database session, new key/helper/executable, private-key copy/move/delete, AV bypass, import, backup/restore, rotation, deploy/restart/migration, source/config/variable or production change. Existing identities untouched. Owner handles the [READY support draft](RAILWAY_BACKUP_SUPPORT_HANDOFF.md) externally; Codex sent no message, and no owner ticket/result reference was supplied.
+
+### Metadata-only continuation, not executed
+
+Once the owner identifies the existing identity, verify its metadata/pair and personal registration, then reverify the exact staging target before official SSH with explicit identity. Register only its matching public key if absent; remove only a newly added audit-only personal registration afterward, never a preexisting key or local private identity. Respect any native unlock prompt and cleanup 2FA; no helper/passphrase collection or bypass.
+
+The initial SQL scope is **BEGIN READ ONLY**, local statement_timeout **5000ms** / lock_timeout **2000ms**, verify `transaction_read_only=on`, server version, and only `migration_name, checksum, started_at, finished_at, rolled_back_at`. Read-only must be verified before metadata collection; end with **ROLLBACK** and confirm closure. No migration logs or business rows. Schema catalogs may be queried **only if a history inconsistency requires it**, not routinely.
+
+Static inspection found the old helper orchestrator generates/registers a key and its SQL plan always queries session columns/analytics indexes; neither is reusable as-is for this authorization. Its classifier also requires those unconditional schema results and prioritizes pending over an integrity blocker. Do not run it for the new narrow collection. Distinguish history collection from clean integrity, account for LF/CRLF checksum equivalence, and prioritize any failed/incomplete/inconsistent record or true checksum mismatch as a **P0 stop** with no repair/migration authority. A pending/no-op conclusion is relative to these 14 deployed-SHA references, not next-deploy safety.
+
+**PostgreSQL version, APPLIED/PENDING/FAILED/ROLLED_BACK/CHECKSUM_MISMATCH and all 14 real migration states remain UNKNOWN.** Critical `20260907150000_admin_temporary_password`, `20260920120000_analytics_paid_at_index`, `20260921120000_session_version`: each UNKNOWN. **MIGRATION_HISTORY_CLEAN=UNKNOWN; MIGRATE_DEPLOY_EXPECTED_NOOP=UNKNOWN; PHASE_M_REQUIRED=UNKNOWN; P0_MIGRATION_INTEGRITY_BLOCKER=UNKNOWN.** No defect was established. DATABASE/BACKUP/CONFIG/SECURITY gates remain blocked; effective next-deploy config independently **NOT VERIFIED**, credentials COMPROMISED, rotation NO, Phase S NO, all release readiness NO. STOP at Phase 2; no Phase 3/4/5.
+
+## Historical official identity gate / HUMAN ACTION REQUIRED — 2026-10-06
+
+The following original evidence/authority is historical and superseded by the current owner-provided-identity route above; previous Git/backup/support/SSH observations must not be reported as fresh.
 
 **SSH_PATH=BLOCKED; SSH_IDENTITY_HUMAN_ACTION_REQUIRED=YES; BACKUP_PROVIDER_BLOCKER=YES; RELEASE_SECURITY_FREEZE=ACTIVE; PHASE_S_CAN_RESUME=NO.** The quarantined helper was abandoned, not restored/retried/replaced. Official identity discovery did not yield a usable existing key. No import, key creation/registration, SSH or SQL occurred. The objective of converting migration history UNKNOWN to KNOWN remains **NOT ACHIEVED**.
 

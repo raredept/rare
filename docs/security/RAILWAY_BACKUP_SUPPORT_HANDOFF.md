@@ -1,6 +1,6 @@
 # Manual volume backup returns INTERNAL_SERVER_ERROR with no snapshot created
 
-Assessment: 2026-10-06. **DRAFT ONLY — SUPPORT_NOT_CONTACTED. BACKUP_PROVIDER_BLOCKER=YES; RELEASE_SECURITY_FREEZE=ACTIVE.** This is a sanitized evidence package for owner-led provider triage, not permission for another backup attempt or any recovery/configuration operation. See the [staging database gate](STAGING_DATABASE_GATE.md) for the cumulative migration/recovery decision.
+Assessment updated: 2026-10-07. **READY / DRAFT ONLY — OWNER_HANDLES_EXTERNALLY; CODEX_SUPPORT_NOT_CONTACTED. BACKUP_PROVIDER_BLOCKER=YES; RELEASE_SECURITY_FREEZE=ACTIVE.** The owner will handle the ticket separately; no owner ticket/result reference was supplied to this cycle, so no assertion is made about external owner contact. This is a sanitized evidence package for owner-led provider triage, not permission for another backup attempt or any recovery/configuration operation. See the [staging database gate](STAGING_DATABASE_GATE.md) for the cumulative migration/recovery decision.
 
 The title describes the observed lack of a verified, listed snapshot. It does not establish that the backend performed no work or that a snapshot cannot appear later. Only preserved sanitized local evidence and current sanitized documents were inspected for an allowlisted trace ID: **TRACE_ID=NOT AVAILABLE**. No raw response, session transcript, environment file, credential or authentication configuration was opened or reproduced for that search. The initial capture did not cover every possible trace-ID location; raw-response absence is not asserted.
 
@@ -15,7 +15,7 @@ The title describes the observed lack of a verified, listed snapshot. It does no
 | Volume | a0b78a5e-0dec-40ab-9d8c-c298be29ca5d |
 | Volume instance | c5910985-a38a-479b-9274-e65ec6753c77 |
 | Mount / state | /var/lib/postgresql/data / READY |
-| Capacity / current used | 5000 MB / 187.547648 MB, current read-only observation at 2026-10-06T20:41:33.034Z; prior attempt-window usage 187.531264 MB |
+| Capacity / dated used | 5000 MB / 187.547648 MB, historical read-only observation at 2026-10-06T20:41:33.034Z; prior attempt-window usage 187.531264 MB; not refreshed in this cycle |
 | Region | UNKNOWN |
 
 The volume instance was resolved to this exact project/environment/service/volume; volume ID and volume-instance ID are not interchangeable. Used storage is volume metadata, not `pg_database_size`, logical dump size or a measured snapshot size. No connection URL, credential, authorization header, application data or personal identity is included.
@@ -33,6 +33,7 @@ The volume instance was resolved to this exact project/environment/service/volum
 | 2026-10-06T17:52:44.877Z | Final successful read-only reconciliation after the local audit abort: 0 snapshots / 0 schedules. |
 | 2026-10-06T20:43:01.586Z | This cycle's single final read-only backup reconciliation: 0 snapshots / 0 schedules; no late snapshot verified. |
 | 2026-10-07T01:57:46.330Z | Master Cycle read-only reconciliation (October 6 local): 0 snapshots / 0 schedules; no late snapshot verified; no creation request. |
+| 2026-10-07T11:53:30.918Z | Human-assisted Phase 2 single read-only listing: 0 snapshots / 0 schedules; no late snapshot verified; no creation request or automatic polling. |
 
 Exactly **two creation requests across the two authorizations** are recorded. The second request was separately authorized after fresh reconciliation, not an automatic retry of the first. **NO_THIRD_ATTEMPT.** No completed workflow or available snapshot was verified. An empty inventory at these times does not prove that no internal work occurred or that no delayed snapshot can appear later.
 
@@ -58,7 +59,7 @@ Public status was checked at **2026-10-06 17:29:35–17:29:50 UTC**: the [offici
 
 A second official status observation around **17:52 UTC** retained the same Fully Operational display and the same isolated-issue limitation. No public status finding changes the failed backup gate or authorizes another request.
 
-## Owner-ready support message — DRAFT / NOT SENT
+## Owner-ready support message — DRAFT / CODEX_NOT_SENT; OWNER_STATUS_NOT_VERIFIED
 
 **Subject: Manual volume backup returns INTERNAL_SERVER_ERROR with no snapshot created**
 
@@ -86,7 +87,7 @@ Request timestamps are UTC:
 
 Expected result: one available manual snapshot for the specified staging volume instance. Actual result: none verified. Three readbacks after the first request showed 0 snapshots / 0 schedules, the last at 2026-10-06T16:55:22.004Z. Fresh reconciliation before request two at 2026-10-06T17:30:27.210Z also showed 0 / 0. Readbacks after request two at 2026-10-06T17:30:48.048Z, 2026-10-06T17:32:38.169Z and 2026-10-06T17:52:44.877Z each showed 0 snapshots / 0 schedules. This evidence does not exclude an unlisted/pending workflow or later snapshot.
 
-The subsequent diagnostic reconciliation at 2026-10-06T20:43:01.586Z and latest Master Cycle read-only listing at 2026-10-07T01:57:46.330Z each returned **0 snapshots / 0 schedules**. No third backup creation request has been sent. We have not received provider reconciliation for either request; their internal outcomes and recovery/incident closure remain unverified. Capacity/attachment figures above remain the dated 2026-10-06T20:41:33.034Z observation, not a new Master Cycle metadata verification.
+The subsequent diagnostic reconciliation at 2026-10-06T20:43:01.586Z, Master Cycle listing at 2026-10-07T01:57:46.330Z and latest human-assisted Phase 2 read-only listing at **2026-10-07T11:53:30.918Z** each returned **0 snapshots / 0 schedules**. No third backup creation request has been sent. No provider reconciliation was supplied to this cycle; internal outcomes and recovery/incident closure remain unverified. Capacity/attachment figures above remain the dated 2026-10-06T20:41:33.034Z observation, not a new Master Cycle metadata verification.
 
 Please answer these questions separately:
 
@@ -107,4 +108,4 @@ This handoff neither contacts support nor authorizes more provider writes. No re
 
 Stop backup execution after the second authorized request; retain sanitized evidence and the release freeze pending provider/owner resolution.
 
-Final read-only reconciliation: **2026-10-07T01:57:46.330Z — 0 snapshots / 0 schedules; LATE_SNAPSHOT=NO; BACKUP_AVAILABLE=NO; BACKUP_PROVIDER_BLOCKER=YES.** Current phase/authority is in the [canonical Master status](../cycles/RARE_MASTER_STATUS.md). New Master Cycle volume/GitHub **read** failures are not new backup mutations and their trace IDs must not be attributed to either historical creation attempt. No further creation, deletion, restore, support contact or automatic polling follows this handoff.
+Latest read-only reconciliation: **2026-10-07T11:53:30.918Z — 0 snapshots / 0 schedules; LATE_SNAPSHOT=NO; BACKUP_AVAILABLE=NO; BACKUP_PROVIDER_BLOCKER=YES.** Current phase/authority is in the [canonical Master status](../cycles/RARE_MASTER_STATUS.md). Prior Master Cycle volume/GitHub **read** failures are not new backup mutations and their trace IDs must not be attributed to either historical creation attempt. No further creation, deletion, restore, Codex support contact or automatic polling follows this handoff; owner support handling remains separate.
