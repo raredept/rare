@@ -1,6 +1,44 @@
 # RARE — secret activation & migration gate
 
-## Current Phase 2 / WARP A/B confirmed, owner DB window required — 2026-10-07
+## Current Phase 2 / migration history verified, independent gates blocked — 2026-10-07
+
+Current authority/state: [canonical Master status](../cycles/RARE_MASTER_STATUS.md), [Master log](../cycles/RARE_MASTER_LOG.md), and [database gate](STAGING_DATABASE_GATE.md). **CURRENT_PHASE=2; DATABASE_HISTORY_GATE=PASS; PHASE_RESULT=DATABASE_VISIBILITY_VERIFIED_RECOVERY_BLOCKED; RELEASE_SECURITY_FREEZE=ACTIVE; PHASE_S_CAN_RESUME=NO.** The owner explicitly authorized/opened the WARP window; **HUMAN_WARP_WINDOW_REQUIRED=RESOLVED**. The metadata objective UNKNOWN -> KNOWN was achieved, not release/recovery/activation approval.
+
+**Direct audit evidence, UTC:** immediately before SSH at **2026-10-07T19:05:37.742Z**, WARP was DISCONNECTED and the native agent AVAILABLE / expected fingerprint MATCH. Official PostgreSQL SSH audit **19:05:37.743Z–19:05:43.430Z** verified the exact staging runtime before SQL, verified **transaction_read_only=on**, returned PostgreSQL **18.6 (Debian 18.6-1.pgdg13+2)** and 14 migration metadata rows, then confirmed the server **ROLLBACK**, psql completion and SSH exit **0**. Session closed; **0 remaining audit native SSH processes**. Codex did not toggle WARP; **OWNER_WARP_RECONNECT_REQUIRED=YES** after all audit access closed. Post-audit owner reconnection is not asserted.
+
+The fresh control-plane target at **18:57:52.867Z** matched project **72ed12be-9a2a-4e13-8594-30ffd8ffa565**, staging **d8399691-dacf-41e9-a9d5-060c97672e39**, PostgreSQL Service **ed0a374e-79da-4aab-9e3a-bb684fb829d1** and Service Instance **3b37cfd9-f315-40df-a8a6-35673912d346**. The remote guard also matched the exact project/environment/service and deployment **a20b8647-5a81-4a0b-a44f-b096a58996f3** before metadata. First SQL was **BEGIN READ ONLY**; local statement timeout **5000ms** / lock timeout **2000ms**, with SHOW returning **on** before collection. Only approved PostgreSQL version and five migration fields were collected, not business/PII/seed values.
+
+All **14** rows are **APPLIED**, one attempt each, with exact checksums against canonical Git blobs at deployed SHA **4ea73f50cafdbf67e16dc71de985052075feca42**, not Windows worktree bytes. **APPLIED=14; PENDING=0; FAILED=0; ROLLED_BACK=0; CHECKSUM_MISMATCH=0; EXTRA_MIGRATIONS=0; ANOMALIES=0.**
+
+```text
+STAGING_MIGRATION_HISTORY_VERIFIED=YES
+MIGRATION_HISTORY_CLEAN=YES
+MIGRATE_DEPLOY_EXPECTED_NOOP=YES
+PHASE_M_REQUIRED=NO
+P0_MIGRATION_INTEGRITY_BLOCKER=NO
+READ_ONLY_VERIFIED=YES
+ROLLBACK=EXECUTED_AND_CONFIRMED
+DATABASE_WRITES_PERFORMED=NO
+SCHEMA_CHANGED=NO
+```
+
+| Sensitive migration | Verified migration-history result |
+|---|---|
+| 20260907150000_admin_temporary_password | APPLIED / canonical checksum MATCH |
+| 20260920120000_analytics_paid_at_index | APPLIED / canonical checksum MATCH |
+| 20260921120000_session_version | APPLIED / canonical checksum MATCH |
+
+Clean/no-op describes the complete migration-history comparison to those 14 deployed-SHA references; `prisma migrate deploy` was not executed. APPLIED does not verify business/account seed values or every current schema effect. NO writes/schema changes describes this audit, not independent application writers, which were not paused/audited. No migration, resolve/repair, DDL/DML, install or app change occurred.
+
+The matching PERSONAL registration was **preexisting**, not added or removed by this cycle: **TEMPORARY_KEY_CLEANUP=NOT REQUIRED / PREEXISTING_KEY_PRESERVED**. Owner local pair and loaded agent were preserved; no new key, import, private transmission, helper or protection/host-trust bypass. Historical cleanup records below are not today's key lifecycle.
+
+**Independent gates remain blocked:** BACKUP_AVAILABLE=NO verified checkpoint / BACKUP_PROVIDER_BLOCKER=YES; last verified inventory **2026-10-07T13:59:32.490Z**, 0 snapshots / 0 schedules, not refreshed here; cumulative creates **2 / NO_THIRD_ATTEMPT**. **EFFECTIVE_NEXT_DEPLOY_CONFIG=NOT VERIFIED; SAFE_SECRET_ACTIVATION_PATH=NOT PROVEN.** Stripe API, Stripe webhook, ADMIN_SESSION_SECRET and CRON_SECRET in staging **and production** remain **COMPROMISED / P0_OPEN / ROTATION=NO / FREEZE=ACTIVE**. All release readiness and Phase S resume remain NO. Clean history does not authorize deployment, secret activation or recovery. The support handoff was not changed or sent by Codex; owner external contact remains unverified.
+
+Fresh Git entry local/remote HEAD **44c6fa252bc648bfb32ef83f38005f4c2eb450c8**, branch **codex/admin-dashboard-reconciled-20261002**, main **4ea73f50cafdbf67e16dc71de985052075feca42**, **38 ahead / 0 behind**. Exact all-state head/base PR query at **2026-10-07T19:06:14.456Z** returned NONE. This cycle permits only local updates to the five authorized documents, not staging/commit/push or another Git mutation; verified entry **38 / 0** is retained, with no publication or forecast count asserted.
+
+**STOP after this audit.** Owner reconnects WARP manually; Codex performs no automatic reconnect or permanent policy change. Keep backup/config/security gates blocked; no Phase 3/4/5, migration, deploy/redeploy/restart, secret rotation or production action. Only the five authorized canonical documents may record this material evidence, with proportional documentation validation; no support-handoff churn, build or E2E.
+
+## Historical Phase 2 / WARP A/B confirmed, owner DB window required — 2026-10-07 (17:45–17:48 UTC)
 
 Current authority/state: [canonical Master status](../cycles/RARE_MASTER_STATUS.md), [Master log](../cycles/RARE_MASTER_LOG.md), [database gate](STAGING_DATABASE_GATE.md), and [owner-led support handoff](RAILWAY_BACKUP_SUPPORT_HANDOFF.md). **CURRENT_PHASE=2; PHASE_RESULT=BLOCKED; HUMAN_WARP_WINDOW_REQUIRED=YES; OWNER_WINDOW_CONFIRMATION=PENDING; RELEASE_SECURITY_FREEZE=ACTIVE; PHASE_S_CAN_RESUME=NO.** Metadata-only audit authority is already granted; an explicit owner-controlled DB access window is still required. Current WARP DISCONNECTED is not itself that confirmation.
 

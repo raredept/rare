@@ -1,6 +1,36 @@
 # RARE — staging database & recovery gate
 
-## Current Phase 2 / OWNER-REPORTED WARP A/B CONFIRMED, DB WINDOW PENDING — 2026-10-07
+## Current Phase 2 / DATABASE HISTORY VERIFIED, INDEPENDENT GATES BLOCKED — 2026-10-07
+
+Canonical current state: [RARE_MASTER_STATUS.md](../cycles/RARE_MASTER_STATUS.md); events: [RARE_MASTER_LOG.md](../cycles/RARE_MASTER_LOG.md). **CURRENT_PHASE=2; DATABASE_GATE=PASS; PHASE_RESULT=DATABASE_VISIBILITY_VERIFIED_RECOVERY_BLOCKED; STAGING_MIGRATION_HISTORY_VERIFIED=YES; MIGRATION_HISTORY_CLEAN=YES; MIGRATE_DEPLOY_EXPECTED_NOOP=YES; PHASE_M_REQUIRED=NO; P0_MIGRATION_INTEGRITY_BLOCKER=NO; RELEASE_SECURITY_FREEZE=ACTIVE.** The authorized official PG SSH metadata audit completed at **2026-10-07T19:05:37.743Z–19:05:43.430Z**. The narrow history objective UNKNOWN→KNOWN is achieved; the overall cycle/release is not complete and no Phase 3/4/5 is authorized.
+
+The owner explicitly authorized the temporary without-WARP window. At **2026-10-07T19:05:37.742Z**, WARP was **DISCONNECTED**, the existing native agent **AVAILABLE** and expected fingerprint **MATCH**. Official PG SSH then succeeded. Owner-reported earlier A/B remains **WARP_SSH_INTERFERENCE=CONFIRMED_BY_A_B / SSH_FAILURE_LAYER=CLOUDFLARE_WARP_PATH**; gateway fault **NOT PROVEN**, internal WARP mechanism UNKNOWN. No WARP configuration/disconnect/reconnect was performed automatically. All SSH access has finished: **OWNER_WARP_RECONNECT_REQUIRED=YES**; restoration of this current window remains the owner's action, not inferred from the earlier restoration report.
+
+### Exact target, read-only transaction and closure — UTC
+
+| Evidence | Verified result / boundary |
+|---|---|
+| 2026-10-07T18:57:52.867Z, control-plane | Rare **72ed12be-9a2a-4e13-8594-30ffd8ffa565** / staging **d8399691-dacf-41e9-a9d5-060c97672e39** / Postgres-MlyZ ServiceID **ed0a374e-79da-4aab-9e3a-bb684fb829d1** / ServiceInstanceID **3b37cfd9-f315-40df-a8a6-35673912d346** / DeploymentID **a20b8647-5a81-4a0b-a44f-b096a58996f3** / DeploymentInstanceID **371feb81-4709-4070-a96a-d9ad854e254b** revalidated. IDs are not interchangeable. |
+| 19:05:37.743Z–19:05:43.430Z, official PG SSH | Railway-injected runtime project/environment/service/deployment identifiers all **MATCH** the exact fresh staging target before SQL. SSH/runtime access verified, not merely inferred from control-plane SUCCESS. |
+| First SQL / protection | **BEGIN READ ONLY** first; local statement_timeout **5000ms** and lock_timeout **2000ms**; **SHOW transaction_read_only=on**, guarded before metadata. **READ_ONLY_VERIFIED=YES**. |
+| Metadata allowlist | PostgreSQL version **18.6 (Debian 18.6-1.pgdg13+2)**; exactly **14** complete history rows using only **migration_name, checksum, started_at, finished_at, rolled_back_at**. One attempt per canonical migration; no extra rows, duplicates or anomalies. No schema catalogs were needed; no migration logs or business/account/seed rows queried. |
+| Checksum comparison | All 14 observed checksums exactly matched **CANONICAL** UTF-8 Git blobs at deployed **4ea73f50cafdbf67e16dc71de985052075feca42**. LF/CRLF variants were computed but not needed to obtain matches; never used raw Windows worktree bytes. |
+| Explicit closure | Server **ROLLBACK** response received, followed by the exact final completion marker; psql completion verified, CLI exit **0**, remaining audit native processes **0**. **ROLLBACK=EXECUTED / VERIFIED; DATABASE_SESSION_CLOSED=YES**. Not a sentinel/disconnect-only inference. |
+| Existing PERSONAL identity | Matching registration was preexisting and **PRESERVED**; no registration or removal this cycle. **RAILWAY_TEMP_PUBLIC_KEY_CLEANUP=NOT_REQUIRED**. Owner local private/.pub files and loaded agent preserved; no key body/passphrase output. |
+
+**APPLIED=14; PENDING=0; FAILED=0; ROLLED_BACK=0; CHECKSUM_MISMATCH=0; EXTRA_HISTORY_ROWS=0; HISTORY_ANOMALIES=0.** These are observed canonical-migration results, not inferred from Git or transport alone. Critical **20260907150000_admin_temporary_password**, **20260920120000_analytics_paid_at_index** and **20260921120000_session_version** are each **APPLIED / CANONICAL CHECKSUM MATCH**. This proves their recorded migration completion, not independent inspection of conditional seed/account values or present index/column drift. No catalog/PII/business-row investigation was required or executed.
+
+**DATABASE_WRITES_PERFORMED=NO; SCHEMA_CHANGED=NO; MIGRATION_EXECUTED=NO.** The read-only audit did not run migrate/resolve, alter history, install/create a remote helper/file, change app/runtime/config/variables, rotate credentials, deploy/redeploy/restart or touch production. Independent application writers were not paused/audited. Clean/no-op is relative to the 14 deployed-SHA references and is an expectation, **not permission to execute migrate deploy or deploy an artifact**.
+
+Entry Git revalidated before documentation: branch **codex/admin-dashboard-reconciled-20261002**, local HEAD = remote branch **44c6fa252bc648bfb32ef83f38005f4c2eb450c8**, main **4ea73f50cafdbf67e16dc71de985052075feca42**, **38 ahead / 0 behind**. Exact all-state head/base PR query at **2026-10-07T19:06:14.456Z** returned **NONE**. This cycle updates authorized documentation locally only: **NO COMMIT / NO PUSH**; the verified entry **38 ahead / 0 behind** is retained, with no forecast publication count, new PR, CI pass or candidate runtime deployment asserted.
+
+### Independent gates / mandatory stop
+
+**BACKUP_AVAILABLE=NO; BACKUP_PROVIDER_BLOCKER=YES; THIRD_BACKUP_ATTEMPT=NO; EFFECTIVE_NEXT_DEPLOY_CONFIG=NOT VERIFIED; CREDENTIAL_INCIDENT=P0_OPEN; ROTATION=NO; RELEASE_SECURITY_FREEZE=ACTIVE; PHASE_S_CAN_RESUME=NO; all release readiness=NO.** No backup inventory was queried or mutated this cycle; the previous **2026-10-07T13:59:32.490Z, 0 snapshots / 0 schedules** checkpoint remains historical, not refreshed recovery proof. All four affected credential categories in staging and production remain COMPROMISED. Database history PASS does not resolve backup, effective configuration, security, rotation or commercial/release gates. Stop after this audit/documentation closure; ask the owner to reconnect WARP manually, without another automatic SSH/access cycle, migration, deploy, rotation or later phase.
+
+The canonical table below now carries the **current APPLIED** state from this completed audit while retaining every hash. Previous dated evidence and UNKNOWN counts below are explicitly historical, not the current database result.
+
+## Historical Phase 2 / OWNER-REPORTED WARP A/B CONFIRMED, DB WINDOW PENDING — 2026-10-07
 
 Canonical current state: [RARE_MASTER_STATUS.md](../cycles/RARE_MASTER_STATUS.md); events: [RARE_MASTER_LOG.md](../cycles/RARE_MASTER_LOG.md). **CURRENT_PHASE=2; PHASE_RESULT=BLOCKED; HUMAN_WARP_WINDOW_REQUIRED=YES; STAGING_MIGRATION_HISTORY_VERIFIED=NO; RELEASE_SECURITY_FREEZE=ACTIVE.** The owner supplied the A/B outcome, without an execution timestamp: baseline WARP **CONNECTED**, WITH_WARP **TIMEOUT_HISTORICAL**, WITHOUT_WARP **PASS** for official Railway SSH to the exact staging **WEB rare-staging** service, remote command `true` completed and connection closure expected, then WARP restoration **YES**. The owner also reported the first access added ssh.railway.com to known_hosts. A completed `true` naturally closes immediately; the reported closure is not an SSH error.
 
@@ -307,28 +337,30 @@ Future authorized SQL must use only the exact staging PG target, BEGIN READ ONLY
 
 ## Database history / checksum reference
 
-PostgreSQL version, schema/index/column metadata and all staging migration counts remain UNKNOWN. Repository contains **14 migrations**, freshly counted from deployed Git source. No failed/partial migration or mismatch was discovered; absence was also not established. **STAGING_MIGRATION_HISTORY_VERIFIED=NO; MIGRATE_DEPLOY_EXPECTED_NOOP=NOT PROVEN.**
+**Current audited reference — 2026-10-07T19:05:37.743Z–19:05:43.430Z:** PostgreSQL **18.6 (Debian 18.6-1.pgdg13+2)**; **APPLIED=14; PENDING=0; FAILED=0; ROLLED_BACK=0; CHECKSUM_MISMATCH=0**; history **VERIFIED / CLEAN**, all 14 current table rows **APPLIED** with exact deployed-Git canonical checksums. No schema catalogs were needed or queried; current index/column/seed values were not independently inspected. The hashes are unchanged; the current state column supersedes the pre-audit UNKNOWN state.
 
-Canonical SHA-256 values below were recomputed privately from SQL UTF-8 Git blobs at 4ea73f50cafdbf67e16dc71de985052075feca42, never from unnormalized Windows worktree bytes. They are migration-file checksums, not credential hashes. SQL/seed literals were not emitted. Installed Prisma 7.9.1 engine checksum matching accepts original/LF/CRLF equivalents; those variants were computed in memory. [Prisma checksum implementation](https://github.com/prisma/prisma-engines/blob/e922089b7d7502aff4249d5da3420f6fa55fc6ad/schema-engine/connectors/schema-connector/src/checksum.rs). Database comparison was **NOT EXECUTED**.
+**Historical pre-audit visibility record; superseded by the current audit above:** PostgreSQL version, schema/index/column metadata and all staging migration counts remain UNKNOWN. Repository contains **14 migrations**, freshly counted from deployed Git source. No failed/partial migration or mismatch was discovered; absence was also not established. **STAGING_MIGRATION_HISTORY_VERIFIED=NO; MIGRATE_DEPLOY_EXPECTED_NOOP=NOT PROVEN.**
 
-| Migration | Deployed Git canonical SHA-256 | Staging state |
+**Historical checksum preparation; hash values retained:** Canonical SHA-256 values below were recomputed privately from SQL UTF-8 Git blobs at 4ea73f50cafdbf67e16dc71de985052075feca42, never from unnormalized Windows worktree bytes. They are migration-file checksums, not credential hashes. SQL/seed literals were not emitted. Installed Prisma 7.9.1 engine checksum matching accepts original/LF/CRLF equivalents; those variants were computed in memory. [Prisma checksum implementation](https://github.com/prisma/prisma-engines/blob/e922089b7d7502aff4249d5da3420f6fa55fc6ad/schema-engine/connectors/schema-connector/src/checksum.rs). Database comparison was **NOT EXECUTED** at that historical checkpoint; the current comparison completed at **2026-10-07T19:05:37.743Z–19:05:43.430Z**, with all 14 exact CANONICAL matches.
+
+| Migration | Deployed Git canonical SHA-256 | Current staging state — 2026-10-07 audit |
 |---|---|---|
-| 20260511210000_init | c1c6b627ed850a3a627629a7cfd5a13b54023fca8829b747e21457c3fa1d4fae | UNKNOWN |
-| 20260512013000_v1_5_customers_orders | 1407f307dea67e4d1da4c6a6762a4e5348b7bd35f3ed2d8f520937d7af1de30b | UNKNOWN |
-| 20260512053542_v1_6_shipping_base | c17f536e9e14a96174b97178305ec2120151723ed839444a0a81ff0a09f4bbc9 | UNKNOWN |
-| 20260515120000_v1_7_7_home_banners | 39a1fa5d5904f3d45b6cdcd6aaf191112c6d689ea291ac55ee55e35dfa498f34 | UNKNOWN |
-| 20260520090000_v1_7_12_featured_sort_order | 1ab32731020e9905df44d1a989e890d50cfc28459e60048dbf71ef599c0afe0b | UNKNOWN |
-| 20260524170000_v1_7_14_shipping_quote_snapshot | b5399d78493ffa2c331edb4f2fd751f4b90d6f78832569c444ca8431768ba954 | UNKNOWN |
-| 20260606182000_operational_evidence | 410a0d66f54ffe6936b5c8ba52cc6d44671fd8b6a33bcadf355225a629440773 | UNKNOWN |
-| 20260709120000_admin_sale_notifications | 355aef77a586aead7062bfedf6d57d4af35234ae68de73789a5a3c7d5e93a19d | UNKNOWN |
-| 20260710120000_first_order_coupon | 333b79361a8a848a0d723511d5f398debd2d36ed99b12149f1624a85711b311e | UNKNOWN |
-| 20260907150000_admin_temporary_password | bdc0a2739b2c00ffb5eec9b0b014bfddb3949bf25dfbf112d54bfd97e814d3ff | UNKNOWN |
-| 20260907230000_payment_email_outbox | 5ecdca2155702386ad136edeab699f6e9ef706a46e02262304a5913b7c320fdc | UNKNOWN |
-| 20260913120000_storefront_media_checkout_deadline | c3ca40d2e71f1391cba46fda8f3a6e5cdfe3ea9697ac50e6d28dac2ab3fec086 | UNKNOWN |
-| 20260920120000_analytics_paid_at_index | a6059495a00e658d8ac1dd77875dbc215e654fd47713fb1b3e66eed45862e197 | UNKNOWN |
-| 20260921120000_session_version | 63a12bf3b7df20b3fff1a90fed232cc43f9d721fed60a6bbc39ebcd6d470e076 | UNKNOWN |
+| 20260511210000_init | c1c6b627ed850a3a627629a7cfd5a13b54023fca8829b747e21457c3fa1d4fae | APPLIED |
+| 20260512013000_v1_5_customers_orders | 1407f307dea67e4d1da4c6a6762a4e5348b7bd35f3ed2d8f520937d7af1de30b | APPLIED |
+| 20260512053542_v1_6_shipping_base | c17f536e9e14a96174b97178305ec2120151723ed839444a0a81ff0a09f4bbc9 | APPLIED |
+| 20260515120000_v1_7_7_home_banners | 39a1fa5d5904f3d45b6cdcd6aaf191112c6d689ea291ac55ee55e35dfa498f34 | APPLIED |
+| 20260520090000_v1_7_12_featured_sort_order | 1ab32731020e9905df44d1a989e890d50cfc28459e60048dbf71ef599c0afe0b | APPLIED |
+| 20260524170000_v1_7_14_shipping_quote_snapshot | b5399d78493ffa2c331edb4f2fd751f4b90d6f78832569c444ca8431768ba954 | APPLIED |
+| 20260606182000_operational_evidence | 410a0d66f54ffe6936b5c8ba52cc6d44671fd8b6a33bcadf355225a629440773 | APPLIED |
+| 20260709120000_admin_sale_notifications | 355aef77a586aead7062bfedf6d57d4af35234ae68de73789a5a3c7d5e93a19d | APPLIED |
+| 20260710120000_first_order_coupon | 333b79361a8a848a0d723511d5f398debd2d36ed99b12149f1624a85711b311e | APPLIED |
+| 20260907150000_admin_temporary_password | bdc0a2739b2c00ffb5eec9b0b014bfddb3949bf25dfbf112d54bfd97e814d3ff | APPLIED |
+| 20260907230000_payment_email_outbox | 5ecdca2155702386ad136edeab699f6e9ef706a46e02262304a5913b7c320fdc | APPLIED |
+| 20260913120000_storefront_media_checkout_deadline | c3ca40d2e71f1391cba46fda8f3a6e5cdfe3ea9697ac50e6d28dac2ab3fec086 | APPLIED |
+| 20260920120000_analytics_paid_at_index | a6059495a00e658d8ac1dd77875dbc215e654fd47713fb1b3e66eed45862e197 | APPLIED |
+| 20260921120000_session_version | 63a12bf3b7df20b3fff1a90fed232cc43f9d721fed60a6bbc39ebcd6d470e076 | APPLIED |
 
-APPLIED=UNKNOWN; PENDING=UNKNOWN; FAILED=UNKNOWN; ROLLED_BACK=UNKNOWN; CHECKSUM_MISMATCH=UNKNOWN. No particular file is asserted pending. [Existing conditional risk manifest](SECRET_ACTIVATION_GATE.md#repository-migrations--conditional-risk-manifest) records operations/locks/data effects for all 14; narrow it only after trusted history. It includes blocking ordinary indexes, ALTER locks, auth/session effects and conditional Admin seed DML, not a DDL-only/no-risk manifest. Overall risk remains HIGH / unresolved; duration unknown. On failed/partial migration or genuine checksum mismatch: **P0 DATABASE MIGRATION INTEGRITY BLOCKER**, stop with no repair.
+**Historical pre-audit counts/risk assessment, retained rather than overwritten:** APPLIED=UNKNOWN; PENDING=UNKNOWN; FAILED=UNKNOWN; ROLLED_BACK=UNKNOWN; CHECKSUM_MISMATCH=UNKNOWN. No particular file is asserted pending. [Existing conditional risk manifest](SECRET_ACTIVATION_GATE.md#repository-migrations--conditional-risk-manifest) records operations/locks/data effects for all 14; narrow it only after trusted history. It includes blocking ordinary indexes, ALTER locks, auth/session effects and conditional Admin seed DML, not a DDL-only/no-risk manifest. Overall risk remains HIGH / unresolved; duration unknown. On failed/partial migration or genuine checksum mismatch: **P0 DATABASE MIGRATION INTEGRITY BLOCKER**, stop with no repair.
 
 Migration executed NO; schema changed by this cycle NO; application data changed by this cycle NO. Existing independent runtime writers were neither paused nor inspected.
 

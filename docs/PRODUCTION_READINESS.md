@@ -1,6 +1,44 @@
 # RARE — production readiness
 
-## Current Phase 2 / WARP A/B confirmed, owner DB window required — 2026-10-07
+## Current Phase 2 / database history PASS, release gates blocked — 2026-10-07
+
+Canonical current state: [RARE_MASTER_STATUS.md](cycles/RARE_MASTER_STATUS.md); events: [RARE_MASTER_LOG.md](cycles/RARE_MASTER_LOG.md); [database gate](security/STAGING_DATABASE_GATE.md) and [secret activation gate](security/SECRET_ACTIVATION_GATE.md). **CURRENT_PHASE=2; DATABASE_HISTORY_GATE=PASS; PHASE_RESULT=DATABASE_VISIBILITY_VERIFIED_RECOVERY_BLOCKED; RELEASE_SECURITY_FREEZE=ACTIVE.** The owner explicitly opened/authorized the WARP window, resolving the human window gate. PostgreSQL migration visibility UNKNOWN -> KNOWN is complete; recovery, next-deploy configuration and security approval are not.
+
+**Direct PostgreSQL audit, 2026-10-07 UTC:** WARP DISCONNECTED / native agent AVAILABLE / expected fingerprint MATCH at **19:05:37.742Z**. Official Railway SSH audit **19:05:37.743Z–19:05:43.430Z** verified exact staging runtime, enforced **BEGIN READ ONLY** first with local statement timeout **5000ms** / lock timeout **2000ms**, and verified **transaction_read_only=on** before metadata. PostgreSQL version **18.6 (Debian 18.6-1.pgdg13+2)**; 14 migration rows. Server **ROLLBACK confirmed**, psql completed, SSH exit **0**, session closed and **0 remaining audit native SSH processes**. No Codex WARP toggle; **OWNER_WARP_RECONNECT_REQUIRED=YES**. Restoration after this audit is not yet asserted; the earlier owner A/B restoration is a separate historical event.
+
+Control-plane target at **18:57:52.867Z** matched project **72ed12be-9a2a-4e13-8594-30ffd8ffa565**, staging **d8399691-dacf-41e9-a9d5-060c97672e39**, PostgreSQL Service **ed0a374e-79da-4aab-9e3a-bb684fb829d1** / Service Instance **3b37cfd9-f315-40df-a8a6-35673912d346**. Runtime guard separately matched project/environment/service and deployment **a20b8647-5a81-4a0b-a44f-b096a58996f3** before SQL. Only approved version/five migration fields were collected; no business, PII or account/seed values.
+
+**Complete canonical comparison:** 14 rows, one attempt each, all APPLIED and exact checksum MATCH against Git blobs at deployed SHA **4ea73f50cafdbf67e16dc71de985052075feca42**, not Windows worktree bytes. **APPLIED=14; PENDING=0; FAILED=0; ROLLED_BACK=0; CHECKSUM_MISMATCH=0; EXTRA_MIGRATIONS=0; ANOMALIES=0.**
+
+```text
+STAGING_MIGRATION_HISTORY_VERIFIED=YES
+MIGRATION_HISTORY_CLEAN=YES
+MIGRATE_DEPLOY_EXPECTED_NOOP=YES
+PHASE_M_REQUIRED=NO
+P0_MIGRATION_INTEGRITY_BLOCKER=NO
+READ_ONLY_VERIFIED=YES
+ROLLBACK=EXECUTED_AND_CONFIRMED
+DATABASE_WRITES_PERFORMED=NO
+SCHEMA_CHANGED=NO
+```
+
+| Critical migration | Verified history |
+|---|---|
+| 20260907150000_admin_temporary_password | APPLIED / canonical checksum MATCH |
+| 20260920120000_analytics_paid_at_index | APPLIED / canonical checksum MATCH |
+| 20260921120000_session_version | APPLIED / canonical checksum MATCH |
+
+This proves migration-history integrity against the 14 deployed-SHA references, not account seed values, every schema effect, future deployment safety or commercial readiness. `prisma migrate deploy` was not run. No DB/schema writes by this audit; independent writers were not paused/audited. No migration/resolve/repair, DDL/DML, install/app change or provider mutation occurred.
+
+The expected PERSONAL Railway key was **preexisting**, preserved rather than registered/removed: **TEMPORARY_KEY_CLEANUP=NOT REQUIRED**. Owner local pair and loaded agent unchanged; no import, helper, private upload or security/host-trust bypass. Prior cleanup records remain historical.
+
+**BACKUP / CONFIG / SECURITY remain BLOCKED:** no verified adequate backup/restore; latest retained **2026-10-07T13:59:32.490Z** inventory **0 snapshots / 0 schedules** is historical and not refreshed, **2 cumulative creates / NO_THIRD_ATTEMPT**. BACKUP_AVAILABLE=NO / BACKUP_PROVIDER_BLOCKER=YES. **EFFECTIVE_NEXT_DEPLOY_CONFIG=NOT VERIFIED; SAFE_SECRET_ACTIVATION_PATH=NOT PROVEN.** All four affected credential categories in staging **and production** remain **COMPROMISED / P0_OPEN / ROTATION=NO / FREEZE=ACTIVE**. **PHASE_S_CAN_RESUME=NO; READY FOR MERGE / STAGING / EXTERNAL HOMOLOGATION / PRODUCTION=NO; AUTHORIZED FOR PRODUCTION=NO.** History PASS does not release these gates. Support handoff unchanged / CODEX_NOT_SENT; owner external contact unverified.
+
+Fresh Git entry local=remote **44c6fa252bc648bfb32ef83f38005f4c2eb450c8**, release branch **codex/admin-dashboard-reconciled-20261002**, main **4ea73f50cafdbf67e16dc71de985052075feca42**, **38 ahead / 0 behind**. Exact all-state head/base PR query **2026-10-07T19:06:14.456Z** returned NONE. Current scope is local five-document updates only: no staging/commit/push or other Git mutation. Verified entry **38 / 0** remains; no publication or anticipated count is asserted.
+
+**STOP Phase 2 after the approved audit.** Owner reconnects WARP manually; Codex does not reconnect/configure it or advance Phase 3/4/5. No deployment/redeploy/restart, migration, secret rotation, commercial activation or production action. Documentation scope is exactly five canonical files, no support-handoff change; proportional diff/release-guard/secret/link checks only, no build/E2E.
+
+## Historical Phase 2 / WARP A/B confirmed, owner DB window required — 2026-10-07 (17:45–17:48 UTC)
 
 Canonical current state: [RARE_MASTER_STATUS.md](cycles/RARE_MASTER_STATUS.md); events: [RARE_MASTER_LOG.md](cycles/RARE_MASTER_LOG.md); [database gate](security/STAGING_DATABASE_GATE.md), [secret activation gate](security/SECRET_ACTIVATION_GATE.md) and [owner-led support handoff](security/RAILWAY_BACKUP_SUPPORT_HANDOFF.md). **CURRENT_PHASE=2; PHASE_RESULT=BLOCKED; HUMAN_WARP_WINDOW_REQUIRED=YES; OWNER_WINDOW_CONFIRMATION=PENDING; RELEASE_SECURITY_FREEZE=ACTIVE.** The metadata audit is already approved, but no DB audit window has been explicitly confirmed. Current WARP DISCONNECTED does not authorize assuming an open window.
 
