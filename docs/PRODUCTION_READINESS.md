@@ -1,6 +1,18 @@
 # RARE — production readiness
 
-## Current official identity cycle — 2026-10-06
+## Current Master Cycle — 2026-10-06
+
+Canonical current state: [RARE_MASTER_STATUS.md](cycles/RARE_MASTER_STATUS.md); relevant events: [RARE_MASTER_LOG.md](cycles/RARE_MASTER_LOG.md). **CURRENT_PHASE=2; PHASE_RESULT=BLOCKED; RELEASE_SECURITY_FREEZE=ACTIVE.** The Master Cycle supersedes earlier execution authority; specialized runbooks below retain dated evidence, not current approvals.
+
+Fresh baseline on October 6 local (2026-10-07 01:56–01:57 UTC): entry local/remote docs HEAD 9212d34f7dc6c46c4f6abdb912c45c892040e510, 31 ahead / 0 behind; main and deployed staging web/worker remain 4ea73f50cafdbf67e16dc71de985052075feca42. Runtime candidate 7a820b62bb1515f7b30ccf31badf1f0881a6bd84 remains undeployed. One exact PR query returned none; status contexts/check-runs/general Actions runs were 0 for candidate and entry-doc SHAs: NO_EVIDENCE, not PASS. Required gates UNKNOWN; no PR creation or Phase 3 advancement.
+
+Phase 2 stays blocked: official personal SSH inventory empty, no usable private/agent identity, linked-GitHub metadata INTERNAL_SERVER_ERROR/UNKNOWN; no SSH/SQL/import. Latest backup listing 2026-10-07T01:57:46.330Z: 0 snapshots/0 schedules; two cumulative create requests only; no third attempt. Volume metadata refresh failed and earlier capacity/attachment evidence is historical. Support is READY DRAFT / NOT SENT. Effective next-deploy config remains NOT VERIFIED.
+
+Stored staging configuration does not match all mandatory closed-bootstrap expectations: web checkout/shipping/email DIFFERENT; worker email DIFFERENT; storage r2 expectation web DIFFERENT / worker MISSING. APP_ENV staging MATCH and Stripe TEST on both. These are classifications, not runtime behavior or authorization to change configuration. No provider/commerce call or business-data query. All four affected credential categories in both environments remain COMPROMISED; rotation/revocation NO. READY FOR MERGE / STAGING / EXTERNAL HOMOLOGATION / PRODUCTION = NO; AUTHORIZED FOR PRODUCTION = NO. No refactor, deployment, migration, rotation, endpoint-security bypass or production action. Stop at the canonical exact owner identity/support gate.
+
+## Historical official identity cycle — 2026-10-06
+
+This prior cycle and all sections below retain their original dated observations. Current Master Cycle state and authority are exclusively above/in the canonical status; historical validation/readbacks must not be presented as fresh evidence.
 
 **INCOMPLETE — SAFE STOP; SSH_PATH=BLOCKED; SSH_IDENTITY_HUMAN_ACTION_REQUIRED=YES; RELEASE_SECURITY_FREEZE=ACTIVE; PHASE_S_CAN_RESUME=NO.** The real staging migration-history goal remains UNKNOWN, not achieved. The intended official path no longer depends on the abandoned helper, but no usable official identity or SSH/SQL access was established. Current [staging database gate](security/STAGING_DATABASE_GATE.md), [incident record](security/CREDENTIAL_INCIDENT_202610.md) and [owner-ready support handoff](security/RAILWAY_BACKUP_SUPPORT_HANDOFF.md) retain the evidence boundary. Support is READY DRAFT / NOT SENT.
 
