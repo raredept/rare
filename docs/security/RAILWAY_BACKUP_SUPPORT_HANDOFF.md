@@ -31,9 +31,10 @@ The volume instance was resolved to this exact project/environment/service/volum
 | 2026-10-06T17:30:48.048Z | Successful readback: 0 snapshots / 0 schedules. |
 | 2026-10-06T17:32:38.169Z | Successful bounded readback: 0 snapshots / 0 schedules. |
 | 2026-10-06T17:52:44.877Z | Final successful read-only reconciliation after the local audit abort: 0 snapshots / 0 schedules. |
-| 2026-10-06T20:43:01.586Z | This cycle's single final read-only backup reconciliation: 0 snapshots / 0 schedules; no late snapshot verified. |
+| 2026-10-06T20:43:01.586Z | Historical 2026-10-06 identity cycle's single final read-only backup reconciliation: 0 snapshots / 0 schedules; no late snapshot verified. |
 | 2026-10-07T01:57:46.330Z | Master Cycle read-only reconciliation (October 6 local): 0 snapshots / 0 schedules; no late snapshot verified; no creation request. |
 | 2026-10-07T11:53:30.918Z | Human-assisted Phase 2 single read-only listing: 0 snapshots / 0 schedules; no late snapshot verified; no creation request or automatic polling. |
+| 2026-10-07T13:59:32.490Z | Previous Phase 2 cycle's final read-only listing: 0 snapshots / 0 schedules; no late snapshot verified; no creation request. This is the last verified listing, not a refresh during the later SSH-isolation cycle. |
 
 Exactly **two creation requests across the two authorizations** are recorded. The second request was separately authorized after fresh reconciliation, not an automatic retry of the first. **NO_THIRD_ATTEMPT.** No completed workflow or available snapshot was verified. An empty inventory at these times does not prove that no internal work occurred or that no delayed snapshot can appear later.
 
@@ -87,7 +88,7 @@ Request timestamps are UTC:
 
 Expected result: one available manual snapshot for the specified staging volume instance. Actual result: none verified. Three readbacks after the first request showed 0 snapshots / 0 schedules, the last at 2026-10-06T16:55:22.004Z. Fresh reconciliation before request two at 2026-10-06T17:30:27.210Z also showed 0 / 0. Readbacks after request two at 2026-10-06T17:30:48.048Z, 2026-10-06T17:32:38.169Z and 2026-10-06T17:52:44.877Z each showed 0 snapshots / 0 schedules. This evidence does not exclude an unlisted/pending workflow or later snapshot.
 
-The subsequent diagnostic reconciliation at 2026-10-06T20:43:01.586Z, Master Cycle listing at 2026-10-07T01:57:46.330Z and latest human-assisted Phase 2 read-only listing at **2026-10-07T11:53:30.918Z** each returned **0 snapshots / 0 schedules**. No third backup creation request has been sent. No provider reconciliation was supplied to this cycle; internal outcomes and recovery/incident closure remain unverified. Capacity/attachment figures above remain the dated 2026-10-06T20:41:33.034Z observation, not a new Master Cycle metadata verification.
+The subsequent diagnostic reconciliation at 2026-10-06T20:43:01.586Z, Master Cycle listing at 2026-10-07T01:57:46.330Z, human-assisted Phase 2 listing at 2026-10-07T11:53:30.918Z and last verified read-only listing at **2026-10-07T13:59:32.490Z** each returned **0 snapshots / 0 schedules**. The later SSH-isolation cycle did not query backups. No third backup creation request has been sent. No provider reconciliation was supplied to this cycle; internal outcomes and recovery/incident closure remain unverified. Capacity/attachment figures above remain the dated 2026-10-06T20:41:33.034Z observation, not a new Master Cycle metadata verification.
 
 Please answer these questions separately:
 
@@ -102,10 +103,67 @@ Thank you.
 
 If Railway supplies a correlation ID, preserve it in the sanitized incident record. Request IDs/trace IDs from unavailable evidence must not be invented. Share through a legitimate owner-approved support channel; do not attach raw session/tool transcripts, `.env` files, API tokens, database URLs, keys or application rows.
 
+## SSH routing diagnostic evidence — 2026-10-07 UTC
+
+**CASE_B; RAILWAY_SSH_GATEWAY_OR_LOCAL_ROUTE_BLOCKER=YES; OBSERVED_STAGE=NATIVE_SSH_AFTER_TCP_ESTABLISHED; ROOT_CAUSE=UNKNOWN.** This classification identifies the shared blocked post-TCP SSH path, not a proven gateway, server, local-network or authentication cause. Runtime target and remote execution remain unverified; no SQL was executed. The authorized diagnostic used Railway CLI **5.26.0** with native Windows OpenSSH, no caller-supplied `-i`, helper, tunnel or host-trust bypass.
+
+| UTC evidence | Sanitized observation |
+|---|---|
+| 14:29:25.435Z | Owner's native SSH agent AVAILABLE; one ED25519 identity, expected fingerprint MATCH. This does not prove which identity the relay accepted. |
+| 14:30:57.484Z | Only the matching owner-provided existing `.pub` was registered in the PERSONAL Railway bucket: inventory 0 -> 1. No key was generated or imported from another source. |
+| 14:31:46.034Z | `Resolve-DnsName` / `Test-NetConnection`: relay DNS PASS and TCP/22 REACHABLE. No IP addresses or raw network output reproduced. |
+| 14:32:38.079Z | Railway SSH config dry-run generated `HostName ssh.railway.com` and `User 3b37cfd9-f315-40df-a8a6-35673912d346`, matching the PostgreSQL Service Instance ID. |
+| 14:34:30.252Z | Existing owner identity path comparison MATCH; SSH configuration remained unchanged. No private-key body or owner path reproduced. |
+| 14:33:51.366Z–14:33:53.157Z | Read-only control-plane routing matched the exact Rare / staging PostgreSQL and web targets listed below. RUNNING is deployment-instance metadata, not proof of an SSH session. |
+| 14:39:49.590Z / 14:39:52.008Z | Only this cycle's new PERSONAL registration was removed; readback inventory EMPTY and expected fingerprint ABSENT. Owner files were preserved and the agent remained AVAILABLE / MATCH; no audit native SSH process remained. |
+
+| Target | Service ID | Service Instance ID | Deployment ID | RUNNING Deployment Instance ID |
+|---|---|---|---|---|
+| Postgres-MlyZ / staging | ed0a374e-79da-4aab-9e3a-bb684fb829d1 | 3b37cfd9-f315-40df-a8a6-35673912d346 | a20b8647-5a81-4a0b-a44f-b096a58996f3 | 371feb81-4709-4070-a96a-d9ad854e254b |
+| Web / staging | 3f4b79f6-2819-45a6-986d-584dc7ac803a | d6368ea1-30e4-4593-b35a-65f21537a1ed | 3e4874f3-397c-47fa-be77-73d1b0089ceb | a47838d1-1f83-4127-960a-1ffc8d49d8d3 |
+
+The web control-plane source was `4ea73f5` (`main`); this is not a new deployment or verification of runtime behavior. Project/environment identifiers are the exact staging target above.
+
+Exactly **three** bounded remote `true` diagnostic attempts were made; the command was requested, not verified as executed:
+
+| UTC start / stop | Routing mode | Result |
+|---|---|---|
+| 14:35:54.368Z / 14:36:22.793Z | PostgreSQL via explicit project/environment/service resolution | TIMEOUT |
+| 14:38:17.584Z / 14:38:45.952Z | PostgreSQL via independently matched RUNNING Deployment Instance ID | TIMEOUT |
+| 14:38:17.924Z / 14:38:45.955Z | Web via explicit project/environment/service resolution | TIMEOUT |
+
+Each had a **25-second command deadline**, plus scoped termination/cleanup time. Each native child had `TARGET_MATCH=YES` and a TCP/22 connection in ESTABLISHED state; each timed-out child was stopped. The CLI automatically supplied `-i` for the existing owner identity; the caller did not force that flag. There was no additional retry, successful remote-command marker, runtime-target proof or authentication proof. No web fallback, database-binding query, SQL, schema read, migration count or database row was obtained. Database history/counts remain UNKNOWN.
+
+In the [versioned CLI resolution](https://github.com/railwayapp/cli/blob/v5.26.0/src/commands/ssh/mod.rs#L83-L111), default service routing resolves `serviceInstance(environmentId, serviceId).id`; `--deployment-instance` instead uses the supplied identifier directly and does not validate it through the project/environment/service flags. The explicit-instance test above relied on the separate matched control-plane observation. [Official SSH docs](https://docs.railway.com/cli/ssh) distinguish Service ID from valid Service Instance / Deployment Instance SSH usernames. The [Windows discovery implementation](https://github.com/railwayapp/cli/blob/v5.26.0/src/controllers/ssh/keys.rs#L60-L122) uses Pageant and can fall back to `.pub` files; the [native identity logic](https://github.com/railwayapp/cli/blob/v5.26.0/src/commands/ssh/native.rs#L147-L160) can consequently add `-i` automatically. These implementation facts do not establish the timeout's cause.
+
+Basic DNS/TCP failure, a mismatched supplied child target and a PostgreSQL-only failure are **not indicated by these observations**; they are not universally ruled out. Server versus local routing, host-key negotiation, authentication and later protocol stages remain UNKNOWN. The historical quarantined custom helper remains ABANDONED / trust UNKNOWN; these official-client timeouts do not prove another endpoint-security quarantine or that endpoint protection was resolved.
+
+Backup availability was **not refreshed** in this cycle: the last verified previous-cycle inventory is 2026-10-07T13:59:32.490Z, 0 snapshots / 0 schedules. Cumulative backup creation requests remain two, with **NO_THIRD_ATTEMPT**. Configuration/activation verification and recovery approval remain independent, NOT VERIFIED; **RELEASE_SECURITY_FREEZE=ACTIVE**.
+
+## Owner-ready SSH addendum — DRAFT / CODEX_NOT_SENT; OWNER_STATUS_NOT_VERIFIED
+
+**Subject: Native Railway SSH times out after TCP/22 establishes for staging PostgreSQL and web**
+
+Hello Railway Support,
+
+Please investigate the shared SSH access path for the exact Rare/staging targets in the preceding diagnostic tables. On 2026-10-07 UTC, Railway CLI 5.26.0 using native Windows OpenSSH timed out on three bounded remote `true` requests: PostgreSQL service routing at 14:35:54.368Z–14:36:22.793Z; its independently matched running deployment instance at 14:38:17.584Z–14:38:45.952Z; and web service routing at 14:38:17.924Z–14:38:45.955Z. Each had a 25-second command deadline followed by scoped cleanup.
+
+DNS resolution and TCP/22 reachability passed at 14:31:46.034Z. Each SSH child's target matched the intended identifier and its TCP connection reached ESTABLISHED. Our native agent reported the expected ED25519 identity; only its matching existing public key was registered temporarily in the PERSONAL bucket. The CLI selected an existing identity with automatic `-i`; the caller did not supply `-i`. Neither authentication, the runtime target nor completion of `true` was verified. No SQL or application-data query was executed. We cannot determine whether the cause is the relay/server path, local route, authentication or another post-TCP SSH stage.
+
+The temporary PERSONAL registration was removed at 14:39:49.590Z; readback at 14:39:52.008Z was empty with that fingerprint absent. Owner key files and agent identity were preserved. No audit SSH process remains. We have stopped further attempts rather than treating a TCP connection as an authenticated session.
+
+Please correlate the UTC windows and exact identifiers with relay-side records, identify the last completed protocol stage and advise a supported, read-only diagnostic that can distinguish provider-side routing from local/network/authentication behavior. Please specify the minimal sanitized fields needed; no raw transcripts, secret, private/public key body, database URL or application row is supplied. The separate backup requests and their UNKNOWN backend/billing outcomes remain in the original message above; please do not conflate their unavailable trace IDs with this SSH evidence.
+
+This addendum requests diagnosis only. It does not authorize another backup, key creation/import, restore, dump, restart/deploy, secret activation/rotation, production operation or configuration change. Please do not perform recovery or infrastructure changes on our behalf. Release security freeze remains ACTIVE.
+
+Thank you.
+
+Owner-led next evidence may use the [official Railway Network Diagnostics guidance](https://docs.railway.com/networking/troubleshooting/network-diagnostics), or a separately owner-approved other-network comparison, with only a reviewed sanitized report shared through a legitimate support channel. Codex did not contact support or download/execute a diagnostic tool in this cycle; no owner ticket/result reference was provided, and external owner contact is not inferred. Do not disable or weaken antivirus, firewall, TLS or SSH host trust, alter SSH/global configuration, reuse the abandoned helper, or resume retries/provider mutations without exact new authority.
+
 ## Scope and stop
 
 This handoff neither contacts support nor authorizes more provider writes. No restore, backup lock/delete, schedule modification, PITR enable, logical dump, deploy/restart or secret rotation is included. SQL/access evidence is governed separately by the [staging database gate](STAGING_DATABASE_GATE.md), not by snapshot availability inferred from this document. Backup failure does not itself prove a database schema defect, and any later metadata access does not prove backup recoverability.
 
 Stop backup execution after the second authorized request; retain sanitized evidence and the release freeze pending provider/owner resolution.
 
-Latest read-only reconciliation: **2026-10-07T11:53:30.918Z — 0 snapshots / 0 schedules; LATE_SNAPSHOT=NO; BACKUP_AVAILABLE=NO; BACKUP_PROVIDER_BLOCKER=YES.** Current phase/authority is in the [canonical Master status](../cycles/RARE_MASTER_STATUS.md). Prior Master Cycle volume/GitHub **read** failures are not new backup mutations and their trace IDs must not be attributed to either historical creation attempt. No further creation, deletion, restore, Codex support contact or automatic polling follows this handoff; owner support handling remains separate.
+Last verified previous-cycle backup reconciliation: **2026-10-07T13:59:32.490Z — 0 snapshots / 0 schedules; LATE_SNAPSHOT=NO; BACKUP_AVAILABLE=NO; BACKUP_PROVIDER_BLOCKER=YES.** It was not refreshed in the subsequent SSH-isolation cycle. Current phase/authority is in the [canonical Master status](../cycles/RARE_MASTER_STATUS.md). Prior Master Cycle volume/GitHub **read** failures are not new backup mutations and their trace IDs must not be attributed to either historical creation attempt. No further creation, deletion, restore, Codex support contact or automatic polling follows this handoff; owner support handling remains separate.

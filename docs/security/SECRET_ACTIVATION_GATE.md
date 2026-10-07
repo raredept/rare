@@ -1,6 +1,40 @@
 # RARE — secret activation & migration gate
 
-## Current resume Phase 2 / agent ready, official SSH timeout — 2026-10-07
+## Current Phase 2 / Case B: post-TCP official SSH timeout — 2026-10-07
+
+Current authority/state: [canonical Master status](../cycles/RARE_MASTER_STATUS.md), [Master log](../cycles/RARE_MASTER_LOG.md), [database gate](STAGING_DATABASE_GATE.md), and [expanded owner-led support handoff](RAILWAY_BACKUP_SUPPORT_HANDOFF.md). **CURRENT_PHASE=2; PHASE_RESULT=BLOCKED; CASE=B; RAILWAY_SSH_GATEWAY_OR_LOCAL_ROUTE_BLOCKER=YES; RELEASE_SECURITY_FREEZE=ACTIVE; PHASE_S_CAN_RESUME=NO.** The observed failure is native SSH **after TCP establishment** across PostgreSQL service, current PostgreSQL deployment-instance, and staging web targets. The actual root cause within gateway/local route/authentication remains **UNKNOWN**; this is not a confirmed basic TCP block, target mismatch, or PostgreSQL-specific failure.
+
+Entry documentation HEAD was **50b0a78e63f517ef5a27967190a904369ef584cb**, **35 ahead / 0 behind**; main and observed deployed web source remain **4ea73f50cafdbf67e16dc71de985052075feca42**. Managed Postgres Git SHA is not exposed. Final publication SHA/equality/counts belong to canonical closure after actual publication, not a forecast here. No PR or CI query was performed in this cycle; the **2026-10-07T13:47:33Z** no-PR result is historical, not a fresh assertion. No PR creation/retry/merge, runtime candidate deployment, or later-phase advancement occurred.
+
+### Identity, targets and three bounded connectivity tests — UTC
+
+At **2026-10-07T14:29:25.435Z**, the existing owner-loaded agent was **AVAILABLE**, with exactly one expected ED25519 identity / fingerprint **MATCH**. Existing owner private/.pub files remained outside the repository and unchanged; public fingerprint metadata was verified, with no key-body/passphrase output. Only the authorized matching **PERSONAL .pub** was registered at **14:30:57.484Z**, inventory **0 → 1**. No private upload, new key generation, helper, or 2FA workaround was used.
+
+DNS **PASS** and TCP port 22 **REACHABLE** were observed at **14:31:46.034Z**. Control-plane readbacks at **14:33:51–14:33:53Z** reconfirmed Rare project `72ed12be-9a2a-4e13-8594-30ffd8ffa565`, staging `d8399691-dacf-41e9-a9d5-060c97672e39`, PostgreSQL service `ed0a374e-79da-4aab-9e3a-bb684fb829d1`, and web service `3f4b79f6-2819-45a6-986d-584dc7ac803a`, with current RUNNING deployment instances. Observed web source SHA is unchanged; managed Postgres Git SHA is not exposed. These control-plane checks do not prove SSH runtime access.
+
+Native dry-run PostgreSQL target resolution correctly used **ServiceInstance `3b37cfd9-f315-40df-a8a6-35673912d346`** as SSH User, not the PostgreSQL Service ID. At **14:34:30.252Z**, unchanged configuration and the owner's expected IdentityFile were **MATCH**. The caller did not force `-i`; the observed native child automatically supplied `-i`. This is configuration evidence, not a successful authentication claim.
+
+| Requested noninteractive command / target | Observed lifecycle | Result |
+|---|---|---|
+| `true` / PostgreSQL service | 2026-10-07T14:35:54.368Z–14:36:22.793Z | TIMEOUT; native target MATCH / TCP 22 ESTABLISHED |
+| `true` / current RUNNING PostgreSQL DeploymentInstance `371feb81-4709-4070-a96a-d9ad854e254b` | 2026-10-07T14:38:17.584Z–14:38:45.952Z | TIMEOUT; native target MATCH / TCP 22 ESTABLISHED |
+| `true` / staging web service | 2026-10-07T14:38:17.924Z–14:38:45.955Z | TIMEOUT; native target MATCH / TCP 22 ESTABLISHED |
+
+Each test had a **25-second execution deadline**; the lifecycle ranges include scoped termination/closure. Only the expected audit children were terminated, and all related processes closed. No successful remote `true` execution, remote authentication, or runtime target proof was obtained. No helper/tunnel/interactive session, host-trust, AV, TLS or firewall bypass occurred; no network-diagnostic download/execution was performed.
+
+Only this new PERSONAL registration was removed at **14:39:49.590Z**; the official readback at **14:39:52.008Z** verified an empty personal inventory. No 2FA was required. The owner files and still-AVAILABLE matching agent were preserved; no preexisting identity was deleted or changed.
+
+### Activation remains closed / next owner gate
+
+**WEB_SSH_PASS=NO**, so no stdin fallback, runtime module resolution, database-binding check, Prisma client construction/connection, SQL, READ ONLY verification, or ROLLBACK was executed. PostgreSQL version, all five migration counts, actual checksums/schema, and all **14 repository migration database states remain UNKNOWN**, including admin-temporary-password seed, analytics paidAt index and session-version effects. History verified **NO** / clean **UNKNOWN** / no-op **UNKNOWN** / Phase M **UNKNOWN**; no corruption or pending-migration diagnosis is established. Independent application writers were not paused or audited.
+
+**No backup inventory was queried in this cycle.** The **2026-10-07T13:59:32.490Z** inventory of **0 snapshots / 0 schedules**, with no late snapshot visible then, is historical. No adequate checkpoint or restore has been verified; present late-arrival state was not refreshed. Cumulative creation requests remain **2; NO_THIRD_ATTEMPT**. No backup/create/retry/PITR/dump/restore/schedule/delete or Codex support transmission occurred. The materially expanded [support package](RAILWAY_BACKUP_SUPPORT_HANDOFF.md) remains owner-led **READY DRAFT / CODEX_NOT_SENT / OWNER_STATUS_NOT_VERIFIED**; backend cause/outcome/cost remain unproved.
+
+**EFFECTIVE_NEXT_DEPLOY_CONFIG=NOT VERIFIED; SAFE_SECRET_ACTIVATION_PATH=NOT PROVEN**, independently of SSH/migration history. No selector/configuration change is authorized by these observations. All four affected categories — Stripe API, Stripe webhook, ADMIN_SESSION_SECRET and CRON_SECRET — in staging **and** production remain **COMPROMISED; ROTATION=NO; FREEZE=ACTIVE**. READY FOR MERGE / STAGING / EXTERNAL HOMOLOGATION / PRODUCTION = **NO**. No application/runtime/config/variable change, deploy/redeploy/restart, migration/DDL/DML, credential rotation, commerce or production action occurred; provider writes were limited to the authorized personal .pub registration and its cleanup.
+
+Next: the owner may review/run [Railway's network diagnostics](https://docs.railway.com/networking/troubleshooting/network-diagnostics), or obtain sanitized results from another owner-approved network, and explicitly resume Phase 2 with that evidence. Codex has not downloaded/executed that tool or sent the support draft. **STOP; no automatic retry or later-phase/Phase S continuation.** All prior dated sections below are historical; their observations and approvals do not supersede this closure.
+
+## Historical agent-ready resume / first official SSH timeout — 2026-10-07 (13:46–13:59 UTC)
 
 Current authority/state: [canonical Master status](../cycles/RARE_MASTER_STATUS.md), [Master log](../cycles/RARE_MASTER_LOG.md), [database gate](STAGING_DATABASE_GATE.md). **PHASE_RESULT=BLOCKED; RELEASE_SECURITY_FREEZE=ACTIVE; PHASE_S_CAN_RESUME=NO.** Supplied private/.pub **%USERPROFILE%/.ssh/rare_staging_db_audit_20261007** files remain outside repository/not reparse points/unchanged. Owner manually unlocked Windows OpenSSH Agent; current agent AVAILABLE / fingerprint MATCH. Existing identity use and matching PERSONAL .pub registration were authorized. Current blocker is **SSH_ATTEMPT_TIMEOUT / SSH_RUNTIME_TARGET_NOT_VERIFIED**, not unavailable agent or a renewed passphrase request.
 

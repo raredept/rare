@@ -1,6 +1,36 @@
 # RARE — production readiness
 
-## Current Master Cycle — 2026-10-07
+## Current Master Cycle / Case B: post-TCP SSH blocker — 2026-10-07
+
+Canonical current state: [RARE_MASTER_STATUS.md](cycles/RARE_MASTER_STATUS.md); events: [RARE_MASTER_LOG.md](cycles/RARE_MASTER_LOG.md); specialized gates: [staging database gate](security/STAGING_DATABASE_GATE.md), [secret activation gate](security/SECRET_ACTIVATION_GATE.md), and [expanded owner-led support handoff](security/RAILWAY_BACKUP_SUPPORT_HANDOFF.md). **CURRENT_PHASE=2; PHASE_RESULT=BLOCKED; CASE=B; RAILWAY_SSH_GATEWAY_OR_LOCAL_ROUTE_BLOCKER=YES; RELEASE_SECURITY_FREEZE=ACTIVE.** Native SSH failed after established TCP on PostgreSQL service, current PostgreSQL deployment-instance, and staging web. Actual gateway/local-route/authentication root cause remains **UNKNOWN**; the evidence does not confirm a basic TCP block, incorrect target, or PostgreSQL-only issue.
+
+Entry local/remote documentation HEAD **50b0a78e63f517ef5a27967190a904369ef584cb**, **35 ahead / 0 behind**; main and observed deployed web source remain **4ea73f50cafdbf67e16dc71de985052075feca42**. Managed Postgres Git SHA is not exposed. Final publication SHA/equality/counts are recorded after publication in canonical closure; no forecast count is asserted here. No PR/CI query occurred in this cycle. The prior no-PR result at **2026-10-07T13:47:33Z** is historical, not fresh; no creation/retry/merge, green-CI claim, runtime candidate deployment or Phase 3 advancement followed.
+
+### Current identity / target / connectivity evidence — UTC
+
+Existing owner-loaded Windows OpenSSH Agent was **AVAILABLE** at **2026-10-07T14:29:25.435Z**, one expected ED25519 identity / fingerprint **MATCH**. Existing supplied private/.pub files stayed outside the repository and unchanged; public fingerprint metadata was verified. Only the authorized PERSONAL .pub was registered at **14:30:57.484Z**, inventory **0 → 1**. No private upload, new identity generation or passphrase/key-body output occurred.
+
+DNS **PASS** / TCP 22 **REACHABLE** at **14:31:46.034Z**. Fresh control-plane reads at **14:33:51–14:33:53Z** matched Rare project `72ed12be-9a2a-4e13-8594-30ffd8ffa565`, staging `d8399691-dacf-41e9-a9d5-060c97672e39`, PostgreSQL `ed0a374e-79da-4aab-9e3a-bb684fb829d1`, and web `3f4b79f6-2819-45a6-986d-584dc7ac803a`, with current RUNNING deployment instances. Observed web source SHA is unchanged; managed Postgres Git SHA is not exposed. This is not remote runtime proof. The PostgreSQL native dry-run SSH User was the correct **ServiceInstance `3b37cfd9-f315-40df-a8a6-35673912d346`**, not the Service ID. Unchanged config / expected owner IdentityFile **MATCH** at **14:34:30.252Z**. Caller did not force `-i`; the native child automatically supplied it.
+
+| Exactly three requested noninteractive `true` tests | Lifecycle / result |
+|---|---|
+| PostgreSQL service | 2026-10-07T14:35:54.368Z–14:36:22.793Z: TIMEOUT; native target MATCH / TCP 22 ESTABLISHED |
+| Current RUNNING PostgreSQL DeploymentInstance `371feb81-4709-4070-a96a-d9ad854e254b` | 2026-10-07T14:38:17.584Z–14:38:45.952Z: TIMEOUT; native target MATCH / TCP 22 ESTABLISHED |
+| Staging web service | 2026-10-07T14:38:17.924Z–14:38:45.955Z: TIMEOUT; native target MATCH / TCP 22 ESTABLISHED |
+
+Each test had a **25-second execution deadline**; ranges include scoped termination/closure. Only expected audit children were terminated; all related processes closed. Remote command execution/authentication/runtime target proof remain **NOT VERIFIED**. No helper/tunnel/interactive session, host-trust, AV, TLS or firewall bypass occurred. No Network Diagnostics tool download/execution occurred. Only the new PERSONAL registration was removed at **14:39:49.590Z**; readback **14:39:52.008Z** verified empty. No 2FA needed; owner files and AVAILABLE matching agent preserved, preexisting identities untouched.
+
+### Release outcome / owner action required
+
+**WEB_SSH_PASS=NO**. Therefore no stdin Node fallback, runtime module or database-binding checks, Prisma client construction/connection, SQL session, READ ONLY verification or ROLLBACK was executed. All 14 canonical repository migrations remain unverified against the database; PostgreSQL version, five migration counts, actual checksum/schema state, admin-temporary-password seed, analytics paidAt index and session-version effects are **UNKNOWN**. History verified **NO** / clean **UNKNOWN** / no-op **UNKNOWN** / Phase M **UNKNOWN**. Unknown history is not a discovered integrity defect, and independent application writers were not paused/audited.
+
+No backup listing occurred in this cycle. The latest retained **2026-10-07T13:59:32.490Z** **0 snapshots / 0 schedules** result, including no late snapshot visible then, is historical; current late-arrival state is not refreshed. There is still no verified adequate checkpoint/restore proof. Two cumulative creation requests / **NO_THIRD_ATTEMPT** remain; no new backup/retry/PITR/dump/restore/schedule/delete. The materially expanded support handoff is **READY DRAFT / OWNER_HANDLES_EXTERNALLY / CODEX_NOT_SENT / OWNER_STATUS_NOT_VERIFIED**; no Codex contact or owner result supplied. Backend cause/outcome/cost remain unknown. Backup support and SSH diagnostics are separate unresolved gates.
+
+**EFFECTIVE_NEXT_DEPLOY_CONFIG=NOT VERIFIED; SAFE_SECRET_ACTIVATION_PATH=NOT PROVEN**, independently of the access failure. Historical stored closed-bootstrap classifications and earlier predeploy/selectors are not fresh next-deployment proof or authority to change configuration. All four affected credential categories in staging **and** production remain **COMPROMISED; ROTATION=NO; FREEZE=ACTIVE; PHASE_S_CAN_RESUME=NO**. READY FOR MERGE / STAGING / EXTERNAL HOMOLOGATION / PRODUCTION = **NO**; AUTHORIZED FOR PRODUCTION = **NO**. No app/runtime/config/variable change, deploy/redeploy/restart, migration/DDL/DML, credential rotation, commerce or production action occurred. Only authorized personal .pub registration and cleanup were provider writes.
+
+Next owner gate: [official Railway network diagnostics](https://docs.railway.com/networking/troubleshooting/network-diagnostics), or sanitized results from another owner-approved network, followed by explicit Phase 2 resume. No key contents/passphrase should be shared, and no endpoint/host-trust/TLS/firewall bypass is authorized. **STOP; no automatic retry, later phase, full E2E/build or Phase S continuation.** All earlier dated sections below preserve history, not current execution authority.
+
+## Historical agent-ready Master Cycle — 2026-10-07 (13:46–13:59 UTC)
 
 Canonical current state: [RARE_MASTER_STATUS.md](cycles/RARE_MASTER_STATUS.md); relevant events: [RARE_MASTER_LOG.md](cycles/RARE_MASTER_LOG.md). **CURRENT_PHASE=2; PHASE_RESULT=BLOCKED; RELEASE_SECURITY_FREEZE=ACTIVE.** The Master Cycle supersedes earlier execution authority; specialized runbooks below retain dated evidence, not current approvals.
 
