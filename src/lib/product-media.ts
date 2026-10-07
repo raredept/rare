@@ -46,7 +46,7 @@ const renderDefaults: Record<
   card: {
     width: 640,
     height: 800,
-    sizes: "(max-width: 767px) 50vw, (max-width: 1279px) 33vw, 20vw",
+    sizes: "(max-width: 767px) 50vw, (max-width: 1023px) 33vw, (max-width: 1439px) 25vw, 336px",
     loading: "lazy",
     fetchPriority: "auto",
   },
