@@ -26,31 +26,31 @@ export default function ShippingPolicyPage() {
     ...baseShippingItems,
   ];
   return (
-    <div className="mx-auto max-w-4xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
+    <div className="store-shell max-w-5xl py-14 sm:py-16 lg:py-20">
       <section className="max-w-3xl">
-        <p className="text-xs font-black uppercase tracking-[0.28em] text-neutral-500">Entrega</p>
-        <h1 className="mt-5 text-4xl font-black tracking-tight text-neutral-950 sm:text-5xl lg:text-6xl">Política de envio</h1>
-        <p className="mt-6 max-w-2xl text-base font-semibold leading-8 text-neutral-600 sm:text-lg">
+        <p className="store-section-label">Entrega</p>
+        <h1 className="mt-5 text-4xl font-medium tracking-tight text-neutral-950 sm:text-5xl lg:text-6xl">Política de envio</h1>
+        <p className="mt-6 max-w-2xl text-base leading-8 text-neutral-600 sm:text-lg">
           {commerce.checkoutEnabled ? "A RARE valida frete e dados de entrega antes da conclusão do pedido." : "O catálogo segue disponível, mas a operação de compra e envio está temporariamente pausada."}
         </p>
       </section>
 
       <section className="mt-12 border-y border-neutral-200">
         {shippingItems.map((item) => (
-          <article key={item.title} className="border-b border-neutral-200 py-8 last:border-b-0">
-            <h2 className="text-2xl font-black tracking-tight text-neutral-950">{item.title}</h2>
-            <p className="mt-4 max-w-2xl text-base font-semibold leading-8 text-neutral-600">{item.text}</p>
+          <article key={item.title} className="border-b border-neutral-200 py-8 last:border-b-0 sm:grid sm:grid-cols-[200px_minmax(0,1fr)] sm:gap-10 sm:py-10">
+            <h2 className="text-2xl font-medium tracking-tight text-neutral-950">{item.title}</h2>
+            <p className="mt-4 max-w-2xl text-base leading-8 text-neutral-600 sm:mt-0">{item.text}</p>
           </article>
         ))}
       </section>
 
       <div className="mt-12 flex flex-col gap-3 sm:flex-row">
-        <Link href="/categoria/tudo" className="inline-flex min-h-12 items-center justify-center rounded-full bg-black px-6 text-xs font-black uppercase tracking-[0.16em] text-white">
+        <Link href="/categoria/tudo" className="store-button-primary">
           Ver catálogo
         </Link>
         <Link
           href="/trocas-e-devolucoes"
-          className="inline-flex min-h-12 items-center justify-center rounded-full border border-neutral-300 px-6 text-xs font-black uppercase tracking-[0.16em] text-neutral-950"
+          className="store-button-secondary"
         >
           Trocas e devoluções
         </Link>

@@ -9,12 +9,12 @@ export const metadata = buildNoIndexMetadata({
 
 export default function CustomerOrdersPage() {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-16 text-center lg:px-8">
-      <h1 className="text-3xl font-black text-neutral-950">Pedidos</h1>
-      <p className="mt-4 text-neutral-600">Acompanhe pedidos vinculados à sua conta. Para suporte, use um dos canais oficiais da RARE.</p>
+    <div className="store-shell max-w-3xl py-16 sm:py-20">
+      <h1 className="text-4xl font-medium tracking-tight text-neutral-950">Pedidos</h1>
+      <p className="mt-6 text-base leading-8 text-neutral-600">Acompanhe pedidos vinculados à sua conta. Para suporte, use um dos canais oficiais da RARE.</p>
       <Link
         href="/"
-        className="mt-8 inline-flex h-12 items-center justify-center rounded-lg bg-black px-6 text-sm font-black uppercase tracking-wide text-white"
+        className="store-button-primary mt-8 w-full sm:w-auto"
       >
         Explorar catálogo
       </Link>

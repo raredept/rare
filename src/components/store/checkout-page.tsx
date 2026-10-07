@@ -85,7 +85,7 @@ function CheckoutUnavailable() {
     <div className="store-shell py-14 text-center lg:py-20">
       <section className="mx-auto max-w-xl border-y border-neutral-200 px-4 py-12">
         <p className="store-section-label">Catálogo RARE</p>
-        <h1 className="mt-4 text-3xl font-black tracking-tight text-neutral-950 sm:text-4xl">Compras temporariamente pausadas</h1>
+        <h1 className="store-display mt-4 text-neutral-950">Compras temporariamente pausadas</h1>
         <p className="mx-auto mt-4 max-w-md text-sm font-semibold leading-6 text-neutral-600">Você pode continuar explorando as peças e consultar disponibilidade com o atendimento. Nenhum pagamento será solicitado pela loja agora.</p>
         <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
           <Link href="/categoria/tudo" className="store-button-primary">Explorar catálogo</Link>
@@ -98,23 +98,23 @@ function CheckoutUnavailable() {
 
 function CheckoutLoginRequired() {
   return (
-    <div className="mx-auto max-w-7xl px-4 py-16 text-center lg:px-8">
-      <section className="mx-auto max-w-xl rounded-lg border border-neutral-200 bg-white px-6 py-12">
-        <p className="text-xs font-black uppercase tracking-[0.24em] text-neutral-500">Finalizar compra</p>
-        <h1 className="mt-3 text-3xl font-black tracking-tight text-neutral-950">Para finalizar sua compra, entre ou crie sua conta.</h1>
-        <p className="mt-3 text-sm font-semibold leading-6 text-neutral-500">
+    <div className="store-shell py-16 text-center lg:py-24">
+      <section className="mx-auto max-w-xl border-y border-neutral-300 px-6 py-16">
+        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-600">Finalizar compra</p>
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-neutral-950">Para finalizar sua compra, entre ou crie sua conta.</h1>
+        <p className="mt-3 text-sm font-semibold leading-6 text-neutral-600">
           Seu carrinho fica salvo neste navegador enquanto você acessa sua conta.
         </p>
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Link
             href="/entrar?next=%2Ffinalizar-compra"
-            className="inline-flex min-h-12 items-center justify-center rounded-lg bg-black px-6 text-sm font-black uppercase tracking-wide text-white transition hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
+            className="inline-flex min-h-12 items-center justify-center bg-black px-6 text-sm font-semibold uppercase tracking-wide text-white transition hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
           >
             Entrar
           </Link>
           <Link
             href="/cadastro?next=%2Ffinalizar-compra"
-            className="inline-flex min-h-12 items-center justify-center rounded-lg border border-neutral-300 px-6 text-sm font-black uppercase tracking-wide text-neutral-950 transition hover:border-neutral-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
+            className="inline-flex min-h-12 items-center justify-center border border-neutral-300 px-6 text-sm font-semibold uppercase tracking-wide text-neutral-950 transition hover:border-neutral-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
           >
             Criar conta
           </Link>

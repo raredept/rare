@@ -500,23 +500,23 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
 
   if (!items.length) {
     return (
-      <div className="mx-auto max-w-7xl px-4 py-16 text-center lg:px-8">
-        <div className="mx-auto max-w-xl rounded-lg border border-dashed border-neutral-300 bg-white px-6 py-12">
-          <p className="text-xs font-black uppercase tracking-[0.24em] text-neutral-500">Finalizar compra</p>
-          <h1 className="mt-3 text-3xl font-black tracking-tight text-neutral-950">Sua seleção ainda está vazia.</h1>
-          <p className="mt-3 text-sm font-semibold leading-6 text-neutral-500">
+      <div className="store-shell py-16 text-center lg:py-24">
+        <div className="mx-auto max-w-xl border-y border-neutral-300 px-6 py-16">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-600">Finalizar compra</p>
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-neutral-950">Sua seleção ainda está vazia.</h1>
+          <p className="mt-3 text-sm font-semibold leading-6 text-neutral-600">
             Adicione uma peça para iniciar o checkout.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
               href="/categoria/destaques"
-              className="inline-flex min-h-12 items-center justify-center rounded-lg bg-black px-6 text-sm font-black uppercase tracking-wide text-white transition hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
+              className="inline-flex min-h-12 items-center justify-center bg-black px-6 text-sm font-semibold uppercase tracking-wide text-white transition hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
             >
               Ver destaques
             </Link>
             <Link
               href="/categoria/tudo"
-              className="inline-flex min-h-12 items-center justify-center rounded-lg border border-neutral-300 px-6 text-sm font-black uppercase tracking-wide text-neutral-950 transition hover:border-neutral-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
+              className="inline-flex min-h-12 items-center justify-center border border-neutral-300 px-6 text-sm font-semibold uppercase tracking-wide text-neutral-950 transition hover:border-neutral-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
             >
               Explorar catálogo
             </Link>
@@ -527,31 +527,31 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 lg:px-8 lg:py-12">
-      <h1 className="text-2xl font-black text-neutral-950 lg:text-3xl">Finalizar compra</h1>
+    <div className="store-shell py-10 lg:py-16">
+      <h1 className="store-display text-neutral-950">Finalizar compra</h1>
 
-      <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="mt-8 grid gap-8 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0 space-y-6">
           <CartItems items={items} updateQuantity={updateQuantity} removeItem={removeItem} />
 
           {welcomeCoupon ? (
-            <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-5">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Cupom de boas-vindas</p>
-              <h2 className="mt-2 text-lg font-black text-neutral-950">Você ganhou 10% na primeira compra</h2>
-              <p className="mt-2 text-sm font-semibold leading-6 text-emerald-900">
-                Cupom <span className="font-black tracking-wide">{welcomeCoupon.code}</span> aplicado automaticamente após o cadastro.
+            <section className="border-y border-neutral-300 py-6">
+              <p className="store-section-label">Cupom de boas-vindas</p>
+              <h2 className="mt-2 text-lg font-semibold text-neutral-950">Você ganhou 10% na primeira compra</h2>
+              <p className="mt-2 text-sm font-normal leading-6 text-neutral-700">
+                Cupom <span className="font-semibold tracking-wide">{welcomeCoupon.code}</span> aplicado automaticamente após o cadastro.
               </p>
             </section>
           ) : null}
 
-          <section className="rounded-lg border border-neutral-200 bg-white p-5">
+          <section className="border-t border-neutral-300 py-6">
             <div className="flex items-center gap-2">
               <UserRound className="h-5 w-5 text-neutral-700" />
-              <h2 className="text-lg font-black text-neutral-950">Dados de contato</h2>
+              <h2 className="text-lg font-semibold text-neutral-950">Dados de contato</h2>
             </div>
 
-            <div className="mt-4 rounded-lg bg-neutral-50 p-4 text-sm font-semibold text-neutral-600 [overflow-wrap:anywhere]">
-              <p className="font-black text-neutral-950">{customer.name}</p>
+            <div className="mt-4 bg-neutral-50 p-4 text-sm font-semibold text-neutral-600 [overflow-wrap:anywhere]">
+              <p className="font-semibold text-neutral-950">{customer.name}</p>
               <p>{customer.email}</p>
               <p>{customer.phone ?? "Telefone não cadastrado"}</p>
               <p>{hasRequiredCpf ? `CPF ${cpfMasked || "cadastrado"}` : "CPF pendente"}</p>
@@ -559,8 +559,8 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
           </section>
 
           {needsCpf ? (
-            <section className="rounded-lg border border-amber-200 bg-amber-50 p-5">
-              <h2 className="text-lg font-black text-neutral-950">Complete seus dados</h2>
+            <section className="border border-amber-200 bg-amber-50 p-5">
+              <h2 className="text-lg font-semibold text-neutral-950">Complete seus dados</h2>
               <p className="mt-2 text-sm font-semibold leading-6 text-amber-900">
                 Precisamos do CPF para emissão e envio do pedido.
               </p>
@@ -576,31 +576,31 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
                     maxLength={14}
                     placeholder="000.000.000-00"
                     aria-invalid={Boolean(cpfInput && !cpfInputIsValid)}
-                    className="admin-input h-12 bg-white"
+                    className="store-input h-12 bg-white"
                   />
                 </Field>
                 <button
                   type="button"
                   onClick={saveCpf}
                   disabled={cpfSaveDisabled}
-                  className="inline-flex h-12 items-center justify-center rounded-lg bg-black px-5 text-xs font-black uppercase tracking-wide text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-500"
+                  className="inline-flex h-12 items-center justify-center bg-black px-5 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-500"
                 >
                   {cpfSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Salvar CPF
                 </button>
               </div>
-              {cpfInput && !cpfInputIsValid ? <p className="mt-2 text-sm font-bold text-red-700">CPF inválido.</p> : null}
-              {cpfError ? <p className="mt-2 text-sm font-bold text-red-700">{cpfError}</p> : null}
+              {cpfInput && !cpfInputIsValid ? <p className="mt-2 text-sm font-medium text-red-700">CPF inválido.</p> : null}
+              {cpfError ? <p className="mt-2 text-sm font-medium text-red-700">{cpfError}</p> : null}
             </section>
           ) : null}
 
-          <section className="rounded-lg border border-neutral-200 bg-white p-5">
+          <section className="border-t border-neutral-300 py-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2">
                 <MapPin className="h-5 w-5 text-neutral-700" />
-                <h2 className="text-lg font-black text-neutral-950">Entrega</h2>
+                <h2 className="text-lg font-semibold text-neutral-950">Entrega</h2>
               </div>
-              <Link href="/minha-conta/enderecos" className="rounded-lg border border-neutral-300 px-3 py-2 text-xs font-black">
+              <Link href="/minha-conta/enderecos" className="border border-neutral-300 px-3 py-2 text-xs font-semibold">
                 Cadastrar ou editar
               </Link>
             </div>
@@ -608,15 +608,15 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
             <LoggedAddressSelector addresses={addresses} selectedAddressId={selectedAddressId} onSelect={selectAddress} />
 
             {shippingSettings.shippingInstructions ? (
-              <p className="mt-4 rounded-lg bg-neutral-50 px-4 py-3 text-sm font-semibold text-neutral-600">{shippingSettings.shippingInstructions}</p>
+              <p className="mt-4 bg-neutral-50 px-4 py-3 text-sm font-semibold text-neutral-600">{shippingSettings.shippingInstructions}</p>
             ) : null}
 
             {shippingConfig.enabled ? (
-              <div className="mt-5 rounded-lg border border-neutral-200 bg-neutral-50 p-4">
+              <div className="mt-5 border border-neutral-200 bg-neutral-50 p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                   <div>
-                    <p className="text-sm font-black text-neutral-950">Escolha uma forma de entrega</p>
-                    <p className="mt-1 text-xs font-semibold leading-5 text-neutral-500">
+                    <p className="text-sm font-semibold text-neutral-950">Escolha uma forma de entrega</p>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-neutral-600">
                       {isFixedShipping
                         ? "Entrega combinada com valor fixo para este pedido."
                         : isMelhorEnvioShipping
@@ -629,14 +629,14 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
                       type="button"
                       onClick={calculateShipping}
                       disabled={shippingLoading}
-                      className="inline-flex h-11 items-center justify-center rounded-lg bg-black px-5 text-xs font-black uppercase tracking-wide text-white transition hover:bg-neutral-800 disabled:cursor-wait disabled:bg-neutral-500"
+                      className="inline-flex h-11 items-center justify-center bg-black px-5 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-neutral-800 disabled:cursor-wait disabled:bg-neutral-500"
                     >
                       {shippingLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                       Calcule o frete
                     </button>
                   )}
                 </div>
-                <p className="mt-3 text-xs font-bold text-neutral-500">
+                <p className="mt-3 text-xs font-medium text-neutral-600">
                   {checkoutCep ? `CEP usado: ${formatCep(checkoutCep) || checkoutCep}` : "Digite seu CEP no endereço de entrega."}
                 </p>
                 {currentShippingOptions.length ? (
@@ -644,7 +644,7 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
                     {currentShippingOptions.map((option) => (
                       <label
                         key={option.id}
-                        className={`flex cursor-pointer items-start gap-3 rounded-lg border bg-white p-4 text-sm font-semibold text-neutral-600 transition hover:border-neutral-950/40 ${
+                        className={`flex cursor-pointer items-start gap-3 border bg-white p-4 text-sm font-semibold text-neutral-600 transition hover:border-neutral-950/40 ${
                           selectedShippingOption?.id === option.id ? "border-neutral-950 shadow-[0_12px_30px_rgba(15,23,42,0.08)]" : "border-neutral-200"
                         }`}
                       >
@@ -657,26 +657,26 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
                         />
                         <span className="min-w-0 flex-1">
                           <span className="flex items-center justify-between gap-4">
-                            <span className="font-black text-neutral-950">
+                            <span className="font-semibold text-neutral-950">
                               {option.provider === "fixed" || option.provider === "melhor_envio" ? option.label : option.service}
                             </span>
-                            <span className="whitespace-nowrap font-black text-success">{formatMoney(option.amountCents)}</span>
+                            <span className="whitespace-nowrap font-semibold text-neutral-950">{formatMoney(option.amountCents)}</span>
                           </span>
                           <span className="mt-1 block">{option.deliveryEstimateText}</span>
                           {option.provider === "fixed" || option.provider === "melhor_envio" ? (
-                            <span className="mt-2 block text-xs font-bold text-neutral-500">Prazo estimado em dias úteis.</span>
+                            <span className="mt-2 block text-xs font-medium text-neutral-600">Prazo estimado em dias úteis.</span>
                           ) : null}
                           {option.provider === "manual" ? (
-                            <span className="mt-2 block text-xs font-bold text-neutral-500">Cálculo manual/fallback para homologação.</span>
+                            <span className="mt-2 block text-xs font-medium text-neutral-600">Cálculo manual/fallback para homologação.</span>
                           ) : null}
                         </span>
                       </label>
                     ))}
                   </div>
                 ) : null}
-                {shippingError ? <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800">{shippingError}</p> : null}
+                {shippingError ? <p className="mt-3 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">{shippingError}</p> : null}
                 {currentShippingOptions.length && !selectedShippingOption ? (
-                  <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+                  <p className="mt-3 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
                     {isFixedShipping
                       ? "Selecione Frete fixo para fechar o pedido."
                       : isMelhorEnvioShipping
@@ -684,7 +684,7 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
                         : "Selecione PAC ou SEDEX para fechar o pedido."}
                   </p>
                 ) : null}
-                <p className="mt-3 text-xs font-semibold leading-5 text-neutral-500">
+                <p className="mt-3 text-xs font-semibold leading-5 text-neutral-600">
                   {isFixedShipping
                     ? "Entrega combinada com valor fixo para este pedido."
                     : isMelhorEnvioShipping
@@ -696,8 +696,8 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
           </section>
         </div>
 
-        <aside className="h-fit rounded-lg border border-neutral-200 bg-white p-5 lg:sticky lg:top-36">
-          <h2 className="text-lg font-black text-neutral-950">Resumo do pedido</h2>
+        <aside className="h-fit border-y border-neutral-300 py-6 xl:sticky xl:top-40">
+          <h2 className="text-lg font-semibold text-neutral-950">Resumo do pedido</h2>
           <div className="mt-5 space-y-3 text-sm font-semibold text-neutral-600">
             <div className="flex justify-between gap-4">
               <span>Subtotal</span>
@@ -738,13 +738,13 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
               </div>
             ) : null}
             {selectedShippingOption?.destinationCep || legacyShippingPreview.result?.shippingCep ? (
-              <div className="flex justify-between gap-4 text-xs text-neutral-500">
+              <div className="flex justify-between gap-4 text-xs text-neutral-600">
                 <span>CEP</span>
                 <span>{formatCep(selectedShippingOption?.destinationCep ?? legacyShippingPreview.result?.shippingCep)}</span>
               </div>
             ) : null}
             {shippingConfig.enabled && !selectedShippingOption ? (
-              <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+              <p className="bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
                 {shippingLoading
                   ? "Calculando opções de entrega."
                   : normalizedCheckoutCep
@@ -763,46 +763,46 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
               </p>
             ) : null}
             {needsCpf ? (
-              <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+              <p className="bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
                 Salve um CPF válido em Complete seus dados para liberar o checkout.
               </p>
             ) : null}
             {legacyShippingPreview.error ? (
-              <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+              <p className="bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
                 {formatCheckoutMessage(legacyShippingPreview.error)}
               </p>
             ) : null}
             <div className="border-t border-neutral-200 pt-4">
-              <div className="flex justify-between gap-4 text-xl font-black text-neutral-950">
+              <div className="flex justify-between gap-4 text-xl font-semibold text-neutral-950">
                 <span>Total</span>
                 <span className="whitespace-nowrap">{formatMoney(discountedTotalInCents)}</span>
               </div>
               <InstallmentTerms amountInCents={discountedTotalInCents} checkoutEnabled context="order" />
             </div>
           </div>
-          {error ? <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{error}</p> : null}
+          {error ? <p className="mt-4 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{error}</p> : null}
           <p className="mt-5 text-sm font-semibold leading-6 text-neutral-700">Ao iniciar o pagamento, você terá 15 minutos para finalizar. O prazo fica salvo com seu pedido e não se renova ao voltar à loja. Pagamentos já em processamento aguardam confirmação.</p>
           <button
             type="button"
             onClick={checkout}
             disabled={loading || needsCpf || (shippingConfig.enabled && !selectedShippingOption)}
-            className="mt-6 flex h-12 w-full items-center justify-center rounded-lg bg-black px-6 text-sm font-black uppercase tracking-wide text-white transition hover:bg-neutral-800 disabled:cursor-wait disabled:bg-neutral-500"
+            className="mt-6 flex h-12 w-full items-center justify-center bg-black px-6 text-sm font-semibold uppercase tracking-wide text-white transition hover:bg-neutral-800 disabled:cursor-wait disabled:bg-neutral-500"
           >
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Finalizar compra
           </button>
-          <p className="mt-3 text-center text-xs font-bold text-neutral-500">Pagamento seguro pelos métodos habilitados na Stripe</p>
-          <div className="mt-4 grid gap-2 border-t border-neutral-200 pt-4 text-center text-xs font-bold text-neutral-500 sm:grid-cols-2">
-            <Link href="/politica-de-envio" className="underline underline-offset-4 hover:text-neutral-950">
+          <p className="mt-3 text-center text-xs font-medium text-neutral-600">Pagamento seguro pelos métodos habilitados na Stripe</p>
+          <div className="mt-4 grid gap-2 border-t border-neutral-200 pt-4 text-center text-xs font-medium text-neutral-600 sm:grid-cols-2">
+            <Link href="/politica-de-envio" className="inline-flex min-h-11 items-center justify-center underline underline-offset-4 hover:text-neutral-950">
               Política de envio
             </Link>
-            <Link href="/trocas-e-devolucoes" className="underline underline-offset-4 hover:text-neutral-950">
+            <Link href="/trocas-e-devolucoes" className="inline-flex min-h-11 items-center justify-center underline underline-offset-4 hover:text-neutral-950">
               Trocas e devoluções
             </Link>
           </div>
           <Link
             href="/categoria/tudo"
-            className="mt-5 flex h-11 items-center justify-center rounded-lg border border-neutral-300 px-4 text-sm font-black uppercase tracking-wide text-neutral-950"
+            className="mt-5 flex h-11 items-center justify-center border border-neutral-300 px-4 text-sm font-semibold uppercase tracking-wide text-neutral-950"
           >
             Continuar comprando
           </Link>
@@ -822,8 +822,8 @@ function CartItems({
   removeItem: (variantId: string) => void;
 }) {
   return (
-    <section className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
-      <div className="hidden grid-cols-[1fr_100px_110px_130px_110px] bg-neutral-50 px-5 py-3 text-xs font-black uppercase tracking-wide text-neutral-500 lg:grid">
+    <section className="overflow-hidden border-y border-neutral-300">
+      <div className="hidden grid-cols-[minmax(0,1fr)_70px_90px_132px_100px] bg-neutral-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-neutral-600 lg:grid">
         <span>Produto</span>
         <span>Tamanho</span>
         <span>Preço</span>
@@ -832,24 +832,24 @@ function CartItems({
       </div>
       <div className="divide-y divide-neutral-200">
         {items.map((item) => (
-          <div key={item.variantId} className="grid gap-4 px-4 py-5 lg:grid-cols-[1fr_100px_110px_130px_110px] lg:items-center lg:px-5">
+          <div key={item.variantId} className="grid gap-4 px-4 py-5 lg:grid-cols-[minmax(0,1fr)_70px_90px_132px_100px] lg:items-center lg:px-5">
             <div className="flex gap-4">
-              <div className="h-24 w-20 shrink-0 overflow-hidden rounded-md bg-neutral-100">
+              <div className="h-28 w-24 shrink-0 overflow-hidden bg-neutral-100">
                 {item.image ? (
-                  <img src={item.image} alt={item.title} className="h-full w-full object-cover" />
+                  <img src={item.image} alt={item.title} width={96} height={120} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                 ) : (
                   <ProductMediaPlaceholder compact />
                 )}
               </div>
               <div>
-                <Link href={`/produto/${item.slug}`} className="font-black text-neutral-950 hover:underline">
+                <Link href={`/produto/${item.slug}`} className="font-semibold text-neutral-950 hover:underline">
                   {item.title}
                 </Link>
-                <p className="mt-1 text-sm font-semibold text-neutral-500 lg:hidden">Tamanho: {item.size}</p>
+                <p className="mt-1 text-sm font-semibold text-neutral-600 lg:hidden">Tamanho: {item.size}</p>
                 <button
                   type="button"
                   onClick={() => removeItem(item.variantId)}
-                  className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-neutral-500 hover:text-red-700"
+                  className="mt-3 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-neutral-600 hover:text-red-700"
                 >
                   <Trash2 className="h-4 w-4" />
                   Remover
@@ -857,27 +857,27 @@ function CartItems({
               </div>
             </div>
             <span className="hidden text-sm font-semibold text-neutral-700 lg:block">{item.size}</span>
-            <span className="whitespace-nowrap text-sm font-bold text-neutral-950">{formatMoney(item.priceInCents)}</span>
-            <div className="flex h-10 w-32 items-center rounded-lg border border-neutral-300">
+            <span className="whitespace-nowrap text-sm font-medium text-neutral-950">{formatMoney(item.priceInCents)}</span>
+            <div className="flex h-11 w-32 items-center border border-neutral-300">
               <button
                 type="button"
                 onClick={() => updateQuantity(item.variantId, item.quantity - 1)}
-                className="flex h-10 w-10 items-center justify-center"
+                className="flex h-11 w-11 items-center justify-center"
                 aria-label="Diminuir quantidade"
               >
                 <Minus className="h-4 w-4" />
               </button>
-              <span className="flex-1 text-center text-sm font-black">{item.quantity}</span>
+              <span className="flex-1 text-center text-sm font-semibold">{item.quantity}</span>
               <button
                 type="button"
                 onClick={() => updateQuantity(item.variantId, item.quantity + 1)}
-                className="flex h-10 w-10 items-center justify-center"
+                className="flex h-11 w-11 items-center justify-center"
                 aria-label="Aumentar quantidade"
               >
                 <Plus className="h-4 w-4" />
               </button>
             </div>
-            <span className="whitespace-nowrap text-sm font-black text-neutral-950">{formatMoney(item.priceInCents * item.quantity)}</span>
+            <span className="whitespace-nowrap text-sm font-semibold text-neutral-950">{formatMoney(item.priceInCents * item.quantity)}</span>
           </div>
         ))}
       </div>
@@ -896,9 +896,9 @@ function LoggedAddressSelector({
 }) {
   if (!addresses.length) {
     return (
-      <div className="mt-4 rounded-lg border border-dashed border-neutral-300 px-4 py-6 text-sm font-semibold text-neutral-600">
+      <div className="mt-4 border border-dashed border-neutral-300 px-4 py-6 text-sm font-semibold text-neutral-600">
         <p>Nenhum endereço cadastrado.</p>
-        <Link href="/minha-conta/enderecos" className="mt-3 inline-flex rounded-lg bg-black px-4 py-2 text-xs font-black uppercase text-white">
+        <Link href="/minha-conta/enderecos" className="mt-3 inline-flex min-h-11 items-center bg-black px-4 py-2 text-xs font-semibold uppercase text-white">
           Cadastrar endereço
         </Link>
       </div>
@@ -908,7 +908,7 @@ function LoggedAddressSelector({
   return (
     <div className="mt-4 grid gap-3">
       {addresses.map((address) => (
-        <label key={address.id} className="flex cursor-pointer gap-3 rounded-lg border border-neutral-200 p-4 text-sm font-semibold text-neutral-600">
+        <label key={address.id} className="flex cursor-pointer gap-3 border border-neutral-200 p-4 text-sm font-semibold text-neutral-600">
           <input
             type="radio"
             name="customerAddressId"
@@ -918,7 +918,7 @@ function LoggedAddressSelector({
             className="mt-1 h-4 w-4"
           />
           <span>
-            <span className="block font-black text-neutral-950">
+            <span className="block font-semibold text-neutral-950">
               {address.label || "Endereço"} {address.isDefault ? "· Padrão" : ""}
             </span>
             <span className="mt-1 block">
@@ -938,7 +938,7 @@ function LoggedAddressSelector({
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">{label}</span>
+      <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-neutral-600">{label}</span>
       {children}
     </label>
   );

@@ -9,26 +9,26 @@ export const metadata = buildPageMetadata({
 
 export default function AboutPage() {
   return (
-    <div className="mx-auto max-w-4xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
+    <div className="store-shell max-w-5xl py-14 sm:py-16 lg:py-20">
       <section className="max-w-3xl">
-        <p className="text-xs font-black uppercase tracking-[0.28em] text-neutral-500">Sobre a RARE</p>
-        <h1 className="mt-5 text-4xl font-black tracking-tight text-neutral-950 sm:text-5xl lg:text-6xl">
+        <p className="store-section-label">Sobre a RARE</p>
+        <h1 className="mt-5 text-4xl font-medium tracking-tight text-neutral-950 sm:text-5xl lg:text-6xl">
           Streetwear importado para sair do básico
         </h1>
-        <p className="mt-6 max-w-2xl text-base font-semibold leading-8 text-neutral-600 sm:text-lg">
+        <p className="mt-6 max-w-2xl text-base leading-8 text-neutral-600 sm:text-lg">
           A RARE reúne peças importadas, drops limitados e escolhas de presença para quem não quer se vestir igual a todo mundo.
         </p>
       </section>
 
-      <section className="mt-12 grid gap-4 sm:grid-cols-3">
+      <section className="mt-12 grid gap-8 border-y border-neutral-200 py-8 sm:grid-cols-3 sm:py-10">
         {[
           { title: "Peças escolhidas a dedo", text: "Streetwear importado com foco em presença, uso real e combinações fortes." },
           { title: "Estoque limitado", text: "Quando uma peça sai, pode não voltar tão cedo." },
           { title: "Atendimento direto", text: "Dúvidas sobre tamanho, produto ou pedido são tratadas sem enrolação." },
         ].map((item) => (
-          <article key={item.title} className="rounded-lg border border-neutral-200 bg-white p-5">
-            <h2 className="text-lg font-black text-neutral-950">{item.title}</h2>
-            <p className="mt-3 text-sm font-semibold leading-6 text-neutral-500">
+          <article key={item.title} className="min-w-0">
+            <h2 className="text-xl font-medium tracking-tight text-neutral-950">{item.title}</h2>
+            <p className="mt-4 text-base leading-7 text-neutral-600">
               {item.text}
             </p>
           </article>
@@ -37,7 +37,7 @@ export default function AboutPage() {
 
       <Link
         href="/categoria/tudo"
-        className="mt-12 inline-flex min-h-12 items-center justify-center rounded-full bg-black px-6 text-xs font-black uppercase tracking-[0.16em] text-white"
+        className="store-button-primary mt-10 w-full sm:w-auto"
       >
         Ver catálogo completo
       </Link>
