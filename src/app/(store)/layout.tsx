@@ -16,13 +16,14 @@ export default async function StoreLayout({ children }: { children: ReactNode })
 
   return (
     <CartProvider>
-      <div className="storefront-motion-root flex min-h-screen flex-col bg-neutral-50">
+      <div className="storefront-motion-root flex min-h-screen flex-col">
+        <a href="#store-main" className="store-skip-link">Pular para o conteúdo</a>
         <Suspense fallback={null}>
           <RouteProgress />
         </Suspense>
         <StoreHeader categories={categories} />
         <CartDrawer commerce={commerce} />
-        <main className="flex-1 bg-neutral-50">{children}</main>
+        <main id="store-main" tabIndex={-1} className="flex-1">{children}</main>
         <StoreFooter categories={categories} whatsappNumber={settings.whatsappNumber} instagramUrl={settings.instagramUrl} commerce={commerce} />
       </div>
     </CartProvider>

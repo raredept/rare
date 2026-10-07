@@ -55,27 +55,50 @@ textarea {
 
 @layer components {
   .store-shell {
-    @apply mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-8 xl:px-10;
+    width: 100%;
+    max-width: var(--store-content-max, 1440px);
+    margin-inline: auto;
+    padding-inline: var(--store-gutter, clamp(1rem, 3vw, 3rem));
   }
 
   .store-section-label {
-    @apply text-[11px] font-black uppercase tracking-[0.24em] text-neutral-500;
+    @apply text-[11px] font-medium uppercase tracking-[0.16em] text-neutral-600;
   }
 
   .store-button-primary {
-    @apply inline-flex min-h-12 items-center justify-center rounded-md bg-black px-5 text-xs font-black uppercase tracking-[0.16em] text-white transition-[background-color,transform] duration-150 hover:bg-neutral-800 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-neutral-500;
+    @apply inline-flex min-h-12 items-center justify-center bg-black px-6 text-xs font-semibold uppercase tracking-[0.12em] text-white transition-colors duration-150 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-200 disabled:text-neutral-600;
   }
 
   .store-button-secondary {
-    @apply inline-flex min-h-12 items-center justify-center rounded-md border border-neutral-300 bg-white px-5 text-xs font-black uppercase tracking-[0.16em] text-neutral-950 transition-[background-color,border-color,transform] duration-150 hover:border-neutral-950 hover:bg-neutral-950 hover:text-white active:scale-[0.99];
+    @apply inline-flex min-h-12 items-center justify-center border border-neutral-400 bg-transparent px-6 text-xs font-semibold uppercase tracking-[0.12em] text-neutral-950 transition-colors duration-150 hover:border-neutral-950 hover:bg-neutral-950 hover:text-white;
   }
 
   .store-input {
-    @apply h-12 w-full rounded-md border border-neutral-300 bg-white px-4 text-sm font-semibold text-neutral-950 outline-none transition-[border-color,box-shadow] placeholder:text-neutral-400 focus:border-neutral-950 focus:ring-2 focus:ring-neutral-950/10 disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:text-neutral-500;
+    @apply h-12 w-full border border-neutral-400 bg-white px-4 text-base font-normal text-neutral-950 transition-colors placeholder:text-neutral-600 focus:border-neutral-950 disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:text-neutral-600;
   }
 
   .store-icon-button {
-    @apply flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-[background-color,border-color,transform] duration-150 hover:bg-white/10 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70;
+    @apply flex h-11 w-11 shrink-0 items-center justify-center border border-transparent transition-colors duration-150 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white;
+  }
+
+  .store-display {
+    font-size: clamp(2.25rem, 5.2vw, 4.75rem);
+    font-weight: 600;
+    line-height: 1.02;
+    letter-spacing: -0.055em;
+    text-wrap: balance;
+  }
+
+  .store-section-title {
+    font-size: clamp(1.75rem, 3.3vw, 3rem);
+    font-weight: 500;
+    line-height: 1.08;
+    letter-spacing: -0.045em;
+    text-wrap: balance;
+  }
+
+  .store-section-link {
+    @apply inline-flex min-h-11 w-fit items-center gap-3 border-b border-neutral-950 text-xs font-medium uppercase tracking-[0.1em] text-neutral-950 transition-colors hover:text-neutral-600;
   }
 
   .admin-input {
@@ -95,6 +118,41 @@ textarea {
     display: none;
   }
 }
+
+/* Storefront-only tokens. Admin surfaces and their existing tokens stay intact. */
+.storefront-motion-root {
+  --store-paper: #f5f5f3;
+  --store-ink: #101010;
+  --store-muted: #666666;
+  --store-line: #dedede;
+  --store-content-max: 1440px;
+  --store-gutter: clamp(1rem, 3vw, 3rem);
+  --store-section-space: clamp(3.5rem, 7vw, 7rem);
+  --store-motion-fast: 150ms;
+  background: var(--store-paper);
+  color: var(--store-ink);
+}
+
+.storefront-motion-root main { min-width: 0; }
+.storefront-motion-root :is(.store-button-primary, .store-button-secondary, .store-input):focus-visible {
+  outline: 2px solid #101010;
+  outline-offset: 4px;
+  box-shadow: 0 0 0 2px #ffffff;
+}
+.store-editorial-section { margin-top: var(--store-section-space, 4rem); }
+.store-customer-surface { border-top: 1px solid var(--store-line, #dedede); padding-block: 1.5rem; }
+.store-safe-bottom { padding-bottom: max(1.25rem, env(safe-area-inset-bottom)); }
+.store-skip-link {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 100;
+  padding: 1rem;
+  background: white;
+  color: black;
+  translate: 0 -200%;
+}
+.store-skip-link:focus { translate: 0; }
 
 .store-mobile-menu {
   padding-bottom: env(safe-area-inset-bottom);
@@ -335,9 +393,7 @@ textarea {
 }
 
 .store-home-hero-placeholder {
-  background:
-    linear-gradient(90deg, rgb(255 255 255 / 0.055) 0 1px, transparent 1px 100%) 0 0 / 54px 54px,
-    linear-gradient(135deg, #050505 0%, #111111 44%, #030303 100%);
+  background: #101010;
 }
 
 .store-catalog-section {
@@ -500,6 +556,11 @@ textarea {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  /* Suppress ornamental scaling, not positional translate used by controls. */
+  .storefront-motion-root :is(a, button, .store-product-image, .store-product-hover-image) {
+    scale: none !important;
+  }
   .storefront-motion-root *,
   .store-route-progress,
   .store-route-progress span,
