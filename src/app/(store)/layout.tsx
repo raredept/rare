@@ -17,7 +17,7 @@ export default async function StoreLayout({ children }: { children: ReactNode })
   return (
     <CartProvider>
       <div className="storefront-motion-root flex min-h-screen flex-col">
-        <a href="#store-main" className="store-skip-link">Pular para o conteúdo</a>
+        <a href="#store-main" tabIndex={0} className="store-skip-link">Pular para o conteúdo</a>
         <Suspense fallback={null}>
           <RouteProgress />
         </Suspense>

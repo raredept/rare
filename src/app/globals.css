@@ -134,6 +134,12 @@ textarea {
 }
 
 .storefront-motion-root main { min-width: 0; }
+/* The legacy unlayered `font: inherit` otherwise beats Tailwind's control
+   typography. Revert that layer only inside the store; keep Admin untouched. */
+.storefront-motion-root :is(button, input, select, textarea) {
+  font: revert-layer;
+  font-family: inherit;
+}
 .storefront-motion-root :is(.store-button-primary, .store-button-secondary, .store-input):focus-visible {
   outline: 2px solid #101010;
   outline-offset: 4px;

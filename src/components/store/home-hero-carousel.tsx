@@ -184,7 +184,8 @@ export function HomeHeroCarousel({ slides }: HomeHeroCarouselProps) {
           />
         </div>
 
-        <div className="absolute inset-0 bg-black/45" />
+        {/* 60% black keeps small white text readable even over a white banner. */}
+        <div className="absolute inset-0 bg-black/60" />
 
         <div className="store-shell relative z-20 flex min-h-[520px] flex-col justify-end pb-20 pt-12 md:min-h-[580px] md:pb-24 xl:min-h-[640px]">
           {activeSlide.eyebrow ? (
@@ -210,30 +211,13 @@ export function HomeHeroCarousel({ slides }: HomeHeroCarouselProps) {
       </div>
 
       {controlsEnabled ? (
-        <>
-          <button
-            type="button"
-            className="absolute bottom-5 right-16 z-30 flex h-11 w-11 items-center justify-center border border-white/60 bg-black/50 text-white transition-colors hover:bg-white hover:text-black focus-visible:outline-2 focus-visible:outline-white"
-            aria-label="Slide anterior"
-            onClick={goToPrevious}
-          >
-            <ChevronLeft className="h-5 w-5" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="absolute bottom-5 right-4 z-30 flex h-11 w-11 items-center justify-center border border-white/60 bg-black/50 text-white transition-colors hover:bg-white hover:text-black focus-visible:outline-2 focus-visible:outline-white"
-            aria-label="Próximo slide"
-            onClick={goToNext}
-          >
-            <ChevronRight className="h-5 w-5" aria-hidden="true" />
-          </button>
-
-          <div className="absolute bottom-5 left-[var(--store-gutter,1rem)] z-30 flex items-center">
+        <div className="store-shell absolute inset-x-0 bottom-5 z-30 flex items-center gap-4">
+          <div className="scrollbar-none flex min-w-0 flex-1 touch-pan-x items-center overflow-x-auto" role="group" aria-label="Selecionar slide">
             {activeSlides.map((slide, index) => (
               <button
                 key={slide.id}
                 type="button"
-                className={`group/indicator flex h-11 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 ${
+                className={`group/indicator flex h-11 shrink-0 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/80 ${
                   index === normalizedActiveIndex ? "w-12" : "w-11"
                 }`}
                 aria-label={`Ir para slide ${index + 1}`}
@@ -243,13 +227,31 @@ export function HomeHeroCarousel({ slides }: HomeHeroCarouselProps) {
                 <span
                   aria-hidden="true"
                   className={`block h-2.5 rounded-full transition-[background-color,width] duration-150 ${
-                    index === normalizedActiveIndex ? "w-8 bg-white" : "w-2.5 bg-white/35 group-hover/indicator:bg-white/65"
+                    index === normalizedActiveIndex ? "w-8 bg-white" : "w-2.5 bg-white/60 group-hover/indicator:bg-white/80"
                   }`}
                 />
               </button>
             ))}
           </div>
-        </>
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              className="flex h-11 w-11 items-center justify-center border border-white/60 bg-black/50 text-white transition-colors hover:bg-white hover:text-black focus-visible:outline-2 focus-visible:outline-white"
+              aria-label="Slide anterior"
+              onClick={goToPrevious}
+            >
+              <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className="flex h-11 w-11 items-center justify-center border border-white/60 bg-black/50 text-white transition-colors hover:bg-white hover:text-black focus-visible:outline-2 focus-visible:outline-white"
+              aria-label="Próximo slide"
+              onClick={goToNext}
+            >
+              <ChevronRight className="h-5 w-5" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
       ) : null}
     </section>
   );
