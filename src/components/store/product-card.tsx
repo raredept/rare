@@ -24,9 +24,10 @@ type ProductCardProps = {
   priority?: boolean;
   /** 3 when the grid sits under a section h2, so the outline nests products under it. */
   headingLevel?: 2 | 3;
+  mediaSizes?: string;
 };
 
-export function ProductCard({ product, commerce, priority = false, headingLevel = 2 }: ProductCardProps) {
+export function ProductCard({ product, commerce, priority = false, headingLevel = 2, mediaSizes }: ProductCardProps) {
   const Title = headingLevel === 3 ? "h3" : "h2";
   const commerceState = commerce ?? buildStorefrontCommerceState(true);
   const { primary: image, hover: hoverImage } = getProductCardMediaPair(product.images);
@@ -40,43 +41,44 @@ export function ProductCard({ product, commerce, priority = false, headingLevel 
     <article className="group h-full min-w-0">
       <Link
         href={`/produto/${product.slug}`}
-        className={`store-product-card flex h-full cursor-pointer flex-col border-b border-neutral-200 bg-transparent pb-4 hover:border-neutral-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 ${styles.card}`}
+        className={`store-product-card flex h-full cursor-pointer flex-col bg-transparent pb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-4 focus-visible:ring-offset-background ${styles.card}`}
       >
-        <div className="relative aspect-[4/5] overflow-hidden rounded-lg bg-neutral-100">
+        <div className="relative aspect-[4/5] overflow-hidden bg-neutral-100">
           {image ? (
             <ProductMedia
               media={image}
               alt={image.alt}
               context="card"
               priority={priority}
+              sizes={mediaSizes}
               placeholderLabel="Mídia indisponível"
               className={`store-product-image h-full w-full object-cover ${styles.image}`}
             />
           ) : (
             <ProductMediaPlaceholder />
           )}
-          {hoverImage ? <ProductCardHoverImage media={hoverImage} /> : null}
+          {hoverImage ? <ProductCardHoverImage media={hoverImage} sizes={mediaSizes} /> : null}
           {soldOut ? (
-            <span className="absolute left-3 top-3 rounded-full bg-black px-3 py-1 text-xs font-black uppercase tracking-wide text-white">
+            <span className="absolute left-3 top-3 bg-neutral-950 px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-white">
               Esgotado
             </span>
           ) : null}
         </div>
-        <div className="flex flex-1 flex-col px-0.5 pt-3 sm:pt-4">
-          <p className="line-clamp-1 text-[10px] font-black uppercase tracking-[0.18em] text-neutral-500 sm:tracking-[0.2em]">
+        <div className="flex flex-1 flex-col pt-3 sm:pt-4">
+          <p className="line-clamp-1 text-[10px] font-medium uppercase tracking-[0.14em] text-neutral-600">
             {categoryName}
           </p>
-          <Title className="mt-2 line-clamp-2 min-h-10 break-words text-[13px] font-black leading-5 text-neutral-950 sm:min-h-12 sm:text-base sm:leading-6">
+          <Title className="mt-1.5 line-clamp-2 min-h-10 break-words text-[13px] font-semibold leading-5 text-neutral-950 sm:min-h-12 sm:text-base sm:leading-6">
             {product.title}
           </Title>
-          <div className="mt-auto flex min-w-0 flex-col gap-1 pt-3">
-            <p className="whitespace-nowrap text-[1rem] font-black leading-tight text-neutral-950 sm:text-lg sm:leading-none">
+          <div className="mt-auto flex min-w-0 flex-col gap-1.5 pt-3">
+            <p className="whitespace-nowrap text-base font-semibold leading-tight text-neutral-950 sm:text-lg">
               {formatMoney(product.priceInCents)}
             </p>
-            <p className="whitespace-nowrap text-[10px] font-bold uppercase leading-4 tracking-wide text-neutral-500 sm:text-xs">
+            <p className="text-[11px] font-normal leading-4 text-neutral-600 sm:text-xs">
               {soldOut ? "Esgotado" : commerceState.checkoutEnabled ? "Disponível" : "Consulte disponibilidade"}
             </p>
-            <InstallmentTerms amountInCents={product.priceInCents} checkoutEnabled={commerceState.checkoutEnabled} className="text-xs font-semibold leading-4 text-neutral-600" />
+            <InstallmentTerms amountInCents={product.priceInCents} checkoutEnabled={commerceState.checkoutEnabled} className="text-xs font-normal leading-5 text-neutral-600" />
           </div>
         </div>
       </Link>
