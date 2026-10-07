@@ -41,6 +41,21 @@ const baseSlides = [
   },
 ] satisfies HomeHeroSlide[];
 
+function mediaTag(html: string, type: "img" | "video") {
+  const tag = html.match(new RegExp(`<${type}\\b[^>]*>`))?.[0];
+  expect(tag).toBeDefined();
+  return tag!;
+}
+
+function inlineStyle(tag: string) {
+  const style = tag.match(/style="([^"]*)"/)?.[1];
+  expect(style).toBeDefined();
+  return Object.fromEntries(style!.split(";").filter(Boolean).map((declaration) => {
+    const separator = declaration.indexOf(":");
+    return [declaration.slice(0, separator), declaration.slice(separator + 1)];
+  }));
+}
+
 describe("HomeHeroCarousel", () => {
   it("renders the active hero slide with accessible controls and placeholder media", () => {
     const html = renderToStaticMarkup(createElement(HomeHeroCarousel, { slides: baseSlides }));
@@ -85,6 +100,11 @@ describe("HomeHeroCarousel", () => {
             mobileImageUrl: "https://media.rare.example/banners/drop-poster.webp",
             alt: "Video do drop",
             active: true,
+            imageFit: "contain",
+            imagePositionX: 0,
+            imagePositionY: 100,
+            mobileImagePositionX: 100,
+            mobileImagePositionY: 0,
           },
         ],
       }),
@@ -94,6 +114,13 @@ describe("HomeHeroCarousel", () => {
     expect(html).toContain('src="https://media.rare.example/banners/drop.mp4"');
     expect(html).toContain('poster="https://media.rare.example/banners/drop-poster.webp"');
     expect(html).toContain('preload="metadata"');
+    const video = mediaTag(html, "video");
+    expect(video).not.toMatch(/\sautoplay(?:=|\s|>)/i);
+    expect(inlineStyle(video)).toMatchObject({
+      "object-fit": "contain",
+      "--hero-position-desktop": "0% 100%",
+      "--hero-position-mobile": "100% 0%",
+    });
   });
 
   it("uses generated banner variants without affecting the original persisted URL", () => {
@@ -115,5 +142,65 @@ describe("HomeHeroCarousel", () => {
     expect(html).toContain(
       'srcSet="https://media.rare.example/banners/id-drop-rare-v1-thumbnail.webp 640w, https://media.rare.example/banners/id-drop-rare-v1-medium.webp 1200w"',
     );
+    expect(inlineStyle(mediaTag(html, "img"))).toMatchObject({
+      "object-fit": "cover",
+      "--hero-position-desktop": "50% 50%",
+      "--hero-position-mobile": "50% 50%",
+    });
+  });
+
+  it("serializes persisted desktop and mobile crop coordinates without replacing zero with defaults", () => {
+    const html = renderToStaticMarkup(createElement(HomeHeroCarousel, {
+      slides: [{
+        ...baseSlides[0],
+        imageUrl: "https://media.rare.example/banners/desktop.webp",
+        mobileImageUrl: "https://media.rare.example/banners/mobile.webp",
+        imageFit: "contain",
+        imagePositionX: 0,
+        imagePositionY: 100,
+        mobileImagePositionX: 100,
+        mobileImagePositionY: 0,
+      }],
+    }));
+
+    const image = mediaTag(html, "img");
+    expect(inlineStyle(image)).toMatchObject({
+      "object-fit": "contain",
+      "--hero-position-desktop": "0% 100%",
+      "--hero-position-mobile": "100% 0%",
+    });
+    expect(image).toContain("object-[var(--hero-position-mobile)]");
+    expect(image).toContain("md:object-[var(--hero-position-desktop)]");
+    expect(html).toContain('<source media="(max-width: 767px)" srcSet="https://media.rare.example/banners/mobile.webp"');
+  });
+
+  it("prioritizes only the initial active hero image and leaves other slides unloaded on the server", () => {
+    const html = renderToStaticMarkup(createElement(HomeHeroCarousel, {
+      slides: [
+        { ...baseSlides[0], imageUrl: "https://media.rare.example/banners/first.webp" },
+        { ...baseSlides[1], imageUrl: "https://media.rare.example/banners/next.webp" },
+        { ...baseSlides[2], imageUrl: "https://media.rare.example/banners/inactive.webp" },
+      ],
+    }));
+
+    const image = mediaTag(html, "img");
+    expect(image).toContain('loading="eager"');
+    expect(image).toContain('fetchPriority="high"');
+    expect((html.match(/<img\b/g) ?? [])).lengthOf(1);
+    expect(html).not.toContain("next.webp");
+    expect(html).not.toContain("inactive.webp");
+  });
+
+  it("keeps arrows and indicators at least 44px with visible focus styling", () => {
+    const html = renderToStaticMarkup(createElement(HomeHeroCarousel, { slides: baseSlides }));
+    const buttons = html.match(/<button\b[^>]*>/g) ?? [];
+
+    expect(buttons).lengthOf(4);
+    for (const button of buttons) {
+      const classes = button.match(/class="([^"]*)"/)?.[1].split(" ") ?? [];
+      expect(classes).toContain("h-11");
+      expect(classes.some((token) => token === "w-11" || token === "w-12")).toBe(true);
+      expect(classes.some((token) => token === "focus-visible:outline-2" || token === "focus-visible:ring-2")).toBe(true);
+    }
   });
 });

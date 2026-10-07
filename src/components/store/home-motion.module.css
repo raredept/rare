@@ -5,7 +5,7 @@
 .brandTrack { display: flex; width: max-content; animation: brands-travel 45s linear infinite; animation-play-state: paused; }
 .brands[data-playing="true"] .brandTrack { animation-play-state: running; }
 .brandGroup { display: flex; flex: 0 0 auto; justify-content: space-around; align-items: center; width: max-content; min-width: 100cqw; margin: 0; padding: 0; list-style: none; }
-.brandName { display: flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 2rem; padding: 1rem; white-space: nowrap; font-size: .875rem; line-height: 1.5; font-weight: 900; letter-spacing: .12em; }
+.brandName { display: flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 2rem; padding: 1rem; white-space: nowrap; font-size: .75rem; line-height: 1.5; font-weight: 500; letter-spacing: .14em; }
 .brandSeparator { width: .25rem; height: .25rem; border-radius: 50%; background: #737373; }
 .brands[data-static="true"] .brandViewport { overflow-x: auto; }
 .brands[data-static="true"] .brandTrack { animation: none; }

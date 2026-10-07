@@ -7,6 +7,11 @@ export type HomeHeroSlide = {
   href?: string;
   imageUrl: string;
   mobileImageUrl?: string;
+  imageFit?: "cover" | "contain";
+  imagePositionX?: number;
+  imagePositionY?: number;
+  mobileImagePositionX?: number;
+  mobileImagePositionY?: number;
   alt: string;
   active: boolean;
 };

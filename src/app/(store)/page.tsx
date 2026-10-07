@@ -57,25 +57,21 @@ function getTrustItems(commerce: StorefrontCommerceState) {
 function ProductGrid({
   products,
   commerce,
-  columns = "featured",
+  featured = false,
   priorityFirst = false,
   headingLevel = 2,
 }: {
   products: StorefrontProduct[];
   commerce: StorefrontCommerceState;
-  columns?: "featured" | "recent";
+  featured?: boolean;
   priorityFirst?: boolean;
   headingLevel?: 2 | 3;
 }) {
-  const gridClass =
-    columns === "featured"
-      ? "grid grid-cols-2 gap-x-3 gap-y-8 sm:gap-x-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 xl:gap-x-8"
-      : "grid grid-cols-2 gap-x-3 gap-y-8 sm:gap-x-5 md:grid-cols-4 xl:gap-x-8";
-
   return (
-    <div className={`${gridClass} lg:gap-x-6 lg:gap-y-10`}>
+    <div className={`grid grid-cols-2 gap-x-3 gap-y-10 sm:gap-x-5 md:grid-cols-3 lg:gap-x-6 lg:gap-y-12 ${featured ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
       {products.map((product, index) => (
-        <ProductCard key={product.id} product={product} commerce={commerce} priority={priorityFirst && index === 0} headingLevel={headingLevel} />
+        <ProductCard key={product.id} product={product} commerce={commerce} priority={priorityFirst && index === 0} headingLevel={headingLevel}
+          mediaSizes={featured ? "(max-width: 767px) 50vw, (max-width: 1023px) 33vw, (max-width: 1439px) 20vw, 264px" : undefined} />
       ))}
     </div>
   );
@@ -95,18 +91,18 @@ function SectionHeading({
   action?: { href: string; label: string };
 }) {
   return (
-    <div className="mb-6 flex flex-col gap-4 sm:mb-8 lg:flex-row lg:items-end lg:justify-between">
+    <div className="mb-8 flex flex-col gap-5 sm:mb-10 lg:flex-row lg:items-end lg:justify-between">
       <div className="max-w-2xl">
-        <p className="text-xs font-black uppercase tracking-[0.24em] text-neutral-500">{eyebrow}</p>
-        <h2 id={id} className="mt-3 text-2xl font-black tracking-tight text-neutral-950 sm:text-3xl lg:text-4xl">
+        <p className="store-section-label">{eyebrow}</p>
+        <h2 id={id} className="store-section-title mt-3 text-neutral-950">
           {title}
         </h2>
-        <p className="mt-3 text-sm font-semibold leading-6 text-neutral-500 lg:text-base">{description}</p>
+        <p className="mt-4 text-sm font-normal leading-6 text-neutral-600 lg:text-base">{description}</p>
       </div>
       {action ? (
         <Link
           href={action.href}
-          className="inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-full border border-neutral-300 px-4 text-xs font-black uppercase tracking-[0.16em] text-neutral-700 transition-[background-color,border-color,color,transform] duration-150 hover:-translate-y-px hover:border-neutral-950 hover:bg-neutral-950 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 active:translate-y-0"
+          className="store-section-link shrink-0"
         >
           {action.label}
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -116,34 +112,33 @@ function SectionHeading({
   );
 }
 
-function CategoryTile({ tile }: { tile: HomeCategoryTile }) {
+function CategoryTile({ tile, index }: { tile: HomeCategoryTile; index: number }) {
   return (
     <Link
       href={tile.href}
-      className="store-home-category group flex min-h-40 flex-col justify-between rounded-lg border border-neutral-200 bg-white p-5 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-1 hover:border-neutral-950/35 hover:shadow-[0_22px_55px_rgba(15,23,42,0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 active:translate-y-0"
+      className="store-home-category group grid min-h-36 grid-cols-[2rem_1fr_auto] items-start gap-4 border-t border-neutral-400 py-7 transition-colors duration-150 hover:border-neutral-950 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-neutral-950"
     >
+      <span aria-hidden="true" className="pt-1 text-xs tabular-nums text-neutral-600">{String(index + 1).padStart(2, "0")}</span>
       <span>
-        <span className="block text-xl font-black tracking-tight text-neutral-950">{tile.name}</span>
-        <span className="mt-3 block text-sm font-semibold leading-6 text-neutral-500">{tile.description}</span>
-      </span>
-      <span className="mt-6 flex items-center justify-between gap-4">
-        <span className="rounded-full border border-neutral-200 px-3 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-neutral-500">
+        <span className="block text-2xl font-medium tracking-tight text-neutral-950 lg:text-3xl">{tile.name}</span>
+        <span className="mt-3 block max-w-xs text-sm font-normal leading-6 text-neutral-600">{tile.description}</span>
+        <span className="mt-5 block text-[11px] font-medium uppercase tracking-[0.12em] text-neutral-600">
           {tile.status === "available" ? `${tile.total} produto${tile.total === 1 ? "" : "s"}` : "Em breve"}
         </span>
-        <ArrowRight className="h-4 w-4 text-neutral-400 transition-transform duration-150 group-hover:translate-x-1 group-hover:text-neutral-950" aria-hidden="true" />
       </span>
+      <ArrowRight className="mt-1 h-5 w-5 text-neutral-600 group-hover:text-neutral-950" aria-hidden="true" />
     </Link>
   );
 }
 
 function SearchResults({ products, query, commerce }: { products: StorefrontProduct[]; query: string; commerce: StorefrontCommerceState }) {
   return (
-    <div className="mx-auto max-w-[1440px] px-4 pb-10 pt-6 sm:px-6 lg:px-8 lg:pb-14 lg:pt-8 xl:px-10">
+    <div className="store-shell pb-16 pt-10 lg:pb-24 lg:pt-16">
       <section className="mb-10 flex flex-col gap-4 border-b border-neutral-200 pb-8 lg:mb-12 lg:flex-row lg:items-end lg:justify-between">
         <div className="max-w-3xl">
-          <p className="text-xs font-black uppercase tracking-[0.24em] text-neutral-500">Busca</p>
-          <h1 className="mt-3 text-3xl font-black tracking-tight text-neutral-950 lg:text-5xl">{`Resultado para "${query}"`}</h1>
-          <p className="mt-4 max-w-2xl text-sm font-semibold leading-6 text-neutral-500 lg:text-base">
+          <p className="store-section-label">Busca</p>
+          <h1 className="store-display mt-4 break-words text-neutral-950">{`Resultado para "${query}"`}</h1>
+          <p className="mt-4 max-w-2xl text-sm font-normal leading-6 text-neutral-600 lg:text-base">
             Peças encontradas pelo que você buscou.
           </p>
         </div>
@@ -152,12 +147,12 @@ function SearchResults({ products, query, commerce }: { products: StorefrontProd
       {products.length ? (
         <ProductGrid products={products} commerce={commerce} />
       ) : (
-        <div className="rounded-lg border border-dashed border-neutral-300 px-6 py-16 text-center">
-          <h2 className="text-lg font-black text-neutral-950">Nada encontrado por aqui.</h2>
-          <p className="mt-2 text-sm text-neutral-500">Tente outro nome, marca ou categoria.</p>
+        <div className="border-y border-neutral-300 px-6 py-20 text-center">
+          <h2 className="store-section-title text-neutral-950">Nada encontrado por aqui.</h2>
+          <p className="mt-4 text-sm text-neutral-600">Tente outro nome, marca ou categoria.</p>
           <Link
             href="/categoria/tudo"
-            className="mt-6 inline-flex min-h-11 items-center justify-center rounded-full bg-black px-5 text-xs font-black uppercase tracking-[0.16em] text-white"
+            className="store-button-primary mt-8"
           >
             Ver catálogo completo
           </Link>
@@ -202,13 +197,13 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   return (
     <HomeMotionProvider>
     <HomeBrandsStrip brands={brands} />
-    <div className="store-shell pb-12 pt-5 lg:pb-16 lg:pt-8">
       <JsonLdScript id="rare-organization-json-ld" data={organizationJsonLd} />
       <JsonLdScript id="rare-website-json-ld" data={websiteJsonLd} />
       <h1 className="sr-only">RARE — streetwear importado e drops selecionados</h1>
       <HomeHeroCarousel slides={heroSlides} />
+    <div className="store-shell pb-16 lg:pb-24">
 
-      <section className="store-home-section mt-12 lg:mt-16" aria-labelledby="home-featured-title">
+      <section className="store-home-section store-editorial-section" aria-labelledby="home-featured-title">
         <SectionHeading
           id="home-featured-title"
           eyebrow="Favoritos"
@@ -217,45 +212,32 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           action={{ href: "/categoria/destaques", label: "Ver todos os destaques" }}
         />
         {selectedFeaturedProducts.length ? (
-          <ProductGrid products={selectedFeaturedProducts} commerce={commerce} priorityFirst headingLevel={3} />
+          <ProductGrid products={selectedFeaturedProducts} commerce={commerce} featured headingLevel={3} />
         ) : (
-          <div className="rounded-lg border border-dashed border-neutral-300 px-6 py-12 text-center">
-            <h3 className="text-lg font-black text-neutral-950">Nenhum destaque ativo no momento.</h3>
-            <p className="mt-2 text-sm font-semibold text-neutral-500">Volte em breve ou explore o catálogo completo.</p>
-            <Link href="/categoria/tudo" className="mt-6 inline-flex min-h-11 items-center rounded-full bg-black px-5 text-xs font-black uppercase tracking-[0.16em] text-white">
+          <div className="border-y border-neutral-300 px-6 py-16 text-center">
+            <h3 className="text-lg font-medium text-neutral-950">Nenhum destaque ativo no momento.</h3>
+            <p className="mt-2 text-sm font-normal text-neutral-600">Volte em breve ou explore o catálogo completo.</p>
+            <Link href="/categoria/tudo" className="store-button-primary mt-6">
               Ver catálogo completo
             </Link>
           </div>
         )}
       </section>
 
-      {recentProducts.length ? (
-        <section className="store-home-section mt-12 lg:mt-16" aria-labelledby="home-recent-title">
-          <SectionHeading
-            id="home-recent-title"
-            eyebrow="Novidades"
-            title="Chegou agora"
-            description="Peças recém adicionadas ao catálogo."
-            action={{ href: "/categoria/tudo", label: "Ver catálogo completo" }}
-          />
-          <ProductGrid products={recentProducts} commerce={commerce} columns="recent" headingLevel={3} />
-        </section>
-      ) : null}
-
-      <section aria-labelledby="home-limited-title" className="store-home-section mt-12 overflow-hidden rounded-lg bg-black px-6 py-10 text-white sm:px-8 lg:mt-16 lg:px-10 lg:py-12">
+      <section aria-labelledby="home-limited-title" className="store-home-section store-editorial-section overflow-hidden bg-neutral-950 px-6 py-12 text-white sm:px-10 lg:px-16 lg:py-16">
         <div className={`grid items-center gap-8 lg:gap-12 ${featuredSlides.length ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]" : ""}`}>
         <div>
-        <p className="text-xs font-black uppercase tracking-[0.26em] text-white/65">Drop RARE</p>
+        <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-white/80">Drop RARE</p>
         <div className="mt-5 flex flex-col gap-6">
           <div className="max-w-3xl">
-            <h2 id="home-limited-title" className="text-3xl font-black tracking-tight sm:text-4xl lg:text-5xl">Estoque limitado. Escolha sem pressa, mas não deixa passar.</h2>
-            <p className="mt-4 max-w-2xl text-sm font-semibold leading-6 text-white/62 sm:text-base">
+            <h2 id="home-limited-title" className="store-display max-w-xl">Estoque limitado. Escolha sem pressa, mas não deixa passar.</h2>
+            <p className="mt-6 max-w-2xl text-sm font-normal leading-6 text-white/80 sm:text-base">
               Quando uma peça sai, pode não voltar tão cedo.
             </p>
           </div>
           <Link
             href="/categoria/tudo"
-            className="inline-flex min-h-12 w-fit items-center justify-center gap-2 rounded-full border border-white/30 bg-white px-5 text-xs font-black uppercase tracking-[0.16em] text-black transition-[background-color,border-color,color,transform] duration-150 hover:-translate-y-px hover:bg-transparent hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 active:translate-y-0"
+            className="inline-flex min-h-12 w-fit items-center justify-center gap-3 border border-white bg-white px-6 text-xs font-semibold uppercase tracking-[0.12em] text-black transition-colors hover:bg-transparent hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
           >
             Ver catálogo completo
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -266,27 +248,27 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         </div>
       </section>
 
-      <section className="store-home-section mt-12 lg:mt-16" aria-labelledby="home-category-title">
+      <section className="store-home-section store-editorial-section" aria-labelledby="home-category-title">
         <SectionHeading
           id="home-category-title"
           eyebrow="Categorias"
           title="Escolha por categoria"
           description="Encontre camisetas, jaquetas, acessórios e peças para completar o visual."
         />
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          {categoryTiles.primary.map((tile) => (
-            <CategoryTile key={tile.slug} tile={tile} />
+        <div className="grid gap-x-8 sm:grid-cols-2 lg:grid-cols-3">
+          {categoryTiles.primary.map((tile, index) => (
+            <CategoryTile key={tile.slug} tile={tile} index={index} />
           ))}
         </div>
 
         {categoryTiles.accessories.length ? (
-          <div className="mt-6 rounded-lg border border-neutral-200 bg-neutral-100/70 p-4 sm:p-5">
+          <div className="mt-8 border-y border-neutral-300 py-6">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h3 className="text-lg font-black tracking-tight text-neutral-950">Acessórios por tipo</h3>
-                <p className="mt-1 text-sm font-semibold text-neutral-600">Bags, bonés, cuecas, meias, óculos e relógios para fechar o visual.</p>
+                <h3 className="text-lg font-medium tracking-tight text-neutral-950">Acessórios por tipo</h3>
+                <p className="mt-2 text-sm font-normal text-neutral-600">Bags, bonés, cuecas, meias, óculos e relógios para fechar o visual.</p>
               </div>
-              <Link href="/categoria/acessorios" className="text-xs font-black uppercase tracking-[0.16em] text-neutral-700 hover:text-neutral-950">
+              <Link href="/categoria/acessorios" className="store-section-link">
                 Ver acessórios
               </Link>
             </div>
@@ -295,10 +277,10 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                 <Link
                   key={tile.slug}
                   href={tile.href}
-                  className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-neutral-300 bg-white px-4 text-sm font-black text-neutral-800 transition-[border-color,background-color,transform] duration-150 hover:-translate-y-px hover:border-neutral-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 active:translate-y-0"
+                  className="inline-flex min-h-11 shrink-0 items-center gap-3 border-b border-neutral-400 px-3 text-sm font-medium text-neutral-950 transition-colors hover:border-neutral-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
                 >
                   {tile.name}
-                  <span className="text-[10px] uppercase tracking-[0.14em] text-neutral-500">
+                  <span className="text-[10px] uppercase tracking-[0.14em] text-neutral-600">
                     {tile.status === "available" ? tile.total : "Em breve"}
                   </span>
                 </Link>
@@ -308,15 +290,28 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         ) : null}
       </section>
 
-      <section className="store-home-section mt-12 border-y border-neutral-200 py-8 lg:mt-16" aria-label="Informações da loja">
+      {recentProducts.length ? (
+        <section className="store-home-section store-editorial-section" aria-labelledby="home-recent-title">
+          <SectionHeading
+            id="home-recent-title"
+            eyebrow="Novidades"
+            title="Chegou agora"
+            description="Peças recém adicionadas ao catálogo."
+            action={{ href: "/categoria/tudo", label: "Ver catálogo completo" }}
+          />
+          <ProductGrid products={recentProducts} commerce={commerce} headingLevel={3} />
+        </section>
+      ) : null}
+
+      <section className="store-home-section store-editorial-section border-t border-neutral-300 pt-10" aria-label="Informações da loja">
         <div className="grid gap-x-8 gap-y-7 sm:grid-cols-2 lg:grid-cols-3">
         {getTrustItems(commerce).map((item) => {
           const Icon = item.icon;
           return (
             <article key={item.title} className="grid grid-cols-[24px_1fr] gap-4">
-              <Icon className="h-5 w-5 text-success" aria-hidden="true" />
-              <div><h3 className="text-sm font-black text-neutral-950">{item.title}</h3>
-              <p className="mt-1 text-sm font-semibold leading-6 text-neutral-500">{item.text}</p></div>
+              <Icon className="h-5 w-5 text-neutral-950" aria-hidden="true" />
+              <div><h3 className="text-sm font-medium text-neutral-950">{item.title}</h3>
+              <p className="mt-2 text-sm font-normal leading-6 text-neutral-600">{item.text}</p></div>
             </article>
           );
         })}
