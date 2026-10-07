@@ -107,7 +107,7 @@ export function ProductImageZoomDialog({
       role="dialog"
       aria-modal="true"
       aria-label={`Imagem ampliada de ${productTitle}`}
-      className="fixed inset-0 z-[90] h-dvh overflow-hidden bg-neutral-950/92 px-4 py-4 text-white backdrop-blur-sm sm:px-6"
+      className="fixed inset-0 z-[90] h-dvh overflow-hidden bg-neutral-950/95 px-4 py-4 text-white sm:px-6"
     >
       <button type="button" tabIndex={-1} className="absolute inset-0 cursor-zoom-out" onClick={onClose} aria-label="Fechar zoom da imagem" />
       <div className="relative z-10 flex h-full min-h-0 flex-col">
@@ -116,7 +116,7 @@ export function ProductImageZoomDialog({
             ref={closeRef}
             type="button"
             onClick={onClose}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-white/12 text-white transition hover:bg-white/20 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            className="flex h-11 w-11 items-center justify-center border border-white/30 text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
             aria-label="Fechar visualização ampliada"
           >
             <X className="h-5 w-5" aria-hidden="true" />
@@ -127,23 +127,24 @@ export function ProductImageZoomDialog({
             <button
               type="button"
               onClick={onPrevious}
-              className="absolute left-0 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-white/12 text-white transition hover:bg-white/20 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:left-2"
+              className="absolute left-0 z-20 flex h-11 w-11 items-center justify-center border border-white/30 bg-neutral-950/80 text-white transition-colors hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:left-2"
               aria-label="Imagem ampliada anterior"
             >
               <ChevronLeft className="h-5 w-5" aria-hidden="true" />
             </button>
           ) : null}
           <ProductMedia
+            key={zoomedImage.url}
             media={zoomedImage}
             alt={zoomedImage.alt || productTitle}
             context="zoom"
-            className="max-h-full max-w-full rounded-lg object-contain shadow-[0_22px_80px_rgba(0,0,0,0.42)]"
+            className="max-h-full max-w-full object-contain"
           />
           {hasZoomNavigation ? (
             <button
               type="button"
               onClick={onNext}
-              className="absolute right-0 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-white/12 text-white transition hover:bg-white/20 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:right-2"
+              className="absolute right-0 z-20 flex h-11 w-11 items-center justify-center border border-white/30 bg-neutral-950/80 text-white transition-colors hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:right-2"
               aria-label="Próxima imagem ampliada"
             >
               <ChevronRight className="h-5 w-5" aria-hidden="true" />
@@ -151,7 +152,7 @@ export function ProductImageZoomDialog({
           ) : null}
         </div>
         {hasZoomNavigation ? (
-          <p className="pb-2 text-center text-xs font-black uppercase tracking-[0.18em] text-white/70">
+          <p className="pb-2 text-center text-xs font-medium tracking-[0.1em] text-white/70">
             {zoomedImagePosition + 1} / {zoomableImageCount}
           </p>
         ) : null}
@@ -376,19 +377,20 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
   }
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(340px,400px)] lg:gap-10 xl:grid-cols-[minmax(0,700px)_minmax(360px,420px)] xl:gap-14">
+    <div className="grid gap-9 lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)] lg:gap-10 xl:grid-cols-[minmax(0,1fr)_minmax(360px,420px)] xl:gap-16">
       <section className="min-w-0">
         <div
           ref={imageFrameRef}
           onMouseMove={handleImageMouseMove}
           onMouseEnter={handleImageMouseMove}
           onMouseLeave={() => setLensPosition(null)}
-          className={`relative aspect-[4/5] overflow-hidden rounded-lg border border-neutral-200 bg-white p-2 shadow-[0_18px_55px_rgba(15,23,42,0.08)] ${
+          className={`relative aspect-[4/5] overflow-hidden bg-neutral-100 ${
             mainMediaCanZoom ? "group cursor-zoom-in" : ""
           }`}
         >
           {image ? (
             <ProductMedia
+              key={image.url}
               media={image}
               alt={image.alt}
               context="detail"
@@ -398,21 +400,21 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
               priority
               imageRef={mainImageRef}
               placeholderLabel="Mídia indisponível"
-              className={`store-product-image h-full w-full rounded-lg object-cover ${
+              className={`store-product-image h-full w-full object-cover ${
                 mainMediaCanZoom
                   ? "motion-safe:transition-transform motion-safe:duration-500 motion-safe:ease-out motion-safe:md:group-hover:scale-[1.08]"
                   : ""
               }`}
             />
           ) : (
-            <ProductMediaPlaceholder label="Produto sem imagem" className="rounded-lg" />
+            <ProductMediaPlaceholder label="Produto sem imagem" />
           )}
           {image && mainMediaCanZoom ? (
             <button
               ref={zoomTriggerRef}
               type="button"
               onClick={() => setZoomImageIndex(imageIndex)}
-              className="absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/70 text-white shadow-[0_10px_30px_rgba(15,23,42,0.22)] backdrop-blur-sm transition hover:bg-black/80 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 focus-visible:ring-offset-white md:cursor-zoom-in"
+              className="absolute right-3 top-3 z-20 flex h-11 w-11 items-center justify-center bg-neutral-950/80 text-white transition-colors hover:bg-neutral-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 focus-visible:ring-offset-white md:cursor-zoom-in"
               aria-label="Ampliar imagem do produto"
             >
               <Maximize2 className="h-4 w-4" aria-hidden="true" />
@@ -451,7 +453,7 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
                   setLensPosition(null);
                   setImageIndex((current) => (current === 0 ? product.images.length - 1 : current - 1));
                 }}
-                className="absolute left-4 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-neutral-950 shadow transition-[background-color,box-shadow,transform] duration-150 hover:bg-white hover:shadow-md active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
+                className="absolute left-3 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center bg-white/90 text-neutral-950 transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
                 aria-label="Imagem anterior"
               >
                 <ChevronLeft className="h-5 w-5" />
@@ -462,7 +464,7 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
                   setLensPosition(null);
                   setImageIndex((current) => (current + 1) % product.images.length);
                 }}
-                className="absolute right-4 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-neutral-950 shadow transition-[background-color,box-shadow,transform] duration-150 hover:bg-white hover:shadow-md active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
+                className="absolute right-3 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center bg-white/90 text-neutral-950 transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
                 aria-label="Próxima imagem"
               >
                 <ChevronRight className="h-5 w-5" />
@@ -471,15 +473,15 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
           ) : null}
         </div>
         {product.images.length > 1 ? (
-          <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-5 lg:grid-cols-6">
+          <div className="scrollbar-none mt-3 flex gap-2 overflow-x-auto py-1 lg:flex-wrap lg:gap-3">
             {product.images.map((media, index) => {
               const mediaType = getProductMediaTypeFromUrl(media.url);
               return (
                 <button
                   key={media.url}
                   type="button"
-                  className={`relative aspect-square overflow-hidden rounded-lg border bg-white p-1 transition-[border-color,box-shadow,transform] duration-150 hover:border-neutral-950/40 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 ${
-                    index === imageIndex ? "border-neutral-950 shadow-[0_10px_30px_rgba(15,23,42,0.12)]" : "border-neutral-200"
+                  className={`relative aspect-square w-16 shrink-0 overflow-hidden border-2 bg-neutral-100 transition-colors hover:border-neutral-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-inset sm:w-20 ${
+                    index === imageIndex ? "border-neutral-950" : "border-transparent"
                   }`}
                   onClick={() => {
                     setLensPosition(null);
@@ -495,10 +497,10 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
                     poster={mediaType === "video" ? getProductVideoPoster(product.images, media.url) : undefined}
                     preload="none"
                     placeholderLabel="Mídia indisponível"
-                    className="h-full w-full rounded-md object-cover"
+                    className="h-full w-full object-cover"
                   />
                   {mediaType === "video" ? (
-                    <span className="absolute bottom-1 left-1 rounded bg-black px-1.5 py-0.5 text-[9px] font-black uppercase text-white">
+                    <span className="absolute bottom-1 left-1 bg-black px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-white">
                       Vídeo
                     </span>
                   ) : null}
@@ -508,25 +510,25 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
           </div>
         ) : null}
         {showProductLens ? (
-          <p className="mt-3 hidden text-center text-xs font-black uppercase tracking-[0.16em] text-neutral-600 lg:block">
+          <p className="mt-4 hidden text-xs font-normal text-neutral-600 lg:block">
             Passe o mouse para ampliar · clique para abrir
           </p>
         ) : null}
       </section>
 
       <aside className="lg:sticky lg:top-36 lg:self-start">
-        <p className="text-xs font-black uppercase tracking-[0.24em] text-neutral-500">Seleção RARE</p>
-        <h1 className="mt-3 text-3xl font-black tracking-tight text-neutral-950 lg:text-4xl">{product.title}</h1>
-        {soldOut ? <p className="mt-3 inline-flex rounded-full bg-black px-3 py-1 text-xs font-black uppercase tracking-wide text-white">Esgotado</p> : null}
+        <p className="store-section-label">Seleção RARE</p>
+        <h1 className="mt-3 break-words text-3xl font-semibold leading-tight tracking-tight text-neutral-950 sm:text-4xl">{product.title}</h1>
+        {soldOut ? <p className="mt-4 inline-flex bg-neutral-950 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-white">Esgotado</p> : null}
         {mainDescription ? (
-          <p className="mt-4 max-w-xl whitespace-pre-line text-sm font-semibold leading-6 text-neutral-600">{mainDescription}</p>
+          <p className="mt-5 max-w-xl whitespace-pre-line text-sm font-normal leading-7 text-neutral-600">{mainDescription}</p>
         ) : null}
-        <p className="mt-4 whitespace-nowrap text-3xl font-black text-neutral-950 lg:text-3xl">{formatMoney(product.priceInCents)}</p>
-        <InstallmentTerms amountInCents={product.priceInCents} checkoutEnabled={commerceState.checkoutEnabled} className="mt-2 text-sm font-semibold leading-6 text-neutral-600" />
+        <p className="mt-6 whitespace-nowrap text-2xl font-medium text-neutral-950 sm:text-3xl">{formatMoney(product.priceInCents)}</p>
+        <InstallmentTerms amountInCents={product.priceInCents} checkoutEnabled={commerceState.checkoutEnabled} className="mt-2 text-sm font-normal leading-6 text-neutral-600" />
 
-        <div className="mt-6 space-y-5 rounded-lg border border-neutral-200 bg-white p-5">
+        <div className="mt-7 space-y-6 border-y border-neutral-200 py-6">
           <fieldset>
-            <legend className="mb-3 block text-xs font-black uppercase tracking-[0.18em] text-neutral-500">Tamanho</legend>
+            <legend className="store-section-label mb-3 block">Tamanho</legend>
             <div className="flex flex-wrap gap-2">
               {purchasableVariants.map((variant) => {
                 const available = getAvailableStock(variant.stock, variant.reservedStock);
@@ -544,21 +546,21 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
                     setShippingOptions([]);
                     setShippingError(null);
                   }}
-                  className={`relative min-h-11 min-w-12 rounded-md border px-4 text-sm font-black transition ${selected ? "border-black bg-black text-white" : "border-neutral-300 bg-white text-neutral-950 hover:border-black"} disabled:cursor-not-allowed disabled:border-neutral-300 disabled:bg-neutral-100 disabled:text-neutral-600 disabled:line-through`}
+                  className={`relative min-h-11 min-w-12 border px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 ${selected ? "border-neutral-950 bg-neutral-950 text-white" : "border-neutral-300 bg-transparent text-neutral-950 hover:border-neutral-950"} disabled:cursor-not-allowed disabled:border-neutral-200 disabled:bg-neutral-100 disabled:text-neutral-500 disabled:line-through`}
                 >{variant.size}</button>;
               })}
             </div>
           </fieldset>
 
           <div>
-            <p className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-neutral-500">Quantidade</p>
+            <p className="store-section-label mb-3 block">Quantidade</p>
             <div className="flex flex-wrap items-center gap-3">
-              <div className="flex h-12 items-center rounded-md border border-neutral-300" role="group" aria-label="Controle de quantidade">
+              <div className="flex h-12 items-center border border-neutral-300" role="group" aria-label="Controle de quantidade">
                 <button type="button" onClick={() => setQuantity((current) => Math.max(1, current - 1))} disabled={quantity <= 1 || soldOut} className="flex h-12 w-12 items-center justify-center disabled:text-neutral-500" aria-label="Diminuir quantidade"><Minus className="h-4 w-4" /></button>
-                <span className="w-10 text-center text-sm font-black" aria-live="polite">{quantity}</span>
+                <span className="w-10 text-center text-sm font-medium" aria-live="polite">{quantity}</span>
                 <button type="button" onClick={() => setQuantity((current) => Math.min(availableStock, current + 1))} disabled={quantity >= availableStock || soldOut} className="flex h-12 w-12 items-center justify-center disabled:text-neutral-500" aria-label="Aumentar quantidade"><Plus className="h-4 w-4" /></button>
               </div>
-              {selectedVariant ? <span className="text-sm font-bold text-neutral-500">{availableStock} {availableStock === 1 ? "unidade disponível" : "unidades disponíveis"}</span> : null}
+              {selectedVariant ? <span className="text-xs font-normal text-neutral-600">{availableStock} {availableStock === 1 ? "unidade disponível" : "unidades disponíveis"}</span> : null}
             </div>
           </div>
 
@@ -566,27 +568,27 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
             type="button"
             onClick={addToCart}
             disabled={!commerceState.checkoutEnabled || soldOut || !selectedVariant || availableStock <= 0}
-            className="h-12 w-full rounded-lg bg-black px-6 text-sm font-black uppercase tracking-[0.14em] text-white transition-[background-color,box-shadow,transform] duration-150 hover:bg-neutral-800 hover:shadow-[0_10px_30px_rgba(15,23,42,0.16)] active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-neutral-500 disabled:shadow-none"
+            className="store-button-primary w-full"
           >
             {soldOut || availableStock <= 0 ? "ESGOTADO" : !commerceState.checkoutEnabled ? commerceState.checkoutActionLabel : "ADICIONAR AO CARRINHO"}
           </button>
 
-          {!commerceState.checkoutEnabled ? <p className="rounded-md bg-neutral-100 px-4 py-3 text-sm font-semibold leading-6 text-neutral-600">O catálogo continua disponível. Fale com a RARE para consultar esta peça; nenhum pagamento será solicitado pela loja agora.</p> : null}
+          {!commerceState.checkoutEnabled ? <p className="bg-neutral-100 px-4 py-3 text-sm font-normal leading-6 text-neutral-600">O catálogo continua disponível. Fale com a RARE para consultar esta peça; nenhum pagamento será solicitado pela loja agora.</p> : null}
 
-          {feedback ? <p className="text-sm font-bold text-success" role="status" aria-live="polite">{feedback}</p> : null}
+          {feedback ? <p className="text-sm font-medium text-success" role="status" aria-live="polite">{feedback}</p> : null}
 
           <a
             href={whatsappUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex h-12 w-full items-center justify-center rounded-lg border border-success px-6 text-sm font-black uppercase tracking-[0.14em] text-success transition-[background-color,box-shadow,transform] duration-150 hover:bg-green-50 hover:shadow-[0_10px_30px_rgba(22,128,60,0.1)] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success"
+            className="store-button-secondary w-full"
           >
             Fale com a RARE pelo WhatsApp
           </a>
         </div>
 
-        <div className="mt-6 rounded-lg border border-neutral-200 bg-white p-5">
-          <p className="text-sm font-black text-neutral-950">Frete e prazo</p>
+        <div className="border-b border-neutral-200 py-6">
+          <p className="text-sm font-semibold text-neutral-950">Frete e prazo</p>
           {commerceState.checkoutEnabled ? <>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row">
             <input
@@ -598,14 +600,14 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
               }}
               placeholder="Digite seu CEP"
               inputMode="numeric"
-              className="admin-input h-11"
+              className="store-input min-w-0"
               aria-label="Digite seu CEP para calcular o frete"
             />
             <button
               type="button"
               onClick={calculateShipping}
               disabled={shippingLoading || !selectedVariant}
-              className="inline-flex h-11 shrink-0 items-center justify-center rounded-lg bg-black px-5 text-xs font-black uppercase tracking-[0.14em] text-white transition hover:bg-neutral-800 disabled:cursor-wait disabled:bg-neutral-500"
+              className="store-button-primary shrink-0 disabled:cursor-wait"
             >
               {shippingLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Calcular frete
@@ -614,73 +616,73 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
           {shippingOptions.length ? (
             <div className="mt-4 grid gap-2">
               {shippingOptions.map((option) => (
-                <div key={option.id} className="rounded-lg border border-neutral-200 px-4 py-3 text-sm font-semibold text-neutral-600">
+                <div key={option.id} className="border border-neutral-200 px-4 py-3 text-sm font-normal text-neutral-600">
                   <div className="flex items-center justify-between gap-4">
-                    <span className="font-black text-neutral-950">
+                    <span className="font-semibold text-neutral-950">
                       {option.provider === "fixed" || option.provider === "melhor_envio" ? option.label : option.service}
                     </span>
-                    <span className="whitespace-nowrap font-black text-success">{formatMoney(option.amountCents)}</span>
+                    <span className="whitespace-nowrap font-medium text-neutral-950">{formatMoney(option.amountCents)}</span>
                   </div>
                   <p className="mt-1">{option.deliveryEstimateText}</p>
                 </div>
               ))}
             </div>
           ) : null}
-          {shippingError ? <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800">{shippingError}</p> : null}
-          <p className="mt-3 text-xs font-semibold leading-5 text-neutral-500">
+          {shippingError ? <p className="mt-3 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">{shippingError}</p> : null}
+          <p className="mt-3 text-xs font-normal leading-5 text-neutral-600">
             Frete e prazo podem variar conforme endereço e disponibilidade.
           </p>
-          </> : <p className="mt-3 text-sm font-semibold leading-6 text-neutral-600">A consulta automática está indisponível enquanto as compras estiverem pausadas. Fale com a RARE para tirar dúvidas gerais sobre envio.</p>}
-          <Link href="/politica-de-envio" className="mt-3 inline-flex text-sm font-black text-neutral-950 underline underline-offset-4">
+          </> : <p className="mt-3 text-sm font-normal leading-6 text-neutral-600">A consulta automática está indisponível enquanto as compras estiverem pausadas. Fale com a RARE para tirar dúvidas gerais sobre envio.</p>}
+          <Link href="/politica-de-envio" className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-neutral-950 underline underline-offset-4">
             Ver política de envio
           </Link>
         </div>
 
-        <div className="mt-5 grid gap-4 rounded-lg border border-neutral-200 bg-white p-5 text-sm font-bold text-neutral-700">
+        <div className="grid gap-5 py-6 text-sm font-normal text-neutral-700">
           <div className="flex items-start gap-3">
-            <ShieldCheck className="mt-0.5 h-5 w-5 text-success" />
+            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-neutral-600" />
             <span>
-              <span className="block font-black text-neutral-950">{commerceState.checkoutStatusTitle}</span>
-              <span className="mt-1 block font-semibold leading-6 text-neutral-600">{commerceState.checkoutStatusText}</span>
+              <span className="block font-medium text-neutral-950">{commerceState.checkoutStatusTitle}</span>
+              <span className="mt-1 block font-normal leading-6 text-neutral-600">{commerceState.checkoutStatusText}</span>
             </span>
           </div>
           <div className="flex items-start gap-3">
-            <Truck className="mt-0.5 h-5 w-5 text-success" />
+            <Truck className="mt-0.5 h-5 w-5 shrink-0 text-neutral-600" />
             <span>
-              <span className="block font-black text-neutral-950">{commerceState.checkoutEnabled ? "Envio para todo o Brasil" : "Consulta de envio"}</span>
-              <span className="mt-1 block font-semibold leading-6 text-neutral-600">{commerceState.checkoutEnabled ? "Frete e prazo dependem do CEP e da disponibilidade da operação." : "Condições de envio serão confirmadas quando a operação de compras voltar."}</span>
+              <span className="block font-medium text-neutral-950">{commerceState.checkoutEnabled ? "Envio para todo o Brasil" : "Consulta de envio"}</span>
+              <span className="mt-1 block font-normal leading-6 text-neutral-600">{commerceState.checkoutEnabled ? "Frete e prazo dependem do CEP e da disponibilidade da operação." : "Condições de envio serão confirmadas quando a operação de compras voltar."}</span>
             </span>
           </div>
           <div className="flex items-start gap-3">
-            <PackageCheck className="mt-0.5 h-5 w-5 text-success" />
+            <PackageCheck className="mt-0.5 h-5 w-5 shrink-0 text-neutral-600" />
             <span>
-              <span className="block font-black text-neutral-950">Estoque limitado</span>
-              <span className="mt-1 block font-semibold leading-6 text-neutral-600">Disponibilidade conforme o tamanho escolhido.</span>
+              <span className="block font-medium text-neutral-950">Estoque limitado</span>
+              <span className="mt-1 block font-normal leading-6 text-neutral-600">Disponibilidade conforme o tamanho escolhido.</span>
             </span>
           </div>
           <div className="flex items-start gap-3">
-            <RotateCcw className="mt-0.5 h-5 w-5 text-success" />
+            <RotateCcw className="mt-0.5 h-5 w-5 shrink-0 text-neutral-600" />
             <span>
-              <Link href="/trocas-e-devolucoes" className="block font-black text-neutral-950 underline underline-offset-4">
+              <Link href="/trocas-e-devolucoes" className="inline-flex min-h-11 items-center font-medium text-neutral-950 underline underline-offset-4">
                 Troca e devolução em até 7 dias
               </Link>
-              <span className="mt-1 block font-semibold leading-6 text-neutral-600">Consulte as regras antes da compra.</span>
+              <span className="mt-1 block font-normal leading-6 text-neutral-600">Consulte as regras antes da compra.</span>
             </span>
           </div>
           <div className="flex items-start gap-3">
-            <CircleHelp className="mt-0.5 h-5 w-5 text-success" />
+            <CircleHelp className="mt-0.5 h-5 w-5 shrink-0 text-neutral-600" />
             <span>
-              <span className="block font-black text-neutral-950">Atendimento direto</span>
-              <span className="mt-1 block font-semibold leading-6 text-neutral-600">Fale com a RARE pelo WhatsApp para tirar dúvidas sobre tamanho ou disponibilidade.</span>
+              <span className="block font-medium text-neutral-950">Atendimento direto</span>
+              <span className="mt-1 block font-normal leading-6 text-neutral-600">Fale com a RARE pelo WhatsApp para tirar dúvidas sobre tamanho ou disponibilidade.</span>
             </span>
           </div>
         </div>
       </aside>
       {fullDescription && fullDescription !== mainDescription ? (
-        <section className="border-t border-neutral-200 pt-8 lg:col-span-2 lg:pt-10" aria-labelledby="product-details-title">
+        <section className="border-t border-neutral-200 pt-9 lg:col-span-2 lg:pt-14" aria-labelledby="product-details-title">
           <p className="store-section-label">Sobre a peça</p>
-          <h2 id="product-details-title" className="mt-3 text-2xl font-black tracking-tight text-neutral-950">Detalhes do produto</h2>
-          <p className="mt-4 max-w-3xl whitespace-pre-line text-base font-semibold leading-8 text-neutral-600">{fullDescription}</p>
+          <h2 id="product-details-title" className="mt-3 text-2xl font-semibold tracking-tight text-neutral-950 sm:text-3xl">Detalhes do produto</h2>
+          <p className="mt-5 max-w-3xl whitespace-pre-line text-base font-normal leading-8 text-neutral-600">{fullDescription}</p>
         </section>
       ) : null}
       {zoomedImage && typeof document !== "undefined"

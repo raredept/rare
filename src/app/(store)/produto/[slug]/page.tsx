@@ -62,12 +62,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
   ]);
 
   return (
-    <div className="mx-auto max-w-[1240px] px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
+    <div className="store-shell py-5 pb-16 sm:py-6 sm:pb-20 lg:py-8 lg:pb-24">
       <JsonLdScript id="rare-product-json-ld" data={productJsonLd} />
       <JsonLdScript id="rare-product-breadcrumb-json-ld" data={breadcrumbJsonLd} />
-      <nav aria-label="Breadcrumb" className="scrollbar-none mb-6 flex items-center gap-2 overflow-x-auto whitespace-nowrap text-xs font-bold text-neutral-500">
-        <Link href="/" className="hover:text-neutral-950">Início</Link><span aria-hidden="true">/</span>
-        {productCategories.map((category) => <span key={category.slug} className="contents"><Link href={`/categoria/${category.slug}`} className="hover:text-neutral-950">{category.name}</Link><span aria-hidden="true">/</span></span>)}
+      <nav aria-label="Breadcrumb" className="scrollbar-none mb-5 flex min-h-11 items-center gap-2 overflow-x-auto whitespace-nowrap text-xs font-normal text-neutral-600 sm:mb-7">
+        <Link href="/" className="inline-flex min-h-11 items-center hover:text-neutral-950">Início</Link><span aria-hidden="true">/</span>
+        {productCategories.map((category) => <span key={category.slug} className="contents"><Link href={`/categoria/${category.slug}`} className="inline-flex min-h-11 items-center hover:text-neutral-950">{category.name}</Link><span aria-hidden="true">/</span></span>)}
         <span aria-current="page" className="truncate text-neutral-700">{product.title}</span>
       </nav>
       <ProductDetailClient
