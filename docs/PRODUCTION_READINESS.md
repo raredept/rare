@@ -1,6 +1,32 @@
 # RARE — production readiness
 
-## Current Phase 2 / WARP A/B awaiting owner result — 2026-10-07
+## Current Phase 2 / WARP A/B confirmed, owner DB window required — 2026-10-07
+
+Canonical current state: [RARE_MASTER_STATUS.md](cycles/RARE_MASTER_STATUS.md); events: [RARE_MASTER_LOG.md](cycles/RARE_MASTER_LOG.md); [database gate](security/STAGING_DATABASE_GATE.md), [secret activation gate](security/SECRET_ACTIVATION_GATE.md) and [owner-led support handoff](security/RAILWAY_BACKUP_SUPPORT_HANDOFF.md). **CURRENT_PHASE=2; PHASE_RESULT=BLOCKED; HUMAN_WARP_WINDOW_REQUIRED=YES; OWNER_WINDOW_CONFIRMATION=PENDING; RELEASE_SECURITY_FREEZE=ACTIVE.** The metadata audit is already approved, but no DB audit window has been explicitly confirmed. Current WARP DISCONNECTED does not authorize assuming an open window.
+
+**Owner-reported A/B; execution timestamp NOT SUPPLIED:** WARP baseline CONNECTED, SSH with WARP TIMEOUT_HISTORICAL, SSH without WARP PASS for **web rare-staging** in project **72ed12be-9a2a-4e13-8594-30ffd8ffa565** / staging **d8399691-dacf-41e9-a9d5-060c97672e39**, using official Railway SSH and remote `true`. The owner reports session establishment/command completion and expected closure, plus WARP restored YES at that test's end. This is not a PostgreSQL, runtime-target guard, READ ONLY or SQL PASS, and restoration of that A/B test does not confirm the current access window.
+
+```text
+WARP_SSH_INTERFERENCE=CONFIRMED_BY_A_B
+SSH_FAILURE_LAYER=CLOUDFLARE_WARP_PATH
+WARP_INTERNAL_MECHANISM=UNKNOWN
+RAILWAY_SSH_GATEWAY_FAILURE=NOT_PROVEN
+TCP_22_BLOCKER=NO
+SSH_IDENTITY_BLOCKER=NO
+RAILWAY_TARGET_RESOLUTION_BLOCKER=NO
+POSTGRES_SSH_PASS=NOT_VERIFIED
+SQL_EXECUTED=NO
+```
+
+These blocker classifications are limited to the owner-reported web A/B behavior; do not infer a successful PostgreSQL connection. The owner reports first-access addition of `ssh.railway.com` to `known_hosts` (TOFU); a root read-only check at **2026-10-07T17:45:59.956Z** found the entry present. Independent host-fingerprint pinning is not established. Codex made no host-trust/configuration write or bypass.
+
+Read-only checks on **2026-10-07 UTC**: native agent **17:45:59.275Z**, AVAILABLE / one expected ED25519 MATCH; WARP status **17:45:59.865Z**, DISCONNECTED, with no WARP action by Codex. PERSONAL auth/key reads **17:47:48–17:47:50 UTC** found the expected registration **PREEXISTING**, not this cycle's audit addition; preserve it and do not remove the owner's key. Control-plane metadata at **17:48:49.318Z** matched exact staging PostgreSQL Service **ed0a374e-79da-4aab-9e3a-bb684fb829d1**, Service Instance **3b37cfd9-f315-40df-a8a6-35673912d346**, current RUNNING Deployment Instance **371feb81-4709-4070-a96a-d9ad854e254b**, and observed web source **4ea73f50cafdbf67e16dc71de985052075feca42**; not SSH/runtime/database proof.
+
+No new SSH, SQL, READ ONLY check, ROLLBACK, key/provider write, backup, credential rotation, configuration, commerce or production action occurred. All 14 DB migration states, PostgreSQL version and five counts remain UNKNOWN; history verified NO. Historical cleanup does not mean today's PERSONAL inventory is empty. Latest verified backup **2026-10-07T13:59:32.490Z** remains a dated 0 snapshots / 0 schedules read, not refreshed; **2 cumulative creates / NO_THIRD_ATTEMPT**. Config **NOT VERIFIED** / safe activation **NOT PROVEN**; four affected credential categories in staging and production **COMPROMISED / ROTATION=NO / FREEZE=ACTIVE**. **PHASE_S_CAN_RESUME=NO; READY FOR MERGE / STAGING / EXTERNAL HOMOLOGATION / PRODUCTION=NO; AUTHORIZED FOR PRODUCTION=NO.** Owner-led support remains **CODEX_NOT_SENT / OWNER_STATUS_NOT_VERIFIED**.
+
+Next owner gate: explicitly confirm the temporary DB access window and control WARP restoration afterward. No automatic WARP disconnect, split tunnel/policy change, other protection disablement or production action. The approved metadata audit remains gated on fresh official PostgreSQL SSH and exact staging/runtime target proof, then **BEGIN READ ONLY** first; local statement timeout **5000ms** / lock timeout **2000ms**; **SHOW transaction_read_only** must return **on** before collection, otherwise ROLLBACK/ABORT. Only approved server version and `migration_name, checksum, started_at, finished_at, rolled_back_at`, necessary allowlisted schema metadata if inconsistency requires it, then **ROLLBACK and verified session closure**. No install/app change, migration, deploy/redeploy or activation/rotation. **STOP pending explicit owner window confirmation; no Phase 3/4/5.** Earlier dated sections retain history only.
+
+## Historical Phase 2 / WARP A/B awaiting owner result — 2026-10-07 (15:11 UTC status)
 
 Canonical current state: [RARE_MASTER_STATUS.md](cycles/RARE_MASTER_STATUS.md); events: [RARE_MASTER_LOG.md](cycles/RARE_MASTER_LOG.md); [database gate](security/STAGING_DATABASE_GATE.md), [secret activation gate](security/SECRET_ACTIVATION_GATE.md) and [owner-led support handoff](security/RAILWAY_BACKUP_SUPPORT_HANDOFF.md). **CURRENT_PHASE=2; PHASE_RESULT=BLOCKED; RELEASE_SECURITY_FREEZE=ACTIVE.** Next gate: owner A/B SSH results and WARP restoration confirmation. No without-WARP SSH PASS or cause confirmation is assumed.
 

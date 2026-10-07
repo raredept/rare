@@ -4,7 +4,15 @@ Assessment updated: 2026-10-07. **READY / DRAFT ONLY — OWNER_HANDLES_EXTERNALL
 
 The title describes the observed lack of a verified, listed snapshot. It does not establish that the backend performed no work or that a snapshot cannot appear later. Only preserved sanitized local evidence and current sanitized documents were inspected for an allowlisted trace ID: **TRACE_ID=NOT AVAILABLE**. No raw response, session transcript, environment file, credential or authentication configuration was opened or reproduced for that search. The initial capture did not cover every possible trace-ID location; raw-response absence is not asserted.
 
-## Current owner diagnostic report / WARP A/B gate — 2026-10-07
+## Current owner-confirmed WARP A/B / DB window pending — 2026-10-07
+
+The owner now reports the controlled A/B complete: WARP baseline **CONNECTED**, with-WARP **TIMEOUT_HISTORICAL**, without-WARP **PASS** for official SSH to exact Rare/staging **rare-staging web / remote true**, command completed/session closed as expected, and WARP reconnected **YES** after that A/B. Execution timestamp not supplied. **WARP_SSH_INTERFERENCE=CONFIRMED_BY_A_B / SSH_FAILURE_LAYER=CLOUDFLARE_WARP_PATH; RAILWAY_SSH_GATEWAY_FAILURE=NOT_PROVEN**. Describe only the demonstrated path behavior; no internal WARP mechanism or Railway gateway defect is identified. This is a web runtime-command report, not PostgreSQL or migration metadata evidence.
+
+Fresh Codex read-only preflight at **17:45:59Z** found agent AVAILABLE/expected MATCH, WARP **DISCONNECTED** without an action by Codex, and an existing ssh.railway.com known_hosts entry. Owner-reported first-use host acceptance is not independent fingerprint verification; no trust change/bypass occurred. PERSONAL inventory at **17:47:50.922Z** contains the expected **preexisting** key; no registration/removal was made and the owner's key must be preserved. Explicit control plane at **17:48:49.318Z** revalidated PG Service/ServiceInstance/known RUNNING DeploymentInstance and web source SHA in the existing tables. No new SSH/SQL/DB session; current owner-window confirmation remains pending (**HUMAN_WARP_WINDOW_REQUIRED=YES**), despite the observed disconnected state. Audit authority already exists; request only the owner's controlled window, never automatically toggle WARP or create split tunnel/policy changes.
+
+Backup/provider/config/security blockers remain independent; no new backup/listing/third attempt or Codex support transmission; owner external contact remains UNKNOWN. Do not attribute the historical backup errors to WARP based on an SSH A/B. The earlier request to investigate the unknown common SSH path below is historical, superseded by this owner report; provider diagnosis may still be needed for backups. No production or later phase is authorized.
+
+## Historical owner diagnostic report / WARP A/B gate — 2026-10-07
 
 The owner reports completion of official Railway Network Diagnostics; **execution timestamp was not supplied**. Sanitized results: HTTP endpoint **PASS/HTTP200**, edge **gru1**, traceroute **COMPLETED**, ping loss **0%**, latency approximately **19ms**, system resolver **connectivity-check.warp-svc / 127.0.2.2** with timeouts before resolution, Cloudflare **1.1.1.1 lookup PASS**, egress **AS13335**. Codex did not independently run/reproduce that diagnostic, download its tool or contact support. This new HTTP/DNS/routing evidence does not prove SSH health, provider failure or an internal WARP cause.
 
@@ -166,7 +174,7 @@ This addendum requests diagnosis only. It does not authorize another backup, key
 
 Thank you.
 
-The [official Railway Network Diagnostics](https://docs.railway.com/networking/troubleshooting/network-diagnostics) are now owner-reported complete; the next evidence is the owner-controlled WARP A/B outcome and restoration confirmation described above, not an instruction to repeat the diagnostic. Codex did not contact support or download/execute a diagnostic tool; owner external contact/result is not inferred. Share only reviewed sanitized evidence through a legitimate owner-approved channel. Do not disable or weaken antivirus, firewall, TLS or SSH host trust, change permanent WARP/SSH/global configuration, reuse the abandoned helper, or resume retries/provider mutations without the current access gate and exact authority.
+The [official Railway Network Diagnostics](https://docs.railway.com/networking/troubleshooting/network-diagnostics) and controlled WARP A/B are now owner-reported complete. Next is confirmation of the owner's current DB access window, followed only by the already-approved READ ONLY metadata audit, not another A/B or diagnostic retry. Codex did not contact support or download/execute a diagnostic tool; owner external contact/result is not inferred. Share only reviewed sanitized evidence through a legitimate owner-approved channel. Do not disable or weaken antivirus, firewall, TLS or SSH host trust, change permanent WARP/SSH/global configuration, reuse the abandoned helper, or resume retries/provider mutations without the current access gate and exact authority.
 
 ## Scope and stop
 

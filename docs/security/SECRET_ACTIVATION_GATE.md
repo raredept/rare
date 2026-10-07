@@ -1,6 +1,32 @@
 # RARE — secret activation & migration gate
 
-## Current Phase 2 / WARP A/B awaiting owner result — 2026-10-07
+## Current Phase 2 / WARP A/B confirmed, owner DB window required — 2026-10-07
+
+Current authority/state: [canonical Master status](../cycles/RARE_MASTER_STATUS.md), [Master log](../cycles/RARE_MASTER_LOG.md), [database gate](STAGING_DATABASE_GATE.md), and [owner-led support handoff](RAILWAY_BACKUP_SUPPORT_HANDOFF.md). **CURRENT_PHASE=2; PHASE_RESULT=BLOCKED; HUMAN_WARP_WINDOW_REQUIRED=YES; OWNER_WINDOW_CONFIRMATION=PENDING; RELEASE_SECURITY_FREEZE=ACTIVE; PHASE_S_CAN_RESUME=NO.** Metadata-only audit authority is already granted; an explicit owner-controlled DB access window is still required. Current WARP DISCONNECTED is not itself that confirmation.
+
+**Owner-reported controlled A/B; execution timestamp NOT SUPPLIED:** baseline WARP CONNECTED / SSH with WARP TIMEOUT_HISTORICAL; without WARP, official Railway SSH to Rare project **72ed12be-9a2a-4e13-8594-30ffd8ffa565**, staging **d8399691-dacf-41e9-a9d5-060c97672e39**, **web rare-staging**, remote `true`, established a session and completed the command. Connection closure was expected for `true`, not an error. The owner reports WARP restored **YES at the end of that A/B test**; this does not describe a later/current audit window. This is attributed owner evidence, not a PostgreSQL or Codex-executed SQL PASS.
+
+```text
+WARP_SSH_INTERFERENCE=CONFIRMED_BY_A_B
+SSH_FAILURE_LAYER=CLOUDFLARE_WARP_PATH
+WARP_INTERNAL_MECHANISM=UNKNOWN
+RAILWAY_SSH_GATEWAY_FAILURE=NOT_PROVEN
+TCP_22_BLOCKER=NO
+SSH_IDENTITY_BLOCKER=NO
+RAILWAY_TARGET_RESOLUTION_BLOCKER=NO
+POSTGRES_SSH_PASS=NOT_VERIFIED
+SQL_EXECUTED=NO
+```
+
+The NO blocker classifications describe the owner-reported successful web comparison, not universal connectivity or PostgreSQL/runtime/database proof. The owner also reports adding `ssh.railway.com` to `known_hosts` on first access (first-use TOFU); a root read-only check at **2026-10-07T17:45:59.956Z** found the entry present. Neither proves independent host-fingerprint pinning. No host-trust bypass, fingerprint substitution or known-host/configuration write was performed by Codex.
+
+**Separate current read-only checks:** native agent at **17:45:59.275Z** AVAILABLE, one expected ED25519 fingerprint MATCH; `warp-cli status` at **17:45:59.865Z** DISCONNECTED, with no connect/disconnect/configuration action by Codex. PERSONAL auth/key reads at **17:47:48–17:47:50 UTC** found the expected public-key registration **PREEXISTING**, not created in this cycle: preserve it, do not remove the owner's registration. Control-plane read at **17:48:49.318Z** matched exact staging PostgreSQL Service **ed0a374e-79da-4aab-9e3a-bb684fb829d1**, Service Instance **3b37cfd9-f315-40df-a8a6-35673912d346**, current RUNNING Deployment Instance **371feb81-4709-4070-a96a-d9ad854e254b**, and observed web source **4ea73f50cafdbf67e16dc71de985052075feca42**. These are metadata checks, not SSH runtime proof; dates in this paragraph are 2026-10-07 UTC.
+
+No new SSH, SQL, READ ONLY verification, ROLLBACK, key/provider mutation, backup, rotation, configuration or production operation occurred. PostgreSQL version, all five counts and all 14 real DB migration states remain UNKNOWN; history verified NO. Previous audit registration cleanup remains historical and does not imply the current PERSONAL inventory is empty. Backup remains an independent blocker: last verified listing **2026-10-07T13:59:32.490Z**, 0 snapshots / 0 schedules, not refreshed; cumulative creates **2 / NO_THIRD_ATTEMPT**. Effective next-deploy config **NOT VERIFIED** / safe activation **NOT PROVEN**; all four affected credential categories in staging and production **COMPROMISED / ROTATION=NO**; all release readiness NO. Support remains **CODEX_NOT_SENT / OWNER_STATUS_NOT_VERIFIED**.
+
+Next: owner explicitly confirms the temporary access window and controls WARP restoration afterward; Codex does not change WARP or create split-tunnel/policy workarounds, weaken McAfee/firewall/TLS/host trust, or touch production. Only fresh official PostgreSQL SSH and exact staging/runtime target proof may precede the approved metadata transaction: **BEGIN READ ONLY** first, local statement timeout **5000ms** / lock timeout **2000ms**, **SHOW transaction_read_only** must return **on** before metadata, otherwise ROLLBACK/ABORT. Collect approved server version and only `migration_name, checksum, started_at, finished_at, rolled_back_at`; necessary allowlisted schema metadata only if inconsistency requires it; finish with **ROLLBACK and verified session closure**. No install/app change, migration, deploy/redeploy, credential activation/rotation or Phase 3/4/5. **STOP pending explicit owner window confirmation.** Earlier dated sections are historical, not current execution authority.
+
+## Historical Phase 2 / WARP A/B awaiting owner result — 2026-10-07 (15:11 UTC status)
 
 Current authority/state: [canonical Master status](../cycles/RARE_MASTER_STATUS.md), [Master log](../cycles/RARE_MASTER_LOG.md), [database gate](STAGING_DATABASE_GATE.md), and [owner-led support handoff](RAILWAY_BACKUP_SUPPORT_HANDOFF.md). **CURRENT_PHASE=2; PHASE_RESULT=BLOCKED; RELEASE_SECURITY_FREEZE=ACTIVE; PHASE_S_CAN_RESUME=NO.** The next gate is the owner's A/B result plus WARP restoration confirmation, not an assumed SSH success or a new automatic retry.
 
