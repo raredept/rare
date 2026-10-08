@@ -1,6 +1,7 @@
 import { createElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { requireAdmin } from "@/lib/auth";
 
 // Every Admin page checks the session itself; the page logic is what is under test here.
 vi.mock("@/lib/auth", () => ({ requireAdmin: vi.fn(async () => ({ id: "admin-1", role: "ADMIN" })) }));
@@ -32,6 +33,10 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("next/link", () => ({
   default: ({ href, children, ...props }: { href: string; children: ReactNode }) =>
     createElement("a", { href, ...props }, children),
+}));
+
+vi.mock("@/app/admin/(protected)/readiness/actions", () => ({
+  saveOperationalEvidenceAction: vi.fn(),
 }));
 
 const originalEnv = process.env;
@@ -132,10 +137,10 @@ afterEach(() => {
 });
 
 describe("AdminReadinessPage", () => {
-  it("renders readiness status, blockers, actions and sanitized links", async () => {
+  it("renders readiness status, blockers and sanitized links with absent searchParams", async () => {
     const { default: AdminReadinessPage } = await import("@/app/admin/(protected)/readiness/page");
     process.env = { ...process.env, NODE_ENV: "production" };
-    const element = await AdminReadinessPage();
+    const element = await AdminReadinessPage({});
     const html = renderToStaticMarkup(element as ReactElement);
 
     expect(html).toContain("Prontidão de Venda");
@@ -159,6 +164,7 @@ describe("AdminReadinessPage", () => {
     expect(html).not.toContain(process.env.R2_SECRET_ACCESS_KEY);
     expect(html).not.toContain(process.env.MELHOR_ENVIO_TOKEN);
     expect(html).not.toContain("sk_test_value_that_must_not_render");
+    expect(requireAdmin).toHaveBeenCalledOnce();
   }, 10_000);
 
   it("renders a sanitized fallback when operational evidence table is not migrated", async () => {
@@ -168,7 +174,7 @@ describe("AdminReadinessPage", () => {
     });
     const { default: AdminReadinessPage } = await import("@/app/admin/(protected)/readiness/page");
     process.env = { ...process.env, NODE_ENV: "production" };
-    const element = await AdminReadinessPage();
+    const element = await AdminReadinessPage({});
     const html = renderToStaticMarkup(element as ReactElement);
 
     expect(html).toContain("Tabela de evidências ainda não aplicada");
@@ -178,5 +184,36 @@ describe("AdminReadinessPage", () => {
     expect(html).not.toContain("does not exist");
     expect(html).not.toContain("P2021");
     expect(html).not.toContain(process.env.DATABASE_URL);
+  });
+
+  it("preserves success and escaped error messages from promised searchParams", async () => {
+    const { default: AdminReadinessPage } = await import("@/app/admin/(protected)/readiness/page");
+    const element = await AdminReadinessPage({
+      searchParams: Promise.resolve({ success: "evidence-saved", error: "Revise <evidência>" }),
+    });
+    const html = renderToStaticMarkup(element as ReactElement);
+
+    expect(html).toContain("Evidência salva.");
+    expect(html).toContain("Revise &lt;evidência&gt;");
+    expect(html).toContain('role="alert"');
+    expect(html).not.toContain("Revise <evidência>");
+    expect(requireAdmin).toHaveBeenCalledOnce();
+    expect(mocks.prisma.storeSettings.findUnique).toHaveBeenCalledOnce();
+    expect(mocks.prisma.product.findMany).toHaveBeenCalledOnce();
+    expect(mocks.prisma.category.findMany).toHaveBeenCalledOnce();
+    expect(mocks.prisma.homeBannerSlide.findMany).toHaveBeenCalledOnce();
+    expect(mocks.prisma.operationalEvidence.findMany).toHaveBeenCalledOnce();
+  });
+
+  it("authorizes before loading readiness data with absent searchParams", async () => {
+    vi.mocked(requireAdmin).mockRejectedValueOnce(new Error("Unauthorized"));
+    const { default: AdminReadinessPage } = await import("@/app/admin/(protected)/readiness/page");
+
+    await expect(AdminReadinessPage({})).rejects.toThrow("Unauthorized");
+    expect(mocks.prisma.storeSettings.findUnique).not.toHaveBeenCalled();
+    expect(mocks.prisma.product.findMany).not.toHaveBeenCalled();
+    expect(mocks.prisma.category.findMany).not.toHaveBeenCalled();
+    expect(mocks.prisma.homeBannerSlide.findMany).not.toHaveBeenCalled();
+    expect(mocks.prisma.operationalEvidence.findMany).not.toHaveBeenCalled();
   });
 });

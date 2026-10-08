@@ -150,7 +150,7 @@ async function hasAdminDetailAccess() {
   }
 }
 
-export async function GET(request?: Request) {
+export async function GET(request: Request) {
   const env = validateEnvironment();
   const rateLimit = getRateLimitStatus();
   const runtimeMetadata = getServerRuntimeMetadata(process.env, packageJson.version);

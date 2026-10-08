@@ -52,7 +52,7 @@ type AdminReadinessPageProps = {
   searchParams?: Promise<{ success?: string; error?: string }>;
 };
 
-export default async function AdminReadinessPage({ searchParams }: AdminReadinessPageProps = {}) {
+export default async function AdminReadinessPage({ searchParams }: AdminReadinessPageProps) {
   // Checked here, not only in the layout: layouts do not re-render on client
   // navigation, so every page verifies the session next to its data.
   await requireAdmin();
