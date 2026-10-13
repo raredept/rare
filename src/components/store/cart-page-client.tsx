@@ -4,6 +4,8 @@ import { Loader2, MapPin, Minus, Plus, Trash2, UserRound } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { PaymentMethodPicker, type CheckoutPaymentMethod } from "@/components/store/payment-method-picker";
+import { CHECKOUT_RESERVATION_MINUTES as CHECKOUT_CARD_MINUTES, PIX_RESERVATION_MINUTES as CHECKOUT_PIX_MINUTES } from "@/lib/checkout-policy";
 import { useCart, type CartItem } from "@/components/store/cart-context";
 import { ProductMediaPlaceholder } from "@/components/store/product-media-placeholder";
 import { InstallmentTerms } from "@/components/store/installment-terms";
@@ -38,6 +40,8 @@ type CartPageClientProps = {
   };
   addresses: CheckoutAddress[];
   initialSelectedAddressId: string;
+  // Decided on the server: Pix is offered only when it is enabled and fully configured.
+  pixAvailable?: boolean;
   shippingSettings: ProvisionalShippingSettings & {
     shippingInstructions?: string | null;
   };
@@ -167,9 +171,11 @@ function formatCheckoutMessage(message: string) {
   return message;
 }
 
-export function CartPageClient({ customer, addresses, initialSelectedAddressId, shippingSettings, shippingConfig, welcomeCoupon }: CartPageClientProps) {
+export function CartPageClient({ customer, addresses, initialSelectedAddressId, pixAvailable = false, shippingSettings, shippingConfig, welcomeCoupon }: CartPageClientProps) {
   const { items, subtotalInCents, updateQuantity, removeItem } = useCart();
   const [selectedAddressId, setSelectedAddressId] = useState(initialSelectedAddressId);
+  const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>("card");
+  const payWithPix = pixAvailable && paymentMethod === "pix";
   const [shippingOptions, setShippingOptions] = useState<ShippingQuoteOption[]>([]);
   const [shippingQuoteContext, setShippingQuoteContext] = useState<ShippingQuoteContext | null>(null);
   const [selectedShipping, setSelectedShipping] = useState<ShippingSelection | null>(null);
@@ -249,11 +255,13 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
               selectedShippingMethod: legacyShippingPreview.result?.shippingMethod,
             }),
         couponCode: welcomeCoupon?.code,
+        paymentMethod: payWithPix ? "pix" as const : "card" as const,
       };
     },
     [
       checkoutCep,
       items,
+      payWithPix,
       legacyShippingPreview.result?.shippingMethod,
       selectedAddressId,
       selectedShippingOption?.id,
@@ -781,7 +789,8 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
             </div>
           </div>
           {error ? <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{error}</p> : null}
-          <p className="mt-5 text-sm font-semibold leading-6 text-neutral-700">Ao iniciar o pagamento, você terá 15 minutos para finalizar. O prazo fica salvo com seu pedido e não se renova ao voltar à loja. Pagamentos já em processamento aguardam confirmação.</p>
+          {pixAvailable ? <PaymentMethodPicker value={paymentMethod} onChange={setPaymentMethod} disabled={loading} /> : null}
+          <p className="mt-5 text-sm font-semibold leading-6 text-neutral-700">Ao iniciar o pagamento, você terá {payWithPix ? CHECKOUT_PIX_MINUTES : CHECKOUT_CARD_MINUTES} minutos para finalizar. O prazo fica salvo com seu pedido e não se renova ao voltar à loja. Pagamentos já em processamento aguardam confirmação.</p>
           <button
             type="button"
             onClick={checkout}
@@ -791,7 +800,7 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Finalizar compra
           </button>
-          <p className="mt-3 text-center text-xs font-bold text-neutral-500">Pagamento seguro pelos métodos habilitados na Stripe</p>
+          <p className="mt-3 text-center text-xs font-bold text-neutral-500">{payWithPix ? "Pix processado pelo Mercado Pago" : "Pagamento seguro pelos métodos habilitados na Stripe"}</p>
           <div className="mt-4 grid gap-2 border-t border-neutral-200 pt-4 text-center text-xs font-bold text-neutral-500 sm:grid-cols-2">
             <Link href="/politica-de-envio" className="underline underline-offset-4 hover:text-neutral-950">
               Política de envio

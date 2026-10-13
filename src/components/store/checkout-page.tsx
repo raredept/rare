@@ -4,6 +4,7 @@ import { CheckoutDeadline } from "@/components/store/checkout-deadline";
 import { getCurrentCustomer } from "@/lib/customer-auth";
 import { FIRST_ORDER_COUPON_CODE, FIRST_ORDER_COUPON_PERCENT, paidOrderStatuses } from "@/lib/coupons";
 import { isValidCpf, maskCpf } from "@/lib/cpf";
+import { isPixCheckoutAvailable } from "@/lib/mercadopago-config";
 import { prisma } from "@/lib/prisma";
 import { getStoreSettings } from "@/lib/settings";
 import { getEffectiveFixedShippingInCents, getEffectiveFreeShippingThresholdInCents, getShippingPublicConfig } from "@/lib/shipping";
@@ -61,6 +62,7 @@ export async function StoreCheckoutPage({ searchParams }: StoreCheckoutPageProps
       }}
       addresses={addresses}
       initialSelectedAddressId={selectedAddressId}
+      pixAvailable={isPixCheckoutAvailable()}
       shippingSettings={{
         shippingMode: settings.shippingMode,
         manualShippingInCents: settings.manualShippingInCents,

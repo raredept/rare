@@ -157,8 +157,17 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
           <section className="rounded-lg border border-neutral-200 bg-white p-5">
             <h2 className="text-lg font-black text-neutral-950">Pagamento</h2>
             <div className="mt-4 space-y-2 break-all text-xs font-semibold text-neutral-600">
-              <p>Checkout: {maskExternalId(order.stripeCheckoutSessionId)}</p>
-              <p>Payment Intent: {maskExternalId(order.stripePaymentIntentId)}</p>
+              {order.paymentProvider === "mercadopago" ? (
+                <>
+                  <p>Provedor: Mercado Pago</p>
+                  <p>Pagamento: {maskExternalId(order.mercadoPagoPaymentId)}</p>
+                </>
+              ) : (
+                <>
+                  <p>Checkout: {maskExternalId(order.stripeCheckoutSessionId)}</p>
+                  <p>Payment Intent: {maskExternalId(order.stripePaymentIntentId)}</p>
+                </>
+              )}
               <p>Método: {order.paymentMethod ?? "-"}</p>
             </div>
           </section>

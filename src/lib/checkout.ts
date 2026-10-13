@@ -27,7 +27,8 @@ import { canTransitionManually, invalidOrderTransitionMessage, releasableReserva
 import { notifyAdminsOfPaidOrder } from "@/lib/admin-notifications";
 import { getFirstOrderCouponDiscount, paidOrderStatuses } from "@/lib/coupons";
 import { enqueueOrderShippedEmail, enqueuePaidOrderEmail } from "@/lib/email-outbox";
-import { CHECKOUT_RESERVATION_MINUTES, STRIPE_SESSION_FALLBACK_SECONDS } from "@/lib/checkout-policy";
+import { CHECKOUT_RESERVATION_MINUTES, PIX_PROVIDER_EXPIRY_GRACE_SECONDS, PIX_RESERVATION_MINUTES, STRIPE_SESSION_FALLBACK_SECONDS } from "@/lib/checkout-policy";
+import { createPixPayment, getMercadoPagoConfig, isPixCheckoutAvailable, MercadoPagoError, type MercadoPagoConfig, type MercadoPagoPayment } from "@/lib/mercadopago";
 
 type CheckoutSessionCreateParams = NonNullable<Parameters<Stripe["checkout"]["sessions"]["create"]>[0]>;
 type CheckoutLineItem = NonNullable<CheckoutSessionCreateParams["line_items"]>[number];
@@ -47,6 +48,7 @@ export const checkoutRequiresLoginMessage = "Para finalizar sua compra, entre ou
 export const checkoutRequiresCpfMessage = "Precisamos de um CPF válido para finalizar sua compra.";
 export const checkoutInProgressMessage = "Você já tem um checkout em andamento. Aguarde alguns instantes e tente novamente.";
 export const paymentInProgressMessage = "Você já tem um pagamento em andamento. Aguarde a confirmação antes de iniciar outra compra.";
+export const pixUnavailableMessage = "O Pix está indisponível no momento. Escolha cartão ou tente novamente em instantes.";
 
 type CustomerAddressForCheckout = CheckoutAddressSource & {
   id: string;
@@ -82,6 +84,7 @@ type PaidOrderSource = {
   paymentIntentId?: string | null;
   paymentMethod?: string | null;
   movementReason: string;
+  provider?: "Stripe" | "Mercado Pago";
 };
 
 function toAbsoluteUrl(url?: string | null) {
@@ -228,7 +231,7 @@ async function finalizePaidOrder(
   source: PaidOrderSource,
 ) {
   if (source.currency !== "brl" || source.amountInCents !== order.totalInCents) {
-    throw new Error(`Stripe payment total does not match order ${order.orderNumber}.`);
+    throw new Error(`${source.provider ?? "Stripe"} payment total does not match order ${order.orderNumber}.`);
   }
   if (order.stripePaymentIntentId && source.paymentIntentId !== order.stripePaymentIntentId) {
     throw new Error(`Stripe PaymentIntent does not match order ${order.orderNumber}.`);
@@ -426,15 +429,15 @@ async function releaseOrderReservation(
 export async function supersedeOpenCheckouts(customerId: string, now = new Date()) {
   const open = await prisma.order.findMany({
     where: { customerId, status: "awaiting_payment", reservationExpiresAt: { not: null } },
-    select: { id: true, createdAt: true, stripeCheckoutSessionId: true },
+    select: { id: true, createdAt: true, stripeCheckoutSessionId: true, mercadoPagoPaymentId: true },
     take: 10,
   });
   if (!open.length) return;
 
   const { reconcileCheckoutExpiry } = await import("@/lib/checkout-expiry");
   for (const order of open) {
-    // Session creation may still be in flight (the Stripe call happens after the order is stored).
-    if (!order.stripeCheckoutSessionId && now.getTime() - order.createdAt.getTime() < 120_000) {
+    // Creation may still be in flight (the provider call happens after the order is stored).
+    if (!order.stripeCheckoutSessionId && !order.mercadoPagoPaymentId && now.getTime() - order.createdAt.getTime() < 120_000) {
       throw new Error(checkoutInProgressMessage);
     }
     let outcome: string;
@@ -454,13 +457,14 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
 
   const parsed = checkoutRequestSchema.parse(input);
   // Validate configuration before reserving stock.
-  const paymentMethodTypes = normalizePaymentMethodTypes();
+  const pixConfig = parsed.paymentMethod === "pix" ? requirePixCheckout() : null;
+  const paymentMethodTypes = pixConfig ? null : normalizePaymentMethodTypes();
   const appUrl = getAppUrl();
   const items = consolidateItems(parsed.items);
   let stripeShippingOption: ShippingOption | null = null;
 
   const settings = await getStoreSettings();
-  const reservationMinutes = CHECKOUT_RESERVATION_MINUTES;
+  const reservationMinutes = pixConfig ? PIX_RESERVATION_MINUTES : CHECKOUT_RESERVATION_MINUTES;
   const reservationExpiresAt = new Date(Date.now() + reservationMinutes * 60 * 1000);
   const checkoutCustomer = await prisma.customer.findFirst({
     where: {
@@ -658,6 +662,7 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
         shippingQuoteSnapshot: shipping.shippingQuoteSnapshot as Prisma.InputJsonObject | undefined,
         totalInCents: subtotalInCents - coupon.discountInCents + shipping.shippingInCents,
         status: "awaiting_payment",
+        ...(pixConfig ? { paymentProvider: "mercadopago" as const, paymentMethod: "pix" } : {}),
         reservationExpiresAt,
         checkoutDeadlineAt: reservationExpiresAt,
         checkoutExpiryJob: { create: { deadlineAt: reservationExpiresAt, nextAttemptAt: reservationExpiresAt } },
@@ -709,6 +714,10 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
       },
     });
   }, { timeout: 45_000 });
+
+  if (pixConfig) {
+    return createPixCharge(pixConfig, order, { ...checkoutCustomer, cpf: checkoutCustomer.cpf as string }, reservationExpiresAt, appUrl);
+  }
 
   const orderDiscountInCents = order.discountInCents ?? 0;
   const lineItems: CheckoutLineItem[] =
@@ -861,6 +870,138 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
 
     throw error;
   }
+}
+
+function requirePixCheckout(): MercadoPagoConfig {
+  if (!isPixCheckoutAvailable()) throw new Error(pixUnavailableMessage);
+  return getMercadoPagoConfig();
+}
+
+/**
+ * Second half of a Pix checkout: the order and its stock reservation already exist, priced by
+ * the server. Creates the Pix at Mercado Pago for exactly that total and stores what the
+ * shopper needs to pay it.
+ */
+async function createPixCharge(
+  config: MercadoPagoConfig,
+  order: { id: string; orderNumber: string; totalInCents: number; customerEmailSnapshot: string | null; customerNameSnapshot: string | null },
+  customer: { email: string; name: string; cpf: string },
+  reservationExpiresAt: Date,
+  appUrl: string,
+) {
+  try {
+    const payment = await createPixPayment(config, {
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      totalInCents: order.totalInCents,
+      providerExpiresAt: new Date(reservationExpiresAt.getTime() + PIX_PROVIDER_EXPIRY_GRACE_SECONDS * 1000),
+      payer: { email: order.customerEmailSnapshot ?? customer.email, name: order.customerNameSnapshot ?? customer.name, cpf: customer.cpf },
+      notificationUrl: `${appUrl}/api/mercadopago/webhook`,
+    });
+    // Never show a code that charges anything other than this order's total. The reservation
+    // stays in place and the worker closes the stray payment at Mercado Pago before releasing it.
+    if (payment.amountInCents !== order.totalInCents || payment.currency !== "brl" || payment.externalReference !== order.id || payment.paymentMethodId !== "pix") {
+      throw new MercadoPagoError("unknown", "MercadoPagoPixMismatch");
+    }
+    await prisma.$transaction([
+      prisma.order.update({ where: { id: order.id }, data: { mercadoPagoPaymentId: payment.id } }),
+      prisma.pixCharge.upsert({
+        where: { orderId: order.id },
+        create: { orderId: order.id, copyPaste: payment.pix.copyPaste, qrCodeBase64: payment.pix.qrCodeBase64, ticketUrl: payment.pix.ticketUrl },
+        update: { copyPaste: payment.pix.copyPaste, qrCodeBase64: payment.pix.qrCodeBase64, ticketUrl: payment.pix.ticketUrl },
+      }),
+    ]);
+
+    return {
+      url: `/pedido/pix/${order.id}`,
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      checkoutDeadlineAt: reservationExpiresAt.toISOString(),
+    };
+  } catch (error) {
+    // "rejected" means Mercado Pago created nothing, so the stock goes back now. Any other
+    // failure may have left a payable Pix behind: keep the reservation for the worker.
+    if (error instanceof MercadoPagoError && error.outcome === "rejected") {
+      await prisma.$transaction(async (tx) => {
+        const freshOrder = await tx.order.findUnique({ where: { id: order.id }, include: { items: true } });
+        if (freshOrder) {
+          await releaseOrderReservation(tx, freshOrder.id, freshOrder.items, "failed", "Falha ao criar o Pix no Mercado Pago");
+        }
+      });
+    }
+    throw error;
+  }
+}
+
+/**
+ * Applies the authoritative state of a Mercado Pago payment (always read from the API, never
+ * taken from a notification body) to its order. Idempotent: the order row lock serializes
+ * concurrent notifications and a paid order is never paid twice.
+ */
+export async function processMercadoPagoPayment(payment: MercadoPagoPayment) {
+  const result = await prisma.$transaction(async (tx) => {
+    const candidate = await tx.order.findFirst({
+      where: {
+        OR: [
+          { mercadoPagoPaymentId: payment.id },
+          ...(payment.externalReference ? [{ id: payment.externalReference }] : []),
+        ],
+      },
+      select: { id: true },
+    });
+    if (!candidate) return { status: "order_not_found" as const };
+
+    const order = await lockOrder(tx, candidate.id);
+    if (
+      order.paymentProvider !== "mercadopago" ||
+      payment.externalReference !== order.id ||
+      (order.mercadoPagoPaymentId && order.mercadoPagoPaymentId !== payment.id)
+    ) {
+      throw new Error(`Mercado Pago payment does not match order ${order.orderNumber}.`);
+    }
+    if (!order.mercadoPagoPaymentId) {
+      await tx.order.update({ where: { id: order.id }, data: { mercadoPagoPaymentId: payment.id } });
+    }
+
+    if (payment.status === "approved") {
+      if (payment.paymentMethodId !== "pix") {
+        throw new Error(`Mercado Pago payment method does not match order ${order.orderNumber}.`);
+      }
+      return finalizePaidOrder(tx, order, {
+        amountInCents: payment.amountInCents,
+        currency: payment.currency,
+        paymentMethod: "pix",
+        movementReason: "Pagamento Pix confirmado pelo Mercado Pago",
+        provider: "Mercado Pago",
+      });
+    }
+
+    if (payment.status === "cancelled" || payment.status === "rejected") {
+      const released = await releaseOrderReservation(
+        tx, order.id, order.items, "canceled",
+        payment.status === "cancelled" ? "Pix encerrado sem pagamento" : "Pix recusado pelo Mercado Pago",
+      );
+      if (released) await tx.order.update({ where: { id: order.id }, data: { checkoutExpiredAt: new Date() } });
+      return { status: released ? "released" as const : "ignored" as const };
+    }
+
+    // pending, in_process, refunded, charged_back...: nothing to apply here.
+    return { status: "ignored" as const };
+  });
+
+  await notifyPaidOrderIfNeeded(result);
+  return result;
+}
+
+/** Frees the stock of a Pix order for which Mercado Pago has no payment at all. */
+export async function releasePixOrderWithoutPayment(orderId: string) {
+  return prisma.$transaction(async (tx) => {
+    const order = await lockOrder(tx, orderId);
+    if (order.paymentProvider !== "mercadopago" || order.mercadoPagoPaymentId) return false;
+    const released = await releaseOrderReservation(tx, order.id, order.items, "canceled", "Pix não chegou a ser criado no Mercado Pago");
+    if (released) await tx.order.update({ where: { id: order.id }, data: { checkoutExpiredAt: new Date() } });
+    return released;
+  });
 }
 
 export async function processStripeCheckoutEvent(eventId: string, eventType: string, session: Stripe.Checkout.Session) {

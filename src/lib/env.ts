@@ -3,6 +3,7 @@ import { getEmailConfigurationIssue, getEmailConfigurationStatus } from "@/lib/e
 import { detectConfigDrift } from "@/lib/config-drift";
 import { isRestrictedAppEnv } from "@/lib/deployment-environment";
 import { getMelhorEnvioBaseUrlIssue } from "@/lib/melhor-envio-endpoint";
+import { getMercadoPagoConfigurationIssue, isPixEnabled } from "@/lib/mercadopago-config";
 
 type EnvIssueLevel = "error" | "warning";
 
@@ -331,6 +332,13 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
     // test delivery mode) without echoing any mailbox, host or token.
     const reason = getEmailConfigurationIssue(env);
     addIssue(issues, "error", "EMAIL_DRIVER", `Use EMAIL_DRIVER=disabled, or a complete smtp/zeptomail/resend configuration with an explicit environment, delivery mode, backlog cutoff and test allowlist outside production.${reason ? ` Motivo: ${reason}.` : ""}`);
+  }
+  if (isPixEnabled(env)) {
+    // Same idea as e-mail: a fixed reason code, never a token or secret.
+    const reason = getMercadoPagoConfigurationIssue(env);
+    if (reason) {
+      addIssue(issues, "error", "PIX_ENABLED", `PIX_ENABLED=true needs a complete Mercado Pago configuration for this environment (MERCADOPAGO_ACCESS_TOKEN and MERCADOPAGO_WEBHOOK_SECRET). Motivo: ${reason}.`);
+    }
   }
   const webPushPrivateKey = clean(env.WEB_PUSH_VAPID_PRIVATE_KEY);
   if (production) {

@@ -12,6 +12,7 @@ vi.mock("@/lib/checkout", () => ({
   checkoutRequiresLoginMessage: "Para finalizar sua compra, entre ou crie sua conta.",
   checkoutInProgressMessage: "Você já tem um checkout em andamento. Aguarde alguns instantes e tente novamente.",
   paymentInProgressMessage: "Você já tem um pagamento em andamento. Aguarde a confirmação antes de iniciar outra compra.",
+  pixUnavailableMessage: "O Pix está indisponível no momento. Escolha cartão ou tente novamente em instantes.",
   createCheckoutSession: routeMocks.createCheckoutSession,
 }));
 
@@ -194,5 +195,57 @@ describe("checkout route coupon errors", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({ error: "Cupom inválido ou disponível apenas na primeira compra." });
+  });
+});
+
+describe("checkout route with Pix", () => {
+  const customer = { id: "customer_1", name: "Cliente Teste", email: "cliente@example.com", phone: null, cpf: "12345678909", active: true };
+  const pixRequest = () => new Request("http://localhost/api/checkout", {
+    method: "POST",
+    body: JSON.stringify({ items: [{ productId: "prod_1", variantId: "var_1", quantity: 1 }], paymentMethod: "pix" }),
+  });
+  // Synthetic values only.
+  const mercadoPagoEnv = {
+    APP_ENV: "staging",
+    PIX_ENABLED: "true",
+    MERCADOPAGO_ACCESS_TOKEN: ["TEST", "1234567890123456", "101326", "syntheticcanary0123456789abcdef", "42"].join("-"),
+    MERCADOPAGO_WEBHOOK_SECRET: "syntheticwebhooksecret0123456789abcdef",
+  };
+
+  it("refuses a Pix checkout before reserving stock when Pix is off or not configured", async () => {
+    for (const env of [{}, { ...mercadoPagoEnv, PIX_ENABLED: "false" }, { ...mercadoPagoEnv, MERCADOPAGO_WEBHOOK_SECRET: "" }]) {
+      resetRateLimitMemoryForTests();
+      process.env = { ...originalEnv, CHECKOUT_ENABLED: "true", STRIPE_SECRET_KEY: "sk_test_123", ...env };
+      routeMocks.getCurrentCustomer.mockResolvedValueOnce(customer);
+
+      const response = await POST(pixRequest() as never);
+
+      expect(response.status).toBe(503);
+      await expect(response.json()).resolves.toEqual({ error: "O Pix está indisponível no momento. Escolha cartão ou tente novamente em instantes." });
+    }
+    expect(routeMocks.createCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  it("creates a Pix checkout without needing any Stripe credential", async () => {
+    process.env = { ...originalEnv, CHECKOUT_ENABLED: "true", STRIPE_SECRET_KEY: "", ...mercadoPagoEnv };
+    routeMocks.getCurrentCustomer.mockResolvedValueOnce(customer);
+    routeMocks.createCheckoutSession.mockResolvedValueOnce({ url: "/pedido/pix/order_pix_1", orderId: "order_pix_1", orderNumber: "RARE-PIX" });
+
+    const response = await POST(pixRequest() as never);
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ url: "/pedido/pix/order_pix_1" });
+    expect(routeMocks.createCheckoutSession).toHaveBeenCalledWith(expect.objectContaining({ paymentMethod: "pix" }), { customerId: "customer_1" });
+  });
+
+  it("answers 400 to a body that is not JSON, without creating anything", async () => {
+    process.env = { ...originalEnv, CHECKOUT_ENABLED: "true", STRIPE_SECRET_KEY: "sk_test_123" };
+    routeMocks.getCurrentCustomer.mockResolvedValueOnce(customer);
+
+    const response = await POST(new Request("http://localhost/api/checkout", { method: "POST", body: "{not json" }) as never);
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "Revise os dados do checkout." });
+    expect(routeMocks.createCheckoutSession).not.toHaveBeenCalled();
   });
 });

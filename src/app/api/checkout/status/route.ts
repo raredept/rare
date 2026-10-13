@@ -13,7 +13,8 @@ export async function GET(request: NextRequest) {
       checkoutDeadlineAt: { not: null }, createdAt: { gte: new Date(Date.now() - 24 * 60 * 60_000) },
     }) }, orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     select: { id: true, orderNumber: true, status: true, checkoutDeadlineAt: true,
-      reservationExpiresAt: true, checkoutExpiredAt: true, stripeCheckoutSessionId: true },
+      reservationExpiresAt: true, checkoutExpiredAt: true, stripeCheckoutSessionId: true,
+      paymentProvider: true, pixCharge: { select: { id: true } } },
   });
   const checkedAt = new Date();
   if (!order) return NextResponse.json({ order: null, serverNow: checkedAt.toISOString() }, { headers: { "Cache-Control": "private, no-store" } });
@@ -25,6 +26,10 @@ export async function GET(request: NextRequest) {
       const session = await getStripe().checkout.sessions.retrieve(order.stripeCheckoutSessionId);
       if (session.status === "open" && session.payment_status !== "paid") resumeUrl = session.url;
     } catch { /* A provider failure must never expose a possibly expired link. */ }
+  }
+  // A Pix is paid on the store's own page, which re-checks the order and its deadline itself.
+  if (!processing && order.status === "awaiting_payment" && deadline && deadline > checkedAt && order.paymentProvider === "mercadopago" && order.pixCharge) {
+    resumeUrl = `/pedido/pix/${order.id}`;
   }
   // Provider latency must not extend the displayed window or revive its link.
   const serverNow = new Date();

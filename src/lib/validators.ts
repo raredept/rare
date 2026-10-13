@@ -104,6 +104,8 @@ export const checkoutRequestSchema = z.object({
   shippingDestinationCep: cepSchema.optional(),
   selectedShippingMethod: z.string().trim().max(80).optional(),
   couponCode: z.string().trim().max(40).optional(),
+  // Card goes to Stripe (the default, so older clients keep working); Pix to Mercado Pago.
+  paymentMethod: z.enum(["card", "pix"]).optional(),
 });
 
 export const customerRegisterSchema = z

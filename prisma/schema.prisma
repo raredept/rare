@@ -24,6 +24,7 @@ enum OrderStatus {
 
 enum PaymentProvider {
   stripe
+  mercadopago
 }
 
 enum InventoryMovementType {
@@ -215,6 +216,9 @@ model Order {
   paymentProvider         PaymentProvider     @default(stripe)
   stripeCheckoutSessionId String?             @unique
   stripePaymentIntentId   String?
+  /// Mercado Pago payment id of the Pix created for this order (Checkout API).
+  mercadoPagoPaymentId    String?             @unique
+  pixCharge               PixCharge?
   paymentMethod           String?
   reservationExpiresAt    DateTime?
   checkoutDeadlineAt      DateTime?
@@ -437,6 +441,19 @@ model HomeBannerSlide {
   @@index([active, sortOrder])
   @@index([sortOrder])
   @@index([placement, active, sortOrder])
+}
+
+/// What the shopper needs to pay a Pix order again after a reload. Nothing here is a secret:
+/// the code only lets someone PAY this exact order.
+model PixCharge {
+  id           String   @id @default(cuid())
+  orderId      String   @unique
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  copyPaste    String
+  qrCodeBase64 String?
+  ticketUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model StripeEvent {

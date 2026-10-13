@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
 import type Stripe from "stripe";
-import type { CheckoutExpiryJob } from "@prisma/client";
+import type { CheckoutExpiryJob, Order } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
-import { processStripeCheckoutEvent, processStripePaymentIntentEvent } from "@/lib/checkout";
+import { processMercadoPagoPayment, processStripeCheckoutEvent, processStripePaymentIntentEvent, releasePixOrderWithoutPayment } from "@/lib/checkout";
+import { PIX_SEARCH_SETTLE_MS } from "@/lib/checkout-policy";
+import { cancelMercadoPagoPayment, findMercadoPagoPaymentsForOrder, getMercadoPagoConfig, getMercadoPagoPayment, type MercadoPagoPayment } from "@/lib/mercadopago";
 import { releasableReservationStatuses } from "@/lib/order-status";
 
 const LEASE_MS = 120_000;
@@ -33,6 +35,7 @@ async function recoverSession(order: { id: string; createdAt: Date }) {
 export async function reconcileCheckoutExpiry(orderId: string): Promise<ReconcileResult> {
   const order = await prisma.order.findUniqueOrThrow({ where: { id: orderId } });
   if (!releasableReservationStatuses.includes(order.status)) return { outcome: "terminal" };
+  if (order.paymentProvider === "mercadopago") return reconcilePixExpiry(order);
   const stripe = getStripe();
   const sessionId = order.stripeCheckoutSessionId ?? await recoverSession(order);
   let session = await stripe.checkout.sessions.retrieve(sessionId, { expand: ["payment_intent"] });
@@ -79,6 +82,58 @@ export async function reconcileCheckoutExpiry(orderId: string): Promise<Reconcil
   }
   if (session.status !== "expired") throw new Error("PROVIDER_NOT_EXPIRED");
   const result = await processStripeCheckoutEvent(`reconcile:${session.id}:expired`, "checkout.session.expired", session);
+  return { outcome: result.status === "released" ? "released" : "terminal", checkedAt: new Date() };
+}
+
+/**
+ * Pix counterpart of the Stripe reconciliation: settle a payment that arrived, otherwise close
+ * the Pix at Mercado Pago FIRST and release the stock only once the provider confirms it can no
+ * longer be paid. A Pix that is still payable never loses its reservation.
+ */
+async function reconcilePixExpiry(order: Order): Promise<ReconcileResult> {
+  const config = getMercadoPagoConfig();
+  let paymentId = order.mercadoPagoPaymentId;
+  if (!paymentId) {
+    // The creation response was lost. Mercado Pago's own search says whether a Pix exists.
+    const found = await findMercadoPagoPaymentsForOrder(config, order.id);
+    if (!found.length) {
+      if (Date.now() - order.createdAt.getTime() < PIX_SEARCH_SETTLE_MS) throw new Error("SESSION_CREATION_UNCONFIRMED");
+      const released = await releasePixOrderWithoutPayment(order.id);
+      return { outcome: released ? "released" : "terminal", checkedAt: new Date() };
+    }
+    paymentId = (found.find((payment) => payment.status === "approved") ?? found[0]).id;
+  }
+
+  let payment = await getMercadoPagoPayment(config, paymentId);
+  if (payment.externalReference !== order.id) throw new Error("SESSION_ORDER_MISMATCH");
+
+  const settle = async (current: MercadoPagoPayment): Promise<ReconcileResult | null> => {
+    if (current.status === "approved") {
+      await processMercadoPagoPayment(current);
+      return { outcome: "paid", checkedAt: new Date() };
+    }
+    if (current.status === "in_process" || current.status === "authorized" || current.status === "in_mediation") {
+      await prisma.order.updateMany({ where: { id: order.id, status: { in: releasableReservationStatuses } }, data: { reservationExpiresAt: null } });
+      return { outcome: "processing", checkedAt: new Date() };
+    }
+    return null;
+  };
+
+  const settled = await settle(payment);
+  if (settled) return settled;
+  if (payment.status === "pending") {
+    try {
+      await cancelMercadoPagoPayment(config, payment.id);
+    } catch {
+      // Paid meanwhile, already closed, or a timeout: read the authoritative state again.
+      // A second error bubbles into a durable retry with the stock still held.
+    }
+    payment = await getMercadoPagoPayment(config, payment.id);
+    const raced = await settle(payment);
+    if (raced) return raced;
+  }
+  if (payment.status !== "cancelled" && payment.status !== "rejected") throw new Error("PROVIDER_NOT_EXPIRED");
+  const result = await processMercadoPagoPayment(payment);
   return { outcome: result.status === "released" ? "released" : "terminal", checkedAt: new Date() };
 }
 

@@ -6,12 +6,14 @@ import {
   checkoutRequiresLoginMessage,
   createCheckoutSession,
   paymentInProgressMessage,
+  pixUnavailableMessage,
 } from "@/lib/checkout";
 import { getClientIp } from "@/lib/client-ip";
 import { assertCheckoutCredentialsMatchEnvironment } from "@/lib/config-drift";
 import { getCurrentCustomer } from "@/lib/customer-auth";
 import { isValidCpf } from "@/lib/cpf";
 import { getStripeSecretKey, isCheckoutEnabled } from "@/lib/env";
+import { isPixCheckoutAvailable } from "@/lib/mercadopago-config";
 import { rateLimit } from "@/lib/rate-limit";
 import { isInternalShippingConfigurationError, shopperShippingErrors, toShopperShippingError } from "@/lib/shipping-errors";
 
@@ -23,6 +25,7 @@ const publicCheckoutErrors = new Set([
   checkoutRequiresCpfMessage,
   checkoutInProgressMessage,
   paymentInProgressMessage,
+  pixUnavailableMessage,
   "Produto indisponível.",
   "Estoque insuficiente para finalizar este carrinho.",
   "Variação inválida.",
@@ -69,7 +72,8 @@ function getSafeLogMessage(error: unknown) {
   return message
     .replace(/[a-z]+:\/\/\S+/gi, "[redacted-url]")
     .replace(/\b(?:sk|rk)_(live|test)_[A-Za-z0-9_]+/g, "stripe_$1_[redacted]")
-    .replace(/\bwhsec_[A-Za-z0-9_]+/g, "whsec_[redacted]");
+    .replace(/\bwhsec_[A-Za-z0-9_]+/g, "whsec_[redacted]")
+    .replace(/\b(?:APP_USR|TEST)-[A-Za-z0-9_-]{8,}/g, "mercadopago_[redacted]");
 }
 
 export async function POST(request: NextRequest) {
@@ -106,17 +110,31 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: checkoutInProgressMessage }, { status: 409 });
   }
 
+  let body: unknown;
   try {
-    getStripeSecretKey();
-    // A live key in homologation, or a test key behind a live checkout, would
-    // take a payment that settles in the wrong place. Refuse before reserving.
-    assertCheckoutCredentialsMatchEnvironment();
+    body = await request.json();
   } catch {
-    return NextResponse.json({ error: checkoutUnavailableMessage }, { status: 503 });
+    return NextResponse.json({ error: "Revise os dados do checkout." }, { status: 400 });
+  }
+
+  // Each payment method needs only its own provider. Refuse before reserving stock.
+  const wantsPix = typeof body === "object" && body !== null && (body as { paymentMethod?: unknown }).paymentMethod === "pix";
+  if (wantsPix) {
+    if (!isPixCheckoutAvailable()) {
+      return NextResponse.json({ error: pixUnavailableMessage }, { status: 503 });
+    }
+  } else {
+    try {
+      getStripeSecretKey();
+      // A live key in homologation, or a test key behind a live checkout, would
+      // take a payment that settles in the wrong place. Refuse before reserving.
+      assertCheckoutCredentialsMatchEnvironment();
+    } catch {
+      return NextResponse.json({ error: checkoutUnavailableMessage }, { status: 503 });
+    }
   }
 
   try {
-    const body = await request.json();
     const session = await createCheckoutSession(body, { customerId: customer.id });
     return NextResponse.json(session);
   } catch (error) {
