@@ -13,9 +13,10 @@ const LIVE_KEY = ["sk", "live", "INTEGRATIONCANARYLIVE"].join("_");
 const TEST_KEY = ["sk", "test", "INTEGRATIONCANARYTEST"].join("_");
 const WEBHOOK_SECRET = ["whsec", "INTEGRATIONCANARYHOOK"].join("_");
 const ZEPTO_TOKEN = "ZEPTOCANARY" + "x".repeat(40);
+const RESEND_KEY = ["re", "RESENDCANARY", "x".repeat(24)].join("_");
 const SMTP_PASSWORD = "SMTPCANARYPASSWORD";
 const ME_TOKEN = "MECANARYTOKEN";
-const secrets = [LIVE_KEY, TEST_KEY, WEBHOOK_SECRET, ZEPTO_TOKEN, SMTP_PASSWORD, ME_TOKEN];
+const secrets = [LIVE_KEY, TEST_KEY, WEBHOOK_SECRET, ZEPTO_TOKEN, RESEND_KEY, SMTP_PASSWORD, ME_TOKEN];
 
 const base = {
   DATABASE_URL: "postgresql://rare:pw@db.canary.local:5432/rare",
@@ -56,6 +57,12 @@ const smtp = {
 const zepto = {
   EMAIL_DRIVER: "zeptomail",
   ZEPTOMAIL_SEND_TOKEN: ZEPTO_TOKEN,
+  EMAIL_FROM_ORDERS: "pedidos@raredept.com.br",
+  EMAIL_SEND_NOT_BEFORE: "2026-01-01T00:00:00Z",
+};
+const resend = {
+  EMAIL_DRIVER: "resend",
+  RESEND_API_KEY: RESEND_KEY,
   EMAIL_FROM_ORDERS: "pedidos@raredept.com.br",
   EMAIL_SEND_NOT_BEFORE: "2026-01-01T00:00:00Z",
 };
@@ -138,7 +145,7 @@ describe("all three e-mail drivers survive the integration", () => {
   });
 
   it("homologation can never send in production mode, whichever driver", () => {
-    for (const driver of [smtp, zepto]) {
+    for (const driver of [smtp, zepto, resend]) {
       const result = run({ ...stagingOk, ...driver, EMAIL_DELIVERY_MODE: "production", EMAIL_TEST_RECIPIENTS: "qa@raredept.com.br" });
       const issue = result.errors.find((i) => i.variable === "EMAIL_DRIVER");
       expect(issue?.message).toContain("EmailEnvironmentModeMismatch");
@@ -147,10 +154,20 @@ describe("all three e-mail drivers survive the integration", () => {
 
   it("production can never run in test mode, whichever driver", () => {
     const prodOk = { ...production, STRIPE_SECRET_KEY: LIVE_KEY, MELHOR_ENVIO_ENV: "production" };
-    for (const driver of [smtp, zepto]) {
+    for (const driver of [smtp, zepto, resend]) {
       const result = run({ ...prodOk, ...driver, EMAIL_DELIVERY_MODE: "test", EMAIL_TEST_RECIPIENTS: "qa@raredept.com.br" });
       expect(result.errors.find((i) => i.variable === "EMAIL_DRIVER")?.message).toContain("EmailEnvironmentModeMismatch");
     }
+  });
+
+  it("resend in homologation needs test mode and an allowlist", () => {
+    expect(errorVariables({ ...stagingOk, ...resend, EMAIL_DELIVERY_MODE: "test", EMAIL_TEST_RECIPIENTS: "qa@raredept.com.br" })).not.toContain("EMAIL_DRIVER");
+    expect(errorVariables({ ...stagingOk, ...resend, EMAIL_DELIVERY_MODE: "test" })).toContain("EMAIL_DRIVER");
+  });
+
+  it("names the missing Resend key without echoing anything", () => {
+    const result = run({ ...stagingOk, ...resend, RESEND_API_KEY: "", EMAIL_DELIVERY_MODE: "test", EMAIL_TEST_RECIPIENTS: "qa@raredept.com.br" });
+    expect(result.errors.find((i) => i.variable === "EMAIL_DRIVER")?.message).toContain("MissingRESEND_API_KEY");
   });
 
   it("names the missing ZeptoMail token without echoing anything", () => {

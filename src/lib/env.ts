@@ -330,7 +330,7 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
     // The reason code says which rule failed (for example a production deployment in
     // test delivery mode) without echoing any mailbox, host or token.
     const reason = getEmailConfigurationIssue(env);
-    addIssue(issues, "error", "EMAIL_DRIVER", `Use EMAIL_DRIVER=disabled, or a complete smtp/zeptomail configuration with an explicit environment, delivery mode, backlog cutoff and test allowlist outside production.${reason ? ` Motivo: ${reason}.` : ""}`);
+    addIssue(issues, "error", "EMAIL_DRIVER", `Use EMAIL_DRIVER=disabled, or a complete smtp/zeptomail/resend configuration with an explicit environment, delivery mode, backlog cutoff and test allowlist outside production.${reason ? ` Motivo: ${reason}.` : ""}`);
   }
   const webPushPrivateKey = clean(env.WEB_PUSH_VAPID_PRIVATE_KEY);
   if (production) {
