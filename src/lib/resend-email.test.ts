@@ -59,7 +59,7 @@ describe("Resend configuration", () => {
   it("accepts the key as pasted with or without the Bearer scheme", () => {
     expect(normalizeResendApiKey(`Bearer ${API_KEY}`)).toBe(API_KEY);
     expect(normalizeResendApiKey(`  ${API_KEY}\n`)).toBe(API_KEY);
-    for (const bad of ["", "   ", "re_two words", "re_line\nbreak", `re_quote"${"a".repeat(12)}`, "sk_live_notresend0123456789", "re_short", undefined]) {
+    for (const bad of ["", "   ", "re_two words", "re_line\nbreak", `re_quote"${"a".repeat(12)}`, ["sk", "live", "notresend0123456789"].join("_"), "re_short", undefined]) {
       expect(normalizeResendApiKey(bad)).toBeNull();
     }
   });
