@@ -9,10 +9,17 @@ export type CartItem = {
   slug: string;
   size: string;
   image?: string;
+  /** Display price; refreshed from the server (see syncPrices). The checkout recomputes it. */
   priceInCents: number;
   quantity: number;
   maxQuantity: number;
+  /** Catalog price when an automatic promotion lowers priceInCents. */
+  basePriceInCents?: number;
+  /** True when an automatic promotion applies (coupons do not combine with it). */
+  promotional?: boolean;
 };
+
+export type CartServerPrice = { priceInCents: number; basePriceInCents: number; promotional: boolean };
 
 type CartContextValue = {
   items: CartItem[];
@@ -25,6 +32,7 @@ type CartContextValue = {
   clearCart: () => void;
   openCart: () => void;
   closeCart: () => void;
+  syncPrices: (prices: Record<string, CartServerPrice>) => void;
 };
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -129,6 +137,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems((current) => (current.length ? [] : current));
   }, []);
 
+  // Replaces stored display prices with the server's current ones (a promotion may have started
+  // or ended since the item was added). Only known variants with a valid price are touched.
+  const syncPrices = useCallback((prices: Record<string, CartServerPrice>) => {
+    setItems((current) => {
+      let changed = false;
+      const next = current.map((item) => {
+        const price = prices[item.variantId];
+        if (!price || !Number.isSafeInteger(price.priceInCents) || price.priceInCents < 0) return item;
+        if (item.priceInCents === price.priceInCents && item.basePriceInCents === price.basePriceInCents && item.promotional === price.promotional) return item;
+        changed = true;
+        return { ...item, priceInCents: price.priceInCents, basePriceInCents: price.basePriceInCents, promotional: price.promotional };
+      });
+      return changed ? next : current;
+    });
+  }, []);
+
   const openCart = useCallback(() => {
     setIsCartOpen(true);
   }, []);
@@ -149,8 +173,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       clearCart,
       openCart,
       closeCart,
+      syncPrices,
     }),
-    [addItem, clearCart, closeCart, count, isCartOpen, items, openCart, removeItem, subtotalInCents, updateQuantity],
+    [addItem, clearCart, closeCart, count, isCartOpen, items, openCart, removeItem, subtotalInCents, syncPrices, updateQuantity],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

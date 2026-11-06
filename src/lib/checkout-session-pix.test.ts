@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => {
     order: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), findUniqueOrThrow: vi.fn() },
     productVariant: { findMany: vi.fn(), updateMany: vi.fn() },
     inventoryMovement: { create: vi.fn() },
+    promotion: { findMany: vi.fn() },
   };
   return {
     tx,
@@ -87,6 +88,7 @@ beforeEach(() => {
     typeof work === "function" ? (work as (transaction: typeof mocks.tx) => unknown)(mocks.tx) : Promise.all(work as Promise<unknown>[]),
   );
   mocks.prisma.order.findMany.mockResolvedValue([]);
+  mocks.tx.promotion.findMany.mockResolvedValue([]);
   mocks.prisma.order.update.mockResolvedValue({});
   mocks.prisma.pixCharge.upsert.mockResolvedValue({});
   mocks.prisma.customer.findFirst.mockResolvedValue({ id: "customer_1", name: "Cliente Teste", email: "cliente@example.com", phone: "11999999999", cpf: "12345678909" });

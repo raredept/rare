@@ -26,6 +26,8 @@ import { makeOrderNumber } from "@/lib/slug";
 import { canTransitionManually, invalidOrderTransitionMessage, releasableReservationStatuses, shouldReleaseReservationOnStatusChange } from "@/lib/order-status";
 import { notifyAdminsOfPaidOrder } from "@/lib/admin-notifications";
 import { getFirstOrderCouponDiscount, paidOrderStatuses } from "@/lib/coupons";
+import { priceProduct } from "@/lib/promotions/engine";
+import { loadApplicablePromotionRules } from "@/lib/promotions/store";
 import { enqueueOrderShippedEmail, enqueuePaidOrderEmail } from "@/lib/email-outbox";
 import { CHECKOUT_RESERVATION_MINUTES, PIX_PROVIDER_EXPIRY_GRACE_SECONDS, PIX_RESERVATION_MINUTES, STRIPE_SESSION_FALLBACK_SECONDS } from "@/lib/checkout-policy";
 import { createPixPayment, getMercadoPagoConfig, isPixCheckoutAvailable, MercadoPagoError, type MercadoPagoConfig, type MercadoPagoPayment } from "@/lib/mercadopago";
@@ -547,6 +549,10 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
     });
 
     const variantsById = new Map(variants.map((variant) => [variant.id, variant]));
+    // Prices come only from the catalog and the promotions active at this instant, read inside
+    // the same transaction. Nothing price-related in the request body is used.
+    const pricingNow = new Date();
+    const promotionRules = await loadApplicablePromotionRules(tx, pricingNow);
     const orderItems = items.map((item) => {
       const variant = variantsById.get(item.variantId);
       if (!variant) {
@@ -557,24 +563,37 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
         throw new Error("Produto indisponível.");
       }
 
-      const totalInCents = variant.product.priceInCents * item.quantity;
+      const price = priceProduct(promotionRules, variant.product, pricingNow);
+      const totalInCents = price.finalPriceInCents * item.quantity;
       return {
         productId: variant.productId,
         productTitleSnapshot: variant.product.title,
         variantId: variant.id,
         sizeSnapshot: variant.size,
         quantity: item.quantity,
-        unitPriceInCents: variant.product.priceInCents,
+        unitPriceInCents: price.finalPriceInCents,
         totalInCents,
+        // Self-contained audit trail: the order stays readable if the promotion changes later.
+        basePriceInCents: price.basePriceInCents,
+        promotionId: price.promotion?.id ?? null,
+        promotionName: price.promotion?.name ?? null,
+        promotionCode: price.promotion?.slug ?? null,
+        promotionDiscountInCents: price.discountInCents,
       };
     });
 
     const subtotalInCents = orderItems.reduce((sum, item) => sum + item.totalInCents, 0);
-    const coupon = getFirstOrderCouponDiscount({
+    const promotionDiscountInCents = orderItems.reduce((sum, item) => sum + item.promotionDiscountInCents * item.quantity, 0);
+    // Stacking policy: the first-order coupon applies only to items WITHOUT an automatic
+    // promotion. With nothing eligible, the coupon is simply not applied (not an error).
+    const couponEligibleSubtotalInCents = orderItems.filter((item) => !item.promotionId).reduce((sum, item) => sum + item.totalInCents, 0);
+    // The code is still validated (invalid / not first purchase -> error) even when nothing is eligible.
+    const requestedCoupon = getFirstOrderCouponDiscount({
       code: parsed.couponCode,
-      subtotalInCents,
+      subtotalInCents: couponEligibleSubtotalInCents,
       paidOrderCount,
     });
+    const coupon = couponEligibleSubtotalInCents > 0 ? requestedCoupon : { code: null, discountInCents: 0 };
     const quoteEnabled = isShippingEnabled(settings);
     const shipping = quoteEnabled
       ? await (async () => {
@@ -597,7 +616,7 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
                 lengthCm: variant.product.lengthCm,
                 widthCm: variant.product.widthCm,
                 heightCm: variant.product.heightCm,
-                priceInCents: variant.product.priceInCents,
+                priceInCents: orderItems.find((orderItem) => orderItem.variantId === variant.id)?.unitPriceInCents ?? variant.product.priceInCents,
               };
             }),
           );
@@ -656,6 +675,7 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
         subtotalInCents,
         couponCode: coupon.code,
         discountInCents: coupon.discountInCents,
+        promotionDiscountInCents,
         shippingInCents: shipping.shippingInCents,
         shippingMethodSnapshot: shipping.shippingMethod,
         shippingCepSnapshot: shipping.shippingCep,

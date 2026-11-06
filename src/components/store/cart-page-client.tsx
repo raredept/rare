@@ -172,7 +172,31 @@ function formatCheckoutMessage(message: string) {
 }
 
 export function CartPageClient({ customer, addresses, initialSelectedAddressId, pixAvailable = false, shippingSettings, shippingConfig, welcomeCoupon }: CartPageClientProps) {
-  const { items, subtotalInCents, updateQuantity, removeItem } = useCart();
+  const { items, subtotalInCents, updateQuantity, removeItem, syncPrices } = useCart();
+  const priceSignature = useMemo(() => items.map((item) => `${item.productId}:${item.variantId}`).sort().join("|"), [items]);
+  useEffect(() => {
+    if (!priceSignature) return;
+    const controller = new AbortController();
+    fetch("/api/cart/pricing", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({ items: priceSignature.split("|").map((pair) => {
+        const [productId, variantId] = pair.split(":");
+        return { productId, variantId };
+      }) }),
+    })
+      .then(async (response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (data?.prices) syncPrices(data.prices);
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [priceSignature, syncPrices]);
+  // Coupons never stack with an automatic promotion: the server applies the coupon only to items
+  // without one, and so does this preview.
+  const couponEligibleSubtotalInCents = items.filter((item) => !item.promotional).reduce((sum, item) => sum + item.priceInCents * item.quantity, 0);
+  const hasPromotionalItems = items.some((item) => item.promotional);
   const [selectedAddressId, setSelectedAddressId] = useState(initialSelectedAddressId);
   const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>("card");
   const payWithPix = pixAvailable && paymentMethod === "pix";
@@ -232,7 +256,7 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
     ? selectedShippingOption?.amountCents ?? 0
     : legacyShippingPreview.result?.shippingInCents ?? 0;
   const totalInCents = subtotalInCents + shippingInCents;
-  const discountInCents = welcomeCoupon ? calculatePercentDiscountInCents(subtotalInCents, welcomeCoupon.percentOff) : 0;
+  const discountInCents = welcomeCoupon ? calculatePercentDiscountInCents(couponEligibleSubtotalInCents, welcomeCoupon.percentOff) : 0;
   const discountedTotalInCents = totalInCents - discountInCents;
 
   const checkoutPayload = useMemo(
@@ -549,6 +573,11 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
               <p className="mt-2 text-sm font-semibold leading-6 text-emerald-900">
                 Cupom <span className="font-black tracking-wide">{welcomeCoupon.code}</span> aplicado automaticamente após o cadastro.
               </p>
+              {hasPromotionalItems ? (
+                <p className="mt-2 text-sm font-semibold leading-6 text-emerald-900">
+                  O cupom não é cumulativo com promoções: vale só para os itens sem desconto automático.
+                </p>
+              ) : null}
             </section>
           ) : null}
 
@@ -866,7 +895,15 @@ function CartItems({
               </div>
             </div>
             <span className="hidden text-sm font-semibold text-neutral-700 lg:block">{item.size}</span>
-            <span className="whitespace-nowrap text-sm font-bold text-neutral-950">{formatMoney(item.priceInCents)}</span>
+            <span className="whitespace-nowrap text-sm font-bold text-neutral-950">
+              {item.promotional && item.basePriceInCents && item.basePriceInCents > item.priceInCents ? (
+                <>
+                  <span className="sr-only">Preço original {formatMoney(item.basePriceInCents)}, preço promocional </span>
+                  <s aria-hidden="true" className="mr-1 font-semibold text-neutral-500">{formatMoney(item.basePriceInCents)}</s>
+                </>
+              ) : null}
+              {formatMoney(item.priceInCents)}
+            </span>
             <div className="flex h-10 w-32 items-center rounded-lg border border-neutral-300">
               <button
                 type="button"
