@@ -4,6 +4,7 @@ import { detectConfigDrift } from "@/lib/config-drift";
 import { isRestrictedAppEnv } from "@/lib/deployment-environment";
 import { getMelhorEnvioBaseUrlIssue } from "@/lib/melhor-envio-endpoint";
 import { getMercadoPagoConfigurationIssue, isPixEnabled } from "@/lib/mercadopago-config";
+import { getAdminMfaConfigurationIssue, getAdminMfaPolicyWarning, isAdminMfaRequired } from "@/lib/admin-mfa-config";
 
 type EnvIssueLevel = "error" | "warning";
 
@@ -290,6 +291,19 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
     if (authSecret && !hasPlaceholderValue(authSecret) && authSecret.length < 32) {
       addIssue(issues, "error", "ADMIN_SESSION_SECRET", "Admin session secret must have at least 32 characters.");
     }
+  }
+
+  if (requireAdminAuth && isAdminMfaRequired(env)) {
+    // Without this key no administrator can enroll or answer the MFA step, i.e. nobody can enter
+    // the Admin. Fail the configuration check loudly instead of locking the team out silently.
+    const reason = getAdminMfaConfigurationIssue(env);
+    if (reason) {
+      addIssue(issues, "error", "ADMIN_MFA_ENCRYPTION_KEY", `Admin MFA is required in this environment and needs ADMIN_MFA_ENCRYPTION_KEY (32 random bytes, base64, distinct from the session secret). Motivo: ${reason}.`);
+    }
+  }
+  const mfaPolicyWarning = getAdminMfaPolicyWarning(env);
+  if (mfaPolicyWarning) {
+    addIssue(issues, "warning", "ADMIN_MFA_REQUIRED", `ADMIN_MFA_REQUIRED=false is ignored in production: Admin MFA stays mandatory. Motivo: ${mfaPolicyWarning}.`);
   }
 
   const appUrl = clean(env.APP_URL) ?? clean(env.NEXT_PUBLIC_APP_URL);

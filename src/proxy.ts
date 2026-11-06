@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { jwtVerify } from "jose";
-import { ADMIN_SESSION_COOKIE, CUSTOMER_SESSION_COOKIE } from "@/lib/auth-constants";
+import { ADMIN_PUBLIC_PATHS, ADMIN_SESSION_COOKIE, CUSTOMER_SESSION_COOKIE } from "@/lib/auth-constants";
+import { isAdminMfaRequired } from "@/lib/admin-mfa-config";
 import { getOptionalAdminSessionSecret } from "@/lib/env";
 import { checkStagingAccess, isRestrictedEnvironment } from "@/lib/staging-access";
 import packageJson from "../package.json";
@@ -22,11 +23,16 @@ async function hasValidAdminSession(request: NextRequest) {
   if (!token || !secret) return false;
 
   try {
-    const { payload } = await jwtVerify(token, secret);
+    const { payload } = await jwtVerify(token, secret, { algorithms: ["HS256"] });
+    // Coarse edge check only; getCurrentAdmin() re-validates against the database. It still
+    // refuses a session without a verified second factor, so a pre-MFA or password-only token
+    // never even reaches an Admin route when MFA is required.
     return (
+      (payload.typ === undefined || payload.typ === "admin") &&
       payload.role === "ADMIN" &&
       typeof payload.sub === "string" &&
-      typeof payload.credentialVersion === "string"
+      typeof payload.credentialVersion === "string" &&
+      (!isAdminMfaRequired() || payload.mfa === true)
     );
   } catch {
     return false;
@@ -174,7 +180,7 @@ export async function proxy(request: NextRequest) {
   const stagingResponse = checkStagingAccess(request);
   if (stagingResponse) return stagingResponse;
   const { pathname } = request.nextUrl;
-  const isAdminPage = pathname.startsWith("/admin") && pathname !== "/admin/login";
+  const isAdminPage = (pathname === "/admin" || pathname.startsWith("/admin/")) && !ADMIN_PUBLIC_PATHS.includes(pathname);
   const isAdminApi = pathname.startsWith("/api/admin");
   const isCustomerPage = pathname.startsWith("/minha-conta");
   const actionRequest = isServerActionRequest(request.method, request.headers);

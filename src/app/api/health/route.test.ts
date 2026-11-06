@@ -31,6 +31,7 @@ beforeEach(() => {
     NODE_ENV: "production",
     DATABASE_URL: "",
     ADMIN_SESSION_SECRET: "admin-session-secret-with-more-than-32-characters",
+    ADMIN_MFA_ENCRYPTION_KEY: "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
     APP_URL: "https://staging.rare.example",
     NEXT_PUBLIC_APP_URL: "https://staging.rare.example",
     CHECKOUT_ENABLED: "true",

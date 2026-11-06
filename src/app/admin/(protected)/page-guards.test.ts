@@ -30,6 +30,6 @@ describe("Admin page guards", () => {
     const source = readFileSync(file, "utf8").replace(/\r\n/g, "\n");
     const body = source.match(/export default async function \w+\([^)]*\)[^{]*\{\n((?:\s*\/\/[^\n]*\n)*)\s*([^\n]+)/);
     expect(body, "default export must be an async function").not.toBeNull();
-    expect(body![2].trim()).toBe("await requireAdmin();");
+    expect(body![2].trim()).toMatch(/^(?:const \w+ = )?await requireAdmin\(\);$/);
   });
 });

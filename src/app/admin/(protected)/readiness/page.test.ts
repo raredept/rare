@@ -46,6 +46,7 @@ beforeEach(() => {
     NEXT_PUBLIC_APP_URL: "https://rare.example",
     DATABASE_URL: "postgresql://user:password@db.example/rare",
     ADMIN_SESSION_SECRET: "admin-session-secret-with-more-than-32-characters",
+    ADMIN_MFA_ENCRYPTION_KEY: "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
     CHECKOUT_ENABLED: "true",
     STRIPE_SECRET_KEY: "sk_live_value_that_must_not_render",
     STRIPE_WEBHOOK_SECRET: "whsec_value_that_must_not_render",

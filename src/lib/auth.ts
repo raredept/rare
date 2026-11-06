@@ -4,7 +4,8 @@ import { SignJWT, jwtVerify } from "jose";
 import type { User } from "@prisma/client";
 import { getAdminSessionSecret } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
-import { ADMIN_SESSION_COOKIE } from "@/lib/auth-constants";
+import { ADMIN_MFA_PENDING_COOKIE, ADMIN_SESSION_COOKIE } from "@/lib/auth-constants";
+import { isAdminMfaRequired } from "@/lib/admin-mfa-config";
 
 type AdminSessionPayload = {
   sub: string;
@@ -14,7 +15,17 @@ type AdminSessionPayload = {
   credentialVersion: string;
   /** Tokens issued before this feature carry none and count as 0. */
   sessionVersion: number;
+  /** A second factor was verified when this session was issued. Older tokens carry none. */
+  mfa: boolean;
+  /** Epoch seconds of that verification. */
+  mfaAt: number | null;
 };
+
+type SessionUser = Pick<User, "id" | "email" | "role" | "mustChangePassword" | "passwordHash" | "sessionVersion">;
+
+const ADMIN_SESSION_TYPE = "admin";
+const MFA_PENDING_TYPE = "admin_mfa_pending";
+export const ADMIN_MFA_PENDING_TTL_SECONDS = 10 * 60;
 
 function getSessionSecret() {
   return new TextEncoder().encode(getAdminSessionSecret());
@@ -25,16 +36,18 @@ async function buildCredentialVersion(passwordHash: string) {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-export async function signAdminSession(
-  user: Pick<User, "id" | "email" | "role" | "mustChangePassword" | "passwordHash" | "sessionVersion">,
-) {
+export async function signAdminSession(user: SessionUser, options: { mfaVerifiedAt?: Date | null } = {}) {
+  const mfaAt = options.mfaVerifiedAt ? Math.floor(options.mfaVerifiedAt.getTime() / 1000) : null;
   return new SignJWT({
+    typ: ADMIN_SESSION_TYPE,
     email: user.email,
     role: user.role,
     mustChangePassword: user.mustChangePassword,
     credentialVersion: await buildCredentialVersion(user.passwordHash),
     sessionVersion: user.sessionVersion,
-  } satisfies Omit<AdminSessionPayload, "sub">)
+    mfa: mfaAt !== null,
+    mfaAt,
+  })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(user.id)
     .setIssuedAt()
@@ -46,8 +59,9 @@ export async function verifyAdminSession(token?: string | null): Promise<AdminSe
   if (!token) return null;
 
   try {
-    const { payload } = await jwtVerify(token, getSessionSecret());
+    const { payload } = await jwtVerify(token, getSessionSecret(), { algorithms: ["HS256"] });
     if (
+      (payload.typ !== undefined && payload.typ !== ADMIN_SESSION_TYPE) ||
       payload.role !== "ADMIN" ||
       typeof payload.sub !== "string" ||
       typeof payload.email !== "string" ||
@@ -57,6 +71,7 @@ export async function verifyAdminSession(token?: string | null): Promise<AdminSe
       return null;
     }
 
+    const mfa = payload.mfa === true && typeof payload.mfaAt === "number" && Number.isSafeInteger(payload.mfaAt);
     return {
       sub: payload.sub,
       email: payload.email,
@@ -64,12 +79,20 @@ export async function verifyAdminSession(token?: string | null): Promise<AdminSe
       mustChangePassword: payload.mustChangePassword === true,
       credentialVersion: payload.credentialVersion,
       sessionVersion: typeof payload.sessionVersion === "number" ? payload.sessionVersion : 0,
+      mfa,
+      mfaAt: mfa ? (payload.mfaAt as number) : null,
     };
   } catch {
     return null;
   }
 }
 
+/**
+ * The Admin identity behind the current request, or null. This is the single authorization
+ * gate: pages, server actions and /api/admin routes all go through it. A session without a
+ * verified second factor is refused whenever MFA is required or the account has enrolled, so a
+ * correct password alone (or a token issued before MFA existed) never reaches Admin data.
+ */
 export async function getCurrentAdmin() {
   const cookieStore = await cookies();
   const token = cookieStore.get(ADMIN_SESSION_COOKIE)?.value;
@@ -91,6 +114,7 @@ export async function getCurrentAdmin() {
       mustChangePassword: true,
       passwordHash: true,
       sessionVersion: true,
+      mfaEnabledAt: true,
     },
   });
 
@@ -102,6 +126,10 @@ export async function getCurrentAdmin() {
     return null;
   }
 
+  if ((isAdminMfaRequired() || admin.mfaEnabledAt) && !session.mfa) {
+    return null;
+  }
+
   return {
     id: admin.id,
     name: admin.name,
@@ -110,6 +138,8 @@ export async function getCurrentAdmin() {
     role: admin.role,
     mustChangePassword: admin.mustChangePassword,
     sessionVersion: admin.sessionVersion,
+    mfaEnabled: Boolean(admin.mfaEnabledAt),
+    mfaVerifiedAt: session.mfaAt === null ? null : new Date(session.mfaAt * 1000),
   };
 }
 
@@ -137,6 +167,92 @@ export async function clearAdminSessionCookie() {
 }
 
 /**
+ * Proof that the password was right, valid only for the MFA step and for a few minutes. It has
+ * no role claim and a distinct type, so neither verifyAdminSession nor the proxy accept it as
+ * an Admin session. It is bound to the credential and session versions like a real session.
+ */
+export async function signAdminMfaPendingToken(user: SessionUser, next: string) {
+  return new SignJWT({
+    typ: MFA_PENDING_TYPE,
+    credentialVersion: await buildCredentialVersion(user.passwordHash),
+    sessionVersion: user.sessionVersion,
+    next,
+  })
+    .setProtectedHeader({ alg: "HS256" })
+    .setSubject(user.id)
+    .setIssuedAt()
+    .setExpirationTime(`${ADMIN_MFA_PENDING_TTL_SECONDS}s`)
+    .sign(getSessionSecret());
+}
+
+export async function setAdminMfaPendingCookie(token: string) {
+  const cookieStore = await cookies();
+  cookieStore.set(ADMIN_MFA_PENDING_COOKIE, token, {
+    httpOnly: true,
+    sameSite: "strict",
+    secure: process.env.NODE_ENV === "production",
+    path: "/admin",
+    maxAge: ADMIN_MFA_PENDING_TTL_SECONDS,
+  });
+}
+
+export async function clearAdminMfaPendingCookie() {
+  const cookieStore = await cookies();
+  cookieStore.delete({ name: ADMIN_MFA_PENDING_COOKIE, path: "/admin" });
+}
+
+/** The account that passed the password step in the last few minutes, or null. */
+export async function getPendingMfaAdmin() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(ADMIN_MFA_PENDING_COOKIE)?.value;
+  if (!token) return null;
+
+  let payload: Record<string, unknown>;
+  try {
+    ({ payload } = await jwtVerify(token, getSessionSecret(), { algorithms: ["HS256"] }));
+  } catch {
+    return null;
+  }
+  if (
+    payload.typ !== MFA_PENDING_TYPE ||
+    typeof payload.sub !== "string" ||
+    typeof payload.credentialVersion !== "string" ||
+    !Number.isSafeInteger(payload.sessionVersion)
+  ) {
+    return null;
+  }
+
+  const admin = await prisma.user.findFirst({
+    where: { id: payload.sub, role: "ADMIN", active: true },
+    select: {
+      id: true,
+      email: true,
+      username: true,
+      role: true,
+      mustChangePassword: true,
+      passwordHash: true,
+      sessionVersion: true,
+      mfaEnabledAt: true,
+      mfaSecretEncrypted: true,
+      mfaLastUsedStep: true,
+      mfaPendingSecretEncrypted: true,
+      mfaPendingCreatedAt: true,
+    },
+  });
+  if (
+    !admin ||
+    admin.sessionVersion !== payload.sessionVersion ||
+    payload.credentialVersion !== await buildCredentialVersion(admin.passwordHash)
+  ) {
+    return null;
+  }
+
+  return { ...admin, next: typeof payload.next === "string" ? payload.next : "/admin" };
+}
+
+export type PendingMfaAdmin = NonNullable<Awaited<ReturnType<typeof getPendingMfaAdmin>>>;
+
+/**
  * Logout. Deleting the cookie alone left the token valid until it expired, so
  * a copy of it (another device, a proxy log, a stolen cookie) kept working
  * after "Sair". Bumping sessionVersion makes every token issued for this
@@ -157,5 +273,6 @@ export async function endAdminSession() {
     console.error("[auth] could not revoke admin sessions on logout", error instanceof Error ? error.name : "unknown");
   } finally {
     cookieStore.delete(ADMIN_SESSION_COOKIE);
+    cookieStore.delete({ name: ADMIN_MFA_PENDING_COOKIE, path: "/admin" });
   }
 }

@@ -102,6 +102,8 @@ describe("admin authorization", () => {
       role: existingAdmin.role,
       mustChangePassword: existingAdmin.mustChangePassword,
       sessionVersion: 0,
+      mfaEnabled: false,
+      mfaVerifiedAt: null,
     });
   });
 

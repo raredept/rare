@@ -9,6 +9,7 @@ beforeEach(() => {
     NODE_ENV: "development",
     DATABASE_URL: "postgresql://local/rare",
     ADMIN_SESSION_SECRET: "dev-secret-with-more-than-32-characters",
+    ADMIN_MFA_ENCRYPTION_KEY: "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
     NEXT_PUBLIC_APP_URL: "http://localhost:3000",
     STORAGE_DRIVER: "local",
     STRIPE_SECRET_KEY: "",

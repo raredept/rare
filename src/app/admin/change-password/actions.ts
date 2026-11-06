@@ -61,7 +61,8 @@ export async function changePasswordAction(
     return { error: "Nao foi possivel atualizar a senha. Entre novamente e tente outra vez." };
   }
 
-  const token = await signAdminSession({ ...admin, mustChangePassword: false, passwordHash });
+  // Keep the second factor verified at login: the password change is not a new MFA check.
+  const token = await signAdminSession({ ...admin, mustChangePassword: false, passwordHash }, { mfaVerifiedAt: admin.mfaVerifiedAt });
   await setAdminSessionCookie(token);
   redirect("/admin?success=password-updated");
 }

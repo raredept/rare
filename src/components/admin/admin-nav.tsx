@@ -8,12 +8,14 @@ const navItems = [
   { href: "/admin/analytics", label: "Analytics" },
   { href: "/admin/orders", label: "Pedidos" },
   { href: "/admin/products", label: "Produtos" },
+  { href: "/admin/promotions", label: "Promoções" },
   { href: "/admin/categories", label: "Categorias" },
   { href: "/admin/banners", label: "Banners" },
   { href: "/admin/notifications", label: "Notificações" },
   { href: "/admin/customers", label: "Clientes" },
   { href: "/admin/readiness", label: "Prontidão" },
   { href: "/admin/settings", label: "Configurações" },
+  { href: "/admin/security", label: "Segurança" },
 ];
 
 function isActivePath(pathname: string, href: string) {
