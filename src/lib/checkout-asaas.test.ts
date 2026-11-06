@@ -99,6 +99,18 @@ describe("processAsaasPayment (authoritative state)", () => {
     expect(mocks.notifyAdminsOfPaidOrder).toHaveBeenCalledWith("order_asaas_1");
   });
 
+  it("warns the Admin not to ship a Pix that Asaas holds in CONFIRMED (precautionary block)", async () => {
+    await expect(processAsaasPayment(payment({ status: "CONFIRMED", billingType: "PIX" }))).resolves.toEqual({ status: "paid", orderId: "order_asaas_1" });
+    expect(mocks.tx.adminNotification.createMany.mock.calls[0][0].data[0]).toMatchObject({ type: "payment_pix_held", orderId: "order_asaas_1" });
+  });
+
+  it("does not raise the Pix hold warning for a received Pix or a confirmed card", async () => {
+    await processAsaasPayment(payment({ status: "RECEIVED", billingType: "PIX" }));
+    mocks.tx.order.findUniqueOrThrow.mockResolvedValue(asaasOrder({ paymentMethod: "card" }));
+    await processAsaasPayment(payment({ status: "CONFIRMED", billingType: "CREDIT_CARD" }));
+    expect(mocks.tx.adminNotification.createMany).not.toHaveBeenCalled();
+  });
+
   it("is idempotent: a duplicate or late CONFIRMED after RECEIVED changes nothing", async () => {
     mocks.tx.order.findUniqueOrThrow.mockResolvedValue(asaasOrder({ status: "paid" }));
     await expect(processAsaasPayment(payment({ status: "CONFIRMED" }))).resolves.toEqual({ status: "already_paid" });

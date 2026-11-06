@@ -1070,13 +1070,19 @@ export async function processAsaasPayment(payment: AsaasPayment) {
         await flagOrderIncident(tx, order, "mismatch", `Pagamento divergente: ${order.orderNumber}`, "O Asaas confirmou um pagamento com valor ou forma diferente do pedido. O pedido NÃO foi marcado como pago.");
         return { status: "payment_mismatch" as const };
       }
-      return finalizePaidOrder(tx, order, {
+      const paid = await finalizePaidOrder(tx, order, {
         amountInCents: payment.amountInCents,
         currency: "brl",
         paymentMethod: order.paymentMethod,
         movementReason: "Pagamento confirmado pelo Asaas",
         provider: "Asaas",
       });
+      // Asaas: a Pix in CONFIRMED (not RECEIVED) is under a precautionary hold of up to 72h and
+      // may still end REFUNDED. The stock stays committed, but nobody should ship it yet.
+      if (payment.billingType === "PIX" && payment.status === "CONFIRMED") {
+        await flagOrderIncident(tx, order, "pix_held", `Pix em análise: ${order.orderNumber}`, "O Asaas confirmou o Pix, mas o valor ainda está em bloqueio cautelar (até 72h). Não envie o pedido até o status mudar para recebido.");
+      }
+      return paid;
     }
 
     if (outcome === "closed") {
