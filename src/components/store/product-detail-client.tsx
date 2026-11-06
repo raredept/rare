@@ -19,6 +19,8 @@ import {
 import { getAvailableStock } from "@/lib/stock";
 import { buildStorefrontCommerceState, type StorefrontCommerceState } from "@/lib/storefront-commerce";
 import { InstallmentTerms } from "@/components/store/installment-terms";
+import { PriceTag } from "@/components/store/price-tag";
+import type { ProductPrice } from "@/lib/promotions/engine";
 
 type ProductDetailClientProps = {
   product: {
@@ -30,6 +32,8 @@ type ProductDetailClientProps = {
     priceInCents: number;
     images: Array<ProductMediaAsset & { alt: string }>;
     variants: { id: string; size: string; stock: number; reservedStock: number; active: boolean }[];
+    /** Server-computed price (automatic promotion applied). Defaults to the catalog price. */
+    pricing?: ProductPrice;
   };
   productUrl: string;
   whatsappNumber?: string | null;
@@ -174,6 +178,7 @@ function formatProductShippingError(message: string) {
 }
 
 export function ProductDetailClient({ product, productUrl, whatsappNumber, whatsappMessage, commerce }: ProductDetailClientProps) {
+  const pricing: ProductPrice = product.pricing ?? { basePriceInCents: product.priceInCents, finalPriceInCents: product.priceInCents, discountInCents: 0, percentOff: 0, promotion: null };
   const commerceState = commerce ?? buildStorefrontCommerceState(true);
   const { addItem } = useCart();
   const { openCart } = useCartDrawer();
@@ -312,7 +317,8 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
       slug: product.slug,
       size: selectedVariant.size,
       image: cartImage?.url,
-      priceInCents: product.priceInCents,
+      // Display only: the cart re-reads prices from the server and the checkout recomputes them.
+      priceInCents: pricing.finalPriceInCents,
       quantity: safeQuantity,
       maxQuantity: availableStock,
     });
@@ -521,8 +527,11 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
         {mainDescription ? (
           <p className="mt-4 max-w-xl whitespace-pre-line text-sm font-semibold leading-6 text-neutral-600">{mainDescription}</p>
         ) : null}
-        <p className="mt-4 whitespace-nowrap text-3xl font-black text-neutral-950 lg:text-3xl">{formatMoney(product.priceInCents)}</p>
-        <InstallmentTerms amountInCents={product.priceInCents} checkoutEnabled={commerceState.checkoutEnabled} className="mt-2 text-sm font-semibold leading-6 text-neutral-600" />
+        <PriceTag pricing={pricing} size="detail" className="mt-4" />
+        {pricing.promotion && !soldOut ? (
+          <p className="mt-1 text-xs font-bold uppercase tracking-wide text-neutral-600">{pricing.promotion.badgeText ?? pricing.promotion.name}</p>
+        ) : null}
+        <InstallmentTerms amountInCents={pricing.finalPriceInCents} checkoutEnabled={commerceState.checkoutEnabled} className="mt-2 text-sm font-semibold leading-6 text-neutral-600" />
 
         <div className="mt-6 space-y-5 rounded-lg border border-neutral-200 bg-white p-5">
           <fieldset>

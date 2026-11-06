@@ -39,6 +39,7 @@
     "catalog:remap-legacy-bags": "tsx scripts/remap-legacy-bags-subcategory.ts",
     "admin:create": "tsx scripts/create-admin.ts",
     "admin:mfa-reset": "tsx scripts/admin-mfa-reset.ts",
+    "promotions:seed-black-friday": "tsx scripts/seed-black-friday-campaign.ts",
     "qa:admin-access": "node scripts/qa-admin-access.mjs",
     "qa:e2e:isolated": "node scripts/qa-isolated-admin-e2e.mjs",
     "inventory:release-expired": "tsx scripts/release-expired-reservations.ts",

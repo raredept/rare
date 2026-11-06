@@ -8,7 +8,9 @@ import { ProductCard } from "@/components/store/product-card";
 import { getHomeBannerSlidesForStore } from "@/lib/home-banners";
 import { buildPageMetadata, RARE_DEFAULT_SITE_URL } from "@/lib/seo";
 import { buildOrganizationJsonLd, buildWebsiteJsonLd, JsonLdScript } from "@/lib/structured-data";
-import { getAvailableBrandsForStore, getFeaturedProducts, getHomeCategoryTiles, getProducts, getRecentProducts, type HomeCategoryTile, type StorefrontProduct } from "@/lib/storefront";
+import { getAvailableBrandsForStore, getCampaignProducts, getFeaturedProducts, getHomeCategoryTiles, getProducts, getRecentProducts, type HomeCategoryTile, type StorefrontProduct } from "@/lib/storefront";
+import { HomeCampaign } from "@/components/store/home-campaign";
+import { getHomepageCampaign } from "@/lib/promotions/store";
 import { getStorefrontCommerceState, type StorefrontCommerceState } from "@/lib/storefront-commerce";
 import { getProductMediaTypeFromUrl } from "@/lib/product-media";
 import { getAvailableStock } from "@/lib/stock";
@@ -178,7 +180,12 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     return <SearchResults products={products} query={searchQuery} commerce={commerce} />;
   }
 
-  const [heroSlides, categoryTiles, featuredProducts, recentProducts, brands, settings] = await Promise.all([
+  const campaign = await getHomepageCampaign().catch((error: unknown) => {
+    console.error("[promotions] homepage campaign unavailable", error instanceof Error ? error.name : "unknown");
+    return null;
+  });
+  const [campaignProducts, heroSlides, categoryTiles, featuredProducts, recentProducts, brands, settings] = await Promise.all([
+    campaign ? getCampaignProducts(campaign.id, 4) : Promise.resolve([]),
     getHomeBannerSlidesForStore(),
     getHomeCategoryTiles(),
     getFeaturedProducts({ limit: 8 }),
@@ -190,7 +197,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const featuredSlides: HomeFeaturedSlide[] = featuredProducts.flatMap((product) => {
     const image = product.images.find((media) => getProductMediaTypeFromUrl(media.url) === "image");
     if (!image) return [];
-    return [{ id: product.id, title: product.title, slug: product.slug, priceInCents: product.priceInCents,
+    return [{ id: product.id, title: product.title, slug: product.slug, priceInCents: product.pricing.finalPriceInCents,
       soldOut: !product.variants.some((variant) => variant.active && getAvailableStock(variant.stock, variant.reservedStock) > 0),
       image: { url: image.url, alt: image.alt || product.title },
     }];
@@ -206,6 +213,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       <JsonLdScript id="rare-organization-json-ld" data={organizationJsonLd} />
       <JsonLdScript id="rare-website-json-ld" data={websiteJsonLd} />
       <h1 className="sr-only">RARE — streetwear importado e drops selecionados</h1>
+      {campaign ? <HomeCampaign campaign={campaign} products={campaignProducts} commerce={commerce} /> : null}
       <HomeHeroCarousel slides={heroSlides} />
 
       <section className="store-home-section mt-12 lg:mt-16" aria-labelledby="home-featured-title">
