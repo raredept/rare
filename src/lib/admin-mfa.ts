@@ -133,7 +133,8 @@ export async function confirmEnrollment(user: MfaUser, code: unknown, actorLabel
       action: "mfa.enrolled",
       entityType: "User",
       entityId: user.id,
-      after: { mfaEnabledAt: now, recoveryCodesIssued: codes.length },
+      // Audit keys avoid the word "recovery": the sanitizer drops any key that contains it.
+      after: { mfaEnabledAt: now, backupCodesIssued: codes.length },
     });
     return codes;
   });
@@ -186,7 +187,7 @@ async function consumeRecoveryCode(user: MfaUser, code: string, actorLabel: stri
       action: "mfa.recovery_code_used",
       entityType: "User",
       entityId: user.id,
-      after: { remainingRecoveryCodes: remaining },
+      after: { backupCodesRemaining: remaining },
     });
     return { ok: true as const, method: "recovery_code" as const, verifiedAt: now };
   });
@@ -211,7 +212,7 @@ export async function regenerateRecoveryCodes(user: MfaUser, totpCode: unknown, 
       action: "mfa.recovery_codes_regenerated",
       entityType: "User",
       entityId: user.id,
-      after: { recoveryCodesIssued: codes.length },
+      after: { backupCodesIssued: codes.length },
     });
     return codes;
   });
@@ -249,7 +250,7 @@ export async function resetAdminMfa(userId: string, actorLabel: string, reason: 
       entityType: "User",
       entityId: userId,
       before: { mfaEnabledAt: before.mfaEnabledAt },
-      after: { mfaEnabledAt: null, recoveryCodesRemoved: removed.count, sessionsRevoked: true, reason: reason.slice(0, 200) },
+      after: { mfaEnabledAt: null, backupCodesRemoved: removed.count, sessionsRevoked: true, reason: reason.slice(0, 200) },
     });
     // Visible in the Admin bell for every administrator, not only in the database.
     await tx.adminNotification.createMany({

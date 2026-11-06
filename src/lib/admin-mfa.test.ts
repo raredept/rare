@@ -107,7 +107,7 @@ describe("MFA enrollment", () => {
     expect(stored.map((row) => row.codeHash)).toEqual(result.recoveryCodes.map((code) => hashRecoveryCode(normalizeRecoveryCode(code) as string)));
     expect(JSON.stringify(stored)).not.toContain(result.recoveryCodes[0]);
     const audit = mocks.tx.adminAuditLog.create.mock.calls[0][0].data;
-    expect(audit).toMatchObject({ action: "mfa.enrolled", entityId: "admin_1" });
+    expect(audit).toMatchObject({ action: "mfa.enrolled", entityId: "admin_1", after: { backupCodesIssued: 10 } });
     expect(JSON.stringify(audit)).not.toContain(SECRET);
     expect(JSON.stringify(audit)).not.toContain(result.recoveryCodes[0]);
   });
@@ -205,7 +205,7 @@ describe("recovery code regeneration and reset", () => {
       where: { id: "admin_1" },
       data: expect.objectContaining({ mfaSecretEncrypted: null, mfaEnabledAt: null, mfaPendingSecretEncrypted: null, sessionVersion: { increment: 1 } }),
     });
-    expect(mocks.tx.adminAuditLog.create.mock.calls[0][0].data).toMatchObject({ action: "mfa.reset", entityId: "admin_1" });
+    expect(mocks.tx.adminAuditLog.create.mock.calls[0][0].data).toMatchObject({ action: "mfa.reset", entityId: "admin_1", after: { backupCodesRemoved: 7, sessionsRevoked: true } });
     expect(mocks.tx.adminNotification.createMany.mock.calls[0][0].data[0]).toMatchObject({ type: "security_mfa_reset" });
   });
 });
