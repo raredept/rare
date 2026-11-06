@@ -55,9 +55,47 @@ model User {
   mustChangePassword     Boolean                 @default(false)
   /// Bumped on logout; a session token carrying an older value is rejected.
   sessionVersion         Int                     @default(0)
+  /// Active TOTP secret, AES-256-GCM sealed with ADMIN_MFA_ENCRYPTION_KEY (never a hash: the
+  /// server must recompute codes). Null until an enrollment is confirmed with a valid code.
+  mfaSecretEncrypted     String?
+  mfaEnabledAt           DateTime?
+  /// Last accepted TOTP time step: a code is accepted once, never replayed.
+  mfaLastUsedStep        Int?
+  /// Enrollment in progress. Kept apart so an unconfirmed QR never replaces or looks like an active factor.
+  mfaPendingSecretEncrypted String?
+  mfaPendingCreatedAt    DateTime?
+  mfaRecoveryCodes       AdminMfaRecoveryCode[]
   adminPushSubscriptions AdminPushSubscription[]
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt
+}
+
+/// Single-use recovery codes. Only a keyed hash is stored; the code is shown once.
+model AdminMfaRecoveryCode {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String    @unique
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, usedAt])
+}
+
+/// Sanitized trail of sensitive Admin actions (promotions, MFA). No secrets, no customer PII.
+model AdminAuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  actorLabel  String
+  action      String
+  entityType  String
+  entityId    String?
+  before      Json?
+  after       Json?
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId, createdAt])
+  @@index([createdAt])
 }
 
 model Customer {
