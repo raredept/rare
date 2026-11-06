@@ -47,6 +47,8 @@
     "email:process-outbox": "tsx scripts/process-email-outbox.ts",
     "email:review-outbox": "tsx scripts/review-email-outbox.ts",
     "qa:email-outbox": "tsx scripts/qa-email-outbox.ts",
+    "qa:checkout-concurrency": "tsx scripts/qa-checkout-concurrency.ts",
+    "qa:bf-asaas": "tsx scripts/qa-bf-asaas-concurrency.ts",
     "shipping:dimensions:audit": "tsx scripts/audit-product-shipping-dimensions.ts",
     "shipping:audit-products": "tsx scripts/audit-product-shipping-dimensions.ts",
     "media:variants:audit": "tsx scripts/audit-media-variants.ts",

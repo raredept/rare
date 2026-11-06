@@ -78,8 +78,12 @@ async function main() {
     async function product(stock = 1) {
       return prisma.product.create({ data: { title: "Synthetic commerce QA", slug: `qa-${randomBytes(8).toString("hex")}`, description: "Synthetic", shortDescription: "Synthetic", priceInCents: 10000, weightGrams: 400, lengthCm: 30, widthCm: 24, heightCm: 4, variants: { create: { size: "QA", stock } } }, include: { variants: true } });
     }
-    async function checkout(item: Awaited<ReturnType<typeof product>>) {
-      return commerce.createCheckoutSession({ items: [{ productId: item.id, variantId: item.variants[0].id, quantity: 1 }], shippingOptionId: "fixed", customerAddressId: address.id }, { customerId: customer.id });
+    // A second, independent buyer. Two checkouts by the SAME customer are not a race: the newer one
+    // supersedes (expires) the older by design, so the last-unit race needs two different people.
+    const rival = await prisma.customer.create({ data: { name: "QA Synthetic Rival", email: "commerce-rival@rare.invalid", cpf: "52998224725", passwordHash: "not-a-login" } });
+    const rivalAddress = await prisma.customerAddress.create({ data: { customerId: rival.id, cep: "01001000", street: "QA", number: "2", neighborhood: "QA", city: "Sao Paulo", state: "SP" } });
+    async function checkout(item: Awaited<ReturnType<typeof product>>, buyer: { customerId: string; addressId: string } = { customerId: customer.id, addressId: address.id }) {
+      return commerce.createCheckoutSession({ items: [{ productId: item.id, variantId: item.variants[0].id, quantity: 1 }], shippingOptionId: "fixed", customerAddressId: buyer.addressId }, { customerId: buyer.customerId });
     }
     function session(orderId: string, paymentStatus = "paid") {
       return { id: `cs_test_${orderId}`, metadata: { orderId }, payment_status: paymentStatus, payment_intent: `pi_${orderId}`, amount_total: 11000, currency: "brl", payment_method_types: ["card"] } as unknown as Stripe.Checkout.Session;
@@ -97,7 +101,7 @@ async function main() {
     }
     const proofs: string[] = [];
     const last = await product();
-    const attempts = await Promise.allSettled([checkout(last), checkout(last)]);
+    const attempts = await Promise.allSettled([checkout(last), checkout(last, { customerId: rival.id, addressId: rivalAddress.id })]);
     assert.equal(attempts.filter((item) => item.status === "fulfilled").length, 1);
     assert.equal(attempts.filter((item) => item.status === "rejected").length, 1);
     assert.equal(await prisma.order.count(), 1);
