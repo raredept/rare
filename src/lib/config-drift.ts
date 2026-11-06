@@ -142,6 +142,17 @@ export function detectConfigDrift(env: EnvLike = process.env): ConfigDrift[] {
     });
   }
 
+  // Asaas: the key prefix says which Asaas environment it belongs to. A production key outside
+  // production would charge real money from a homologation run; a sandbox key behind the live
+  // store would hand out charges that never settle.
+  const asaasKey = clean(env.ASAAS_API_KEY);
+  if (asaasKey?.startsWith("$aact_prod_") && environment !== "production") {
+    drift.push({ level: "error", variable: "ASAAS_API_KEY", message: `Chave Asaas de PRODUÇÃO em ambiente de ${describeEnvironment(environment)}. Use a chave do Sandbox ($aact_hmlg_) fora de produção.` });
+  }
+  if (asaasKey?.startsWith("$aact_hmlg_") && environment === "production" && clean(env.PAYMENT_PROVIDER)?.toLowerCase() === "asaas") {
+    drift.push({ level: "error", variable: "ASAAS_API_KEY", message: "Chave Asaas de Sandbox em produção com PAYMENT_PROVIDER=asaas: as cobranças não seriam liquidadas. Use a chave de produção ($aact_prod_)." });
+  }
+
   return drift;
 }
 

@@ -5,6 +5,8 @@ import { isRestrictedAppEnv } from "@/lib/deployment-environment";
 import { getMelhorEnvioBaseUrlIssue } from "@/lib/melhor-envio-endpoint";
 import { getMercadoPagoConfigurationIssue, isPixEnabled } from "@/lib/mercadopago-config";
 import { getAdminMfaConfigurationIssue, getAdminMfaPolicyWarning, isAdminMfaRequired } from "@/lib/admin-mfa-config";
+import { getAsaasConfigurationIssue } from "@/lib/asaas-config";
+import { getPaymentProvider } from "@/lib/payment-provider-config";
 
 type EnvIssueLevel = "error" | "warning";
 
@@ -321,7 +323,20 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
     addIssue(issues, "error", "APP_URL", "APP_URL/NEXT_PUBLIC_APP_URL must be an absolute http(s) URL.");
   }
 
-  if (checkoutEnabled) {
+  const paymentProvider = getPaymentProvider(env);
+  const rawPaymentProvider = clean(env.PAYMENT_PROVIDER)?.toLowerCase();
+  if (rawPaymentProvider && !["stripe", "asaas", "disabled"].includes(rawPaymentProvider)) {
+    addIssue(issues, "error", "PAYMENT_PROVIDER", "PAYMENT_PROVIDER must be stripe, asaas or disabled; an unknown value disables payments.");
+  }
+  if (paymentProvider === "asaas") {
+    // Fixed reason code only (never a key or token). Includes the sandbox/production environment guard.
+    const reason = getAsaasConfigurationIssue(env);
+    if (reason) {
+      addIssue(issues, checkoutEnabled ? "error" : "warning", "ASAAS_API_KEY", `PAYMENT_PROVIDER=asaas needs ASAAS_ENV, ASAAS_API_KEY and ASAAS_WEBHOOK_TOKEN matching this environment (Sandbox outside production, Production only in production). Motivo: ${reason}.`);
+    }
+  }
+
+  if (checkoutEnabled && paymentProvider === "stripe") {
     const stripeLevel: EnvIssueLevel = requireCheckout ? "error" : "warning";
     validateRequired(
       issues,
