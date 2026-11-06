@@ -29,6 +29,10 @@ const adminErrorCodes = new Map([
   ["banner-save-failed", "Não foi possível salvar o banner."],
   ["settings-save-failed", "Não foi possível salvar as configurações."],
   ["order-status-failed", "Não foi possível atualizar o pedido."],
+  ["promotion-action-failed", "Não foi possível concluir a ação na promoção."],
+  ["promotion-not-found", "Promoção não encontrada."],
+  ["promotion-invalid-transition", "Essa mudança de status não é permitida (ou a promoção mudou enquanto isso). Recarregue e tente de novo."],
+  ["promotion-incomplete", "A promoção ainda não pode ser ativada: revise desconto, produtos/categorias, datas e título da home."],
 ]);
 
 const adminSuccessCodes = new Map([
@@ -51,6 +55,12 @@ const adminSuccessCodes = new Map([
   ["settings-saved", "Configurações salvas."],
   ["password-updated", "Senha atualizada com sucesso."],
   ["order-status-saved", "Status do pedido atualizado."],
+  ["promotion-created", "Promoção criada como rascunho."],
+  ["promotion-saved", "Promoção salva."],
+  ["promotion-activate", "Promoção ativada (ou programada para o início definido)."],
+  ["promotion-pause", "Promoção pausada."],
+  ["promotion-end", "Promoção encerrada."],
+  ["promotion-duplicated", "Cópia criada como rascunho."],
 ]);
 
 /** Literal messages the Admin actions send as free text. */

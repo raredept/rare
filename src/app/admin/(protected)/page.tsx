@@ -7,6 +7,8 @@ import { formatMoney } from "@/lib/money";
 import { formatOrderStatus } from "@/lib/order-display";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
+import { formatBusinessDateTime } from "@/lib/business-time";
+import { getPromotionDashboardSummary } from "@/lib/promotions/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +26,8 @@ export default async function AdminDashboardPage() {
   // because the readiness and catalog-issue checks genuinely need each product,
   // and the catalog is bounded by what the store sells rather than by how much
   // it has sold.
-  const [snapshot, catalogProducts, catalogCategories, settings, recentOrders, recentNotifications] = await Promise.all([
+  const [promotionSummary, snapshot, catalogProducts, catalogCategories, settings, recentOrders, recentNotifications] = await Promise.all([
+    getPromotionDashboardSummary(),
     getDashboardSnapshot(DASHBOARD_WINDOW_DAYS),
     prisma.product.findMany({
       select: {
@@ -150,6 +153,31 @@ export default async function AdminDashboardPage() {
             description="Itens a revisar antes de vender"
           />
         </div>
+      </section>
+
+      <section aria-labelledby="dashboard-promotions" className="mt-6 rounded-lg border border-neutral-200 bg-white p-5">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <h2 id="dashboard-promotions" className="text-lg font-black text-neutral-950">Promoções</h2>
+          <Link href="/admin/promotions" className="text-xs font-black text-neutral-700 hover:text-neutral-950">Central de Promoções</Link>
+        </div>
+        <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-3">
+          <div><dt className="text-xs font-black uppercase tracking-wide text-neutral-500">Ativas</dt><dd className="mt-1 text-2xl font-black">{promotionSummary.active}</dd></div>
+          <div><dt className="text-xs font-black uppercase tracking-wide text-neutral-500">Programadas</dt><dd className="mt-1 text-2xl font-black">{promotionSummary.scheduled}</dd></div>
+          <div><dt className="text-xs font-black uppercase tracking-wide text-neutral-500">Encerrando em 48 h</dt><dd className="mt-1 text-2xl font-black">{promotionSummary.endingSoon.length}</dd></div>
+        </dl>
+        {promotionSummary.endingSoon.length ? (
+          <ul className="mt-3 text-sm">{promotionSummary.endingSoon.map((item) => <li key={item.id}><Link href={`/admin/promotions/${item.id}`} className="underline underline-offset-2">{item.name}</Link> — termina {formatBusinessDateTime(item.endsAt)}</li>)}</ul>
+        ) : null}
+        {promotionSummary.alerts.length ? (
+          <ul className="mt-3 space-y-1 text-sm font-semibold text-amber-800" role="status">
+            {promotionSummary.alerts.map((alert) => (
+              <li key={`${alert.id}-${alert.kind}`}>
+                <Link href={`/admin/promotions/${alert.id}`} className="underline underline-offset-2">{alert.name}</Link>:{" "}
+                {alert.kind === "no_products" ? "ativa sem produtos/categorias selecionados" : "período terminou, mas ainda marcada como ativa (já não altera preços)"}
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </section>
 
       <section aria-labelledby="dashboard-sales" className="mt-8">

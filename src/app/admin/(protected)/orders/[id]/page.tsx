@@ -57,6 +57,11 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
                   <p className="font-semibold text-neutral-500">
                     Tamanho {item.sizeSnapshot} · Qtd {item.quantity}
                   </p>
+                  {item.promotionId ? (
+                    <p className="mt-1 text-xs font-semibold text-emerald-700">
+                      {item.promotionName ?? "Promoção"}{item.promotionCode ? ` (${item.promotionCode})` : ""}: {formatMoney(item.basePriceInCents ?? item.unitPriceInCents)} → {formatMoney(item.unitPriceInCents)} (- {formatMoney(item.promotionDiscountInCents)}/un.)
+                    </p>
+                  ) : null}
                 </div>
                 <p className="whitespace-nowrap font-black text-neutral-950">{formatMoney(item.totalInCents)}</p>
               </div>
@@ -76,6 +81,12 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
                 <span>Pagamento</span>
                 <span>{formatPaymentMethod(order.paymentMethod)}</span>
               </div>
+              {order.promotionDiscountInCents > 0 ? (
+                <div className="flex justify-between text-emerald-700">
+                  <span>Promoções (já no subtotal)</span>
+                  <span className="whitespace-nowrap">- {formatMoney(order.promotionDiscountInCents)}</span>
+                </div>
+              ) : null}
               <div className="flex justify-between">
                 <span>Subtotal</span>
                 <span className="whitespace-nowrap">{formatMoney(order.subtotalInCents)}</span>

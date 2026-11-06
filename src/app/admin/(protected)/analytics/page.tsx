@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getAnalyticsOverview, LOW_STOCK_THRESHOLD } from "@/lib/admin-analytics";
+import { getAnalyticsOverview, getPromotionAnalytics, LOW_STOCK_THRESHOLD } from "@/lib/admin-analytics";
 import {
   ANALYTICS_PERIOD_PRESETS,
   formatDayRangeLabel,
@@ -43,7 +43,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   await requireAdmin();
   const query = await searchParams;
   const period = resolveAnalyticsPeriod({ preset: query.period, from: query.from, to: query.to });
-  const overview = await getAnalyticsOverview(period);
+  const [overview, promotions] = await Promise.all([getAnalyticsOverview(period), getPromotionAnalytics(period)]);
   const { totals, previousTotals, inventory } = overview;
 
   const hasSales = totals.paidOrders > 0;
@@ -263,8 +263,31 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         </div>
       </section>
 
+      <section aria-labelledby="analytics-promotions" className="mt-8 rounded-lg border border-neutral-200 bg-white p-5">
+        <h2 id="analytics-promotions" className="text-lg font-black text-neutral-950">Promoções no período</h2>
+        <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            ["Pedidos com promoção", formatInteger(promotions.ordersWithPromotion)],
+            ["Receita promocional", formatMoney(promotions.promotionalRevenueInCents)],
+            ["Desconto concedido", formatMoney(promotions.discountGrantedInCents)],
+            ["Itens vendidos em promoção", formatInteger(promotions.promotionalItemsSold)],
+          ].map(([term, value]) => (
+            <div key={term}><dt className="text-xs font-black uppercase tracking-wide text-neutral-500">{term}</dt><dd className="mt-1 text-xl font-black">{value}</dd></div>
+          ))}
+        </dl>
+        {promotions.topPromotions.length ? (
+          <ol className="mt-4 list-decimal space-y-1 pl-5 text-sm">
+            {promotions.topPromotions.map((entry) => (
+              <li key={entry.id}>
+                <Link href={`/admin/promotions/${entry.id}`} className="font-black underline underline-offset-2">{entry.label}</Link> — {formatInteger(entry.orders)} pedido(s) · {formatInteger(entry.quantity)} un. · {formatMoney(entry.revenueInCents)} · desconto {formatMoney(entry.discountInCents)}
+              </li>
+            ))}
+          </ol>
+        ) : <p className="mt-4 text-sm text-neutral-500">Nenhuma venda paga com promoção no período.</p>}
+      </section>
+
       <p className="mt-8 text-xs font-semibold leading-5 text-neutral-500">
-        Receita considera pedidos pagos, em preparo, enviados e entregues, na data do pagamento confirmado pela Stripe.
+        Receita considera pedidos pagos, em preparo, enviados e entregues, na data do pagamento confirmado pelo provedor de pagamento.
         Reembolsados e cancelados ficam de fora. Não há telemetria de visitas nesta loja, então taxa de conversão,
         carrinhos abandonados e funil não são exibidos: seriam números inventados.
       </p>

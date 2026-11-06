@@ -11,7 +11,11 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/admin-analytics", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/admin-analytics")>();
-  return { ...actual, getAnalyticsOverview: mocks.getAnalyticsOverview };
+  return {
+    ...actual,
+    getAnalyticsOverview: mocks.getAnalyticsOverview,
+    getPromotionAnalytics: async () => ({ ordersWithPromotion: 0, promotionalRevenueInCents: 0, discountGrantedInCents: 0, promotionalItemsSold: 0, topPromotions: [] }),
+  };
 });
 
 vi.mock("next/link", () => ({

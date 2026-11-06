@@ -620,3 +620,54 @@ async function getAllTimeTotals(): Promise<SalesTotals> {
     averageItemsPerOrder: 0,
   };
 }
+
+export type PromotionAnalytics = {
+  ordersWithPromotion: number;
+  promotionalRevenueInCents: number;
+  discountGrantedInCents: number;
+  promotionalItemsSold: number;
+  topPromotions: Array<{ id: string; label: string; orders: number; quantity: number; revenueInCents: number; discountInCents: number }>;
+};
+
+/**
+ * Promotion performance in a period, from the order item snapshots of paid orders (same paid
+ * definition and payment-date window as the rest of Analytics). Only sales data: no visits,
+ * conversion or funnel, which this store does not measure.
+ */
+export async function getPromotionAnalytics(period: AnalyticsPeriod): Promise<PromotionAnalytics> {
+  const [totals] = await prisma.$queryRaw<Array<Record<string, unknown>>>`
+    SELECT COUNT(DISTINCT "oi"."orderId") AS "orders",
+           COALESCE(SUM("oi"."totalInCents"), 0) AS "revenue",
+           COALESCE(SUM("oi"."promotionDiscountInCents" * "oi"."quantity"), 0) AS "discount",
+           COALESCE(SUM("oi"."quantity"), 0) AS "quantity"
+    FROM "OrderItem" "oi" JOIN "Order" "o" ON "o"."id" = "oi"."orderId"
+    WHERE "oi"."promotionId" IS NOT NULL AND ${paidInPeriod(period.fromDay, period.toDay)}
+  `;
+  const rows = await prisma.$queryRaw<Array<Record<string, unknown>>>`
+    SELECT "oi"."promotionId" AS "id",
+           MAX("oi"."promotionName") AS "label",
+           COUNT(DISTINCT "oi"."orderId") AS "orders",
+           SUM("oi"."quantity") AS "quantity",
+           SUM("oi"."totalInCents") AS "revenue",
+           SUM("oi"."promotionDiscountInCents" * "oi"."quantity") AS "discount"
+    FROM "OrderItem" "oi" JOIN "Order" "o" ON "o"."id" = "oi"."orderId"
+    WHERE "oi"."promotionId" IS NOT NULL AND ${paidInPeriod(period.fromDay, period.toDay)}
+    GROUP BY "oi"."promotionId"
+    ORDER BY "revenue" DESC
+    LIMIT 5
+  `;
+  return {
+    ordersWithPromotion: toNumber(totals?.orders),
+    promotionalRevenueInCents: toNumber(totals?.revenue),
+    discountGrantedInCents: toNumber(totals?.discount),
+    promotionalItemsSold: toNumber(totals?.quantity),
+    topPromotions: rows.map((row) => ({
+      id: String(row.id),
+      label: typeof row.label === "string" ? row.label : "Promoção",
+      orders: toNumber(row.orders),
+      quantity: toNumber(row.quantity),
+      revenueInCents: toNumber(row.revenue),
+      discountInCents: toNumber(row.discount),
+    })),
+  };
+}
