@@ -3,6 +3,7 @@ import { runCheckoutExpiryBatch } from "../src/lib/checkout-expiry";
 import { CHECKOUT_WORKER_POLL_MS } from "../src/lib/checkout-policy";
 import { prisma } from "../src/lib/prisma";
 import { getTransactionalEmailDriver } from "../src/lib/transactional-email";
+import { getAsaasConfigurationIssue } from "../src/lib/asaas-config";
 
 let stopping = false;
 process.on("SIGTERM", () => { stopping = true; });
@@ -16,6 +17,18 @@ async function main() {
       if (batch.results.length) console.log(JSON.stringify({ at: new Date().toISOString(), ...batch }));
     } catch {
       console.error(JSON.stringify({ at: new Date().toISOString(), error: "EXPIRY_BATCH_FAILED_RETRYING" }));
+    }
+    // Asaas webhook inbox: events are stored by the route and applied here (and right after each
+    // delivery). Needs only a usable Asaas configuration, whatever PAYMENT_PROVIDER says, so orders
+    // created before a rollback to Stripe keep being reconciled.
+    if (getAsaasConfigurationIssue() === null) {
+      try {
+        const { processAsaasWebhookEvents } = await import("../src/lib/asaas-webhook");
+        const events = await processAsaasWebhookEvents({ limit: 25 });
+        if (events.length) console.log(JSON.stringify({ at: new Date().toISOString(), asaasEvents: events.map((event) => event.outcome) }));
+      } catch (error) {
+        console.error(JSON.stringify({ at: new Date().toISOString(), asaas: "WEBHOOK_BATCH_FAILED", code: error instanceof Error ? error.name : "unknown" }));
+      }
     }
     // Same process drains the e-mail outbox when SMTP is enabled (no-op while disabled).
     if (getTransactionalEmailDriver() !== "disabled") {
