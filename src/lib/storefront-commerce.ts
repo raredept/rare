@@ -1,4 +1,5 @@
 import { isCheckoutEnabled } from "@/lib/env";
+import { getAvailableCheckoutMethods, getPaymentProvider } from "@/lib/payment-provider-config";
 
 export type StorefrontCommerceState = {
   checkoutEnabled: boolean;
@@ -45,5 +46,7 @@ export function buildStorefrontCommerceState(checkoutEnabled: boolean, paymentMe
 export function getStorefrontCommerceState(
   env: Record<string, string | undefined> = process.env,
 ): StorefrontCommerceState {
-  return buildStorefrontCommerceState(isCheckoutEnabled(env), env.STRIPE_PAYMENT_METHOD_TYPES?.split(","));
+  // Claim only the methods actually offered by the active gateway.
+  const methods = getPaymentProvider(env) === "asaas" ? getAvailableCheckoutMethods(env) : env.STRIPE_PAYMENT_METHOD_TYPES?.split(",");
+  return buildStorefrontCommerceState(isCheckoutEnabled(env), methods);
 }

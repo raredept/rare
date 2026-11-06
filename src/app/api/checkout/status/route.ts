@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     }) }, orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     select: { id: true, orderNumber: true, status: true, checkoutDeadlineAt: true,
       reservationExpiresAt: true, checkoutExpiredAt: true, stripeCheckoutSessionId: true,
-      paymentProvider: true, pixCharge: { select: { id: true } } },
+      paymentProvider: true, paymentMethod: true, paymentUrl: true, pixCharge: { select: { id: true } } },
   });
   const checkedAt = new Date();
   if (!order) return NextResponse.json({ order: null, serverNow: checkedAt.toISOString() }, { headers: { "Cache-Control": "private, no-store" } });
@@ -28,8 +28,12 @@ export async function GET(request: NextRequest) {
     } catch { /* A provider failure must never expose a possibly expired link. */ }
   }
   // A Pix is paid on the store's own page, which re-checks the order and its deadline itself.
-  if (!processing && order.status === "awaiting_payment" && deadline && deadline > checkedAt && order.paymentProvider === "mercadopago" && order.pixCharge) {
+  if (!processing && order.status === "awaiting_payment" && deadline && deadline > checkedAt && (order.paymentProvider === "mercadopago" || order.paymentProvider === "asaas") && order.paymentMethod === "pix" && order.pixCharge) {
     resumeUrl = `/pedido/pix/${order.id}`;
+  }
+  // Card on the Asaas invoice: the stored link is an Asaas-hosted https page (validated when stored).
+  if (!processing && order.status === "awaiting_payment" && deadline && deadline > checkedAt && order.paymentProvider === "asaas" && order.paymentMethod === "card" && order.paymentUrl) {
+    resumeUrl = order.paymentUrl;
   }
   // Provider latency must not extend the displayed window or revive its link.
   const serverNow = new Date();

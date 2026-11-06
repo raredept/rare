@@ -13,3 +13,8 @@ export const PIX_RESERVATION_MINUTES = 30;
 export const PIX_PROVIDER_EXPIRY_GRACE_SECONDS = 120;
 // A just-created payment may take a moment to show up in Mercado Pago's search.
 export const PIX_SEARCH_SETTLE_MS = 180_000;
+// Asaas (card on the hosted invoice, or Pix): one window for both, long enough for 3-D Secure on
+// the invoice page. The worker deletes the charge at the deadline before releasing the stock.
+export const ASAAS_RESERVATION_MINUTES = 30;
+// A just-created charge may take a moment to show up in the Asaas listing.
+export const ASAAS_SEARCH_SETTLE_MS = 180_000;

@@ -1,13 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ZodError } from "zod";
 import {
+  cardUnavailableMessage,
   checkoutInProgressMessage,
   checkoutRequiresCpfMessage,
   checkoutRequiresLoginMessage,
   createCheckoutSession,
   paymentInProgressMessage,
+  paymentUnavailableMessage,
   pixUnavailableMessage,
 } from "@/lib/checkout";
+import { getAvailableCheckoutMethods, getPaymentProvider } from "@/lib/payment-provider-config";
 import { getClientIp } from "@/lib/client-ip";
 import { assertCheckoutCredentialsMatchEnvironment } from "@/lib/config-drift";
 import { getCurrentCustomer } from "@/lib/customer-auth";
@@ -26,6 +29,8 @@ const publicCheckoutErrors = new Set([
   checkoutInProgressMessage,
   paymentInProgressMessage,
   pixUnavailableMessage,
+  cardUnavailableMessage,
+  paymentUnavailableMessage,
   "Produto indisponível.",
   "Estoque insuficiente para finalizar este carrinho.",
   "Variação inválida.",
@@ -50,7 +55,8 @@ function getPublicCheckoutError(error: unknown) {
   }
 
   if (error instanceof Error && publicCheckoutErrors.has(error.message)) {
-    return { message: error.message, status: error.message === checkoutRequiresLoginMessage ? 401 : error.message === checkoutInProgressMessage || error.message === paymentInProgressMessage ? 409 : 400, log: false };
+    const unavailable = [pixUnavailableMessage, cardUnavailableMessage, paymentUnavailableMessage].includes(error.message);
+    return { message: error.message, status: error.message === checkoutRequiresLoginMessage ? 401 : error.message === checkoutInProgressMessage || error.message === paymentInProgressMessage ? 409 : unavailable ? 503 : 400, log: false };
   }
 
   if (error instanceof Error) {
@@ -73,7 +79,8 @@ function getSafeLogMessage(error: unknown) {
     .replace(/[a-z]+:\/\/\S+/gi, "[redacted-url]")
     .replace(/\b(?:sk|rk)_(live|test)_[A-Za-z0-9_]+/g, "stripe_$1_[redacted]")
     .replace(/\bwhsec_[A-Za-z0-9_]+/g, "whsec_[redacted]")
-    .replace(/\b(?:APP_USR|TEST)-[A-Za-z0-9_-]{8,}/g, "mercadopago_[redacted]");
+    .replace(/\b(?:APP_USR|TEST)-[A-Za-z0-9_-]{8,}/g, "mercadopago_[redacted]")
+    .replace(/\$aact_[A-Za-z0-9_\-:+=/.]+/g, "asaas_[redacted]");
 }
 
 export async function POST(request: NextRequest) {
@@ -119,7 +126,16 @@ export async function POST(request: NextRequest) {
 
   // Each payment method needs only its own provider. Refuse before reserving stock.
   const wantsPix = typeof body === "object" && body !== null && (body as { paymentMethod?: unknown }).paymentMethod === "pix";
-  if (wantsPix) {
+  const provider = getPaymentProvider();
+  if (provider === "disabled") {
+    return NextResponse.json({ error: paymentUnavailableMessage }, { status: 503 });
+  }
+  if (provider === "asaas") {
+    // Configuration and environment guard (sandbox key in production, or the reverse) before any reservation.
+    if (!getAvailableCheckoutMethods().includes(wantsPix ? "pix" : "card")) {
+      return NextResponse.json({ error: wantsPix ? pixUnavailableMessage : cardUnavailableMessage }, { status: 503 });
+    }
+  } else if (wantsPix) {
     if (!isPixCheckoutAvailable()) {
       return NextResponse.json({ error: pixUnavailableMessage }, { status: 503 });
     }

@@ -25,6 +25,7 @@ enum OrderStatus {
 enum PaymentProvider {
   stripe
   mercadopago
+  asaas
 }
 
 enum PromotionStatus {
@@ -128,6 +129,8 @@ model Customer {
   active          Boolean           @default(true)
   /// Bumped on logout; a session token carrying an older value is rejected.
   sessionVersion  Int               @default(0)
+  /// Asaas customer created for this shopper (reused across checkouts; never taken from the browser).
+  asaasCustomerId String?           @unique
   addresses       CustomerAddress[]
   orders          Order[]
   createdAt       DateTime          @default(now())
@@ -279,6 +282,12 @@ model Order {
   stripePaymentIntentId   String?
   /// Mercado Pago payment id of the Pix created for this order (Checkout API).
   mercadoPagoPaymentId    String?             @unique
+  /// Asaas charge (pay_...) created for this order.
+  asaasPaymentId          String?             @unique
+  /// Provider-hosted page where the shopper pays (Asaas invoice for card). Never a card form of ours.
+  paymentUrl              String?
+  /// Set once when a refund is requested at the provider, so it is never requested twice.
+  refundRequestedAt       DateTime?
   pixCharge               PixCharge?
   paymentMethod           String?
   reservationExpiresAt    DateTime?
@@ -587,4 +596,25 @@ model PromotionCategory {
 
   @@id([promotionId, categoryId])
   @@index([categoryId])
+}
+
+/// Asaas webhook deliveries, stored before the 200 answer. The event id is unique, so a redelivery
+/// is acknowledged without a second effect. Processing re-reads the payment from the API (the body
+/// is only a hint) in the worker or right after the response.
+model AsaasWebhookEvent {
+  id             String    @id
+  event          String
+  paymentId      String?
+  status         String    @default("pending")
+  attempts       Int       @default(0)
+  nextAttemptAt  DateTime  @default(now())
+  leaseToken     String?
+  leaseExpiresAt DateTime?
+  processedAt    DateTime?
+  lastErrorCode  String?
+  receivedAt     DateTime  @default(now())
+
+  @@index([status, nextAttemptAt])
+  @@index([paymentId])
+  @@index([receivedAt])
 }

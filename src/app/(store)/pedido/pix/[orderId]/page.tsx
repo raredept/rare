@@ -37,7 +37,7 @@ export default async function PixOrderPage({ params }: PixOrderPageProps) {
 
   // Scoped to the signed-in customer: someone else's order id is simply not found.
   const order = await prisma.order.findFirst({
-    where: { id: orderId, customerId: customer.id, paymentProvider: "mercadopago" },
+    where: { id: orderId, customerId: customer.id, paymentProvider: { in: ["mercadopago", "asaas"] }, paymentMethod: "pix" },
     select: {
       id: true,
       orderNumber: true,

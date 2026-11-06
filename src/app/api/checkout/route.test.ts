@@ -13,6 +13,8 @@ vi.mock("@/lib/checkout", () => ({
   checkoutInProgressMessage: "Você já tem um checkout em andamento. Aguarde alguns instantes e tente novamente.",
   paymentInProgressMessage: "Você já tem um pagamento em andamento. Aguarde a confirmação antes de iniciar outra compra.",
   pixUnavailableMessage: "O Pix está indisponível no momento. Escolha cartão ou tente novamente em instantes.",
+  cardUnavailableMessage: "O pagamento com cartão está indisponível no momento. Escolha Pix ou tente novamente em instantes.",
+  paymentUnavailableMessage: "Pagamentos temporariamente indisponíveis. Tente novamente em alguns minutos.",
   createCheckoutSession: routeMocks.createCheckoutSession,
 }));
 

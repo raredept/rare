@@ -42,6 +42,7 @@ type CartPageClientProps = {
   initialSelectedAddressId: string;
   // Decided on the server: Pix is offered only when it is enabled and fully configured.
   pixAvailable?: boolean;
+  cardAvailable?: boolean;
   shippingSettings: ProvisionalShippingSettings & {
     shippingInstructions?: string | null;
   };
@@ -171,7 +172,7 @@ function formatCheckoutMessage(message: string) {
   return message;
 }
 
-export function CartPageClient({ customer, addresses, initialSelectedAddressId, pixAvailable = false, shippingSettings, shippingConfig, welcomeCoupon }: CartPageClientProps) {
+export function CartPageClient({ customer, addresses, initialSelectedAddressId, pixAvailable = false, cardAvailable = true, shippingSettings, shippingConfig, welcomeCoupon }: CartPageClientProps) {
   const { items, subtotalInCents, updateQuantity, removeItem, syncPrices } = useCart();
   const priceSignature = useMemo(() => items.map((item) => `${item.productId}:${item.variantId}`).sort().join("|"), [items]);
   useEffect(() => {
@@ -198,7 +199,7 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
   const couponEligibleSubtotalInCents = items.filter((item) => !item.promotional).reduce((sum, item) => sum + item.priceInCents * item.quantity, 0);
   const hasPromotionalItems = items.some((item) => item.promotional);
   const [selectedAddressId, setSelectedAddressId] = useState(initialSelectedAddressId);
-  const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>("card");
+  const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>(cardAvailable || !pixAvailable ? "card" : "pix");
   const payWithPix = pixAvailable && paymentMethod === "pix";
   const [shippingOptions, setShippingOptions] = useState<ShippingQuoteOption[]>([]);
   const [shippingQuoteContext, setShippingQuoteContext] = useState<ShippingQuoteContext | null>(null);
@@ -818,7 +819,7 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
             </div>
           </div>
           {error ? <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{error}</p> : null}
-          {pixAvailable ? <PaymentMethodPicker value={paymentMethod} onChange={setPaymentMethod} disabled={loading} /> : null}
+          {pixAvailable && cardAvailable ? <PaymentMethodPicker value={paymentMethod} onChange={setPaymentMethod} disabled={loading} /> : null}
           <p className="mt-5 text-sm font-semibold leading-6 text-neutral-700">Ao iniciar o pagamento, você terá {payWithPix ? CHECKOUT_PIX_MINUTES : CHECKOUT_CARD_MINUTES} minutos para finalizar. O prazo fica salvo com seu pedido e não se renova ao voltar à loja. Pagamentos já em processamento aguardam confirmação.</p>
           <button
             type="button"

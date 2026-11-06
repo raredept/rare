@@ -110,7 +110,7 @@ describe("customer checkout status", () => {
     expect(mocks.findFirst.mock.calls[0][0].select).toEqual({
       id: true, orderNumber: true, status: true, checkoutDeadlineAt: true,
       reservationExpiresAt: true, checkoutExpiredAt: true, stripeCheckoutSessionId: true,
-      paymentProvider: true, pixCharge: { select: { id: true } },
+      paymentProvider: true, paymentMethod: true, paymentUrl: true, pixCharge: { select: { id: true } },
     });
     expect(body).toEqual({
       order: {
