@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => {
     user: { updateMany: vi.fn(), update: vi.fn(), findUnique: vi.fn() },
     adminMfaRecoveryCode: { deleteMany: vi.fn(), createMany: vi.fn(), updateMany: vi.fn(), count: vi.fn() },
     adminAuditLog: { create: vi.fn() },
+    adminNotification: { createMany: vi.fn() },
   };
   return {
     tx,
@@ -205,5 +206,6 @@ describe("recovery code regeneration and reset", () => {
       data: expect.objectContaining({ mfaSecretEncrypted: null, mfaEnabledAt: null, mfaPendingSecretEncrypted: null, sessionVersion: { increment: 1 } }),
     });
     expect(mocks.tx.adminAuditLog.create.mock.calls[0][0].data).toMatchObject({ action: "mfa.reset", entityId: "admin_1" });
+    expect(mocks.tx.adminNotification.createMany.mock.calls[0][0].data[0]).toMatchObject({ type: "security_mfa_reset" });
   });
 });

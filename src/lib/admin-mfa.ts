@@ -251,6 +251,10 @@ export async function resetAdminMfa(userId: string, actorLabel: string, reason: 
       before: { mfaEnabledAt: before.mfaEnabledAt },
       after: { mfaEnabledAt: null, recoveryCodesRemoved: removed.count, sessionsRevoked: true, reason: reason.slice(0, 200) },
     });
+    // Visible in the Admin bell for every administrator, not only in the database.
+    await tx.adminNotification.createMany({
+      data: [{ type: "security_mfa_reset", title: "Segundo fator redefinido", body: "A verificação em duas etapas de uma conta Admin foi redefinida por procedimento técnico. Confirme que foi autorizado.", href: "/admin/security", dedupeKey: `mfa-reset:${userId}:${Date.now()}` }],
+    });
     return { recoveryCodesRemoved: removed.count };
   });
 }

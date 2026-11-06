@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { updateOrderStatusAction } from "@/app/admin/(protected)/orders/actions";
+import { requestOrderRefundAction, updateOrderStatusAction } from "@/app/admin/(protected)/orders/actions";
 import { AdminSubmitButton } from "@/components/admin/admin-submit-button";
 import { formatCep } from "@/lib/cep";
 import { formatAddressSnapshotLines } from "@/lib/customer-order";
@@ -168,7 +168,13 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
           <section className="rounded-lg border border-neutral-200 bg-white p-5">
             <h2 className="text-lg font-black text-neutral-950">Pagamento</h2>
             <div className="mt-4 space-y-2 break-all text-xs font-semibold text-neutral-600">
-              {order.paymentProvider === "mercadopago" ? (
+              {order.paymentProvider === "asaas" ? (
+                <>
+                  <p>Provedor: Asaas</p>
+                  <p>Cobrança: {maskExternalId(order.asaasPaymentId)}</p>
+                  {order.refundRequestedAt ? <p>Estorno solicitado em {order.refundRequestedAt.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</p> : null}
+                </>
+              ) : order.paymentProvider === "mercadopago" ? (
                 <>
                   <p>Provedor: Mercado Pago</p>
                   <p>Pagamento: {maskExternalId(order.mercadoPagoPaymentId)}</p>
@@ -181,6 +187,17 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
               )}
               <p>Método: {order.paymentMethod ?? "-"}</p>
             </div>
+            {order.paymentProvider === "asaas" && order.asaasPaymentId && !order.refundRequestedAt && ["paid", "processing", "shipped", "delivered"].includes(order.status) ? (
+              <form action={requestOrderRefundAction} className="mt-4 space-y-2 border-t border-neutral-200 pt-4">
+                <input type="hidden" name="id" value={order.id} />
+                <label className="block text-xs font-semibold text-neutral-600">
+                  Estorno total no Asaas. Digite ESTORNAR para confirmar:
+                  <input name="confirm" required pattern="ESTORNAR" autoComplete="off" className="admin-input mt-1" />
+                </label>
+                <button type="submit" className="h-10 w-full rounded-lg border border-red-400 text-xs font-black text-red-700">Solicitar estorno total</button>
+                <p className="text-[11px] text-neutral-500">O estoque não volta automaticamente. Ajuste-o quando a peça retornar.</p>
+              </form>
+            ) : null}
           </section>
         </aside>
       </div>

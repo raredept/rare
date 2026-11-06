@@ -32,6 +32,9 @@ const adminErrorCodes = new Map([
   ["promotion-action-failed", "Não foi possível concluir a ação na promoção."],
   ["promotion-not-found", "Promoção não encontrada."],
   ["promotion-invalid-transition", "Essa mudança de status não é permitida (ou a promoção mudou enquanto isso). Recarregue e tente de novo."],
+  ["order-refund-failed", "Não foi possível pedir o estorno. Confira o status do pedido e a configuração do Asaas."],
+  ["order-refund-duplicate", "O estorno deste pedido já foi solicitado."],
+  ["order-refund-unknown", "Sem resposta confirmada do Asaas: verifique no painel do Asaas se o estorno foi criado antes de tentar de novo."],
   ["promotion-incomplete", "A promoção ainda não pode ser ativada: revise desconto, produtos/categorias, datas e título da home."],
 ]);
 
@@ -55,6 +58,7 @@ const adminSuccessCodes = new Map([
   ["settings-saved", "Configurações salvas."],
   ["password-updated", "Senha atualizada com sucesso."],
   ["order-status-saved", "Status do pedido atualizado."],
+  ["order-refund-requested", "Estorno solicitado ao Asaas. O pedido vira \"Reembolsado\" quando o Asaas confirmar."],
   ["promotion-created", "Promoção criada como rascunho."],
   ["promotion-saved", "Promoção salva."],
   ["promotion-activate", "Promoção ativada (ou programada para o início definido)."],
