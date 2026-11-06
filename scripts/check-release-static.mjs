@@ -113,6 +113,10 @@ function checkFeatureFlags() {
   const shippingRoute = fs.readFileSync(path.join(root, "src", "app", "api", "shipping", "quote", "route.ts"), "utf8");
   const structuredData = fs.readFileSync(path.join(root, "src", "lib", "structured-data.tsx"), "utf8");
 
+  // A variable assigned twice means an edit split a line: the later value silently wins.
+  const envKeys = envExample.split(/\r?\n/).map((line) => line.match(/^([A-Z][A-Z0-9_]*)=/)?.[1]).filter(Boolean);
+  const repeatedKeys = [...new Set(envKeys.filter((key, index) => envKeys.indexOf(key) !== index))];
+  if (repeatedKeys.length) fail("flags", `.env.example atribui mais de uma vez: ${repeatedKeys.join(", ")}.`);
   if (!/^CHECKOUT_ENABLED=["']false["']$/m.test(envExample)) fail("flags", ".env.example deve manter CHECKOUT_ENABLED=false.");
   if (!/^EMAIL_DRIVER=["']disabled["']$/m.test(envExample)) fail("flags", ".env.example deve manter EMAIL_DRIVER=disabled.");
   if (!/^MEDIA_BACKFILL_ALLOW_PRODUCTION=["']false["']$/m.test(envExample)) fail("flags", "Backfill de produção deve ficar bloqueado.");
