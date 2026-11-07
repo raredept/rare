@@ -1,5 +1,15 @@
 # RARE — credential incident / October 2026
 
+## Status check / freeze enforced in code — 2026-11-07 (CYCLE-06, PR #2 branch)
+
+**INCIDENT=P0_OPEN; ROTATION=NO EVIDENCE OF ANY (the staging Stripe TEST key is provably not revoked); RELEASE_SECURITY_FREEZE=ACTIVE (now enforced in code); RAILWAY_ACCESS=BLOCKED_EXTERNAL.** No credential was created, rotated, revoked or configured, and nothing in staging or production was touched. Sections below are preserved as dated history.
+
+- **Old Stripe TEST key still valid:** a read-only `GET /v1/balance` in test mode with the locally stored copy of the compromised staging TEST key returned **HTTP 200 at 2026-11-07T14:50Z** (status only; no body, value or derivative recorded). OLD_FAILS=NO for that credential. Webhook, session and cron secrets and every production credential could not be checked from here.
+- **Exposure scan (value of the Stripe TEST key held in memory only):** Git, all refs + reflog of the shared repository (2,173 blobs) NOT FOUND; six worktrees NOT FOUND; main checkout FOUND only in the already-recorded local stores (root `.env` and four `output/*/standalone/.env` copies). `.next/standalone/.env` is now ABSENT. Shell histories, Claude Code transcripts and temporary tool output NOT FOUND. Pattern scan of the whole history: synthetic test literals only. GitHub Actions: 0 repository, environment or organization secrets; the PR CI workflow uses none.
+- **Freeze enforcement:** `docs/security/RELEASE_FREEZE.json` (state ACTIVE) is read by `scripts/release-freeze.mjs` in the Railway pre-deploy of web and worker and in `npm run release:guard`. A production release fails closed until the record is exactly CLEARED with a dated, attributed closure whose evidence exists; environment values cannot clear it. Not yet verified on Railway.
+- **Migration history (M-21):** the 2026-10-07 read-only audit in [STAGING_DATABASE_GATE.md](STAGING_DATABASE_GATE.md) remains the latest evidence (14/14 applied, clean); backup still unavailable. `npm run db:history-audit` now repeats that audit read-only.
+- **Operator path:** exact Phase S steps, proofs (`scripts/rotation-probe.mjs`) and closure criteria for both environments are in [SECURITY_FREEZE_CLOSURE.md](../cycles/rare-bf-mfa-asaas/SECURITY_FREEZE_CLOSURE.md). Production (Phase P) containment remains urgent, owner-only and unauthorized here.
+
 ## Current official SSH identity / human-required closure — 2026-10-06
 
 **INCOMPLETE — SSH_PATH=BLOCKED; SSH_IDENTITY_HUMAN_ACTION_REQUIRED=YES; RELEASE_SECURITY_FREEZE=ACTIVE.** The objective of establishing the real staging migration history is **KNOWN NOT ACHIEVED**. No usable existing private SSH credential was identified for the official Railway access path, and the official SSH runtime was not tested. The current [staging database gate](STAGING_DATABASE_GATE.md) and [owner-ready provider support draft](RAILWAY_BACKUP_SUPPORT_HANDOFF.md) record the independent database, identity and backup gates. SUPPORT_MESSAGE=READY DRAFT; SUPPORT_NOT_CONTACTED; no operational closure or restore proof is claimed.
