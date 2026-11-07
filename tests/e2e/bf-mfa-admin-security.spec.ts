@@ -305,6 +305,8 @@ test("second Admin and the reset runbook: sessions, secret and recovery codes al
   const second = (await list.locator("li").allInnerTexts()).map((value) => value.trim());
   recordSensitive(...second);
   await page.getByRole("link", { name: "Já guardei, continuar" }).click();
+  // Let that navigation land first: Firefox aborts a page.goto started while it is in flight.
+  await expect(page).toHaveURL(/\/admin(\?|$)/);
   await logout();
 
   await submitAdminPassword(page, login, password);
