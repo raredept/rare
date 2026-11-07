@@ -32,14 +32,14 @@ export function PaymentMethodPicker({
   const options = optionsByProvider[provider];
   return (
     <fieldset className="mt-5" disabled={disabled}>
-      <legend className="text-sm font-black text-neutral-950">Forma de pagamento</legend>
+      <legend className="text-sm font-semibold text-neutral-950">Forma de pagamento</legend>
       <div className="mt-3 grid gap-2">
         {options.map((option) => {
           const selected = value === option.value;
           return (
             <label
               key={option.value}
-              className={`flex min-h-12 cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm transition focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-black ${selected ? "border-neutral-950 bg-neutral-50" : "border-neutral-300 bg-white hover:border-neutral-500"}`}
+              className={`flex min-h-12 cursor-pointer items-start gap-3 border p-3 text-sm transition focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-black ${selected ? "border-neutral-950 bg-neutral-50" : "border-neutral-300 bg-white hover:border-neutral-500"}`}
             >
               <input
                 type="radio"
@@ -50,8 +50,8 @@ export function PaymentMethodPicker({
                 className="mt-1 h-4 w-4 accent-black"
               />
               <span>
-                <span className="block font-black text-neutral-950">{option.title}</span>
-                <span className="block font-semibold text-neutral-600">{option.detail}</span>
+                <span className="block font-semibold text-neutral-950">{option.title}</span>
+                <span className="block font-normal text-neutral-600">{option.detail}</span>
               </span>
             </label>
           );

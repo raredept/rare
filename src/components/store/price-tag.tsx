@@ -12,7 +12,7 @@ type PriceTagProps = {
 };
 
 export function PriceTag({ pricing, size = "card", className = "" }: PriceTagProps) {
-  const finalClass = size === "detail" ? "text-3xl font-black text-neutral-950" : "text-[1rem] font-black leading-tight text-neutral-950 sm:text-lg sm:leading-none";
+  const finalClass = size === "detail" ? "text-2xl font-medium text-neutral-950 sm:text-3xl" : "text-base font-semibold leading-tight text-neutral-950 sm:text-lg";
   if (!pricing.promotion || pricing.discountInCents <= 0) {
     return <p className={`whitespace-nowrap ${finalClass} ${className}`}>{formatMoney(pricing.finalPriceInCents)}</p>;
   }
@@ -21,12 +21,12 @@ export function PriceTag({ pricing, size = "card", className = "" }: PriceTagPro
   return (
     <div className={`flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1 ${className}`}>
       <span className="sr-only">{label}</span>
-      <s aria-hidden="true" className={`whitespace-nowrap font-bold text-neutral-500 ${size === "detail" ? "text-base" : "text-xs sm:text-sm"}`}>
+      <s aria-hidden="true" className={`whitespace-nowrap font-normal text-neutral-600 ${size === "detail" ? "text-base" : "text-xs sm:text-sm"}`}>
         {formatMoney(pricing.basePriceInCents)}
       </s>
       <span aria-hidden="true" className={`whitespace-nowrap ${finalClass}`}>{formatMoney(pricing.finalPriceInCents)}</span>
       {pricing.percentOff > 0 ? (
-        <span aria-hidden="true" className="whitespace-nowrap rounded-full bg-neutral-950 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white sm:text-xs">
+        <span aria-hidden="true" className="whitespace-nowrap bg-neutral-950 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white sm:text-xs">
           -{pricing.percentOff}%
         </span>
       ) : null}
@@ -38,7 +38,7 @@ export function PromotionBadge({ pricing }: { pricing: ProductPrice }) {
   if (!pricing.promotion) return null;
   const text = pricing.promotion.badgeText ?? (pricing.percentOff > 0 ? `-${pricing.percentOff}%` : "Promoção");
   return (
-    <span className="rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-wide text-neutral-950 shadow-sm ring-1 ring-neutral-950/10">
+    <span className="bg-white px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-neutral-950 ring-1 ring-neutral-950/10">
       {text}
     </span>
   );
