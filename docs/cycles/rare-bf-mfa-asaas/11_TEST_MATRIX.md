@@ -1,5 +1,31 @@
 # 11 — Matriz de testes
 
+## CYCLE-05 (2026-11-07) — integração com a evolução de backend
+
+Branch `integration/rare-bf-backend-evolution` (merge `21729fb` + correções). Colunas: ciclo antes (`d811724`), merge bruto (`21729fb`, só resolução de conflitos) e integrado final.
+
+| Gate | Ciclo `d811724` | Merge bruto | Integrado final |
+|---|---|---|---|
+| `npm ci` (lockfile do ciclo) | PASS | PASS (799 pacotes, árvore limpa) | PASS |
+| `tsc --noEmit` | PASS | PASS | PASS |
+| `eslint` | PASS | PASS | PASS |
+| `vitest run` | 164 / 1465 | 171 / 1522 | 173 / 1542 |
+| `npm audit --omit=dev` | 0 | 0 | 0 |
+| `npm run build` (+ type check do Next, standalone, 35 server actions) | PASS | PASS | PASS |
+| `release:guard` | 0 FAIL / 1 WARNING | 0 FAIL / 1 WARNING | 0 FAIL / 1 WARNING (`vercel.json`, pré-existente) |
+| `migrate deploy` + `status` + `diff` (PostgreSQL 17 descartável) | 18 / em dia / sem diferença | idem | idem (`prisma/` inalterado) |
+| `qa:bf-asaas` / `qa:checkout-concurrency` | 8 + 12 | 8 + 12 | 8 + 12 (0 chamadas a provedor) |
+| Lab Chromium (asaas / desconhecido / stripe) | 24 + 2 + 2 | 17 + **1 FAIL** (axe) + 2 + 2 | PASS — 24 + 2 + 2 |
+| Lab WebKit, HTTPS local | PASS | não rodado | asaas 24/24, desconhecido 2/2; stripe 1/2 na rodada longa (fixture Pix vencida após 29 min, B-10) → corrigido e reconfirmado: pagamentos 3 + 2 + 2 PASS |
+| Lab Firefox, HTTPS local | não instalado | não rodado | asaas 22/23 (corrida de navegação no spec, B-09), desconhecido 2/2, stripe 2/2 → corrigido e reconfirmado: segurança 8/8 PASS |
+| Admin isolado do backend (`qa:e2e:isolated`: contrato de dados + desktop + mobile) | — | não rodado | PASS (2 + 1; banco e storage removidos) |
+| Matriz responsiva do backend (`admin-responsive`, 8 larguras × 14 telas, drawer com foco contido + axe) | — | não rodado | PASS |
+| Log do servidor (lab) | 0 vazamentos | 0 / 67 valores | 0 vazamentos em todas as rodadas (Chromium, Firefox, WebKit) |
+| Integridade do banco (lab) | 0 anomalias | 0 anomalias em todas as rodadas |
+| Varredura de segredos (diff integrado × `main`) | — | — | 0 achados reais |
+
+Novos testes: `src/lib/admin-page-label.test.ts` (16), `src/components/admin/admin-nav.test.ts` (4; falham 3/4 contra o merge bruto).
+
 ## CYCLE-04 (2026-11-07) — gates no commit final e laboratório staging-like
 
 | Gate | Resultado |

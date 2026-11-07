@@ -1,5 +1,13 @@
 # RARE BF / MFA / ASAAS — FINAL CYCLE REPORT
 
+## Atualização CYCLE-05 — integração com `codex/backend-evolution-20261007` (2026-11-07)
+
+- **M-14 resolvido**: a evolução de backend/redesign (`bc2c10c`) foi integrada por merge explícito (`21729fb`) e provada com a regressão completa antes de chegar à branch do PR. 7 conflitos textuais + 11 auto-merges revisados; nada do ciclo (MFA, Promoções, Black Friday, Asaas, `PAYMENT_PROVIDER`, preço no servidor, rollback Stripe, drivers de e-mail) nem da evolução de backend (shell do Admin, endurecimento de APIs, redesign, testes) se perdeu. Classificação em [BACKEND_EVOLUTION_RECONCILIATION.md](BACKEND_EVOLUTION_RECONCILIATION.md); execução em [cycles/CYCLE-05-BACKEND-RECONCILIATION.md](cycles/CYCLE-05-BACKEND-RECONCILIATION.md).
+- Merge bruto: único dano real foi contraste (preço riscado sobre o novo fundo da loja). Revisão encontrou mais 6 problemas semânticos/visuais/de teste; todos corrigidos em commits próprios.
+- Regressão final: tsc/lint PASS · unit 173/1542 · build PASS · release guard 0 FAIL · audit 0 · migrations 18 sem drift · QA PostgreSQL 8 + 12 · lab Chromium, Firefox e WebKit PASS (os 2 casos que falharam nas rodadas longas eram do ambiente de teste, corrigidos e repetidos) · suíte isolada e matriz responsiva do Admin do backend PASS · 0 vazamentos em log · 0 anomalias de dados.
+- Novo bloqueio registrado pela linha de backend: incidente de credenciais de staging em aberto (M-20) e histórico de migrations do staging desconhecido (M-21).
+- STAGING PASS: **NÃO** (continua BLOCKED_EXTERNAL). MERGE READY: **NÃO**. PRODUCTION READY: **NÃO**.
+
 ## Atualização CYCLE-04 — homologação de staging (2026-11-07)
 
 - **Staging real: NÃO EXECUTADO** (BLOCKED_EXTERNAL: sem acesso ao projeto RARE no Railway — M-01). Nenhuma variável, migration ou deploy em staging; produção intocada; nenhuma cobrança.
@@ -85,8 +93,9 @@ Data: 2026-11-06 (America/Sao_Paulo). Evidência local (Windows do dono + Postgr
 
 ## BLOCKERS BEFORE MERGE
 1. Staging com roteiro 12_STAGING em PASS
-2. Resolver conflito com a linha de redesign `codex/backend-evolution-20261007`
+2. ~~Resolver conflito com a linha de redesign `codex/backend-evolution-20261007`~~ feito no CYCLE-05 (M-14)
 3. Revisão humana do PR
+4. Incidente de credenciais de staging encerrado e `RELEASE_SECURITY_FREEZE` levantado (M-20)
 
 ## BLOCKERS BEFORE PRODUCTION DEPLOY
 1. `ADMIN_MFA_ENCRYPTION_KEY` de produção configurada antes do deploy (senão ninguém entra no Admin)

@@ -1,6 +1,6 @@
 # 15 — Ações manuais
 
-Atualizado no CYCLE-04 (2026-11-07). "Lab" = laboratório local staging-like (`npm run qa:staging-lab`), que não substitui staging.
+Atualizado no CYCLE-05 (2026-11-07). "Lab" = laboratório local staging-like (`npm run qa:staging-lab`), que não substitui staging.
 
 | # | Tipo | O que fazer | Bloqueia | Estado |
 |---|---|---|---|---|
@@ -16,10 +16,12 @@ Atualizado no CYCLE-04 (2026-11-07). "Lab" = laboratório local staging-like (`n
 | M-10 | EXTERNAL | Conta Asaas de produção aprovada, chave `$aact_prod_`, webhook de produção com token novo; chave sem uso por 3 meses é desativada | Asaas produção | ABERTO |
 | M-11 | MANUAL | Domínio da loja configurado no Asaas se quiser voltar à loja após o cartão (`ASAAS_SUCCESS_REDIRECT=true`; o retorno vai para `/minha-conta/pedidos/[id]`) | opcional | ABERTO |
 | M-12 | MANUAL | Backup do banco antes das migrations de staging (se o plano permitir) e obrigatoriamente antes de produção | produção | ABERTO |
-| M-13 | MANUAL | Revisão visual/mobile/acessibilidade com dados reais de staging | Black Friday | lab PASS (10 larguras × 12 telas, axe, Chromium + WebKit); staging ABERTO |
-| M-14 | MANUAL | Resolver conflito com a linha de redesign `codex/backend-evolution-20261007` (fora deste ciclo) | merge | ABERTO |
+| M-13 | MANUAL | Revisão visual/mobile/acessibilidade com dados reais de staging | Black Friday | lab PASS no integrado (10 larguras × 12 telas + matriz do Admin 8 × 14, axe, Chromium + Firefox + WebKit); staging ABERTO |
+| M-14 | FEITO | Resolver conflito com a linha de redesign `codex/backend-evolution-20261007` | merge | **FEITO no CYCLE-05** — merge explícito `21729fb` + correções, regressão completa PASS, trazido à branch do PR por fast-forward ([reconciliação](BACKEND_EVOLUTION_RECONCILIATION.md)) |
 | M-15 | FEITO | Push da branch e Draft PR https://github.com/raredept/rare/pull/2 | — | FEITO |
 | M-16 | MANUAL | Apontar **web e worker** do staging para a branch `cycle/rare-bf-mfa-asaas-01` (as últimas fontes conhecidas eram branches antigas) e provar o SHA depois do deploy (o `/api/health` público não expõe SHA) | staging | ABERTO |
 | M-17 | MANUAL | Variáveis de staging (web **e** worker), sem imprimir valores: `ADMIN_MFA_ENCRYPTION_KEY` (M-03), `ADMIN_MFA_REQUIRED=true`, `PAYMENT_PROVIDER=asaas`, `ASAAS_ENV=sandbox`, `ASAAS_API_KEY=$aact_hmlg_…` (M-02), `ASAAS_WEBHOOK_TOKEN` (32–255 caracteres aleatórios, diferente da chave e dos segredos de sessão), `ASAAS_PAYMENT_METHODS=pix,card`, `PROMOTIONS_ENABLED=true`, `BLACK_FRIDAY_HOME_ENABLED=true` | staging | ABERTO |
 | M-18 | MANUAL | Webhook no painel Sandbox do Asaas: `https://rare-staging-staging.up.railway.app/api/asaas/webhook` (confirmar o domínio no Railway), token = `ASAAS_WEBHOOK_TOKEN` de staging, eventos listados em 12_STAGING | webhook real | ABERTO |
-| M-19 | MANUAL | Instalar o Firefox do Playwright nesta máquina (`npx playwright install firefox`) para cobrir Firefox | E2E Firefox | ABERTO |
+| M-19 | MANUAL | Instalar o Firefox do Playwright nesta máquina (`npx playwright install firefox`) para cobrir Firefox | E2E Firefox | FEITO no CYCLE-05 (Firefox do Playwright instalado; projeto opt-in `PLAYWRIGHT_FIREFOX=1`; lab PASS) |
+| M-20 | BLOCKER (segurança) | Encerrar o incidente de credenciais de staging registrado pela linha de backend (`docs/security/CREDENTIAL_INCIDENT_202610.md`): Stripe TEST, segredo de assinatura de webhook, segredo de sessão Admin/cliente e segredo de cron constam `COMPROMISED`, `ROTATED=NO`, com `RELEASE_SECURITY_FREEZE=ACTIVE`. Gerar substitutos, configurar, revogar os antigos e provar a rejeição das assinaturas antigas — sem colar valores em lugar nenhum | staging, merge, deploy | ABERTO |
+| M-21 | MANUAL | O histórico de migrations do banco real de staging é desconhecido (o caminho SSH ficou bloqueado na linha de backend). Levantar o estado (`migrate status`) e fazer backup antes de aplicar as 18 migrations (as 4 do ciclo são aditivas) | staging | ABERTO |
