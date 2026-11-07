@@ -64,7 +64,7 @@ export async function StoreCheckoutPage({ searchParams }: StoreCheckoutPageProps
       initialSelectedAddressId={selectedAddressId}
       pixAvailable={getAvailableCheckoutMethods().includes("pix")}
       cardAvailable={getAvailableCheckoutMethods().includes("card")}
-      paymentProvider={getPaymentProvider() === "asaas" ? "asaas" : "stripe"}
+      paymentProvider={getPaymentProvider()}
       shippingSettings={{
         shippingMode: settings.shippingMode,
         manualShippingInCents: settings.manualShippingInCents,

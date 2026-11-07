@@ -22,6 +22,17 @@ afterEach(() => {
 });
 
 describe("environment validation", () => {
+  it("reports an unknown PAYMENT_PROVIDER as an error instead of falling back to a gateway", () => {
+    process.env.PAYMENT_PROVIDER = "qualquer-coisa";
+    process.env.CHECKOUT_ENABLED = "true";
+    const result = validateEnvironment();
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.some((issue) => issue.variable === "PAYMENT_PROVIDER")).toBe(true);
+    // Never silently Stripe: no Stripe requirement is raised for a provider nobody chose.
+    expect([...result.errors, ...result.warnings].some((issue) => issue.variable === "STRIPE_SECRET_KEY")).toBe(false);
+  });
+
   it("keeps checkout disabled by default when the feature flag is absent", () => {
     const result = validateEnvironment();
 

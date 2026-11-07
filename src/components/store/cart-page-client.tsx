@@ -44,7 +44,8 @@ type CartPageClientProps = {
   pixAvailable?: boolean;
   cardAvailable?: boolean;
   // PAYMENT_PROVIDER, also decided on the server: the copy and the payment window follow it.
-  paymentProvider?: CheckoutPaymentProvider;
+  // "disabled" (or an unknown value) offers no payment at all.
+  paymentProvider?: CheckoutPaymentProvider | "disabled";
   shippingSettings: ProvisionalShippingSettings & {
     shippingInstructions?: string | null;
   };
@@ -204,11 +205,16 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
   const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>(cardAvailable || !pixAvailable ? "card" : "pix");
   const payWithPix = pixAvailable && paymentMethod === "pix";
   const usesAsaas = paymentProvider === "asaas";
+  // No method available (PAYMENT_PROVIDER=disabled, an unknown value, or an incomplete gateway
+  // configuration): say so and do not offer a button that can only fail.
+  const paymentAvailable = paymentProvider !== "disabled" && (pixAvailable || cardAvailable);
   // Same windows the server reserves stock for (src/lib/checkout.ts): Asaas holds 30 min for both.
   const paymentWindowMinutes = usesAsaas ? ASAAS_RESERVATION_MINUTES : payWithPix ? CHECKOUT_PIX_MINUTES : CHECKOUT_CARD_MINUTES;
-  const paymentProviderNote = usesAsaas
-    ? payWithPix ? "Pix processado pelo Asaas" : "Cartão processado na página segura do Asaas"
-    : payWithPix ? "Pix processado pelo Mercado Pago" : "Pagamento seguro pelos métodos habilitados na Stripe";
+  const paymentProviderNote = !paymentAvailable
+    ? "Pagamentos temporariamente indisponíveis. Tente novamente em alguns minutos."
+    : usesAsaas
+      ? payWithPix ? "Pix processado pelo Asaas" : "Cartão processado na página segura do Asaas"
+      : payWithPix ? "Pix processado pelo Mercado Pago" : "Pagamento seguro pelos métodos habilitados na Stripe";
   const [shippingOptions, setShippingOptions] = useState<ShippingQuoteOption[]>([]);
   const [shippingQuoteContext, setShippingQuoteContext] = useState<ShippingQuoteContext | null>(null);
   const [selectedShipping, setSelectedShipping] = useState<ShippingSelection | null>(null);
@@ -827,12 +833,14 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
             </div>
           </div>
           {error ? <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{error}</p> : null}
-          {pixAvailable && cardAvailable ? <PaymentMethodPicker value={paymentMethod} onChange={setPaymentMethod} disabled={loading} provider={paymentProvider} /> : null}
-          <p className="mt-5 text-sm font-semibold leading-6 text-neutral-700">Ao iniciar o pagamento, você terá {paymentWindowMinutes} minutos para finalizar. O prazo fica salvo com seu pedido e não se renova ao voltar à loja. Pagamentos já em processamento aguardam confirmação.</p>
+          {paymentAvailable && pixAvailable && cardAvailable ? <PaymentMethodPicker value={paymentMethod} onChange={setPaymentMethod} disabled={loading} provider={usesAsaas ? "asaas" : "stripe"} /> : null}
+          {paymentAvailable ? (
+            <p className="mt-5 text-sm font-semibold leading-6 text-neutral-700">Ao iniciar o pagamento, você terá {paymentWindowMinutes} minutos para finalizar. O prazo fica salvo com seu pedido e não se renova ao voltar à loja. Pagamentos já em processamento aguardam confirmação.</p>
+          ) : null}
           <button
             type="button"
             onClick={checkout}
-            disabled={loading || needsCpf || (shippingConfig.enabled && !selectedShippingOption)}
+            disabled={loading || needsCpf || !paymentAvailable || (shippingConfig.enabled && !selectedShippingOption)}
             className="mt-6 flex h-12 w-full items-center justify-center rounded-lg bg-black px-6 text-sm font-black uppercase tracking-wide text-white transition hover:bg-neutral-800 disabled:cursor-wait disabled:bg-neutral-500"
           >
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
