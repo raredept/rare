@@ -1,5 +1,13 @@
 # RARE BF / MFA / ASAAS — FINAL CYCLE REPORT
 
+## Atualização CYCLE-04 — homologação de staging (2026-11-07)
+
+- **Staging real: NÃO EXECUTADO** (BLOCKED_EXTERNAL: sem acesso ao projeto RARE no Railway — M-01). Nenhuma variável, migration ou deploy em staging; produção intocada; nenhuma cobrança.
+- **Laboratório staging-like** (`npm run qa:staging-lab`, build de produção com `APP_ENV=staging`): MFA, autorização do Admin, Promoções, campanha QA de Black Friday, preço no servidor, replay de server action, janela agendada, webhook (sem rede), roteamento por `PAYMENT_PROVIDER` (asaas/desconhecido/stripe), responsividade 320–1920, axe, analytics e log — PASS em Chromium e WebKit.
+- **5 bugs corrigidos** (checkout falando "Stripe" sem provedor disponível; 3 problemas de contraste no Admin escuro, incluindo o preview da campanha; 2 overflows), mais uma regressão de especificidade introduzida e corrigida no mesmo ciclo. Detalhe e commits em `cycles/CYCLE-04-STAGING.md`.
+- **CI** no GitHub (`PR CI`) passa no PR #2.
+- STAGING PASS: **NÃO**. MERGE READY: **NÃO**. PRODUCTION READY: **NÃO**.
+
 Data: 2026-11-06 (America/Sao_Paulo). Evidência local (Windows do dono + PostgreSQL 17 isolado). Staging e produção **não** foram tocados.
 
 ## BASE

@@ -1,5 +1,29 @@
 # 11 — Matriz de testes
 
+## CYCLE-04 (2026-11-07) — gates no commit final e laboratório staging-like
+
+| Gate | Resultado |
+|---|---|
+| `tsc --noEmit` | PASS |
+| `eslint` | PASS |
+| `vitest run` | PASS — 164 arquivos / 1465 testes (também em `TZ=UTC`, como no runner Linux) |
+| `npm run build` + server actions/standalone | PASS |
+| `npm run release:guard` | PASS — 6 OK, 0 FAIL, 1 WARNING pré-existente (`vercel.json`) |
+| `npm audit --omit=dev` | 0 vulnerabilidades (avisos só em dev deps: vitest mocker, basic-ftp via lighthouse, brace-expansion) |
+| CI GitHub `PR CI` (novo) | PASS no PR #2 (types, lint, unit, audit, build, release guard) |
+| `qa:bf-asaas` / `qa:checkout-concurrency` (PostgreSQL real) | PASS — 8 + 12 provas, 0 chamadas a provedores |
+| `qa:staging-lab` Chromium (asaas / desconhecido / stripe) | PASS — 24 + 2 + 2 |
+| `qa:staging-lab` WebKit, HTTPS local | PASS — MFA/segurança 8/8 + pagamentos (asaas 3, desconhecido 2, stripe 2) numa passada; Promoções 13/13 na seguinte (o WebKit de Windows é ~4× mais lento) |
+| Firefox | NÃO EXECUTADO (navegador do Playwright não instalado; M-19) |
+| Log do servidor (lab) | 0 de 67 valores sensíveis vazados; 0 padrões de credencial |
+| Integridade do banco após o uso (lab) | 0 anomalias em 9 checagens (`LAB_DATA_INTEGRITY`) |
+| Staging real | **NÃO EXECUTADO** — BLOCKED_EXTERNAL (M-01) |
+| Asaas Sandbox / webhook real | **NÃO EXECUTADO** — BLOCKED_EXTERNAL (M-02, M-18) |
+
+Specs novos (opt-in, `QA_LAB_ENABLED=1` pelo runner): `tests/e2e/bf-mfa-admin-security.spec.ts` (8), `bf-mfa-payments.spec.ts` (4, por fase), `bf-mfa-promotions.spec.ts` (13). Detalhe por caso em `cycles/CYCLE-04-STAGING.md`.
+
+## CYCLE-01/02 (2026-11-06)
+
 Execução final: 2026-11-06, Windows do dono, Node 22.20, worktree `cycle/rare-bf-mfa-asaas-01`.
 
 ## Gates
