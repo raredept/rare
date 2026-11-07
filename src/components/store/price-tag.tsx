@@ -38,7 +38,7 @@ export function PromotionBadge({ pricing }: { pricing: ProductPrice }) {
   if (!pricing.promotion) return null;
   const text = pricing.promotion.badgeText ?? (pricing.percentOff > 0 ? `-${pricing.percentOff}%` : "Promoção");
   return (
-    <span className="bg-white px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-neutral-950 ring-1 ring-neutral-950/10">
+    <span className="inline-block max-w-full bg-white px-2.5 py-1.5 text-[10px] font-semibold uppercase leading-4 tracking-[0.14em] text-neutral-950 ring-1 ring-neutral-950/10">
       {text}
     </span>
   );
