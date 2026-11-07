@@ -1,5 +1,17 @@
 # Pending migrations — controlled application
 
+> **Reconciliation note (2026-11-07, CYCLE-05 / backend evolution integrated into the BF/MFA/Asaas cycle).**
+> The integrated branch carries **18** migrations, not 14: the four below come from the BF/MFA/Asaas cycle
+> and are additive (new tables/columns/indexes only). The backend evolution added no migration. This runbook
+> still covers only the two older migrations; for the four new ones see
+> [10_DATABASE.md](../cycles/rare-bf-mfa-asaas/10_DATABASE.md). Re-inventory the authorized target before
+> applying anything — this note is not authorization to execute.
+>
+> 1. `20261013120000_pix_mercadopago`
+> 2. `20261106120000_admin_mfa_audit`
+> 3. `20261106130000_promotions`
+> 4. `20261106140000_asaas_payments`
+
 Reviewed on 2026-10-03. This is a future operator runbook, **not authorization to execute**. No migration was applied to `rare_dev`, real staging or production in this cycle. Only a disposable local QA database received all 14 migrations.
 
 ## Objective and expected state before application
