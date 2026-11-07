@@ -15,7 +15,7 @@ test("reconciled Admin fits all requested widths and keeps drawer focus containe
 
   for (const width of [320, 375, 390, 768, 1024, 1280, 1440, 1920]) {
     await page.setViewportSize({ width, height: 1000 });
-    for (const route of ["/admin", "/admin/analytics", "/admin/orders", "/admin/products", "/admin/customers", "/admin/categories", "/admin/banners", "/admin/notifications", "/admin/readiness", "/admin/settings", "/admin/products/new"]) {
+    for (const route of ["/admin", "/admin/analytics", "/admin/orders", "/admin/products", "/admin/customers", "/admin/categories", "/admin/banners", "/admin/notifications", "/admin/readiness", "/admin/settings", "/admin/products/new", "/admin/promotions", "/admin/promotions/new", "/admin/security"]) {
       const response = await page.goto(route);
       expect(response?.status(), `${route} at ${width}px`).toBe(200);
       await expect(page.locator("h1")).toBeVisible();
