@@ -95,13 +95,11 @@ export function AdminNav({
                   <Icon aria-hidden="true" className="h-4 w-4 shrink-0" strokeWidth={2} />
                   <span>{item.label}</span>
                   {item.href === "/admin/notifications" && unreadNotifications > 0 ? (
-                    <span
-                      className={`admin-nav-badge ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-black ${
-                        active ? "bg-black text-white" : "bg-white text-black"
-                      }`}
-                      aria-label={`${unreadNotifications} notificações não lidas`}
-                    >
+                    // Colours come from .admin-nav-badge (both nav states). Tailwind bg-white would be
+                    // remapped by the dark theme and leave black text on a near-black pill.
+                    <span className="admin-nav-badge ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-black">
                       {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                      <span className="sr-only"> não lidas</span>
                     </span>
                   ) : null}
                 </Link>
