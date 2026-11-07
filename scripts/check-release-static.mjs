@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { checkReleaseFreeze } from "./release-freeze.mjs";
 
 const root = process.cwd();
 const failures = [];
@@ -176,6 +177,16 @@ function checkHostingDrift() {
   }
 }
 
+// The credential-incident freeze (docs/security/RELEASE_FREEZE.json). A production release check
+// (RELEASE_TARGET=production, or a production APP_ENV) fails while it is active; review runs warn.
+function checkSecurityFreeze() {
+  const decision = checkReleaseFreeze({ root });
+  if (decision.level === "fail") fail("security:release-freeze", `RELEASE_SECURITY_FREEZE ativo: ${decision.reason}. Release de produção bloqueado.`);
+  else if (decision.level === "warn") warn("security:release-freeze", `RELEASE_SECURITY_FREEZE ativo (${decision.reason}); produção bloqueada, alvo atual: ${decision.target}.`);
+  else ok("security:release-freeze");
+  for (const note of decision.notes) warn("security:release-freeze", note);
+}
+
 const files = repositoryFiles();
 const baseRef = process.env.RELEASE_BASE_REF || "origin/main";
 checkArtifacts(files);
@@ -185,6 +196,7 @@ checkFeatureFlags();
 checkPublicVariables(files);
 checkBrowserBundle();
 checkHostingDrift();
+checkSecurityFreeze();
 
 console.log(`Summary: ${checks.length} OK, ${warnings.length} WARNING, ${failures.length} FAIL.`);
 if (failures.length) process.exitCode = 1;
