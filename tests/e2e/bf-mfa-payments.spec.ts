@@ -29,6 +29,12 @@ test.afterAll(async () => {
   await context?.close();
 });
 
+/** The storefront streams behind a loading boundary; wait for the final content before reading it. */
+async function settledMain() {
+  await expect(page.locator("main").first()).not.toContainText("Carregando conteúdo", { timeout: 15_000 });
+  await waitForEntranceAnimations(page);
+}
+
 async function openCheckoutWithCart() {
   await page.goto("/");
   await page.evaluate(([productId, variantId, slug, title]) => {
@@ -62,14 +68,16 @@ test(`checkout names only the gateway that charges (${expected})`, async () => {
 test("Pix and order pages of an Asaas order never mention another gateway", async () => {
   test.skip(expected === "disabled", "Same pages; covered by the asaas and stripe runs.");
   await page.goto(`/pedido/pix/${requireEnv("QA_PIX_ORDER_ID")}`);
-  await waitForEntranceAnimations(page);
+  await settledMain();
   const pix = await page.locator("main").innerText();
   expect(pix).toContain("Pague com Pix");
   expect(pix).not.toMatch(/Mercado Pago|Stripe/);
   await expect(page.getByRole("link", { name: "Abrir o Pix na página do Asaas" })).toBeVisible();
 
   await page.goto(`/minha-conta/pedidos/${requireEnv("QA_PAID_ORDER_ID")}`);
-  await waitForEntranceAnimations(page);
+  await settledMain();
+  // Read the order itself, not the loading skeleton (which would pass the check vacuously).
+  await expect(page.getByRole("heading", { level: 1, name: /^Pedido / })).toBeVisible();
   expect(await page.locator("main").innerText()).not.toMatch(/Mercado Pago|Stripe/);
 });
 

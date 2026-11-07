@@ -124,6 +124,27 @@ async function storefrontText(pathname: string) {
   return (await page.locator("main").innerText()).replace(/\u00a0/g, " ");
 }
 
+/**
+ * Store and Admin stream behind loading boundaries ("Carregando conteúdo …") that React reveals
+ * shortly after the load event. Measure, photograph and audit the final content, not the skeleton.
+ */
+async function settled(tab: Page) {
+  await expect(tab.locator("body")).not.toContainText("Carregando conteúdo", { timeout: 15_000 });
+  await waitForEntranceAnimations(tab);
+}
+
+/**
+ * The home carousels advance on their own and fade each new slide in, so an audit can catch a slide
+ * half transparent. Pause them the way a visitor can (the page's motion control stores this).
+ */
+async function setHomeMotionPaused(paused: boolean) {
+  for (const tab of [page, shopper]) {
+    await tab.evaluate((value) => {
+      try { localStorage.setItem("rare:home-motion-paused", String(value)); } catch { /* storage is optional */ }
+    }, paused);
+  }
+}
+
 async function clickStatus(label: "Ativar" | "Pausar" | "Encerrar") {
   await page.getByRole("button", { name: label, exact: true }).click();
   await expect(page).toHaveURL(/success=promotion-|error=promotion-/);
@@ -383,7 +404,7 @@ test("responsive: campaign, product, cart, checkout and promotion screens hold f
       const tab = tabFor(screen);
       await tab.setViewportSize({ width, height: 900 });
       await tab.goto(screen);
-      await waitForEntranceAnimations(tab);
+      await settled(tab);
       const size = await tab.evaluate(() => {
         const client = document.documentElement.clientWidth;
         // What crosses the right edge outside any container that scrolls or clips on its own (a
@@ -415,10 +436,13 @@ test("responsive: campaign, product, cart, checkout and promotion screens hold f
     }
     if (width === 320 || width === 1920) {
       await page.goto("/");
+      await settled(page);
       await page.screenshot({ path: `output/lab/screens/home-campaign-${width}.png`, fullPage: false });
       await page.goto("/admin/promotions");
+      await settled(page);
       await page.screenshot({ path: `output/lab/screens/admin-promotions-${width}.png`, fullPage: false });
       await page.goto(`/admin/promotions/${bfId}`);
+      await settled(page);
       await page.screenshot({ path: `output/lab/screens/admin-promotion-detail-${width}.png`, fullPage: true });
     }
   }
@@ -433,14 +457,19 @@ test("accessibility: no serious or critical axe violation on the new screens", a
   const screens = ["/", `/produto/${product().slug}`, "/cart", "/finalizar-compra", "/admin", "/admin/promotions", "/admin/promotions/new", `/admin/promotions/${bfId}`, `/admin/promotions/${incompleteId}`, `/admin/promotions/${bfId}/preview`, "/admin/analytics", "/admin/security"];
   const report: Record<string, number> = {};
   const findings: string[] = [];
-  for (const screen of screens) {
-    const tab = tabFor(screen);
-    await tab.goto(screen);
-    await waitForEntranceAnimations(tab);
-    const results = await new AxeBuilder({ page: tab }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
-    const blocking = results.violations.filter((violation) => violation.impact === "serious" || violation.impact === "critical");
-    report[screen] = blocking.length;
-    if (blocking.length) findings.push(`${screen}\n${formatAxeViolations(blocking)}`);
+  await setHomeMotionPaused(true);
+  try {
+    for (const screen of screens) {
+      const tab = tabFor(screen);
+      await tab.goto(screen);
+      await settled(tab);
+      const results = await new AxeBuilder({ page: tab }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+      const blocking = results.violations.filter((violation) => violation.impact === "serious" || violation.impact === "critical");
+      report[screen] = blocking.length;
+      if (blocking.length) findings.push(`${screen}\n${formatAxeViolations(blocking)}`);
+    }
+  } finally {
+    await setHomeMotionPaused(false);
   }
   test.info().annotations.push({ type: "axe", description: JSON.stringify(report) });
   expect(findings.join("\n\n")).toBe("");
