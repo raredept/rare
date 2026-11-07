@@ -273,9 +273,26 @@ async function main() {
       { provider: "qualquer-coisa", expected: "disabled", specs: ["tests/e2e/bf-mfa-payments.spec.ts"] },
       { provider: "stripe", expected: "stripe", specs: ["tests/e2e/bf-mfa-payments.spec.ts"] },
     ];
+    // The synthetic Pix order is payable for 25 minutes. WebKit on Windows can spend longer than
+    // that in the first phase, and the next phases would then (correctly) see an expired Pix. Each
+    // phase starts with a fresh window on this disposable database only.
+    const renewPixWindow = async () => {
+      const db = new pg.Client({ connectionString: databaseUrl.toString() });
+      await db.connect();
+      try {
+        await db.query(
+          `UPDATE "Order" SET "reservationExpiresAt" = timezone('UTC', now()) + interval '25 minutes', "checkoutDeadlineAt" = timezone('UTC', now()) + interval '25 minutes'
+           WHERE id = $1 AND status = 'awaiting_payment'`,
+          [fixture.QA_PIX_ORDER_ID],
+        );
+      } finally {
+        await db.end();
+      }
+    };
     for (const phase of phases) {
       if (only.length) phase.specs = phase.specs.filter((spec) => only.some((name) => spec.includes(name)));
       if (!phase.specs.length) continue;
+      await renewPixWindow();
       server = startServer(serverEnv(phase.provider), serverLog);
       const health = await waitForHealth();
       const configuration = health.configuration as { ok?: boolean; errors?: Array<{ variable?: string }> } | undefined;
