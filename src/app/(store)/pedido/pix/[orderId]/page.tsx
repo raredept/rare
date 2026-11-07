@@ -45,10 +45,13 @@ export default async function PixOrderPage({ params }: PixOrderPageProps) {
       totalInCents: true,
       checkoutDeadlineAt: true,
       reservationExpiresAt: true,
+      paymentProvider: true,
       pixCharge: { select: { copyPaste: true, qrCodeBase64: true, ticketUrl: true } },
     },
   });
   if (!order) notFound();
+  // The gateway that issued THIS Pix, whatever PAYMENT_PROVIDER says today (rollback-safe).
+  const providerName = order.paymentProvider === "asaas" ? "Asaas" : "Mercado Pago";
 
   const now = new Date();
   const paid = (paidOrderStatuses as readonly string[]).includes(order.status);
@@ -108,12 +111,13 @@ export default async function PixOrderPage({ params }: PixOrderPageProps) {
             ticketUrl={order.pixCharge.ticketUrl}
             deadlineAt={deadline.toISOString()}
             serverNow={now.toISOString()}
+            providerName={providerName}
           />
         </>
       ) : (
         <p className="mt-4 text-neutral-600">
           {processing
-            ? "O pagamento está em processamento no Mercado Pago. A reserva permanece protegida; não repita o pagamento."
+            ? `O pagamento está em processamento no ${providerName}. A reserva permanece protegida; não repita o pagamento.`
             : "Aguarde alguns instantes. Se você já pagou, a confirmação aparece aqui automaticamente; não repita o pagamento."}
         </p>
       )}

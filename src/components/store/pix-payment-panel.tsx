@@ -8,9 +8,11 @@ type PixPaymentPanelProps = {
   ticketUrl: string | null;
   deadlineAt: string;
   serverNow: string;
+  /** Gateway that issued this Pix (the order's own provider, not the current PAYMENT_PROVIDER). */
+  providerName?: "Mercado Pago" | "Asaas";
 };
 
-export function PixPaymentPanel({ copyPaste, qrCodeBase64, ticketUrl, deadlineAt, serverNow }: PixPaymentPanelProps) {
+export function PixPaymentPanel({ copyPaste, qrCodeBase64, ticketUrl, deadlineAt, serverNow, providerName = "Mercado Pago" }: PixPaymentPanelProps) {
   const [copied, setCopied] = useState(false);
   const [remaining, setRemaining] = useState<number | null>(null);
 
@@ -87,7 +89,7 @@ export function PixPaymentPanel({ copyPaste, qrCodeBase64, ticketUrl, deadlineAt
           {ticketUrl ? (
             <p className="mt-2 text-center text-xs font-bold text-neutral-500">
               <a href={ticketUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4 hover:text-neutral-950">
-                Abrir o Pix na página do Mercado Pago
+                Abrir o Pix na página do {providerName}
               </a>
             </p>
           ) : null}

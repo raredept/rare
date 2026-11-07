@@ -44,7 +44,8 @@ vi.mock("@/lib/stripe", () => ({ getStripe: mocks.getStripe, normalizePaymentMet
 vi.mock("@/lib/asaas", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/asaas")>()), ...mocks.asaas }));
 
 const originalEnv = process.env;
-const sandboxKey = "$aact_hmlg_000MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OjAwMDAwMDAwMDAwMDAwMDA";
+// Obviously fake, and assembled at runtime so secret scanners never see a key-shaped literal.
+const sandboxKey = ["$aact", "hmlg", `fixture${"0".repeat(40)}`].join("_");
 
 function asaasOrder(overrides: Record<string, unknown> = {}) {
   return {
@@ -230,6 +231,15 @@ describe("createCheckoutSession through Asaas", () => {
     expect(result.url).toBe("https://sandbox.asaas.com/i/080225913252");
     expect(mocks.asaas.getAsaasPixQrCode).not.toHaveBeenCalled();
     expect(mocks.prisma.order.update).toHaveBeenCalledWith({ where: { id: "order_asaas_1" }, data: { asaasPaymentId: "pay_080225913252", paymentUrl: "https://sandbox.asaas.com/i/080225913252" } });
+    expect(mocks.asaas.createAsaasPayment.mock.calls[0][1].successUrl).toBeUndefined();
+  });
+
+  it("returns the shopper to their own order page after a card payment (not the Stripe-only success page)", async () => {
+    seed();
+    process.env.ASAAS_SUCCESS_REDIRECT = "true";
+    mocks.asaas.createAsaasPayment.mockImplementation(async (_config: unknown, input: { totalInCents: number }) => payment({ status: "PENDING", billingType: "CREDIT_CARD", amountInCents: input.totalInCents, invoiceUrl: "https://sandbox.asaas.com/i/080225913252" }));
+    await createCheckoutSession({ ...pixInput, paymentMethod: "card" }, { customerId: "customer_000001" });
+    expect(mocks.asaas.createAsaasPayment.mock.calls[0][1].successUrl).toBe("https://staging.rare.example/minha-conta/pedidos/order_asaas_1");
   });
 
   it("releases the stock at once when Asaas refuses the charge (nothing was created)", async () => {

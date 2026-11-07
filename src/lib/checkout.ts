@@ -964,7 +964,9 @@ async function createAsaasCharge(
       totalInCents: order.totalInCents,
       method,
       dueDate: reservationExpiresAt,
-      successUrl: isAsaasSuccessRedirectEnabled() ? `${appUrl}/pedido/sucesso?pedido=${encodeURIComponent(order.id)}` : undefined,
+      // /pedido/sucesso only understands Stripe sessions; the shopper's own order page (signed-in,
+      // scoped to the customer) shows this order and its live status.
+      successUrl: isAsaasSuccessRedirectEnabled() ? `${appUrl}/minha-conta/pedidos/${encodeURIComponent(order.id)}` : undefined,
     });
     paymentId = payment.id;
     // Store the id before anything else can fail, so the worker can always find and close it.
