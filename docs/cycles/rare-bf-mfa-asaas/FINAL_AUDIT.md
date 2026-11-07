@@ -5,7 +5,7 @@ Data: 2026-11-06 (America/Sao_Paulo). Evidência local (Windows do dono + Postgr
 ## BASE
 - Initial branch: `integration/pre-go-live` (worktree principal estava em `codex/backend-evolution-20261007@bc2c10c`, preservada)
 - Initial commit: `f15e5b6`
-- Cycle branch: `cycle/rare-bf-mfa-asaas-01` (worktree `.claude/worktrees/rare-bf-mfa-asaas-01`, **não publicada no GitHub**)
+- Cycle branch: `cycle/rare-bf-mfa-asaas-01` (worktree `.claude/worktrees/rare-bf-mfa-asaas-01`; publicada depois como Draft PR https://github.com/raredept/rare/pull/2 — ver `cycles/CYCLE-03.md`)
 - Final commit: commit `docs(cycle): …` que contém este arquivo (logo após `912f6e5`)
 
 ## CYCLES
@@ -73,7 +73,7 @@ Data: 2026-11-06 (America/Sao_Paulo). Evidência local (Windows do dono + Postgr
 2. Conta/chave Asaas Sandbox e depois produção (M-02, M-10)
 3. `ADMIN_MFA_ENCRYPTION_KEY` por ambiente (M-03)
 4. Revisão visual/mobile/acessibilidade (M-13)
-5. Push + PR da branch (M-15)
+5. ~~Push + PR da branch (M-15)~~ feito: Draft PR https://github.com/raredept/rare/pull/2 (CYCLE-03)
 
 ## BLOCKERS BEFORE MERGE
 1. Staging com roteiro 12_STAGING em PASS

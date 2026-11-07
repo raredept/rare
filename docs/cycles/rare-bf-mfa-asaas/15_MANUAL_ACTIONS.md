@@ -16,4 +16,4 @@
 | M-12 | MANUAL | Backup do banco antes do deploy de produção | produção |
 | M-13 | MANUAL | Revisar visual/mobile/acessibilidade das telas novas em navegador real | Black Friday |
 | M-14 | MANUAL | Resolver conflito com a linha de redesign `codex/backend-evolution-20261007` | merge |
-| M-15 | MANUAL | Push da branch `cycle/rare-bf-mfa-asaas-01` e abertura do PR (não feito: aguardando seu OK) | merge |
+| M-15 | FEITO | Push da branch `cycle/rare-bf-mfa-asaas-01` e abertura do Draft PR https://github.com/raredept/rare/pull/2 (CYCLE-03). Merge continua bloqueado | — |
