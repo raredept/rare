@@ -73,5 +73,10 @@ export default defineConfig({
       name: "webkit",
       use: { ...devices["Desktop Safari"], viewport: { width: 1280, height: 900 } },
     },
+    // Opt-in (PLAYWRIGHT_FIREFOX=1, after `npx playwright install firefox`): listed only when wanted,
+    // so a plain `playwright test` keeps working on machines without the Firefox build.
+    ...(process.env.PLAYWRIGHT_FIREFOX === "1"
+      ? [{ name: "firefox", use: { ...devices["Desktop Firefox"], viewport: { width: 1280, height: 900 } } }]
+      : []),
   ],
 });
