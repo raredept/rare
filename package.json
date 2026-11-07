@@ -30,6 +30,7 @@
     "smoke": "tsx scripts/smoke-public-site.ts",
     "smoke:public": "tsx scripts/smoke-public-site.ts",
     "db:check": "tsx scripts/check-migrations.ts",
+    "db:history-audit": "tsx scripts/migration-history-audit.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
