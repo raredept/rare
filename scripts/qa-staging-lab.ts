@@ -303,6 +303,32 @@ async function main() {
     }
     rmSync(sensitiveFile, { force: true });
     rmSync(path.resolve(root, storageDir), { recursive: true, force: true });
+    // Data integrity after the run (read-only; nothing is corrected). Each query counts anomalies.
+    try {
+      const db = new pg.Client({ connectionString: databaseUrl.toString() });
+      await db.connect();
+      try {
+        const checks: Record<string, string> = {
+          negativeStock: `SELECT COUNT(*)::int AS n FROM "ProductVariant" WHERE stock < 0 OR "reservedStock" < 0 OR "reservedStock" > stock`,
+          orderItemsWithoutOrder: `SELECT COUNT(*)::int AS n FROM "OrderItem" oi LEFT JOIN "Order" o ON o.id = oi."orderId" WHERE o.id IS NULL`,
+          paidWithoutPaidAt: `SELECT COUNT(*)::int AS n FROM "Order" WHERE status IN ('paid','processing','shipped','delivered') AND "paidAt" IS NULL`,
+          asaasPaymentWithoutOrder: `SELECT COUNT(*)::int AS n FROM "AsaasWebhookEvent" e WHERE e."paymentId" IS NOT NULL AND e.status = 'processed' AND NOT EXISTS (SELECT 1 FROM "Order" o WHERE o."asaasPaymentId" = e."paymentId")`,
+          duplicateAsaasCustomer: `SELECT COUNT(*)::int AS n FROM (SELECT "asaasCustomerId" FROM "Customer" WHERE "asaasCustomerId" IS NOT NULL GROUP BY 1 HAVING COUNT(*) > 1) d`,
+          recoveryCodesWithoutFactor: `SELECT COUNT(*)::int AS n FROM "AdminMfaRecoveryCode" r JOIN "User" u ON u.id = r."userId" WHERE u."mfaEnabledAt" IS NULL`,
+          activePromotionWithoutTargets: `SELECT COUNT(*)::int AS n FROM "Promotion" p WHERE p.status IN ('ACTIVE','SCHEDULED') AND ((p.scope = 'SELECTED_PRODUCTS' AND NOT EXISTS (SELECT 1 FROM "PromotionProduct" x WHERE x."promotionId" = p.id)) OR (p.scope = 'SELECTED_CATEGORIES' AND NOT EXISTS (SELECT 1 FROM "PromotionCategory" x WHERE x."promotionId" = p.id)))`,
+          promotionEndBeforeStart: `SELECT COUNT(*)::int AS n FROM "Promotion" WHERE "startsAt" IS NOT NULL AND "endsAt" IS NOT NULL AND "endsAt" <= "startsAt"`,
+          orderItemPromotionMismatch: `SELECT COUNT(*)::int AS n FROM "OrderItem" WHERE "promotionId" IS NOT NULL AND "basePriceInCents" IS NOT NULL AND "unitPriceInCents" + "promotionDiscountInCents" <> "basePriceInCents"`,
+        };
+        const anomalies: Record<string, number> = {};
+        for (const [name, sql] of Object.entries(checks)) anomalies[name] = (await db.query(sql)).rows[0].n;
+        console.log(`LAB_DATA_INTEGRITY ${JSON.stringify(anomalies)}`);
+        results.dataAnomalies = Object.values(anomalies).reduce((total, count) => total + count, 0);
+      } finally {
+        await db.end();
+      }
+    } catch (error) {
+      console.log(`LAB_DATA_INTEGRITY unavailable: ${error instanceof Error ? error.name : "unknown"}`);
+    }
     if (!keep) {
       await maintenance.query(`SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()`, [databaseName]);
       await maintenance.query(`DROP DATABASE IF EXISTS "${databaseName}"`);
