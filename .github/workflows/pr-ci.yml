@@ -1,0 +1,60 @@
+# Gates of every pull request, the same ones run locally before a release.
+# No secret is used: the build, the tests and the release guard all work without credentials,
+# and nothing here deploys, migrates a database or calls a payment provider. Browser E2E against
+# staging stays manual until a safe, credential-scoped environment exists for CI.
+name: PR CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    name: Gates (types, lint, unit, audit, build, release guard)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      # The release guard diffs against main; the checkout below fetches it.
+      RELEASE_BASE_REF: origin/main
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install (npm ci)
+        run: npm ci --no-audit --no-fund
+
+      - name: TypeScript
+        run: npx tsc --noEmit
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: npm audit (runtime dependencies)
+        run: npm audit --omit=dev
+
+      - name: Build
+        run: npm run build
+
+      - name: Release guard
+        run: npm run release:guard
