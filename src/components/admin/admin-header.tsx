@@ -6,33 +6,9 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { logoutAction } from "@/app/admin/(protected)/actions";
 import { AdminNav } from "@/components/admin/admin-nav";
+import { getAdminPageLabel } from "@/lib/admin-page-label";
 
 const focusableSelector = "a[href],button:not([disabled]),[tabindex]:not([tabindex='-1'])";
-
-const routeLabels = [
-  { path: "/admin/analytics", label: "Analytics" },
-  { path: "/admin/products/new", label: "Novo produto" },
-  { path: "/admin/products", label: "Produtos" },
-  { path: "/admin/categories", label: "Categorias" },
-  { path: "/admin/banners", label: "Banners" },
-  { path: "/admin/orders", label: "Pedidos" },
-  { path: "/admin/notifications", label: "Notificações" },
-  { path: "/admin/customers", label: "Clientes" },
-  { path: "/admin/readiness", label: "Prontidão" },
-  { path: "/admin/settings", label: "Configurações" },
-];
-
-function getPageLabel(pathname: string) {
-  if (pathname === "/admin") return "Visão geral";
-  const route = routeLabels.find(({ path }) => pathname === path || pathname.startsWith(`${path}/`));
-  if (!route) return "Admin";
-  if (pathname === route.path || route.path === "/admin/products/new") return route.label;
-  if (route.path === "/admin/products") return "Editar produto";
-  if (route.path === "/admin/categories") return "Editar categoria";
-  if (route.path === "/admin/orders") return "Detalhes do pedido";
-  if (route.path === "/admin/customers") return "Detalhes do cliente";
-  return route.label;
-}
 
 export function AdminHeader({
   adminLabel,
@@ -46,7 +22,7 @@ export function AdminHeader({
   const dialogRef = useRef<HTMLDivElement>(null);
   const triggerButtonRef = useRef<HTMLButtonElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const pageLabel = getPageLabel(pathname);
+  const pageLabel = getAdminPageLabel(pathname);
 
   useEffect(() => {
     if (!menuOpen) return;
