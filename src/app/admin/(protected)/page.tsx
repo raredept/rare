@@ -169,14 +169,18 @@ export default async function AdminDashboardPage() {
           <ul className="mt-3 text-sm">{promotionSummary.endingSoon.map((item) => <li key={item.id}><Link href={`/admin/promotions/${item.id}`} className="underline underline-offset-2">{item.name}</Link> — termina {formatBusinessDateTime(item.endsAt)}</li>)}</ul>
         ) : null}
         {promotionSummary.alerts.length ? (
-          <ul className="mt-3 space-y-1 text-sm font-semibold text-amber-800" role="status">
-            {promotionSummary.alerts.map((alert) => (
-              <li key={`${alert.id}-${alert.kind}`}>
-                <Link href={`/admin/promotions/${alert.id}`} className="underline underline-offset-2">{alert.name}</Link>:{" "}
-                {alert.kind === "no_products" ? "ativa sem produtos/categorias selecionados" : "período terminou, mas ainda marcada como ativa (já não altera preços)"}
-              </li>
-            ))}
-          </ul>
+          // text-amber-700 is the step the dark Admin remaps to a light amber (amber-800 measured
+          // 2.68:1 on the panel); role=status sits on a wrapper so the list keeps its list semantics.
+          <div role="status">
+            <ul className="mt-3 space-y-1 text-sm font-semibold text-amber-700">
+              {promotionSummary.alerts.map((alert) => (
+                <li key={`${alert.id}-${alert.kind}`}>
+                  <Link href={`/admin/promotions/${alert.id}`} className="underline underline-offset-2">{alert.name}</Link>:{" "}
+                  {alert.kind === "no_products" ? "ativa sem produtos/categorias selecionados" : "período terminou, mas ainda marcada como ativa (já não altera preços)"}
+                </li>
+              ))}
+            </ul>
+          </div>
         ) : null}
       </section>
 

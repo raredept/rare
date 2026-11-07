@@ -84,7 +84,7 @@ export function PromotionForm({ values, products, categories }: { values: Promot
           </div>
         ) : null}
 
-        <fieldset className="grid gap-4 rounded-lg border border-neutral-200 bg-white p-5 sm:grid-cols-2">
+        <fieldset className="grid min-w-0 gap-4 rounded-lg border border-neutral-200 bg-white p-5 sm:grid-cols-2">
           <legend className="px-1 text-sm font-black text-neutral-950">Identificação</legend>
           <label className="block sm:col-span-2"><span className={label}>Nome</span><input name="name" required maxLength={120} defaultValue={values.name} className="admin-input" /></label>
           <label className="block"><span className={label}>Código interno</span><input name="slug" maxLength={80} defaultValue={values.slug} placeholder="gerado a partir do nome" className="admin-input" /></label>
@@ -92,7 +92,7 @@ export function PromotionForm({ values, products, categories }: { values: Promot
             <span className="mt-1 block text-xs text-neutral-500">Maior vence quando duas promoções valem para o mesmo produto.</span></label>
         </fieldset>
 
-        <fieldset className="grid gap-4 rounded-lg border border-neutral-200 bg-white p-5 sm:grid-cols-2">
+        <fieldset className="grid min-w-0 gap-4 rounded-lg border border-neutral-200 bg-white p-5 sm:grid-cols-2">
           <legend className="px-1 text-sm font-black text-neutral-950">Desconto e período (horário de Brasília)</legend>
           <label className="block"><span className={label}>Tipo</span>
             <select name="type" value={type} onChange={(event) => setType(event.target.value as PromotionFormValues["type"])} className="admin-input">
@@ -106,7 +106,7 @@ export function PromotionForm({ values, products, categories }: { values: Promot
           <p className="text-xs text-neutral-500 sm:col-span-2">Sem início: vale assim que for ativada. Sem fim: vale até ser pausada ou encerrada. O contador da home só aparece com data de fim.</p>
         </fieldset>
 
-        <fieldset className="rounded-lg border border-neutral-200 bg-white p-5">
+        <fieldset className="min-w-0 rounded-lg border border-neutral-200 bg-white p-5">
           <legend className="px-1 text-sm font-black text-neutral-950">Escopo</legend>
           <div className="flex flex-wrap gap-4 text-sm font-semibold">
             {([["ALL_PRODUCTS", "Todos os produtos"], ["SELECTED_PRODUCTS", "Produtos selecionados"], ["SELECTED_CATEGORIES", "Categorias selecionadas"]] as const).map(([value, text]) => (
@@ -141,7 +141,7 @@ export function PromotionForm({ values, products, categories }: { values: Promot
           {[...selectedCategories].map((id) => <input key={id} type="hidden" name="categoryIds" value={id} />)}
         </fieldset>
 
-        <fieldset className="grid gap-4 rounded-lg border border-neutral-200 bg-white p-5 sm:grid-cols-2">
+        <fieldset className="grid min-w-0 gap-4 rounded-lg border border-neutral-200 bg-white p-5 sm:grid-cols-2">
           <legend className="px-1 text-sm font-black text-neutral-950">Comunicação (texto simples, sem HTML)</legend>
           <label className="inline-flex items-center gap-2 text-sm font-semibold sm:col-span-2"><input type="checkbox" name="homepageFeatured" defaultChecked={values.homepageFeatured} /> Destacar na página inicial</label>
           <label className="block"><span className={label}>Selo (badge)</span><input name="badgeText" maxLength={24} defaultValue={values.badgeText} className="admin-input" placeholder="ex.: BLACK FRIDAY" /></label>
@@ -154,7 +154,7 @@ export function PromotionForm({ values, products, categories }: { values: Promot
           <label className="block sm:col-span-2"><span className={label}>Texto alternativo do banner</span><input name="bannerAlt" maxLength={200} defaultValue={values.bannerAlt} className="admin-input" /></label>
         </fieldset>
 
-        <button type="submit" disabled={pending} className="h-12 rounded-lg bg-white px-6 text-sm font-black text-black disabled:opacity-60">
+        <button type="submit" disabled={pending} className="h-12 rounded-lg bg-black px-6 text-sm font-black text-white disabled:opacity-60">
           {pending ? "Salvando..." : values.id ? "Salvar alterações" : "Criar rascunho"}
         </button>
       </div>

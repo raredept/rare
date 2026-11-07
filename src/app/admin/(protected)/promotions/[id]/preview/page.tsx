@@ -41,11 +41,11 @@ export default async function PromotionPreviewPage({ params }: { params: Promise
       <p className="mt-1 text-sm text-neutral-500">Somente para o Admin. A promoção não é publicada por esta tela{promotion.homepageFeatured ? "" : " — e não está marcada para a home"}. Contador oculto na prévia.</p>
       <section className="mt-6" aria-label="Prévia desktop">
         <h2 className="mb-2 text-xs font-black uppercase tracking-wide text-neutral-500">Desktop</h2>
-        <div className="rounded-lg bg-neutral-50 p-4 text-neutral-950"><HomeCampaign campaign={promotion} products={products} commerce={commerce} preview headingId="preview-desktop-title" /></div>
+        <div className="admin-light-scope rounded-lg bg-neutral-50 p-4 text-neutral-950"><HomeCampaign campaign={promotion} products={products} commerce={commerce} preview headingId="preview-desktop-title" /></div>
       </section>
       <section className="mt-8" aria-label="Prévia mobile">
         <h2 className="mb-2 text-xs font-black uppercase tracking-wide text-neutral-500">Mobile (390 px)</h2>
-        <div className="w-[390px] max-w-full rounded-lg bg-neutral-50 p-2 text-neutral-950"><HomeCampaign campaign={promotion} products={products} commerce={commerce} preview headingId="preview-mobile-title" /></div>
+        <div className="admin-light-scope w-[390px] max-w-full rounded-lg bg-neutral-50 p-2 text-neutral-950"><HomeCampaign campaign={promotion} products={products} commerce={commerce} preview headingId="preview-mobile-title" /></div>
       </section>
     </div>
   );

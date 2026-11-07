@@ -49,7 +49,7 @@ export default async function PromotionDetailPage({ params }: { params: Promise<
       </div>
       <p className="mt-1 text-sm text-neutral-500">Código {promotion.slug}</p>
       {promotion.status !== effective && effective === "ENDED" ? (
-        <p className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm font-semibold text-amber-900">O período terminou: a promoção já não se aplica a nenhum preço. Encerre-a para registrar.</p>
+        <p className="mt-3 rounded-lg border border-amber-400 bg-amber-50 p-3 text-sm font-semibold text-amber-700">O período terminou: a promoção já não se aplica a nenhum preço. Encerre-a para registrar.</p>
       ) : null}
 
       <div className="mt-5 flex flex-wrap gap-2">
@@ -63,7 +63,7 @@ export default async function PromotionDetailPage({ params }: { params: Promise<
         {promotion.status !== "ENDED" ? <StatusForm id={promotion.id} intent="end" label="Encerrar" confirm="Encerrar definitivamente? Uma promoção encerrada não volta; use Duplicar para reutilizar." /> : null}
       </div>
       {canActivate && issues.length ? (
-        <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900" role="status">
+        <div className="mt-4 rounded-lg border border-amber-400 bg-amber-50 p-4 text-sm text-amber-700" role="status">
           <p className="font-black">Para ativar, resolva:</p>
           <ul className="mt-1 list-disc pl-5">{issues.map((issue) => <li key={issue}>{issue}</li>)}</ul>
         </div>

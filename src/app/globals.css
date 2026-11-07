@@ -108,6 +108,13 @@ textarea {
     #050505;
 }
 
+/* A storefront preview inside the Admin (the promotion preview). The dark remaps below stop at
+   this scope, so the preview shows exactly what the shopper will see instead of black text on the
+   remapped near-black surfaces (1.1:1). */
+.admin-dark .admin-light-scope {
+  color-scheme: light;
+}
+
 .admin-dark .admin-input {
   border-color: #343434;
   background: #0b0b0b;
@@ -123,94 +130,94 @@ textarea {
   box-shadow: 0 0 0 2px rgb(255 255 255 / 0.18);
 }
 
-.admin-dark .bg-white {
+.admin-dark .bg-white:not(.admin-light-scope *) {
   background-color: #101010;
 }
 
-.admin-dark a[aria-current="page"] {
+.admin-dark a[aria-current="page"]:not(.admin-light-scope *) {
   background-color: #ffffff;
   color: #000000;
 }
 
-.admin-dark .bg-neutral-50 {
+.admin-dark .bg-neutral-50:not(.admin-light-scope *) {
   background-color: #151515;
 }
 
-.admin-dark .bg-neutral-100 {
+.admin-dark .bg-neutral-100:not(.admin-light-scope *) {
   background-color: #1b1b1b;
 }
 
-.admin-dark .border-neutral-200 {
+.admin-dark .border-neutral-200:not(.admin-light-scope *) {
   border-color: #272727;
 }
 
-.admin-dark .border-neutral-300 {
+.admin-dark .border-neutral-300:not(.admin-light-scope *) {
   border-color: #3a3a3a;
 }
 
-.admin-dark .divide-neutral-200 > :not([hidden]) ~ :not([hidden]) {
+.admin-dark .divide-neutral-200:not(.admin-light-scope *) > :not([hidden]) ~ :not([hidden]) {
   border-color: #272727;
 }
 
-.admin-dark .text-neutral-950,
-.admin-dark .text-neutral-900,
-.admin-dark .text-neutral-800 {
+.admin-dark .text-neutral-950:not(.admin-light-scope *),
+.admin-dark .text-neutral-900:not(.admin-light-scope *),
+.admin-dark .text-neutral-800:not(.admin-light-scope *) {
   color: #f5f5f5;
 }
 
-.admin-dark .text-neutral-700,
-.admin-dark .text-neutral-600 {
+.admin-dark .text-neutral-700:not(.admin-light-scope *),
+.admin-dark .text-neutral-600:not(.admin-light-scope *) {
   color: #d4d4d4;
 }
 
 /* Both steps clear 4.5:1 against every admin surface (#000, #080808, #101010).
    The previous values measured about 4.0:1 on the sidebar, which axe reported
    as a colour-contrast violation on the nav labels and the "Admin" subtitle. */
-.admin-dark .text-neutral-500 {
+.admin-dark .text-neutral-500:not(.admin-light-scope *) {
   color: #9a9a9a;
 }
 
-.admin-dark .text-neutral-400 {
+.admin-dark .text-neutral-400:not(.admin-light-scope *) {
   color: #b0b0b0;
 }
 
-.admin-dark .bg-emerald-50 {
+.admin-dark .bg-emerald-50:not(.admin-light-scope *) {
   background-color: rgb(16 185 129 / 0.1);
 }
 
-.admin-dark .border-emerald-200 {
+.admin-dark .border-emerald-200:not(.admin-light-scope *) {
   border-color: rgb(16 185 129 / 0.32);
 }
 
-.admin-dark .text-emerald-700 {
+.admin-dark .text-emerald-700:not(.admin-light-scope *) {
   color: #a7f3d0;
 }
 
-.admin-dark .bg-amber-50 {
+.admin-dark .bg-amber-50:not(.admin-light-scope *) {
   background-color: rgb(245 158 11 / 0.1);
 }
 
-.admin-dark .border-amber-200 {
+.admin-dark .border-amber-200:not(.admin-light-scope *) {
   border-color: rgb(245 158 11 / 0.32);
 }
 
-.admin-dark .border-amber-400 {
+.admin-dark .border-amber-400:not(.admin-light-scope *) {
   border-color: rgb(245 158 11 / 0.6);
 }
 
-.admin-dark .text-amber-700 {
+.admin-dark .text-amber-700:not(.admin-light-scope *) {
   color: #fde68a;
 }
 
-.admin-dark .bg-red-50 {
+.admin-dark .bg-red-50:not(.admin-light-scope *) {
   background-color: rgb(239 68 68 / 0.1);
 }
 
-.admin-dark .border-red-200 {
+.admin-dark .border-red-200:not(.admin-light-scope *) {
   border-color: rgb(239 68 68 / 0.32);
 }
 
-.admin-dark .text-red-700 {
+.admin-dark .text-red-700:not(.admin-light-scope *) {
   color: #fecaca;
 }
 
@@ -234,7 +241,7 @@ textarea {
   color: #0a0a0a;
 }
 
-.admin-dark a[aria-current="page"] .admin-nav-badge {
+.admin-dark a[aria-current="page"]:not(.admin-light-scope *) .admin-nav-badge {
   background-color: #0a0a0a;
   color: #f5f5f5;
 }
@@ -243,14 +250,14 @@ textarea {
   color: #52514e;
 }
 
-.admin-dark button.bg-black,
-.admin-dark a.bg-black {
+.admin-dark button.bg-black:not(.admin-light-scope *),
+.admin-dark a.bg-black:not(.admin-light-scope *) {
   background-color: #f5f5f5;
   color: #050505;
 }
 
-.admin-dark button.bg-black:hover,
-.admin-dark a.bg-black:hover {
+.admin-dark button.bg-black:not(.admin-light-scope *):hover,
+.admin-dark a.bg-black:not(.admin-light-scope *):hover {
   background-color: #ffffff;
 }
 

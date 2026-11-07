@@ -60,7 +60,7 @@ export default async function PromotionsPage({ searchParams }: { searchParams: P
           <h1 className="text-2xl font-black text-neutral-950">Central de Promoções</h1>
           <p className="mt-1 text-sm text-neutral-500">Preços promocionais calculados no servidor. Horários em Brasília.</p>
         </div>
-        <Link href="/admin/promotions/new" className="inline-flex h-11 items-center justify-center rounded-lg bg-white px-4 text-sm font-black text-black">Criar promoção</Link>
+        <Link href="/admin/promotions/new" className="inline-flex h-11 items-center justify-center rounded-lg bg-black px-4 text-sm font-black text-white">Criar promoção</Link>
       </div>
 
       <form className="mt-6 grid gap-3 rounded-lg border border-neutral-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-6" role="search" aria-label="Filtrar promoções">

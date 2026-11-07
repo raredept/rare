@@ -120,7 +120,8 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
             <h2 className="text-lg font-black text-neutral-950">Cliente</h2>
             <div className="mt-4 space-y-2 text-sm font-semibold text-neutral-600">
               <p>Nome: {order.customer?.name ?? order.customerNameSnapshot ?? order.customerName ?? "-"}</p>
-              <p>E-mail: {order.customer?.email ?? order.customerEmailSnapshot ?? order.customerEmail ?? "-"}</p>
+              {/* A long address has no break opportunity and widened the whole order page. */}
+              <p className="break-all">E-mail: {order.customer?.email ?? order.customerEmailSnapshot ?? order.customerEmail ?? "-"}</p>
               <p>Telefone: {order.customerPhoneSnapshot ?? order.customerPhone ?? "-"}</p>
               <p>CPF: {order.customerCpfSnapshot ? maskCpf(order.customerCpfSnapshot) : "-"}</p>
               {order.customer ? (

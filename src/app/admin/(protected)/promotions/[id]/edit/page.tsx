@@ -18,7 +18,7 @@ export default async function EditPromotionPage({ params }: { params: Promise<{ 
       <Link href={`/admin/promotions/${promotion.id}`} className="text-xs font-black uppercase tracking-wide text-neutral-500 hover:text-white">← {promotion.name}</Link>
       <h1 className="mt-2 text-2xl font-black text-neutral-950">Editar promoção</h1>
       {promotion.status === "ENDED" ? (
-        <p className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm font-semibold text-amber-900">Promoção encerrada: não pode ser editada. Use “Duplicar” na página da promoção.</p>
+        <p className="mt-3 rounded-lg border border-amber-400 bg-amber-50 p-3 text-sm font-semibold text-amber-700">Promoção encerrada: não pode ser editada. Use “Duplicar” na página da promoção.</p>
       ) : (
         <PromotionForm values={toFormValues(promotion)} products={options.products} categories={options.categories} />
       )}
