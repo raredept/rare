@@ -85,7 +85,7 @@ export function CartDrawer({ commerce = buildStorefrontCommerceState(true) }: { 
   return (
     <div className="fixed inset-0 z-[80]" data-cart-drawer-root>
       <div
-        className="store-cart-drawer-overlay absolute inset-0 bg-black/72 backdrop-blur-[2px]"
+        className="store-cart-drawer-overlay absolute inset-0 bg-black/65"
         aria-hidden="true"
         onClick={closeCart}
       />
@@ -94,12 +94,12 @@ export function CartDrawer({ commerce = buildStorefrontCommerceState(true) }: { 
         role="dialog"
         aria-modal="true"
         aria-labelledby="cart-drawer-title"
-        className="store-cart-drawer absolute right-0 top-0 flex h-full w-[calc(100vw-24px)] max-w-[460px] flex-col border-l border-white/10 bg-neutral-950 text-white shadow-[0_30px_80px_rgba(0,0,0,0.45)] sm:w-[460px]"
+        className="store-cart-drawer absolute right-0 top-0 flex h-full w-full max-w-[460px] flex-col border-l border-white/10 bg-neutral-950 text-white  sm:w-[460px]"
       >
         <div className="flex items-start justify-between gap-4 border-b border-white/10 px-5 py-5 sm:px-6">
           <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-white/65">Carrinho</p>
-            <h2 id="cart-drawer-title" className="mt-1 text-2xl font-black tracking-tight">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/65">Carrinho</p>
+            <h2 id="cart-drawer-title" className="mt-1 text-2xl font-semibold tracking-tight">
               Sua seleção
             </h2>
             <p className="mt-1 text-sm font-semibold text-white/55" aria-live="polite">
@@ -110,7 +110,7 @@ export function CartDrawer({ commerce = buildStorefrontCommerceState(true) }: { 
             ref={closeButtonRef}
             type="button"
             onClick={closeCart}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/15 text-white transition-[background-color,border-color,transform] duration-150 hover:border-white/35 hover:bg-white/10 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+            className="flex h-11 w-11 shrink-0 items-center justify-center border border-white/15 text-white transition-[background-color,border-color,transform] duration-150 hover:border-white/35 hover:bg-white/10 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
             aria-label="Fechar carrinho"
           >
             <X className="h-5 w-5" />
@@ -134,37 +134,37 @@ export function CartDrawer({ commerce = buildStorefrontCommerceState(true) }: { 
         ) : (
           <div className="flex flex-1 items-center justify-center px-6 py-10 text-center">
             <div>
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/[0.04]">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center border border-white/10 bg-white/[0.04]">
                 <ShoppingBag className="h-6 w-6 text-white/70" />
               </div>
-              <p className="mt-5 text-xl font-black tracking-tight">Sua seleção ainda está vazia.</p>
+              <p className="mt-5 text-xl font-semibold tracking-tight">Sua seleção ainda está vazia.</p>
               <p className="mt-3 text-sm font-semibold leading-6 text-white/55">Guarde aqui as peças que você quer acompanhar.</p>
             </div>
           </div>
         )}
 
-        <div className="border-t border-white/10 bg-neutral-950 px-5 py-5 sm:px-6">
+        <div className="store-safe-bottom border-t border-white/20 bg-neutral-950 px-5 pt-5 sm:px-6">
           <div className="flex items-center justify-between gap-4">
-            <span className="text-sm font-bold text-white/60">Subtotal</span>
-            <span className="whitespace-nowrap text-xl font-black">{drawerTotal}</span>
+            <span className="text-sm font-medium text-white/60">Subtotal</span>
+            <span className="whitespace-nowrap text-xl font-semibold">{drawerTotal}</span>
           </div>
           <p className="mt-2 text-xs font-semibold leading-5 text-white/65">
             {commerce.checkoutEnabled ? "Frete e prazo são calculados ao finalizar a compra." : "O catálogo segue aberto, mas as compras estão temporariamente pausadas."}
           </p>
           <div className="mt-5 grid gap-3">
             {commerce.checkoutEnabled ? (
-              <Link href="/finalizar-compra" onClick={closeCart} className="flex min-h-12 items-center justify-center rounded-md bg-white px-5 text-xs font-black uppercase tracking-[0.16em] text-black transition-[background-color,transform] duration-150 hover:bg-neutral-200 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70">
+              <Link href="/finalizar-compra" onClick={closeCart} className="flex min-h-12 items-center justify-center bg-white px-5 text-xs font-semibold uppercase tracking-[0.16em] text-black transition-[background-color,transform] duration-150 hover:bg-neutral-200 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70">
                 {commerce.checkoutActionLabel}
               </Link>
             ) : (
-              <button type="button" disabled className="flex min-h-12 items-center justify-center rounded-md bg-white/15 px-5 text-xs font-black uppercase tracking-[0.13em] text-white/65">
+              <button type="button" disabled className="flex min-h-12 items-center justify-center bg-white/15 px-5 text-xs font-semibold uppercase tracking-[0.13em] text-white/65">
                 {commerce.checkoutActionLabel}
               </button>
             )}
             <button
               type="button"
               onClick={closeCart}
-              className="flex min-h-12 items-center justify-center rounded-lg border border-white/15 px-5 text-xs font-black uppercase tracking-[0.16em] text-white transition-[background-color,border-color,transform] duration-150 hover:border-white/35 hover:bg-white/10 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+              className="flex min-h-12 items-center justify-center border border-white/15 px-5 text-xs font-semibold uppercase tracking-[0.16em] text-white transition-[background-color,border-color,transform] duration-150 hover:border-white/35 hover:bg-white/10 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
             >
               Continuar comprando
             </button>
@@ -190,35 +190,35 @@ function CartDrawerItem({
   const canIncrease = item.quantity < item.maxQuantity;
 
   return (
-    <article className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
+    <article className="border-b border-white/20 py-5">
       <div className="flex gap-3">
         <Link
           href={`/produto/${item.slug}`}
           onClick={closeCart}
-          className="h-24 w-20 shrink-0 overflow-hidden rounded-lg bg-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+          className="h-28 w-24 shrink-0 overflow-hidden bg-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
           aria-label={`Ver ${item.title}`}
         >
           {item.image ? (
-            <img src={item.image} alt={item.title} className="h-full w-full object-cover" />
+            <img src={item.image} alt={item.title} width={96} height={120} loading="lazy" decoding="async" className="h-full w-full object-cover" />
           ) : (
-            <ProductMediaPlaceholder compact className="rounded-lg" />
+            <ProductMediaPlaceholder compact className="" />
           )}
         </Link>
         <div className="min-w-0 flex-1">
           <Link
             href={`/produto/${item.slug}`}
             onClick={closeCart}
-            className="line-clamp-2 text-sm font-black leading-5 text-white hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+            className="line-clamp-2 text-sm font-semibold leading-5 text-white hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
           >
             {item.title}
           </Link>
           <p className="mt-1 text-xs font-semibold text-white/65">Tamanho: {item.size}</p>
           <div className="mt-3 flex items-center justify-between gap-3">
-            <span className="whitespace-nowrap text-sm font-black text-success">{formatMoney(item.priceInCents)}</span>
+            <span className="whitespace-nowrap text-sm font-semibold text-white">{formatMoney(item.priceInCents)}</span>
             <button
               type="button"
               onClick={() => removeItem(item.variantId)}
-              className="inline-flex min-h-10 items-center gap-2 rounded-full px-2 text-xs font-bold text-white/55 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+              className="inline-flex min-h-11 items-center gap-2 px-2 text-xs font-medium text-white/55 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
               aria-label={`Remover ${item.title}`}
             >
               <Trash2 className="h-4 w-4" />
@@ -228,32 +228,32 @@ function CartDrawerItem({
         </div>
       </div>
       <div className="mt-3 flex items-center justify-between gap-3 border-t border-white/10 pt-3">
-        <div className="flex h-10 items-center rounded-lg border border-white/15">
+        <div className="flex h-11 items-center border border-white/15">
           <button
             type="button"
             onClick={() => updateQuantity(item.variantId, item.quantity - 1)}
             disabled={!canDecrease}
-            className="flex h-10 w-10 items-center justify-center text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:text-white/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+            className="flex h-11 w-11 items-center justify-center text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:text-white/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
             aria-label="Diminuir quantidade"
           >
             <Minus className="h-4 w-4" />
           </button>
-          <span className="w-10 text-center text-sm font-black" aria-label={`Quantidade ${item.quantity}`}>
+          <span className="w-11 text-center text-sm font-semibold" aria-label={`Quantidade ${item.quantity}`}>
             {item.quantity}
           </span>
           <button
             type="button"
             onClick={() => updateQuantity(item.variantId, item.quantity + 1)}
             disabled={!canIncrease}
-            className="flex h-10 w-10 items-center justify-center text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:text-white/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+            className="flex h-11 w-11 items-center justify-center text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:text-white/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
             aria-label="Aumentar quantidade"
           >
             <Plus className="h-4 w-4" />
           </button>
         </div>
         <div className="text-right">
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/65">Subtotal</p>
-          <p className="mt-1 whitespace-nowrap text-sm font-black">{formatMoney(item.priceInCents * item.quantity)}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/65">Subtotal</p>
+          <p className="mt-1 whitespace-nowrap text-sm font-semibold">{formatMoney(item.priceInCents * item.quantity)}</p>
         </div>
       </div>
     </article>

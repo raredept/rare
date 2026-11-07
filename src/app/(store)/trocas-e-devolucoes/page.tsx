@@ -40,13 +40,13 @@ const policyItems = [
 
 export default function ExchangesAndReturnsPage() {
   return (
-    <div className="mx-auto max-w-4xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
+    <div className="store-shell max-w-5xl py-14 sm:py-16 lg:py-20">
       <section className="max-w-3xl pb-10 sm:pb-12">
-        <p className="text-xs font-black uppercase tracking-[0.28em] text-neutral-500">Política RARE</p>
-        <h1 className="mt-5 text-4xl font-black tracking-tight text-neutral-950 sm:text-5xl lg:text-6xl">
+        <p className="store-section-label">Política RARE</p>
+        <h1 className="mt-5 text-4xl font-medium tracking-tight text-neutral-950 sm:text-5xl lg:text-6xl">
           Trocas e devoluções
         </h1>
-        <p className="mt-6 max-w-2xl text-base font-semibold leading-8 text-neutral-600 sm:text-lg">
+        <p className="mt-6 max-w-2xl text-base leading-8 text-neutral-600 sm:text-lg">
           A RARE aceita devoluções em até 7 dias após o recebimento, conforme o Código de Defesa do Consumidor.
         </p>
       </section>
@@ -57,26 +57,26 @@ export default function ExchangesAndReturnsPage() {
             key={item.title}
             className="grid gap-4 border-b border-neutral-200 py-8 last:border-b-0 sm:grid-cols-[5rem_1fr] sm:gap-8 sm:py-10"
           >
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-neutral-600 sm:pt-1">
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-neutral-600 sm:pt-1">
               {String(index + 1).padStart(2, "0")}
             </p>
             <div>
-              <h2 className="text-2xl font-black tracking-tight text-neutral-950">{item.title}</h2>
-              <p className="mt-4 max-w-2xl text-base font-semibold leading-8 text-neutral-600">{item.text}</p>
+              <h2 className="text-2xl font-medium tracking-tight text-neutral-950">{item.title}</h2>
+              <p className="mt-4 max-w-2xl text-base leading-8 text-neutral-600">{item.text}</p>
             </div>
           </article>
         ))}
       </section>
 
-      <section className="mt-14 rounded-lg bg-black px-6 py-8 text-white sm:px-8 sm:py-10 lg:px-10">
-        <p className="text-xs font-black uppercase tracking-[0.28em] text-white/65">Atendimento</p>
-        <h2 className="mt-4 max-w-2xl text-3xl font-black tracking-tight sm:text-4xl">
+      <section className="mt-14 bg-black px-6 py-8 text-white sm:px-8 sm:py-10 lg:px-10">
+        <p className="text-xs font-medium uppercase tracking-[0.16em] text-white/80">Atendimento</p>
+        <h2 className="mt-4 max-w-2xl text-3xl font-medium tracking-tight sm:text-4xl">
           Precisa solicitar uma troca ou devolução?
         </h2>
-        <p className="mt-5 max-w-2xl text-base font-semibold leading-8 text-white/65">
+        <p className="mt-5 max-w-2xl text-base leading-8 text-white/80">
           Antes de enviar o produto, fale com a RARE por um canal oficial. Assim a equipe registra a solicitação, orienta a análise e confirma os próximos passos.
         </p>
-        <Link href="/contato" className="mt-6 inline-flex min-h-11 items-center border-b border-white text-xs font-black uppercase tracking-[0.16em]">Ver canais de atendimento</Link>
+        <Link href="/contato" className="mt-6 inline-flex min-h-11 items-center border-b border-white text-xs font-medium uppercase tracking-[0.12em]">Ver canais de atendimento</Link>
       </section>
     </div>
   );

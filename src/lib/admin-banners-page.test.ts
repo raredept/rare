@@ -1,6 +1,7 @@
 import { createElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { requireAdmin } from "@/lib/auth";
 
 // Every Admin page checks the session itself; the page logic is what is under test here.
 vi.mock("@/lib/auth", () => ({ requireAdmin: vi.fn(async () => ({ id: "admin-1", role: "ADMIN" })) }));
@@ -23,8 +24,13 @@ vi.mock("next/link", () => ({
 }));
 
 vi.mock("@/components/admin/home-banner-form", () => ({
-  HomeBannerForm: ({ banner }: { banner?: { id: string } }) =>
-    createElement("form", { "data-testid": "home-banner-form" }, banner ? `Editando ${banner.id}` : "Novo banner"),
+  HomeBannerForm: ({ banner, error, nextSortOrder }: { banner?: { id: string }; error?: string; nextSortOrder: number }) =>
+    createElement(
+      "form",
+      { "data-testid": "home-banner-form", "data-next-sort-order": nextSortOrder },
+      banner ? `Editando ${banner.id}` : "Novo banner",
+      error,
+    ),
 }));
 
 vi.mock("@/app/admin/(protected)/banners/actions", () => ({
@@ -39,11 +45,11 @@ beforeEach(() => {
 });
 
 describe("admin banners page", () => {
-  it("renders the empty state and creation form", async () => {
+  it("renders the empty state and creation form with absent searchParams", async () => {
     mocks.prisma.homeBannerSlide.findMany.mockResolvedValueOnce([]);
 
     const { default: BannersPage } = await import("@/app/admin/(protected)/banners/page");
-    const element = await BannersPage({ searchParams: Promise.resolve({}) });
+    const element = await BannersPage({});
     const html = renderToStaticMarkup(element as ReactElement);
 
     expect(html).toContain("Banners da Home");
@@ -51,9 +57,14 @@ describe("admin banners page", () => {
     expect(html).toContain("Nenhum banner cadastrado.");
     expect(html).toContain("Crie o primeiro banner para destacar drops e campanhas na home.");
     expect(html).toContain("Novo banner");
+    expect(html).toContain('data-next-sort-order="0"');
+    expect(requireAdmin).toHaveBeenCalledOnce();
+    expect(mocks.prisma.homeBannerSlide.findMany).toHaveBeenCalledWith({
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    });
   }, 30000);
 
-  it("renders banner list cards with status, thumbnails and actions", async () => {
+  it("preserves editing, errors, banner cards and actions from promised searchParams", async () => {
     mocks.prisma.homeBannerSlide.findMany.mockResolvedValueOnce([
       {
         id: "banner-1",
@@ -84,7 +95,9 @@ describe("admin banners page", () => {
     ]);
 
     const { default: BannersPage } = await import("@/app/admin/(protected)/banners/page");
-    const element = await BannersPage({ searchParams: Promise.resolve({ edit: "banner-1" }) });
+    const element = await BannersPage({
+      searchParams: Promise.resolve({ edit: "banner-1", error: "Revise <banner>" }),
+    });
     const html = renderToStaticMarkup(element as ReactElement);
 
     expect(html).toContain("Total de banners");
@@ -93,8 +106,20 @@ describe("admin banners page", () => {
     expect(html).toContain("Sem imagem");
     expect(html).toContain("Drop selecionado");
     expect(html).toContain("Editando banner-1");
+    expect(html).toContain("Revise &lt;banner&gt;");
+    expect(html).not.toContain("Revise <banner>");
+    expect(html).toContain('data-next-sort-order="20"');
     expect(html).toContain("Remover");
     expect(html).toContain("Subir");
     expect(html).toContain("Descer");
+    expect(requireAdmin).toHaveBeenCalledOnce();
   }, 30000);
+
+  it("authorizes before loading banners with absent searchParams", async () => {
+    vi.mocked(requireAdmin).mockRejectedValueOnce(new Error("Unauthorized"));
+    const { default: BannersPage } = await import("@/app/admin/(protected)/banners/page");
+
+    await expect(BannersPage({})).rejects.toThrow("Unauthorized");
+    expect(mocks.prisma.homeBannerSlide.findMany).not.toHaveBeenCalled();
+  });
 });

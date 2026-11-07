@@ -14,13 +14,19 @@ async function expectVisibleFocus(locator: Locator) {
   expect(visible).toBe(true);
 }
 
-test("Tab alcança a navegação do Header com foco visível", async ({ page }) => {
+test("skip link precede o Header, recebe foco visível e leva ao conteúdo", async ({ page }) => {
   await page.goto("/");
+  await page.keyboard.press("Tab");
+  const skip = page.getByRole("link", { name: "Pular para o conteúdo", exact: true });
+  await expectVisibleFocus(skip);
   await page.keyboard.press("Tab");
   const focused = page.locator(":focus");
   await expect(focused).toBeVisible();
   await expect(focused).toHaveCount(1);
   expect(await focused.evaluate((element) => Boolean(element.closest("header")))).toBe(true);
+  await skip.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#store-main")).toBeFocused();
 });
 
 test("menu mobile prende o foco, fecha com Escape e devolve ao acionador", async ({ page }, testInfo) => {

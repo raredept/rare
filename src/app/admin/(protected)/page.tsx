@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
 import { formatBusinessDateTime } from "@/lib/business-time";
 import { getPromotionDashboardSummary } from "@/lib/promotions/admin";
+import { ANALYTICS_TIME_ZONE } from "@/lib/analytics-period";
 
 export const dynamic = "force-dynamic";
 
@@ -102,13 +103,14 @@ export default async function AdminDashboardPage() {
   }));
 
   return (
-    <div>
+    <div className="min-w-0 [overflow-wrap:anywhere]">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-black text-neutral-950">Visão geral</h1>
           <p className="mt-1 text-sm font-semibold text-neutral-500">
             Vendas dos últimos {snapshot.windowDays} dias e o que precisa de ação hoje.
           </p>
+          <p className="mt-1 text-xs font-semibold text-neutral-500">Fuso comercial: {ANALYTICS_TIME_ZONE} · janela por data do pagamento.</p>
         </div>
         <Link
           href="/admin/analytics"
@@ -194,6 +196,7 @@ export default async function AdminDashboardPage() {
           <Metric title="Ticket médio" value={formatMoney(snapshot.window.averageTicketInCents)} />
           <Metric title="Itens vendidos" value={formatInteger(snapshot.window.itemsSold)} />
         </div>
+        <p className="mt-3 text-xs font-semibold text-neutral-500">Receita dos pedidos nos status pago, em preparo, enviado e entregue; inclui frete, após descontos. Cancelados, falhos e reembolsados não entram.</p>
 
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Metric title="Receita acumulada" value={formatMoney(snapshot.revenueAllTimeInCents)} subtitle="Desde o início" />
@@ -291,7 +294,7 @@ export default async function AdminDashboardPage() {
           <div className="mt-4 divide-y divide-neutral-200">
             {recentOrders.length ? (
               recentOrders.map((order) => (
-                <div key={order.id} className="grid grid-cols-1 gap-2 py-3 text-sm md:grid-cols-[130px_1fr_140px_110px_80px] md:items-center">
+                <div key={order.id} className="grid grid-cols-1 gap-2 py-3 text-sm 2xl:grid-cols-[130px_minmax(0,1fr)_140px_110px_80px] 2xl:items-center">
                   <span className="font-black text-neutral-950">{order.orderNumber}</span>
                   <span className="font-semibold text-neutral-600">
                     {order.customer?.name ?? order.customerNameSnapshot ?? order.customerEmailSnapshot ?? "Cliente convidado"}

@@ -7,20 +7,21 @@ import { requireAdmin } from "@/lib/auth";
 import { requestAsaasRefund, updateOrderStatusWithReservationRelease } from "@/lib/checkout";
 import { invalidOrderTransitionMessage } from "@/lib/order-status";
 import type { OrderStatus } from "@prisma/client";
+import { parseAdminEntityId } from "@/lib/admin-action-input";
 
 const allowedManualStatuses: OrderStatus[] = ["processing", "shipped", "delivered", "canceled", "refunded"];
 
 export async function updateOrderStatusAction(formData: FormData) {
   await requireAdmin();
-  const id = String(formData.get("id") ?? "");
-  const status = String(formData.get("status") ?? "") as OrderStatus;
+  const id = parseAdminEntityId(formData.get("id"));
+  const status = String(formData.get("status") ?? "");
 
-  if (!allowedManualStatuses.includes(status)) {
+  if (!id || !allowedManualStatuses.includes(status as OrderStatus)) {
     throw new Error("Status invalido.");
   }
 
   try {
-    await updateOrderStatusWithReservationRelease(id, status, "Status atualizado manualmente no admin");
+    await updateOrderStatusWithReservationRelease(id, status as OrderStatus, "Status atualizado manualmente no admin");
   } catch (error) {
     const message = error instanceof Error && [invalidOrderTransitionMessage, "Pedido não encontrado."].includes(error.message) || (error instanceof Error && error.message.startsWith("Pagamento confirmado"))
       ? (error as Error).message

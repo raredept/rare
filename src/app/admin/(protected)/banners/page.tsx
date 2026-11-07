@@ -20,7 +20,7 @@ type BannersPageProps = {
   searchParams?: Promise<{ edit?: string; error?: string }>;
 };
 
-export default async function BannersPage({ searchParams }: BannersPageProps = {}) {
+export default async function BannersPage({ searchParams }: BannersPageProps) {
   // Checked here, not only in the layout: layouts do not re-render on client
   // navigation, so every page verifies the session next to its data.
   await requireAdmin();

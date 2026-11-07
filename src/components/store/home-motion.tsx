@@ -51,7 +51,7 @@ export function HomeMotionControl({ className = "" }: { className?: string }) {
   return (
     <button type="button" data-motion-control aria-label={`${label} da página`} disabled={reducedMotion}
       onClick={() => setPaused(!paused)}
-      className={`inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full border border-white/30 px-3 text-[10px] font-bold uppercase tracking-wide text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white disabled:opacity-75 ${className}`}>
+      className={`inline-flex min-h-11 shrink-0 items-center justify-center gap-2 border-l border-white/30 px-3 text-[10px] font-medium uppercase tracking-wide text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:opacity-75 ${className}`}>
       <Icon className="h-3.5 w-3.5" aria-hidden="true" /><span>{label}</span>
     </button>
   );

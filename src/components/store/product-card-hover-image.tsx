@@ -7,9 +7,10 @@ import styles from "./product-card.module.css";
 
 type ProductCardHoverImageProps = {
   media: ProductMediaAsset;
+  sizes?: string;
 };
 
-export function ProductCardHoverImage({ media }: ProductCardHoverImageProps) {
+export function ProductCardHoverImage({ media, sizes }: ProductCardHoverImageProps) {
   const [hidden, setHidden] = useState(false);
   const renderPlan = getProductMediaRenderPlan(media, "card");
 
@@ -24,7 +25,7 @@ export function ProductCardHoverImage({ media }: ProductCardHoverImageProps) {
         alt=""
         width={renderPlan.width}
         height={renderPlan.height}
-        sizes={renderPlan.sizes}
+        sizes={sizes ?? renderPlan.sizes}
         quality={75}
         loading="lazy"
         decoding="async"
@@ -41,7 +42,7 @@ export function ProductCardHoverImage({ media }: ProductCardHoverImageProps) {
       alt=""
       width={renderPlan.width}
       height={renderPlan.height}
-      sizes={renderPlan.sizes}
+      sizes={sizes ?? renderPlan.sizes}
       loading={renderPlan.loading}
       decoding={renderPlan.decoding}
       fetchPriority={renderPlan.fetchPriority}

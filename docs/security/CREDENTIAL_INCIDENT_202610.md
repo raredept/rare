@@ -1,0 +1,316 @@
+# RARE — credential incident / October 2026
+
+## Current official SSH identity / human-required closure — 2026-10-06
+
+**INCOMPLETE — SSH_PATH=BLOCKED; SSH_IDENTITY_HUMAN_ACTION_REQUIRED=YES; RELEASE_SECURITY_FREEZE=ACTIVE.** The objective of establishing the real staging migration history is **KNOWN NOT ACHIEVED**. No usable existing private SSH credential was identified for the official Railway access path, and the official SSH runtime was not tested. The current [staging database gate](STAGING_DATABASE_GATE.md) and [owner-ready provider support draft](RAILWAY_BACKUP_SUPPORT_HANDOFF.md) record the independent database, identity and backup gates. SUPPORT_MESSAGE=READY DRAFT; SUPPORT_NOT_CONTACTED; no operational closure or restore proof is claimed.
+
+This section supersedes every earlier cycle below. Earlier approvals, conditions, endpoint-security findings and execution attempts are historical evidence, not renewed authority. The current instruction allowed observational SQL irrespective of backup availability, but the identity prerequisite prevented execution; it did not authorize automatic identity generation or a third backup request.
+
+### Git / release boundary
+
+At entry, local documentation HEAD and its remote branch were both `b9d7cbf5a47648fa0486414d0392b043b04efd29`; `origin/main` remained `4ea73f50cafdbf67e16dc71de985052075feca42`, with 30 ahead / 0 behind. Final documentation SHA, remote equality and ahead/behind belong to the publication closure and are not guessed here. One exact PR query in this cycle returned `issues=[]`; no PR creation attempt, retry, merge or CI-success assertion followed. The known `PR_CREATION_BLOCKED_BY_PERMISSION` remains unresolved.
+
+### Official identity evidence — UTC unless explicitly stated otherwise
+
+| Evidence | Observed result / limit |
+|---|---|
+| Railway CLI 5.26.0 personal SSH-key listing, 2026-10-06T20:39:30.516Z | Empty personal inventory. This is not a workspace-wide key inventory. |
+| Local `.ssh` inventory | 0 public keys / 0 private keys; no usable existing local identity. |
+| Native configured identity paths | 7 configured candidates checked; 0 existing private keys. |
+| `ssh-add` / agent check | Exit 2: agent unavailable. No usable agent identity was obtained; this is not proof of a successfully queried empty agent inventory. |
+| Native SSH agent / environment / Pageant | Service STOPPED and never started by this cycle; `SSH_AUTH_SOCK` absent; Pageant not found. |
+| Official GitHub-linked key query, 2026-10-06T20:42:26.595Z | HTTP 200 with GraphQL `INTERNAL_SERVER_ERROR`; GitHub-linked key availability UNKNOWN, not zero and not a diagnosed ACL denial. No usable algorithm/fingerprint metadata was obtained. |
+| CLI GitHub-import route | Source/help evaluated only: the route can automatically import ONE key into the personal inventory. It was not executed, and no matching usable private-key candidate was available. |
+
+`SSH_IDENTITY_HUMAN_ACTION_REQUIRED=YES`: the owner must identify or establish a legitimate approved identity and review the GitHub-linked-key query error. No key import, API key mutation, key generation, new local private key, host pinning, SSH connection or SQL session occurred in this cycle. Existing keys were untouched; key removal is NOT APPLICABLE. READ ONLY verification and explicit ROLLBACK were NOT EXECUTED because no SQL session existed. The missing identity is the **actual current audit blocker**; no general antivirus block of official SSH has been proved, and the official runtime remains UNTESTED.
+
+### Historical helper quarantine / endpoint-security boundary
+
+Read-only McAfee forensics confirmed five prior related records for `RareAuditAskPass.exe`, detection family `Real Protect-LS`, action `QUARANTINED`. Their recorded timestamps are literal **10/06/2026 17:42:00 through 17:52:25**; the records have no offset, so these times are **not labeled UTC**. The original executable is absent/quarantined. Its trustworthiness and whether the detection is a false positive are UNKNOWN. Hashes in the records are log metadata only; no independent executable hash verification was possible or claimed.
+
+The custom helper is **ABANDONED**. No recompile, replacement helper, rename, repackaging, quarantine restoration, trust approval, re-execution, antivirus disabling, exclusion, security-setting modification or unencrypted-key fallback occurred. This historical quarantine evidence does not establish that the official SSH client/runtime is blocked by McAfee. Legitimate owner review of endpoint security is separate from supplying an approved existing identity; neither is an automatic continuation instruction.
+
+### Final read-only backup / target reconciliation — UTC
+
+The same staging identities were reverified at **2026-10-06T20:41:33.034Z**:
+
+| Target | Verified identifier / metadata |
+|---|---|
+| Rare project | `72ed12be-9a2a-4e13-8594-30ffd8ffa565` |
+| Staging environment | `d8399691-dacf-41e9-a9d5-060c97672e39` |
+| PostgreSQL service | `ed0a374e-79da-4aab-9e3a-bb684fb829d1` |
+| PostgreSQL service instance | `3b37cfd9-f315-40df-a8a6-35673912d346` |
+| PostgreSQL volume | `a0b78a5e-0dec-40ab-9d8c-c298be29ca5d` |
+| PostgreSQL volume instance | `c5910985-a38a-479b-9274-e65ec6753c77` |
+| Mount / capacity / usage | `/var/lib/postgresql/data`; READY; 5000 MB capacity / 187.547648 MB used. Earlier dated evidence of 187.531264 MB is retained as historical usage, not the fresh value. |
+| Region / deployments | Region UNKNOWN; relevant deployments unchanged and SUCCESS. No production target was selected. |
+
+The final authorized read-only backup reconciliation at **2026-10-06T20:43:01.586Z** returned **0 snapshots / 0 schedules**; no late snapshot was visible. Historical creation requests remain exactly **2 cumulative; NO_THIRD_ATTEMPT**. Current-cycle provider writes: **0**. `BACKUP_AVAILABLE=NO`; `STAGING_BACKUP_VERIFIED=NO`; `BACKUP_PROVIDER_BLOCKER=YES` is an operational blocker, not a structural diagnosis. `TRACE_ID=NOT AVAILABLE` means none is available in the sanitized evidence, not proof that no possible response location contained one. `BACKEND_OPERATION_OUTCOME=UNKNOWN`; `COST_INCURRED=UNKNOWN`; `INTERNAL_PROVIDER_CLOSURE=NOT PROVEN`.
+
+No PITR activation, dump, new backup, schedule, deletion, restore or other backup mutation occurred. An empty final inventory does not prove the absence of internal work, delayed creation or charges. `RESTORE_DRILL_VERIFIED=NO`; inventory existence/absence is separate from restore and integrity proof. The [support handoff](RAILWAY_BACKUP_SUPPORT_HANDOFF.md) is ready for the owner to send, but remains DRAFT / NOT SENT. A third request requires new explicit owner authority; neither this draft nor a suggested provider action grants it.
+
+### Unknown database state / independent activation gate
+
+| Required evidence | Current state |
+|---|---|
+| PostgreSQL version; applied/pending/failed/rolled-back migration counts | UNKNOWN — no SQL executed |
+| Actual database checksums; columns; indexes; schema | UNKNOWN |
+| Actual correspondence to the 14 repository migrations | UNKNOWN; repository inventory is not applied-history evidence |
+| Admin seed; analytics structures; session state/version | UNKNOWN |
+| Real staging migration history verified / clean | NO / UNKNOWN, NOT VERIFIED |
+| Migrate-deploy no-op / `PHASE_M_REQUIRED` | UNKNOWN / UNKNOWN |
+| `MIGRATION_BLOCKER` | YES because the real history is unknown, not because corruption was found |
+| READ ONLY transaction / explicit ROLLBACK | NOT EXECUTED |
+| Effective next-deploy config / safe activation path | NOT VERIFIED / NOT PROVEN; independent of identity and backup |
+
+No selector modification, runtime/config/variable change, deploy/restart, migration, DDL/DML, credential rotation or commercial-provider/commerce action occurred in this cycle. Stored/deployed references do not prove next-deployment resolution or real database state; no migration-free secret activation path has been established.
+
+All four affected credential categories remain **COMPROMISED=YES; ROTATED=NO**. `RELEASE_SECURITY_FREEZE=ACTIVE`; `PHASE_S_CAN_RESUME=NO`; READY FOR MERGE / STAGING BOOTSTRAP / EXTERNAL HOMOLOGATION / PRODUCTION = **NO**. The next actions require the owner: provide direction for a legitimate SSH identity without automatic generation, review the official GitHub-linked-key query error and historical endpoint quarantine, and send the prepared provider support draft. Known real history remains unachieved; no automatic SQL continuation, backup retry or Phase S resumption is authorized by this closure.
+
+## Historical backup reconciliation / trusted metadata audit — 2026-10-06
+
+The following cycle and all older sections are historical. Their endpoint-security stop and prior approvals do not supersede the current official-identity / human-required closure above.
+
+**INCOMPLETE — SAFE ABORT; ENDPOINT_SECURITY_BLOCKER; RELEASE_SECURITY_FREEZE=ACTIVE.** The success criterion, known real staging migration history, was **not achieved**. The current [staging database gate](STAGING_DATABASE_GATE.md), [provider support handoff](RAILWAY_BACKUP_SUPPORT_HANDOFF.md) and [rotation approval boundary](CREDENTIAL_ROTATION_APPROVAL.md) govern this cycle. The support package is DRAFT ONLY / SUPPORT_NOT_CONTACTED; documentation is not provider coordination or incident containment.
+
+Entry local/remote documentation HEAD is 30104ad071bac4df6c0b31524358c262f5b33b25; origin/main and deployed source remain 4ea73f50cafdbf67e16dc71de985052075feca42; 29 ahead / 0 behind. Final documentation SHA, ahead/behind and remote equality are reported at closure after publication, not guessed here. One exact all-state head/base PR search this turn returned none; no PR creation attempt, retry, merge or CI-success claim. The prior PR_CREATION_BLOCKED_BY_PERMISSION remains unresolved.
+
+### Backup reconciliation — UTC
+
+The same API-verified staging target was used: project 72ed12be-9a2a-4e13-8594-30ffd8ffa565, environment d8399691-dacf-41e9-a9d5-060c97672e39, PostgreSQL service ed0a374e-79da-4aab-9e3a-bb684fb829d1, volume instance c5910985-a38a-479b-9274-e65ec6753c77. No production target was selected.
+
+| Time | Observed operation / result |
+|---|---|
+| 2026-10-06T17:30:27.210Z | Fresh reconciliation: 0 snapshots / 0 schedules; no delayed backup visible from the first attempt. |
+| 2026-10-06T17:30:46.574Z | Exactly the second and final authorized backup-create request: HTTP 200 / INTERNAL_SERVER_ERROR; no workflow ID returned. |
+| 2026-10-06T17:30:48.048Z | Successful readback: 0 snapshots / 0 schedules. |
+| 2026-10-06T17:32:38.169Z | Successful bounded readback: 0 snapshots / 0 schedules. |
+| 2026-10-06T17:52:44.877Z | Final successful readback: 0 snapshots / 0 schedules. |
+
+Cumulative backup creation requests: **2; NO_THIRD_ATTEMPT**. TRACE_ID=NOT_CAPTURED; BACKEND_OPERATION_OUTCOME=UNKNOWN; COST_INCURRED=UNKNOWN. HTTP 200 is not mutation success, and an empty inventory does not establish that no internal work or delayed charge/snapshot can exist. BACKUP_PROVIDER_BLOCKER=YES; BACKUP_AVAILABLE=NO; STAGING_BACKUP_VERIFIED=NO; RESTORE_DRILL_VERIFIED=NO. No backup schedule, deletion, resize, restore or alternate backup mechanism was executed.
+
+### Trusted-access attempt / actual stop
+
+The new instruction independently authorized metadata-only READ ONLY SQL even without a backup; the prior backup-before-SSH condition below is historical, not this cycle's authority. Local transient key pairs failed the encrypted-key verification guard and were removed; no preexisting key was deleted. McAfee's local log contains **five related entries and confirms the ASKPASS helper as QUARANTINED**, establishing ENDPOINT_SECURITY_BLOCKER. No antivirus bypass, quarantine restore, exclusion, security-setting change or unencrypted-key fallback was performed. The blocked helper was not replaced by another access route.
+
+Registered personal SSH-key inventory was **0 before / 0 after**; workspace inventory was not asserted. KEY_REGISTRATION_ATTEMPTED=NO; SSH_EXECUTED=NO; SQL_EXECUTED=NO. REMOTE_KEY_DELETE=NOT APPLICABLE because no key was registered; REMOTE_KEY_ABSENCE_VERIFIED=YES for the intended personal key; LOCAL_TEMP_KEYS_REMOVED=YES. Existing incident evidence and sensitive recovery copies were preserved. API identity checks succeeded, but SSH runtime identity for the intended service instance 3b37cfd9-f315-40df-a8a6-35673912d346 was **NOT VERIFIED** because no remote command ran.
+
+| Database / activation evidence | Current state |
+|---|---|
+| READ ONLY mode / explicit ROLLBACK | NOT VERIFIED / NOT EXECUTED — no SQL session existed |
+| PostgreSQL version; applied/pending/failed/rolled-back counts | UNKNOWN |
+| Actual DB checksums, schema, analytics indexes and sessionVersion state | UNKNOWN; deployed Git references are not DB evidence |
+| STAGING_MIGRATION_HISTORY_VERIFIED / history clean | NO / NOT VERIFIED |
+| Migrate-deploy no-op / PHASE_M_REQUIRED | UNKNOWN / UNKNOWN |
+| MIGRATION_BLOCKER | YES due to missing evidence, not identified corruption or a proven pending migration |
+| SAFE_SECRET_ACTIVATION_PATH / PHASE_S_CAN_RESUME | NOT PROVEN / NO |
+
+Fresh web/worker readbacks retain deployed SHA 4ea73f50cafdbf67e16dc71de985052075feca42, not the frozen Admin candidate, and stored source branch integration/pre-go-live. Stored source is not proof of next-deployment resolution. Stored web predeploy remains `PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=true npx prisma migrate deploy`; worker, PostgreSQL and Redis predeploy are NONE. Current stored migration executor count is 1; future count UNKNOWN. API config selectors and root directories are null; the recorded 2026-09-25 resolved-config snapshot is empty. EFFECTIVE_NEXT_DEPLOY_CONFIG=NOT VERIFIED: neither the intended web/worker file selection nor a migration-free secret activation path was proved. No source/runtime/config/variable change, deploy/restart, migration/DDL/DML, credential rotation, commercial-provider or commerce action was executed. Independent application writes were not paused or audited by this attempt.
+
+All affected credentials remain COMPROMISED; ROTATED=NO; RELEASE_SECURITY_FREEZE=ACTIVE. READY FOR MERGE/STAGING BOOTSTRAP/EXTERNAL HOMOLOGATION/PRODUCTION=NO. Next actions are owner/provider triage of the two ambiguous backup requests using the draft handoff, and legitimate owner review of endpoint quarantine. **No third backup, automatic SQL continuation or Phase S resumption is authorized by this closure.** Further execution requires a reviewed legitimate access path and renewed explicit owner direction; an observational SQL audit does not itself require backup availability. This cycle stopped safely but remains incomplete. Documentation-only validation is handled at closure; no E2E, build or runtime-suite rerun is claimed.
+
+## Historical first staging recovery-gate attempt — 2026-10-06
+
+This first recovery attempt is preserved as dated evidence and superseded by the current cycle above. Its single-request count, backup-before-SSH prerequisite and no-local-key statements describe only that first attempt, not cumulative execution or current SQL authority.
+
+**MANUAL_BACKUP_FAILED; RELEASE_SECURITY_FREEZE=ACTIVE.** [STAGING_DATABASE_GATE.md](STAGING_DATABASE_GATE.md) records the current narrow authorization and actual outcome. Entry local/remote HEAD b781aa0287a8a676792a8ef6c60671fd4e2b2489, main 4ea73f50cafdbf67e16dc71de985052075feca42, 28 ahead / 0 behind. Exactly one backup request targeted verified staging PG volume instance c5910985-a38a-479b-9274-e65ec6753c77 at 2026-10-06T16:52:38.126Z. Response HTTP 200 / INTERNAL_SERVER_ERROR, no workflowId; three successful post-readbacks showed 0 snapshots / 0 schedules through 16:55:22.004Z. BACKUP_AVAILABLE=NO; STAGING_BACKUP_VERIFIED=NO; RESTORE_DRILL_VERIFIED=NO. Backend creation outcome/cost remain UNKNOWN; no claim that an eventual snapshot or charge is impossible. No retry, schedule, deletion, resize or restore.
+
+Backup availability was required before SSH, so no key generated/registered, SSH or SQL was performed; cleanup NOT APPLICABLE. Metadata/history/version/counts remain UNKNOWN. Deployed Git checksum references for all 14 migrations were recomputed without SQL/seed output; actual DB comparison NOT EXECUTED. Current deployments/mount/READY state and stored predeploy remain unchanged; next-config selectors/resolution remain unproved. No credential value was printed, token newly created, TLS weakened or production selected. No runtime/config/source/variable change, migration/DDL/DML, rotation, commercial-provider or commerce action.
+
+All affected credential categories remain COMPROMISED; rotated NO; sensitive local copies/evidence preserved. SAFE_SECRET_ACTIVATION_PATH=NOT PROVEN; PHASE_M_REQUIRED=UNKNOWN; PHASE_S_CAN_RESUME=NO; all release readiness NO. Owner must reconcile the one failed/ambiguous request before any fresh backup authorization; no SSH or Phase S continuation without checkpoint. One PR search returned none; known permission blocker retained, no creation retry. Five requested docs only are validated and committed/pushed; historical scan results below are not new containment proof.
+
+## Historical secret activation / migration gate investigation — 2026-10-06
+
+This prior read-only snapshot is superseded by the current recovery attempt above; its no-backup-create statements and authorization proposal apply only to that earlier cycle.
+
+**RELEASE_SECURITY_FREEZE=ACTIVE. READ-ONLY cycle; PHASE_S_CAN_RESUME=NO.** [SECRET_ACTIVATION_GATE.md](SECRET_ACTIVATION_GATE.md) is the current decision dossier. This instruction does not retry the earlier conditional Phase S authorization. No replacement/rotation/revocation, variable/config/source change, deploy/restart, SQL write/migration, backup/restore or provider action performed. Sensitive local copies/evidence preserved; credentials still COMPROMISED. No secret, credentialed connection detail, recipient or raw response emitted/saved.
+
+Entry local/remote documentation HEAD 4b78a32623958dd8b0ed36b530a08df08e7c0639; main 4ea73f50cafdbf67e16dc71de985052075feca42; 27 ahead / 0 behind. Current staging web/worker successful deployments remain on main baseline, not either frozen candidate/checkpoint. Stored web predeploy and effective deployment snapshot both run migrate deploy with advisory locking disabled; worker NONE. API explicitly reports null selectors for both. Empty resolved file manifests and opaque source mappings do not prove Dashboard/file origin or next-deploy behavior. EFFECTIVE_NEXT_DEPLOY_CONFIG=NOT VERIFIED; current stored executor count 1, future count UNKNOWN. Restart fresh-variable loading NOT PROVEN; redeploy/cached build does not suppress predeploy; SAFE_SECRET_ACTIVATION_PATH=NOT PROVEN.
+
+Database identity matches dedicated staging PG and differs from production. Existing public proxy was resolved read-only (no new exposure); private in-process connection with strict certificate/hostname verification failed SELF_SIGNED_CERT_IN_CHAIN before SQL. Noninteractive SSH failed NO_EXISTING_SSH_KEY before remote execution; no key registered/generated/imported. psql exists, but CLI connect credentialed argv path was not used unsanitized. TLS weakened NO; credentials exposed NO. Real applied/pending/failed/rolled-back migration counts, sizes/schema and version UNKNOWN. All 14 repository migrations are identical to deployed source, which does not establish application; conditional Admin seed migration is not DDL-only.
+
+Backup control-plane gate advanced: exact staging PG volume instance c5910985-a38a-479b-9274-e65ec6753c77 returned **0 snapshots / 0 schedules**. 5000 MB capacity / 187.531264 MB volume usage is not database size. No PITR archive-bucket configuration observed; functional PITR/window and logical dump UNKNOWN. BACKUP_AVAILABLE=NO verified adequate checkpoint; RESTORE_DRILL_VERIFIED=NO; STAGING_BACKUP_VERIFIED=NO. No backup creation/restore occurred. Exact manual-backup authorization proposal is in the gate dossier.
+
+Recommended Option C: resolve legitimate trust/access, authorize the exact backup/recovery operation independently, prove effective next config, keep freeze. Option B (Phase M then Phase S) is conditional only after those gates; Option A no-DDL rotation is not proved. READY FOR MERGE/STAGING BOOTSTRAP/EXTERNAL HOMOLOGATION/PRODUCTION=NO. One exact all-state PR search still absent; prior creation permission blocker retained, no retry. Entry individual statuses / PR-triggered workflow runs absent, not PASS. Final doc validation and pushed SHA are reported at closure; prior sections below are historical, not current execution authority.
+
+Validation for this gate: git diff --check PASS; release:guard 6 OK / 1 unchanged legacy Vercel cron warning / 0 FAIL (321 source/document and 43 existing browser-bundle files). Four changed docs: zero configured affected credential/pattern hits, all 22 relative file links valid, balanced fences. Bounded scanner: 508 current versionable files; 209 reachable commits / 1,727 blobs / 1,719 text blobs; 15,773 readable artifact/config/history files; zero exact current affected values in versionable files/reachable text history. Existing local copies and pattern candidates remain private triage; 1,618 binaries/four oversized files and unreachable/encoded/remote surfaces are not clean certifications. No new remote logs/provider test or cleanup. This is not containment or post-rotation verification. Final staged docs are rechecked before publication.
+
+## Phase S authorized execution attempt — 2026-10-06
+
+**PHASE_S_FAILED — preflight abort, before mutation. ABORT — DEPLOY_BLOCKED_BY_MIGRATION_RISK. RELEASE_SECURITY_FREEZE=ACTIVE.** The new owner instruction authorizes staging credential rotation and necessary safe process activation, not production or schema migration. AUTHORIZED_PHASE_S=YES (conditional); AUTHORIZED_PHASE_P=NO. No replacement was created, configured, activated or revoked by this attempt. No secret value, prefix/suffix, fingerprint, recipient or connection URL was emitted. No local sensitive copy or incident evidence was modified/deleted.
+
+Entry Git after fetch: local/remote documentation HEAD 42d0ca92c7816f870d2e543c13b847ecc9bcdc0f; main 4ea73f50cafdbf67e16dc71de985052075feca42; 26 ahead / 0 behind. No SOURCE_CHANGED_DURING_INCIDENT observed. Runtime candidate 7a820b62bb1515f7b30ccf31badf1f0881a6bd84 and deployment checkpoint b06ef6e437ee2d28fbeffeb5f91144c389aaa518 remain frozen and were not deployed. Final documentation HEAD/count are reported after push.
+
+### Fresh staging-only execution gates
+
+Railway CLI 5.26.0 authenticated; explicit Rare project 72ed12be-9a2a-4e13-8594-30ffd8ffa565 and staging environment d8399691-dacf-41e9-a9d5-060c97672e39 revalidated. Staging service IDs/names match the inventory below. Web and worker latest deployments remain SUCCESS at source 4ea73f50cafdbf67e16dc71de985052075feca42. Their configured DB identities match each other and dedicated Postgres-MlyZ; web Redis matches dedicated Redis-w0Fa. Staging DB/Redis host identities differ from production. Comparisons exclude credentials and are configuration evidence, not database queries or migration/backup verification.
+
+Staging web and worker API credentials: PRESENT / TEST / MATCH; staging versus production key: MISMATCH. Expected provider account identity/context was not reauthenticated: step 3 aborted before provider rotation/read-validation. Web webhook/session/cron categories remain PRESENT; worker has the API credential only among affected categories. No LIVE staging credential was observed. This is not historical old-key revocation proof.
+
+Fresh staging web predeploy is `PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=true npx prisma migrate deploy`; worker predeploy is absent, start remains `npm run checkout:worker`, no cron schedule. No config selector/predeploy/source/commerce change was made to bypass that gate.
+
+- [Restart](https://docs.railway.com/cli/restart) reuses the deployment image; [deployment actions](https://docs.railway.com/deployments/deployment-actions) preserve original image/configuration on restart. The reviewed documentation does not prove that restart loads changed stored variables. No restart was attempted as an experiment.
+- [Redeploy](https://docs.railway.com/cli/redeploy) can apply variable changes; the current web deployment configuration includes a [pre-deploy command](https://docs.railway.com/deployments/pre-deploy-command). A supported fresh-secret activation path with no predeploy/DDL was not established. This is an unresolved gate, not a claim that every Railway mechanism is impossible.
+- Unknown real staging migration history/backup prevents treating migrate deploy as a harmless no-op. No DB access attempt, migration, schema change, backup, restart or deployment was performed. No replacement was partially staged and no consumer was deliberately put on a mixed secret.
+
+Read-only public health returned HTTP 200 / ok_with_warnings. This is unchanged-service health, not new-credential activation proof. No signed webhook, valid cron, login/logout, checkout, PaymentIntent, quote, email, media write or additional worker run was invoked. Rotation-specific positive/negative tests are NOT EXECUTED because cutover never began.
+
+### Per-credential execution state
+
+| Staging credential | Incident | REPLACEMENT_CREATED | CONFIGURED | ACTIVE | OLD_REVOKED / retired | VERIFIED |
+|---|---|---|---|---|---|---|
+| Stripe TEST API | COMPROMISED pending closure | NO | NO | UNKNOWN for replacement / not attempted | UNKNOWN externally; none revoked by this attempt | NO |
+| Webhook signing secret | COMPROMISED pending closure | NO | NO | UNKNOWN for replacement / not attempted | UNKNOWN externally; none retired by this attempt | NO |
+| Admin/customer session secret | COMPROMISED pending closure | NO | NO | UNKNOWN for replacement / not attempted | Old-signature rejection NOT TESTED | NO |
+| Cron secret | COMPROMISED pending closure | NO | NO | UNKNOWN for replacement / not attempted | None removed; no previous fallback configured by this attempt | NO |
+
+CRON_CALLER_INVENTORY_BLOCKER remains: current continuous worker does not use HTTP cron; Vercel/manual/external activity remains UNKNOWN. No caller was invented or disabled. Phase S completion is NOT achieved; Phase P execution and its post-success live preparation were not started. Only the conditional production plan receives the failed-activation lesson; previous production evidence remains explicitly dated.
+
+### Local containment disposition / recovery
+
+Root .env: SANITIZE after a verified new TEST key is active; no edit now. Five generated standalone env copies: PRESERVE_FOR_INCIDENT pending cutover and private recovery-use decision; then REMOVE if disposable or SANITIZE if retained. Do not delete build directories or recovery evidence implicitly. PowerShell credential-bearing history: PRESERVE_FOR_INCIDENT pending private provenance review; selective SANITIZE/REMOVE plan only, not database-rotation authority. Other artifacts: UNKNOWN outside the bounded scanner scope. No raw incident transcript was reopened/copied.
+
+No partial external changes need rollback. Resume only after a supported existing-artifact/no-DDL activation path is proved, or a separately reviewed exact staging-only temporary predeploy/configuration delta is explicitly authorized; alternatively a separately authorized migration gate requires trusted history/checkpoint/window/single-executor evidence. Do not suppress migrations, restore old secrets or expire the API/webhook before consumers can safely cut over under this instruction. Any emergency expiry requires an explicit continuity/recovery decision. Production mutations: NONE; production rotation still required and unauthorized. All release readiness remains NO.
+
+### Aborted-attempt validation — 2026-10-06
+
+Repeated bounded scanner: 507 current versionable files, 208 reachable commits / 1,723 unique blobs / 1,715 text blobs, 15,773 readable artifact/config/history files. Zero exact current configured affected credential matches in versionable files or reachable text history. Existing template/synthetic candidates remain triage findings, not provider-confirmed historic credentials. The broad pass skips 1,618 binaries and four oversized files; dependencies/cache and unreachable/encoded/external surfaces remain outside scope. No remote logs/archive/image/transcript claim is added. This is NOT post-rotation verification: no replacement exists, and inaccessible original incident values were not replayed.
+
+The broad pass found five ignored current TEST-key copies (root env plus four output copies); the separate targeted check confirmed .next/standalone/.env too. Thus root .env plus all five generated standalone env copies still MATCH the configured staging TEST key; Git ignores all six. None was changed or removed. Historical credential-bearing PowerShell material remains privately triaged, not cleared by this scan.
+
+Four changed docs: zero credential-shaped hits, zero broken relative file links, balanced fences; git diff --check PASS. npm run release:guard: 6 OK / 1 unchanged legacy Vercel cron WARNING / 0 FAIL, 320 source/document files and 43 existing browser-bundle files checked. No full E2E, rebuild, dependency audit or rotation-specific live auth/webhook/cron/provider test performed. Exact current-value doc checks are repeated before publication. One exact head/base all-state PR search returned absent; no creation retry. Entry-HEAD individual statuses and PR-triggered workflow runs were absent; final-HEAD checks/Actions are reported after push. Empty aggregate pending is not a running or passed check. PR_CREATION_BLOCKED_BY_PERMISSION is the retained earlier creation failure, not a new retry. Prior records below are historical snapshots, not current authorization.
+
+## Initial incident assessment — historical pre-authorization snapshot
+
+Assessment: 2026-10-06. Severity **P0**. Incident discovered and disclosed during the 2026-10-04 staging preflight. **RELEASE_SECURITY_FREEZE=ACTIVE** is an operational/documentary state, not a new environment variable. No rotation, revocation, configuration change, deploy/restart, migration, provider transaction or cleanup was performed in that initial cycle.
+
+Primary decision artifact: [CREDENTIAL_ROTATION_APPROVAL.md](CREDENTIAL_ROTATION_APPROVAL.md). Existing bootstrap dossier: [STAGING_BOOTSTRAP_APPROVAL.md](../cycles/STAGING_BOOTSTRAP_APPROVAL.md). A plan is not containment. Staging and production remain separate, independently authorized phases.
+
+## Incident / scope / known exposure channel
+
+A PowerShell helper named Compare collided with the built-in Compare-Object alias and emitted staging and production credential values into conversation/tool output. This was an agent diagnostic error, not a proven application vulnerability. Do not replay the erroneous command, share the raw record, or use its output as documentation. Treat affected credentials as **COMPROMISED** until authorized replacement/revocation and verification are evidenced. Absence from Git does not restore confidentiality; unauthorized use/access has neither been proved nor excluded.
+
+Affected categories: Stripe server API credentials, Stripe webhook signing secrets, ADMIN_SESSION_SECRET and CRON_SECRET in staging and production. Current presence/difference is not evidence that an exposed old value has been revoked: no comparison against the raw incident record was performed. New credentials were not created here; their existence outside this cycle is UNKNOWN.
+
+## Repository exposure assessment / safe method
+
+Read-only diagnostics captured CLI output in memory and emitted only allowlisted metadata/classifications. Unique helper names were used; no credential, suffix, fingerprint, hash of a credential, recipient or customer/order detail was emitted. An ephemeral scanner script outside Git contains diagnostic code only, no captured values; no raw scan/provider/variable response was written to disk. Existing release guard was inspected before execution. No scanner/tool was installed.
+
+Entry-state tracked/untracked scan: **505 files**. All reachable refs at that scan: **207 commits, 1,717 unique blobs, 1,709 text blobs**. All text blobs were inspected in memory with credential patterns and exact matches against the four currently configured Railway categories. No configured affected credential matched current versionable files or reachable historical text blobs. Eight binary blobs were not semantically decoded. The subsequent docs-only commit is separately checked before publication; final HEAD/count are reported at closure. Reflogs, unreachable objects, deleted remote surfaces and other clones are outside this result.
+
+Pattern candidates in .env.example, test files, scripts/qa-checkout-concurrency.ts and scripts/validate-linux-standalone.mjs were privately triaged as template/synthetic QA literals, not currently configured keys. The two scripts set QA/build-only values and use an in-process Stripe double or closed local validation; historical variants remain pattern-based findings, not provider validation of every former value. No **confirmed** P0_REPOSITORY_SECRET_EXPOSURE was found. This is NOT a guarantee that arbitrary encoded/unknown former credentials never existed in Git.
+
+## Exposure surfaces — evidence and limits
+
+| Surface | Classification | Evidence / action |
+|---|---|---|
+| Conversation/tool output | FOUND | Original P0 acknowledged; treat confidentiality as compromised, never reproduce/share raw output |
+| Current Git worktree/versionable files | CHECKED / NOT FOUND for affected real values | 505 files, including two preexisting untracked user docs; fixtures triaged; no user file changed |
+| Reachable Git history/all fetched refs | CHECKED / NOT FOUND for affected real values | 207 commits / 1,709 text blobs; patterns + current exact matches; binary/unreachable limits above |
+| GitHub public branch | CHECKED / NOT FOUND within scanned refs | Repository visibility PUBLIC; local/remote HEAD matched at entry; reachable branch history scanned; no public-clean guarantee beyond scope |
+| GitHub PR/issues/comments | CHECKED / NOT FOUND by patterns | Exact requested PR absent; API list returned 1 issue, 0 issue comments, 0 review comments; no credential-shaped matches; deleted/private/inaccessible surfaces UNKNOWN |
+| GitHub CI logs | NOT FOUND for Actions runs | All repository Actions runs reported 0; final-known SHA checks/statuses also 0; external CI/log providers UNKNOWN |
+| Local logs/output/QA/browser reports | CHECKED / FOUND | 15,773 readable artifact/config/history files in bounded roots; five generated standalone .env copies plus root .env contain the configured Stripe TEST credential; see paths below |
+| PowerShell PSReadLine history | CHECKED / FOUND additional sensitive material | Windows PowerShell history contains 11 credentialed connection-URL occurrences; none of parsed passwords matched current staging/production PG passwords; provenance/validity UNKNOWN, private owner triage required |
+| Current app-terminal scrollback/process history | UNKNOWN | File history is not a complete terminal buffer/process audit; no live UI/clipboard read performed |
+| Local Codex transcript | NOT ACCESSIBLE for content scan | Current chat transcript exists but read failed due to file in use; failed read is NOT a negative scan. Known conversation exposure remains FOUND |
+| Relevant temporary files | CHECKED / NOT FOUND by scoped patterns | Task-prefixed Temp inventory found the diagnostic script only; unrelated temp files/full user profile not scanned |
+| Playwright ZIP text | CHECKED / NOT FOUND by patterns | 14 archives / 686 readable entries; 2,304 binary/large entries skipped; no extraction or copying |
+| Screenshots/images | UNKNOWN content | 836 files inventoried, none modified since incident date; no OCR/visual certification |
+| Railway build/runtime logs | CHECKED bounded sample / NOT FOUND | Up to 200 lines per web/worker/build/runtime since 2026-10-04; 49 production-web runtime rows, other samples empty; only classifications printed. Older/other deployment/HTTP/network logs UNKNOWN |
+| Documentation | CHECKED / NOT FOUND within scanner rules | Existing release docs plus new incident/approval docs scanned again before commit |
+| Clipboard / clipboard-generated files outside repo | UNKNOWN | No clipboard access or broad attachment/user-profile search; existing workspace generated text covered by scoped scan |
+
+Artifact roots included output, playwright-report, .next/static, .next/server, .vercel and root env/log/tmp candidates; nonexistent logs/log/tmp/temp/test-results/coverage roots were recorded absent. Node dependencies/cache trees were excluded. There were 1,618 binary files and 4 oversized files in the broad pass; they are not clean certifications. .next/standalone/.env was separately inspected and matches the same local Stripe TEST key. ZIP image contents and browser profile databases remain UNKNOWN.
+
+### Local sensitive copies — no values
+
+| Path | Type | Tracking / scope | Required action after approval |
+|---|---|---|---|
+| .env | Configured Stripe TEST credential | IGNORED / CURRENT LOCAL CONFIG | Privately replace with approved TEST credential or remove its use; never commit |
+| .next/standalone/.env | Same configured Stripe TEST credential | IGNORED / GENERATED BUILD | Quarantine access; approved sanitization/removal or controlled rebuild; do not distribute the build directory |
+| output/final-review-clean-artifacts-20261003/standalone/.env | Configured Stripe TEST credential | IGNORED / LOCAL ARTIFACT | Approved targeted sanitization/removal; preserve required non-secret QA evidence |
+| output/final-review-next-backup-20261003/standalone/.env | Configured Stripe TEST credential | IGNORED / LOCAL ARTIFACT | Same; it is not a safe distributable backup |
+| output/integration-clean-artifacts-20261003/standalone/.env | Configured Stripe TEST credential | IGNORED / LOCAL ARTIFACT | Same |
+| output/next-pre-reconcile/standalone/.env | Configured Stripe TEST credential | IGNORED / LOCAL ARTIFACT | Same |
+| Windows PowerShell PSReadLine ConsoleHost_history.txt | Credentialed connection URLs; validity UNKNOWN | OUTSIDE REPO / HISTORICAL LOCAL | Owner privately identifies origin/revocation state and authorizes selective cleanup; do not expand automatically into database rotation |
+
+Generated copies predate the diagnostic event and are not proven to have been created by it. Root env is an intended local credential store, but the copied credential still belongs to the compromised category. No sensitive file was removed, modified, copied or staged. No Git history rewrite is justified by a confirmed committed affected secret here; if one is later confirmed, revoke first and coordinate host/clone/cache remediation, never force-push unilaterally.
+
+## Affected credential matrix / required rotations
+
+| Credential | Staging | Production | Rotation required | Side effect |
+|---|---|---|---|---|
+| Stripe server API key | PRESENT / TEST / COMPROMISED | PRESENT / LIVE / COMPROMISED | YES, independently | Web + expiry worker clients; existing-session/order reconciliation can fail if consumer cutover incomplete |
+| Stripe webhook signing secret | Web PRESENT / COMPROMISED | Web PRESENT / COMPROMISED | YES, independently | Signature verification and provider retry transition; distinct from API key |
+| ADMIN_SESSION_SECRET | Web PRESENT / COMPROMISED; AUTH_SECRET MISSING | Web PRESENT / COMPROMISED; AUTH_SECRET MISSING | YES, independently | Admin AND customer JWTs invalidated on every updated web instance |
+| CRON_SECRET | Web PRESENT / COMPROMISED; worker MISSING | Web + rare-cron PRESENT / MATCHES_WEB / COMPROMISED | YES, independently | HTTP cron validators/callers; continuous worker is not that HTTP caller |
+
+Staging web's four present categories differ from production. Web/worker API keys match within each environment; stage worker differs from production worker. CRON_SECRET_PREVIOUS is MISSING in both webs. These are current classifications, not proof of revocation or absence of other consumers.
+
+## Consumer coordination / source evidence
+
+| Consumer | API key | Webhook secret | Session secret | Cron secret | Evidence / boundary |
+|---|---|---|---|---|---|
+| Railway staging rare-staging | USES KEY | USES KEY | USES KEY | USES KEY as validator | Active service 3f4b79f6-2819-45a6-986d-584dc7ac803a |
+| Railway staging rare-checkout-worker-staging | USES KEY | DOES NOT USE | DOES NOT USE | DOES NOT USE / MISSING | Active service 2bfcf6af-11f4-459f-9089-a841ae25e57f; continuous checkout:worker |
+| Railway production rare | USES KEY | USES KEY | USES KEY | USES KEY as validator | Active service 28303795-8c51-4727-ac39-cfc87549bef1 |
+| Railway production rare-cron | USES KEY | DOES NOT USE | DOES NOT USE | PRESENT, current worker DOES NOT USE | Active service b199a18a-69e3-4971-86ab-20e142e42e02; checkout:worker, no schedule; historical/manual caller still UNKNOWN |
+| Dedicated PG/Redis services in each environment | DOES NOT USE | DOES NOT USE | DOES NOT USE | DOES NOT USE | Four categories MISSING; no DB data queries |
+| Local tooling/root env/build copies | USES TEST KEY / copies FOUND | Actual consumers UNKNOWN | QA/template use; production identity not matched | Manual caller script exists, use UNKNOWN | Replace copied TEST key privately; no automation/tool was executed to create a transaction |
+| CI / other services / external schedulers | UNKNOWN outside inspected surface | UNKNOWN | UNKNOWN | UNKNOWN | No GitHub Actions runs/workflow tree reported; provider vaults/secrets outside connection not inspected |
+| Vercel | UNKNOWN | UNKNOWN | UNKNOWN | Configured in repo, active caller UNKNOWN | CLI unavailable; .vercel link is not evidence of runtime; owner inventory required |
+
+Railway Rare project 72ed12be-9a2a-4e13-8594-30ffd8ffa565. Staging environment d8399691-dacf-41e9-a9d5-060c97672e39; production 6c9bbc98-9eb7-4a40-a352-e1aad3e8b6cd. Both web/worker pairs were observed at 4ea73f50cafdbf67e16dc71de985052075feca42. Source/config/secret consumers above are byte-identical in the scoped comparison with b06ef6e. This is not an audit of all production behavior or data.
+
+Code pointers verified at current source (same scoped deployed source): src/lib/env.ts:117 session source/minimum, :133 Stripe API source, :141 webhook source; src/lib/stripe.ts:8 cached client; src/lib/auth.ts:19/28/45/99 signatures/revocation; src/lib/customer-auth.ts:19/23/36/71 same secret; src/proxy.ts:13/19/36 both optimistic JWT checks; src/app/api/stripe/webhook/route.ts:37/55/62 signature/mode; src/app/api/cron/release-expired-inventory/route.ts:17/27 current/previous validator; scripts/call-release-expired-cron.mjs:69 HTTP caller; scripts/checkout-expiry-worker.ts:12 loop; src/lib/checkout-expiry.ts:33/71 reconciliation/TEST or LIVE session expiry. No Admin UI audit reopened.
+
+## Rotation ordering / provider impact
+
+See the approval package for separate Phase S / Phase P sequences. Replacement creation and expiration are provider writes; updating Railway variables and activating new processes are external changes. None is authorized here. Production containment is urgent and independent of the Admin release; it must not wait for candidate merge or staging homologation.
+
+Stripe API clients are cached per process; changing stored variables does not refresh running clients. Approved operators must verify every new process reads the replacement and only then use a strictly bounded incident-approved overlap or immediate expiration policy. [Stripe compromised-key guidance](https://docs.stripe.com/keys-best-practices) calls for immediate rotation on exposure; ordinary long graceful migration schedules are not automatic authorization to leave compromised access active. [Key management](https://docs.stripe.com/keys) distinguishes creation from immediate/scheduled expiration. No restricted-key permission redesign is performed here.
+
+### Webhook impact
+
+Application reads **one** STRIPE_WEBHOOK_SECRET and verifies raw body with constructEvent. No application old/new-secret list exists. Stripe's [documented Roll secret](https://docs.stripe.com/webhooks#roll-endpoint-signing-secrets-periodically) can temporarily sign deliveries with both active provider secrets; that does not make the application accept both secrets. This compromise requires owner choice: immediate expiration plus approved receiver cutover/retry recovery, or minimum explicit provider overlap with a fixed deadline. Never silently accept the exposed secret for continuity.
+
+Staging URL known: https://rare-staging-staging.up.railway.app/api/stripe/webhook. Registration was TEST/enabled with six events on 2026-10-04, **not re-fetched from Stripe in this cycle**. Production handler path /api/stripe/webhook is code-confirmed; production registration/all destinations/connected-account scope must be privately verified before rotation. Six handled events: checkout.session.completed, checkout.session.async_payment_succeeded, checkout.session.async_payment_failed, checkout.session.expired, payment_intent.succeeded, payment_intent.payment_failed.
+
+Preserve StripeEvent dedup, IDs, transactional reconciliation, reservations, leases and outbox. Provider retries are not infinite: Stripe documents live retries up to three days and sandbox retries over a few hours; deletion/disabling can suppress future retries. Owner must inventory missed delivery disposition privately, preserve receipts, explicitly approve replay after cutover and account for late/out-of-order events. Do not manufacture events, discard history, recreate payments, replay blindly or acknowledge unprocessed failures as success. API key rotation does not replace webhook secret rotation.
+
+### Session impact
+
+Both Admin (8h) and customer (30d) JWTs use the same resolved ADMIN_SESSION_SECRET, falling back to AUTH_SECRET only if the primary is absent. Both primary consumers and proxy verifiers use the current single secret. All updated web instances reject old signatures, so Admins AND customers must log in again. Mixed old/new instances or rollback of old variables can undermine containment. Minimum enforced by code: non-placeholder >=32 characters. Proposed private generation: independent CSPRNG material of at least 32 random bytes (256 bits), encoded to meet the existing length contract; no new value generated or printed here.
+
+Do not reset/lower sessionVersion, change passwordHash/credentialVersion, bypass mustChangePassword, or enable an old signing-secret fallback. Reauthentication may require the normal password-change flow. Old/revoked token rejection, new Admin/customer login and temporary-password server-side restriction must be tested with approved synthetic accounts only. Login/logout tests alter auth/cookies and logout can increment DB sessionVersion: they are future approved operations, not read-only checks performed here.
+
+### Cron impact
+
+Code validator accepts CRON_SECRET and optional CRON_SECRET_PREVIOUS using timing-safe comparison. Both live webs currently have only the primary. Existing continuous workers do not call the HTTP cron endpoint; production rare-cron merely has the primary configured. Historical/manual script can POST it; vercel.json describes a GET scheduler at 0 3 * * *, but live Vercel state is UNKNOWN. [Vercel docs](https://vercel.com/docs/cron-jobs/manage-cron-jobs#securing-cron-jobs) describe automatic Bearer injection if that provider is actually running the job.
+
+Preferred incident cutover: identify and pause only approved callers, replace validator/current callers, leave CRON_SECRET_PREVIOUS absent, then resume the named owner after verification. Dual-secret capability exists in this deployed source but prolongs exposed authorization; any overlap requires separate risk acceptance/deadline and removal verification. Never invent a caller, disable Vercel by inference, run HTTP cron as a harmless health probe, or invoke an extra --once worker. Authorized cron requests can mutate DB and reach Stripe even with storefront checkout closed.
+
+## Migration / configuration activation trap
+
+Fresh 2026-10-06 Railway config: BOTH staging and production webs have `PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=true npx prisma migrate deploy`; both workers have no predeploy and start checkout:worker. Config-file selectors are not reported, so effective precedence remains a future gate. Rotation does not authorize migrations or candidate deployment. A plain restart is not evidence that updated stored secrets will load; Railway [deployment actions](https://docs.railway.com/deployments/deployment-actions) preserve original image/config, and rollback restores custom variables. Operator must prove the selected activation mechanism uses approved replacements and cannot run DDL, OR obtain independent migration authorization before any deployment. No unsupported restart shortcut is prescribed.
+
+## Verification / rollback / contingency
+
+Required closure evidence: approved environment/service manifest and independent Phase P authorization; every consumer on a replacement; exposed API keys and old provider signing secrets expired; exposed session/cron secrets absent from all accepting instances/fallbacks; missed webhooks reconciled/deduplicated; synthetic auth/cron-negative checks; preserved schema/volumes/outbox; local copies privately updated or sanitized under approval; credential-free operator timestamps/result references. No secret fingerprint/hash or raw logs in evidence.
+
+Do NOT rollback by restoring compromised values. Railway native rollback can restore those variables: reviewed image rollback must retain the replacements and be reverified, or prefer forward recovery. If activation fails, freeze the affected entry/consumer under explicit emergency authorization, preserve events/jobs and use a new uncompromised replacement or compatible artifact. No automatic restore/reset/reservation release or mail resend. If abuse is suspected, owner urgently escalates to provider/security support through a private legitimate channel; no unauthorized containment is inferred here.
+
+## Legitimate retention / cleanup
+
+No logs, history, artifacts or audit records were deleted. Restrict access/stop sharing raw diagnostics through owner/platform controls, retain a sanitized timeline, and ask the responsible product/account owner about supported retention/deletion mechanisms. No remote deletion API or retention change was exercised; do not claim the conversation or provider records were erased. Targeted local cleanup should verify exact absolute paths, preserve needed non-secret evidence, exclude entire repo/home/user-history directories, and account for backups/sync copies. Revocation comes first; file cleanup alone never contains the credential.
+
+## Production authorization boundary / status
+
+Documentation-only validation 2026-10-06: six incident/release documents have zero credential-shaped hits, zero broken relative file links and balanced Markdown fences; git diff --check passed. npm run release:guard: 6 OK, 1 unchanged legacy Vercel cron warning, 0 FAIL; 43 existing browser bundle files checked. Final current-config exact-match checks are required again before commit. No full E2E/build/dependency audit or provider auth/transaction test was repeated. These checks do not undo tool-record exposure or certify uninspected surfaces.
+
+ROTATED_THIS_CYCLE: NONE. REVOKED_THIS_CYCLE: NONE. REMOVED_THIS_CYCLE: NONE. RAW_VALUES_REPRODUCED_THIS_CYCLE: NO.
+
+PRODUCTION_CREDENTIAL_ROTATION_REQUIRED=YES. STAGING_CREDENTIAL_ROTATION_REQUIRED=YES. AUTHORIZED_PHASE_S=NO. AUTHORIZED_PHASE_P=NO. RELEASE_SECURITY_FREEZE=ACTIVE. READY FOR MERGE/STAGING BOOTSTRAP/EXTERNAL HOMOLOGATION/PRODUCTION=NO. STAGING_MIGRATION_HISTORY_NOT_VERIFIED and BACKUP_NOT_VERIFIED remain; no DB query or migration was performed here. Prior code QA remains dated, not rerun.
+
+Security/Railway/storefront guidance influenced safe-output diagnostics, single-secret versus provider-overlap distinctions, credential-preserving recovery and existing-order side-effect boundaries. No runtime/config/dependency/migration file changed. Stop after sanitized docs validation/commit/push.

@@ -15,7 +15,7 @@ function text(formData: FormData, key: string) {
 
 export async function saveSettingsAction(formData: FormData) {
   await requireAdmin();
-  const parsed = settingsFormSchema.parse({
+  const parsedResult = settingsFormSchema.safeParse({
     instagramUrl: text(formData, "instagramUrl") || undefined,
     storeName: text(formData, "storeName"),
     whatsappNumber: text(formData, "whatsappNumber") || undefined,
@@ -30,6 +30,10 @@ export async function saveSettingsAction(formData: FormData) {
     checkoutRequiresAddress: formData.get("checkoutRequiresAddress") === "on",
     checkoutReservationMinutes: 15,
   });
+  if (!parsedResult.success) {
+    redirect(withAdminActionRefresh("/admin/settings?error=settings-validation"));
+  }
+  const parsed = parsedResult.data;
 
   await prisma.storeSettings.upsert({
     where: { id: "store" },

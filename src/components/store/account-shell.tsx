@@ -22,27 +22,30 @@ export function AccountShell({
 }) {
   const pathname = usePathname();
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 lg:px-8 lg:py-12">
+    <div className="store-shell py-10 sm:py-14 lg:py-16">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-neutral-500">Minha conta</p>
-          <h1 className="mt-2 text-2xl font-black text-neutral-950 lg:text-3xl">{title}</h1>
-          {subtitle ? <p className="mt-2 max-w-2xl text-sm font-medium text-neutral-500">{subtitle}</p> : null}
+          <p className="store-section-label">Minha conta</p>
+          <h1 className="mt-4 text-3xl font-medium tracking-tight text-neutral-950 lg:text-4xl">{title}</h1>
+          {subtitle ? <p className="mt-4 max-w-2xl text-sm leading-6 text-neutral-600">{subtitle}</p> : null}
         </div>
       </div>
-      <nav aria-label="Seções da conta" className="scrollbar-none mt-6 flex gap-2 overflow-x-auto border-b border-neutral-200 pb-3">
-        {accountLinks.map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            aria-current={pathname === link.href ? "page" : undefined}
-            className={`whitespace-nowrap rounded-full border px-4 py-2 text-xs font-black uppercase tracking-wide transition ${pathname === link.href ? "border-black bg-black text-white" : "border-neutral-300 text-neutral-800 hover:border-black"}`}
-          >
-            {link.label}
-          </Link>
-        ))}
+      <nav aria-label="Seções da conta" className="scrollbar-none mt-8 flex gap-6 overflow-x-auto border-b border-neutral-200 sm:gap-8">
+        {accountLinks.map((link) => {
+          const active = pathname === link.href || (link.href !== "/minha-conta" && pathname.startsWith(`${link.href}/`));
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              aria-current={active ? "page" : undefined}
+              className={`inline-flex min-h-11 shrink-0 items-center whitespace-nowrap border-b-2 py-3 text-sm font-medium transition-colors ${active ? "border-neutral-950 text-neutral-950" : "border-transparent text-neutral-600 hover:border-neutral-400 hover:text-neutral-950"}`}
+            >
+              {link.label}
+            </Link>
+          );
+        })}
       </nav>
-      <div className="mt-8">{children}</div>
+      <div className="mt-10 lg:mt-12">{children}</div>
     </div>
   );
 }

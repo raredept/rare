@@ -26,6 +26,39 @@ beforeEach(() => {
 });
 
 describe("admin authorization", () => {
+  it("rejects an expired signed session before querying Admin data", async () => {
+    const { SignJWT } = await import("jose");
+    const { requireAdmin, verifyAdminSession } = await import("@/lib/auth");
+    const token = await new SignJWT({
+      email: "expired@rare.invalid", role: "ADMIN", credentialVersion: "expired-fixture", sessionVersion: 0,
+    })
+      .setProtectedHeader({ alg: "HS256" })
+      .setSubject("expired-admin")
+      .setExpirationTime(Math.floor(Date.now() / 1000) - 60)
+      .sign(new TextEncoder().encode("test-admin-session-secret-with-more-than-32-characters"));
+    mocks.cookieGet.mockReturnValue({ value: token });
+    await expect(verifyAdminSession(token)).resolves.toBeNull();
+    await expect(requireAdmin()).rejects.toThrow("NEXT_REDIRECT:/admin/login");
+    expect(mocks.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("blocks an absent session before querying any Admin data", async () => {
+    const { requireAdmin } = await import("@/lib/auth");
+    mocks.cookieGet.mockReturnValue(undefined);
+    await expect(requireAdmin()).rejects.toThrow("NEXT_REDIRECT:/admin/login");
+    expect(mocks.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("requires an active Admin row even for a correctly signed session", async () => {
+    const { signAdminSession, requireAdmin } = await import("@/lib/auth");
+    const token = await signAdminSession({ id: "disabled-admin", email: "disabled@example.com", role: "ADMIN", mustChangePassword: false, passwordHash: "hash", sessionVersion: 0 });
+    mocks.cookieGet.mockReturnValue({ value: token });
+    // Real Prisma returns null when the account is deactivated or loses its role.
+    mocks.findFirst.mockResolvedValue(null);
+    await expect(requireAdmin()).rejects.toThrow("NEXT_REDIRECT:/admin/login");
+    expect(mocks.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "disabled-admin", active: true, role: "ADMIN" } }));
+  });
+
   it("keeps the password-change requirement in newly issued sessions", async () => {
     const { signAdminSession, verifyAdminSession } = await import("@/lib/auth");
     const token = await signAdminSession({

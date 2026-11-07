@@ -15,14 +15,14 @@ type NavigationCategory = {
   children: { id: string; name: string; slug: string }[];
 };
 
-const categoryPillBaseClass =
-  "store-category-pill flex h-11 shrink-0 items-center whitespace-nowrap rounded-full border px-4 text-sm font-bold transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out hover:-translate-y-px hover:border-white hover:bg-white hover:text-black active:translate-y-0 active:scale-[0.98] focus-visible:bg-white focus-visible:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70";
+const categoryLinkBaseClass =
+  "store-category-link flex min-h-11 min-w-11 max-w-full items-center justify-center border-b px-1 py-2 text-center text-[11px] font-medium uppercase tracking-[0.12em] transition-colors duration-150 hover:border-white/50 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
 
-const activeCategoryPillClass = "border-white bg-white text-black shadow-[0_10px_30px_rgba(255,255,255,0.12)]";
-const inactiveCategoryPillClass = "border-white/15 bg-white/[0.03] text-white/85";
+const activeCategoryLinkClass = "border-white text-white";
+const inactiveCategoryLinkClass = "border-transparent text-white/70";
 
 const categoryMenuLinkBaseClass =
-  "block rounded-md px-3 py-2 text-sm font-bold transition-[background-color,color] duration-150 focus-visible:outline-none";
+  "flex min-h-11 items-center px-4 py-3 text-sm font-normal transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-neutral-950";
 
 const activeCategoryMenuLinkClass = "bg-neutral-950 text-white hover:bg-neutral-900 focus-visible:bg-neutral-900";
 const inactiveCategoryMenuLinkClass = "text-neutral-900 hover:bg-neutral-100 focus-visible:bg-neutral-100";
@@ -36,8 +36,8 @@ function getActiveCategorySlug(pathname: string) {
   return match?.[1] ?? null;
 }
 
-function getCategoryPillClass(isActive: boolean) {
-  return `${categoryPillBaseClass} ${isActive ? activeCategoryPillClass : inactiveCategoryPillClass}`;
+function getCategoryLinkClass(isActive: boolean) {
+  return `${categoryLinkBaseClass} ${isActive ? activeCategoryLinkClass : inactiveCategoryLinkClass}`;
 }
 
 function getCategoryMenuLinkClass(isActive: boolean) {
@@ -215,7 +215,7 @@ export function CategoryNav({ categories }: { categories: NavigationCategory[] }
   return (
     <div
       ref={rootRef}
-      className="scrollbar-none mx-auto flex max-w-[1440px] gap-2 overflow-x-auto py-3 pl-4 pr-8 sm:pl-6 sm:pr-10 lg:overflow-visible lg:px-8 xl:px-10"
+      className="store-shell flex flex-wrap items-center justify-center gap-x-6 gap-y-0 pb-1 xl:gap-x-8"
     >
       {virtualCatalogCategories.map((category) => {
         const isActive = activeCategorySlug === category.slug;
@@ -224,7 +224,7 @@ export function CategoryNav({ categories }: { categories: NavigationCategory[] }
           <Link
             key={category.slug}
             href={`/categoria/${category.slug}`}
-            className={getCategoryPillClass(isActive)}
+            className={getCategoryLinkClass(isActive)}
             aria-current={isActive ? "page" : undefined}
           >
             {category.name}
@@ -245,7 +245,7 @@ export function CategoryNav({ categories }: { categories: NavigationCategory[] }
             <Link
               key={category.id}
               href={`/categoria/${category.slug}`}
-              className={getCategoryPillClass(isCategoryActive)}
+              className={getCategoryLinkClass(isCategoryActive)}
               aria-current={isCategoryActive ? "page" : undefined}
             >
               {category.name}
@@ -256,7 +256,7 @@ export function CategoryNav({ categories }: { categories: NavigationCategory[] }
         return (
           <div
             key={category.id}
-            className="relative shrink-0"
+            className="relative max-w-full"
             onPointerEnter={(event) => {
               if (event.pointerType === "mouse" && !pinnedCategoryId) openMenuByHover(category.id);
             }}
@@ -284,7 +284,7 @@ export function CategoryNav({ categories }: { categories: NavigationCategory[] }
                 }
               }}
               type="button"
-              className={`${getCategoryPillClass(isCategoryActive)} cursor-pointer`}
+              className={`${getCategoryLinkClass(isCategoryActive)} cursor-pointer`}
               aria-expanded={isOpen}
               aria-controls={menuId}
               aria-haspopup="true"
@@ -296,7 +296,7 @@ export function CategoryNav({ categories }: { categories: NavigationCategory[] }
             >
               {category.name}
               <ChevronDown
-                className={`ml-2 h-4 w-4 transition-transform duration-150 ${isOpen ? "rotate-180" : ""}`}
+                className={`ml-1.5 h-3.5 w-3.5 shrink-0 transition-transform duration-150 ${isOpen ? "rotate-180" : ""}`}
                 aria-hidden="true"
               />
             </button>
@@ -304,8 +304,8 @@ export function CategoryNav({ categories }: { categories: NavigationCategory[] }
             <div
               id={menuId}
               data-category-menu
-              className={`top-[var(--accessory-menu-top)] fixed left-4 right-4 z-50 overflow-y-auto rounded-lg border border-neutral-200 bg-white p-2 text-neutral-900 shadow-2xl transition-[opacity,transform,visibility] duration-150 ease-out lg:absolute lg:left-0 lg:right-auto lg:top-full lg:mt-2 lg:min-w-56 ${
-                isOpen ? "visible translate-y-0 opacity-100" : "invisible pointer-events-none -translate-y-1 opacity-0"
+              className={`top-[var(--accessory-menu-top)] fixed left-4 right-4 z-50 max-w-[calc(100vw-2rem)] overflow-y-auto border border-neutral-200 bg-neutral-50 p-1 text-neutral-900 transition-[opacity,visibility] duration-150 lg:absolute lg:left-auto lg:right-0 lg:top-full lg:min-w-64 ${
+                isOpen ? "visible opacity-100" : "invisible pointer-events-none opacity-0"
               }`}
               style={menuStyle}
               aria-hidden={!isOpen}

@@ -11,7 +11,7 @@ import {
 import { formatCpf } from "@/lib/cpf";
 
 function FieldError({ errors, id }: { errors?: string[]; id: string }) {
-  return errors?.length ? <p id={id} className="mt-2 text-sm font-semibold text-red-700" role="alert">{errors[0]}</p> : null;
+  return errors?.length ? <p id={id} className="mt-2 text-sm font-medium text-red-700" role="alert">{errors[0]}</p> : null;
 }
 
 function PasswordField({
@@ -30,7 +30,7 @@ function PasswordField({
   const [visible, setVisible] = useState(false);
   return (
     <label className="block">
-      <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-neutral-700">{label}</span>
+      <span className="mb-2 block text-sm font-medium text-neutral-700">{label}</span>
       <span className="relative block">
         <input
           name={name}
@@ -41,9 +41,9 @@ function PasswordField({
           maxLength={autoComplete === "new-password" ? 72 : undefined}
           aria-describedby={invalid ? errorId : undefined}
           aria-invalid={invalid || undefined}
-          className="store-input pr-12"
+          className="store-input pr-14"
         />
-        <button type="button" onClick={() => setVisible((current) => !current)} className="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100 hover:text-neutral-950" aria-label={visible ? `Ocultar ${label.toLowerCase()}` : `Mostrar ${label.toLowerCase()}`}>
+        <button type="button" onClick={() => setVisible((current) => !current)} className="absolute right-0.5 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center text-neutral-600 hover:bg-neutral-100 hover:text-neutral-950" aria-label={visible ? `Ocultar ${label.toLowerCase()}` : `Mostrar ${label.toLowerCase()}`}>
           {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </button>
       </span>
@@ -55,10 +55,10 @@ export function CustomerLoginForm({ next }: { next?: string }) {
   const [state, formAction, pending] = useActionState<CustomerActionState, FormData>(loginCustomerAction, {});
 
   return (
-    <form action={formAction} className="mt-8 space-y-4">
+    <form action={formAction} className="mt-8 space-y-5">
       <input type="hidden" name="next" value={next ?? ""} />
       <label className="block">
-        <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-neutral-700">E-mail</span>
+        <span className="mb-2 block text-sm font-medium text-neutral-700">E-mail</span>
         <input
           name="email"
           type="email"
@@ -80,7 +80,7 @@ export function CustomerLoginForm({ next }: { next?: string }) {
         />
         <FieldError id="login-password-error" errors={state.fieldErrors?.password} />
       </div>
-      {state.error ? <p className="rounded-md bg-red-50 px-4 py-3 text-sm font-semibold text-red-700" role="alert">{state.error}</p> : null}
+      {state.error ? <p className="border-l-2 border-red-700 bg-red-50 px-4 py-3 text-sm font-medium text-red-700" role="alert">{state.error}</p> : null}
       <button
         type="submit"
         disabled={pending}
@@ -88,9 +88,9 @@ export function CustomerLoginForm({ next }: { next?: string }) {
       >
         {pending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Entrando</> : "Entrar"}
       </button>
-      <p className="text-center text-sm font-semibold text-neutral-600">
+      <p className="text-center text-sm leading-6 text-neutral-600">
         Ainda não tem cadastro?{" "}
-        <Link href={`/cadastro${next ? `?next=${encodeURIComponent(next)}` : ""}`} className="font-black text-neutral-950 underline">
+        <Link href={`/cadastro${next ? `?next=${encodeURIComponent(next)}` : ""}`} className="inline-flex min-h-11 items-center font-medium text-neutral-950 underline underline-offset-4">
           Criar conta
         </Link>
       </p>
@@ -103,26 +103,26 @@ export function CustomerRegisterForm({ next }: { next?: string }) {
   const [cpf, setCpf] = useState("");
 
   return (
-    <form action={formAction} className="mt-8 space-y-4">
+    <form action={formAction} className="mt-8 space-y-5">
       <input type="hidden" name="next" value={next ?? ""} />
       <label className="block">
-        <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-neutral-700">Nome</span>
+        <span className="mb-2 block text-sm font-medium text-neutral-700">Nome</span>
         <input name="name" required autoComplete="name" aria-describedby={state.fieldErrors?.name?.length ? "register-name-error" : undefined} aria-invalid={Boolean(state.fieldErrors?.name?.length) || undefined} className="store-input" />
         <FieldError id="register-name-error" errors={state.fieldErrors?.name} />
       </label>
       <label className="block">
-        <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-neutral-700">E-mail</span>
+        <span className="mb-2 block text-sm font-medium text-neutral-700">E-mail</span>
         <input name="email" type="email" required autoComplete="email" aria-describedby={state.fieldErrors?.email?.length ? "register-email-error" : undefined} aria-invalid={Boolean(state.fieldErrors?.email?.length) || undefined} className="store-input" />
         <FieldError id="register-email-error" errors={state.fieldErrors?.email} />
       </label>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-5 sm:grid-cols-2">
         <label className="block">
-          <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-neutral-700">Telefone</span>
+          <span className="mb-2 block text-sm font-medium text-neutral-700">Telefone</span>
           <input name="phone" autoComplete="tel" aria-describedby={state.fieldErrors?.phone?.length ? "register-phone-error" : undefined} aria-invalid={Boolean(state.fieldErrors?.phone?.length) || undefined} className="store-input" />
           <FieldError id="register-phone-error" errors={state.fieldErrors?.phone} />
         </label>
         <label className="block">
-          <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-neutral-700">CPF</span>
+          <span className="mb-2 block text-sm font-medium text-neutral-700">CPF</span>
           <input
             name="cpf"
             value={cpf}
@@ -147,10 +147,10 @@ export function CustomerRegisterForm({ next }: { next?: string }) {
         <PasswordField name="passwordConfirmation" label="Confirmar senha" autoComplete="new-password" errorId="register-password-confirmation-error" invalid={Boolean(state.fieldErrors?.passwordConfirmation?.length)} />
         <FieldError id="register-password-confirmation-error" errors={state.fieldErrors?.passwordConfirmation} />
       </div>
-      <p className="text-xs font-semibold leading-5 text-neutral-600">
+      <p className="text-xs leading-5 text-neutral-600">
         Use de 8 a 72 caracteres. Acentos e outros caracteres especiais podem reduzir o limite.
       </p>
-      {state.error ? <p className="rounded-md bg-red-50 px-4 py-3 text-sm font-semibold text-red-700" role="alert">{state.error}</p> : null}
+      {state.error ? <p className="border-l-2 border-red-700 bg-red-50 px-4 py-3 text-sm font-medium text-red-700" role="alert">{state.error}</p> : null}
       <button
         type="submit"
         disabled={pending}
@@ -158,9 +158,9 @@ export function CustomerRegisterForm({ next }: { next?: string }) {
       >
         {pending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Criando</> : "Criar conta"}
       </button>
-      <p className="text-center text-sm font-semibold text-neutral-600">
+      <p className="text-center text-sm leading-6 text-neutral-600">
         Já tem cadastro?{" "}
-        <Link href={`/entrar${next ? `?next=${encodeURIComponent(next)}` : ""}`} className="font-black text-neutral-950 underline">
+        <Link href={`/entrar${next ? `?next=${encodeURIComponent(next)}` : ""}`} className="inline-flex min-h-11 items-center font-medium text-neutral-950 underline underline-offset-4">
           Entrar
         </Link>
       </p>

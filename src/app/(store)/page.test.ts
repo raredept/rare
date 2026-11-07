@@ -145,9 +145,10 @@ describe("store home page", () => {
     expect(html).not.toContain("A home aponta");
     expect(html).not.toContain("experiência de compra limpa");
     expect(html).toContain('href="/categoria/tudo"');
-    expect(html.indexOf("Destaques do mês")).toBeLessThan(html.indexOf("Chegou agora"));
-    expect(html.indexOf("Chegou agora")).toBeLessThan(html.indexOf("Escolha por categoria"));
-    expect(html.indexOf("Escolha por categoria")).toBeLessThan(html.indexOf("Compra segura"));
+    expect(html.indexOf("Destaques do mês")).toBeLessThan(html.indexOf("Estoque limitado."));
+    expect(html.indexOf("Estoque limitado.")).toBeLessThan(html.indexOf("Escolha por categoria"));
+    expect(html.indexOf("Escolha por categoria")).toBeLessThan(html.indexOf("Chegou agora"));
+    expect(html.indexOf("Chegou agora")).toBeLessThan(html.indexOf("Compra segura"));
     expect(mocks.getFeaturedProducts).toHaveBeenCalledWith({ limit: 8 });
     expect(mocks.getRecentProducts).toHaveBeenCalledWith({ limit: 4 });
     expect(html).toContain("Marcas disponíveis na RARE");
