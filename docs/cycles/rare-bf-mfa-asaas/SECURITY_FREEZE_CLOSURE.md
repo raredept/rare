@@ -1,6 +1,6 @@
 # Security freeze — fechamento do incidente de credenciais (M-20) e gate do banco de staging (M-21)
 
-**Estado em 2026-11-07 (CYCLE-06):** `RELEASE_SECURITY_FREEZE = ACTIVE` · **M-20 = OPEN (BLOCKED_EXTERNAL)** · **M-21 = OPEN**.
+**Estado em 2026-11-08 (CYCLE-07):** `RELEASE_SECURITY_FREEZE = ACTIVE` · **M-20 = OPEN (BLOCKED_EXTERNAL; produção: PRODUCTION ROTATION READY — HUMAN AUTHORIZATION REQUIRED)** · **M-21 = OPEN**.
 
 Nenhum valor de credencial aparece neste documento, nem prefixo, sufixo, fingerprint ou hash. Só estados: PRESENT / ABSENT / ROTATED / REVOKED / REJECTED / ACCEPTED / VALIDATED / BLOCKED_EXTERNAL.
 
@@ -19,18 +19,47 @@ Fontes (histórico preservado): [`CREDENTIAL_INCIDENT_202610.md`](../../security
 
   O Git não teve exposição confirmada (seção 3).
 
-## 2. Inventário
+## 2. Matriz de contenção (atualizada em 2026-11-08, CYCLE-07)
 
-| Credencial | Ambiente | Provedor | Estado atual | Rotação | Revogação | Prova exigida | Dono |
-|---|---|---|---|---|---|---|---|
-| Stripe API key (TEST) | staging (web + worker) | Stripe, modo teste | COMPROMISED · **OLD ACCEPTED** (sonda 2026-11-07T14:50Z, HTTP 200) | nova chave secreta TEST no Dashboard; configurar em `rare-staging` e `rare-checkout-worker-staging` | expirar a antiga no Dashboard ("Roll key", expiração imediata) | `rotation-probe stripe-key`: nova ACCEPTED, antiga REJECTED | dono da conta Stripe + operador Railway |
-| Stripe webhook signing secret | staging (web) | Stripe, endpoint `…/api/stripe/webhook` (test) | COMPROMISED · não verificável daqui | "Roll secret" no endpoint; configurar `STRIPE_WEBHOOK_SECRET` no web | expiração imediata do segredo antigo (o app aceita um só segredo) | `rotation-probe stripe-webhook`: novo ACCEPTED, antigo REJECTED; evento de teste do Dashboard entregue | dono Stripe + operador |
-| `ADMIN_SESSION_SECRET` (Admin e cliente) | staging (web) | app (JWT) | COMPROMISED · `AUTH_SECRET` ABSENT | gerar ≥32 bytes CSPRNG; configurar no web; `AUTH_SECRET` continua ausente | o valor antigo sai de toda instância; sem fallback | sessão emitida antes da troca → volta ao login; login novo → funciona (Admin e cliente) | operador |
-| `CRON_SECRET` | staging (web valida; worker não usa) | app (Bearer) | COMPROMISED · `CRON_SECRET_PREVIOUS` ABSENT · nenhum chamador HTTP conhecido no staging | gerar novo; configurar no web; não criar `CRON_SECRET_PREVIOUS` | o valor antigo sai do validador | ver limitação na seção 5.4 | operador |
-| Stripe API key (**LIVE**) | **produção** | Stripe, modo live | COMPROMISED (fonte) · estado atual UNKNOWN | Phase P | Phase P | Phase P | dono — **fora deste ciclo, não autorizado aqui** |
-| Stripe webhook signing secret | **produção** | Stripe | COMPROMISED · UNKNOWN | Phase P | Phase P | Phase P | dono |
-| `ADMIN_SESSION_SECRET` | **produção** | app | COMPROMISED · UNKNOWN | Phase P (desloga todos os Admins **e clientes**) | Phase P | Phase P | dono |
-| `CRON_SECRET` | **produção** (web + `rare-cron`; Vercel cron legado UNKNOWN) | app | COMPROMISED · UNKNOWN | Phase P, depois de inventariar os chamadores | Phase P | Phase P | dono |
+Ordem por risco real: P0–P3 em produção (dinheiro real, todos os clientes) antes de P4–P7 em staging. Nenhuma linha avançou: **nenhuma substituta foi criada, nenhum consumidor foi atualizado, nenhuma antiga foi revogada.** O acesso a Railway, Stripe e Vercel está bloqueado nesta máquina, e produção exige autorização humana explícita.
+
+| # | Ambiente | Credencial | Provedor / consumidores | Comprometida | Substituta criada | Consumidores atualizados | Antiga revogada | Antiga rejeitada | Nova validada | Dono | Evidência |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| P0 | produção | Stripe API key (**LIVE**) | Stripe live → `rare` (web) e `rare-cron` (`checkout:worker` / expiração) | SIM | NÃO | NÃO | NÃO | UNKNOWN (sem cópia local, não sondada) | NÃO | dono da conta Stripe + operador Railway | incidente §Affected credential matrix |
+| P1 | produção | Stripe webhook signing secret | Stripe live → `rare` `/api/stripe/webhook` | SIM | NÃO | NÃO | NÃO | UNKNOWN | NÃO | dono Stripe + operador | idem |
+| P2 | produção | `ADMIN_SESSION_SECRET` (`AUTH_SECRET` ABSENT) | app → `rare` web + proxy; Admin (8 h) e cliente (30 d) | SIM | NÃO | NÃO | NÃO | UNKNOWN | NÃO | operador | idem |
+| P3 | produção | `CRON_SECRET` | app → validador em `rare`; PRESENT e não usado em `rare-cron`; cron da Vercel (GET 03:00) **UNKNOWN**; script `cron:release-expired` | SIM | NÃO | NÃO | NÃO | UNKNOWN | NÃO | operador + dono da Vercel | idem; seção 2.2 |
+| P4 | staging | Stripe API key (TEST) | Stripe test → `rare-staging` (web) e `rare-checkout-worker-staging` | SIM | NÃO | NÃO | NÃO | **NÃO — ainda ACEITA** (HTTP 200 em 2026-11-07T14:50Z e 2026-11-08T16:10Z) | NÃO | dono Stripe + operador | [evidência](../../security/evidence/CREDENTIAL_INCIDENT_202610_CLOSURE.md) |
+| P5 | staging | Stripe webhook signing secret | Stripe test → `rare-staging` `/api/stripe/webhook` | SIM | NÃO | NÃO | NÃO | UNKNOWN | NÃO | dono Stripe + operador | incidente |
+| P6 | staging | `ADMIN_SESSION_SECRET` (`AUTH_SECRET` ABSENT) | app → `rare-staging` web + proxy | SIM | NÃO | NÃO | NÃO | UNKNOWN | NÃO | operador | incidente |
+| P7 | staging | `CRON_SECRET` | app → validador em `rare-staging`; worker não usa; nenhum chamador HTTP conhecido (o gate Basic bloqueia qualquer um) | SIM | NÃO | NÃO | NÃO | UNKNOWN | NÃO | operador | incidente; seção 5.4 |
+
+Não há motivo documentado para mudar essa ordem. A única exceção prática: P4 (Stripe TEST) é a **única antiga com prova positiva de que ainda funciona**. Pode ser feita junto com P0, no mesmo acesso à Stripe, sem esperar P1–P3.
+
+### 2.1 Consumidores no código (verificado nesta branch)
+
+| Segredo | Lido por | Processos |
+|---|---|---|
+| `STRIPE_SECRET_KEY` | `src/lib/env.ts` → cliente Stripe em cache por processo (`src/lib/stripe.ts`), checkout, expiração (`src/lib/checkout-expiry.ts`), modo do webhook, readiness, config-drift | web **e** worker (`npm run checkout:worker`); scripts de QA usam valores falsos |
+| `STRIPE_WEBHOOK_SECRET` | `src/lib/env.ts` → `/api/stripe/webhook` (um único segredo, `constructEvent` sobre o corpo cru) | web |
+| `ADMIN_SESSION_SECRET` / `AUTH_SECRET` (fallback) | `src/lib/auth.ts`, `src/lib/customer-auth.ts`, `src/proxy.ts`; `admin-mfa-config.ts` só para garantir que a chave do MFA é diferente | web (inclusive o proxy) |
+| `CRON_SECRET` (+ `CRON_SECRET_PREVIOUS` opcional) | `/api/cron/release-expired-inventory` (**GET e POST**); chamador `scripts/call-release-expired-cron.mjs` (`npm run cron:release-expired`, POST) | validador no web; chamadores na seção 2.2 |
+
+### 2.2 Chamadores de cron (P3 / P7)
+
+| Chamador | Estado |
+|---|---|
+| `rare-cron` (Railway, produção) | Roda `checkout:worker` sem agenda (`railway.cron.json`); tem `CRON_SECRET` mas não o usa (incidente, 2026-10-06) |
+| Vercel cron (`vercel.json`: GET `/api/cron/release-expired-inventory` às 03:00) | **UNKNOWN.** O repositório está vinculado ao projeto Vercel `rare` (`.vercel/repo.json`), mas nenhum navegador desta máquina tem sessão na Vercel. Se o projeto estiver ativo com `CRON_SECRET` e acesso ao banco de produção, ele é um chamador real. O dono precisa conferir antes de P3. |
+| `npm run cron:release-expired` (manual) | Existe; uso real UNKNOWN |
+| GitHub Actions | Nenhum (0 workflows de cron, 0 secrets) |
+| Agendadores externos | UNKNOWN |
+
+### 2.3 Revisão de atividade na Stripe
+
+**BLOCKED_EXTERNAL.** Nenhum dos 4 navegadores conectados tem sessão na Stripe, então Workbench, request logs e eventos não foram lidos.
+- Única atividade observada: as duas sondas desta investigação (`GET /v1/balance`, modo teste, 2026-11-07T14:50Z e 2026-11-08T16:10Z), reconhecidas.
+- Classificação: **NOT REVIEWED** — nem "NO UNRECOGNIZED ACTIVITY FOUND", nem o contrário. O dono precisa revisar os logs das chaves LIVE e TEST desde 2026-10-04: IPs, endpoints e horários inesperados, criação de pagamento, reembolso, mutação de cliente ou de endpoint de webhook, dados bancários e payouts. Se houver algo, **INCIDENT ESCALATION REQUIRED**.
 
 ## 3. Varreduras (2026-11-07)
 
@@ -180,3 +209,60 @@ Só então: `migrate deploy` (nunca `db push`) e `migrate status` = "up to date"
 | Evidência | COMPLETA e sanitizada | COMPLETA e sanitizada |
 
 Estado em 2026-11-07: **nenhuma linha atendida**. O M-20 só fecha com as duas colunas, porque o incidente é um só. Fechar só o staging deixaria o freeze liberando um release enquanto a chave LIVE comprometida continua ativa.
+
+## 8. Produção (P0–P3) — PRODUCTION ROTATION READY / HUMAN AUTHORIZATION REQUIRED
+
+Nada foi feito em produção. Este roteiro está pronto para o dono executar ou autorizar explicitamente; nenhum agente deve executá-lo sem essa autorização.
+
+### 8.1 Como o Railway ativa variáveis (documentação oficial, lida em 2026-11-08)
+
+| Pergunta | Resposta | Fonte |
+|---|---|---|
+| Trocar variáveis gera deployment nova? | **SIM**: as mudanças ficam "staged" e, ao aplicar, os serviços afetados são reimplantados | docs.railway.com/guides/variables; /deployments/staged-changes |
+| Essa deployment roda o pre-deploy (`migrate deploy`)? | **Não documentado explicitamente**; o pre-deploy roda "entre o build e o deploy". Tratar como **SIM** (fail-safe). | /guides/pre-deploy-command |
+| Restart roda o pre-deploy? | Não documentado. Restart restaura a imagem e a configuração originais: **não prova** que as variáveis novas foram carregadas. | /deployments/deployment-actions |
+| Rollback restaura variáveis? | **SIM: imagem E variáveis.** Um rollback depois da rotação **traria de volta os segredos comprometidos**. | /deployments/deployment-actions |
+| Dá para gravar variáveis sem reimplantar? | Alt+Deploy grava sem reimplantar, mas a deployment em execução não as carrega. Não serve como ativação. | /deployments/staged-changes |
+
+Consequências:
+- **Antes de aplicar variáveis em produção**, provar somente leitura que `migrate deploy` será no-op: `npx prisma migrate status` contra o banco de produção, autorizado pelo dono. O `db:history-audit` desta branch recusa produção de propósito. Se houver pendência ou falha: **parar**.
+- **DO NOT ROLLBACK COMPROMISED SECRETS.** Rollback de código, se necessário, é feito com redeploy do artefato conhecido mantendo as variáveis novas. Nunca pelo botão de rollback, que restauraria as antigas.
+- O pre-deploy de produção atual é o do `main` (`4ea73f5`), que **não** tem o guard do freeze. O guard só passa a valer em produção quando este PR for mergeado — e o merge exige o freeze CLEARED.
+
+### 8.2 Decisão do dono: segurança × disponibilidade
+
+```
+SECURITY:     expirar a chave LIVE comprometida imediatamente
+AVAILABILITY: checkout, expiração e reconciliação falham até web e rare-cron carregarem a substituta
+```
+
+Se a produção estiver com `CHECKOUT_ENABLED=false` (vendas pausadas — confirmar, não verificado daqui), o custo de indisponibilidade cai, mas pedidos existentes ainda dependem da chave para expirar e reconciliar. A escolha é do dono. Se houver sobreposição: **explícita, com prazo fixo, aprovada pelo dono, a menor possível** — minutos, não dias.
+
+### 8.3 Sequência
+
+1. **Revisar os logs** da Stripe (seção 2.3) antes de tocar em qualquer coisa: a revisão é evidência do período de exposição.
+2. **P0 — Stripe LIVE:** Dashboard (live) → API keys → "Roll key" da chave secreta, expiração conforme 8.2. Inserir a substituta direto no Railway (`STRIPE_SECRET_KEY`) do **web e do `rare-cron`**; nunca em `.env`, chat ou terminal. Aplicar a mudança (deploy) depois da checagem de 8.1.
+   - Nova: a sonda não aceita chave live de propósito. Use um teste live somente leitura feito pelo dono, por exemplo `GET /v1/balance` pelo Workbench, e registre só o status.
+   - Antiga: 401 depois de expirar.
+3. **P1 — webhook live:** endpoint de produção `…/api/stripe/webhook` → conferir URL, `livemode`, habilitado e os 6 eventos tratados (`checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, `payment_intent.succeeded`, `payment_intent.payment_failed`) → Roll secret → `STRIPE_WEBHOOK_SECRET` no web.
+   - Prova: "Send test webhook" entregue com 200; evento assinado com o segredo antigo → 400.
+   - Eventos que falharam no intervalo: reprocessar pelo Dashboard, um a um. O dedup por `StripeEvent` mantém tudo idempotente — sem replay às cegas, sem recriar pagamento.
+4. **P2 — sessão:** novo `ADMIN_SESSION_SECRET` no web (`AUTH_SECRET` continua ausente). Todos os Admins e clientes são deslogados — é o esperado.
+   - Prova: cookie antigo de Admin e de cliente → login; login novo funciona. Em produção ainda **não há MFA** — ele chega com este PR.
+5. **P3 — cron:** só depois de inventariar os chamadores (2.2, em especial a Vercel). Novo `CRON_SECRET` no web e em cada chamador real; `CRON_SECRET_PREVIOUS` ausente.
+   - Prova: em produção não há gate Basic, então a prova por HTTP é possível — antigo → 401, ausente → 401. Um segredo válido **executa** o job de expiração.
+
+### 8.4 Fechamento
+
+O freeze só sai de ACTIVE com as 8 linhas da seção 2 em ROTATED / OLD REVOKED / OLD REJECTED / NEW VALIDATED, com evidência em [`docs/security/evidence/CREDENTIAL_INCIDENT_202610_CLOSURE.md`](../../security/evidence/CREDENTIAL_INCIDENT_202610_CLOSURE.md). Com 7 de 8 linhas resolvidas, o freeze continua ACTIVE.
+
+## 9. Cópias locais e histórico de shell (2026-11-08)
+
+| Item | Estado | Ação |
+|---|---|---|
+| `.env` raiz (`STRIPE_SECRET_KEY` TEST comprometida) | PRESENT | Trocar ou remover **depois** que a antiga estiver REJECTED (P4) |
+| `output/*/standalone/.env` (4 cópias, mesma chave TEST) | PRESENT | Apagar depois de P4 (são saídas de build descartáveis); preservar relatórios não sensíveis da mesma pasta |
+| `.next/standalone/.env` | ABSENT | — |
+| Histórico do PowerShell | 11 ocorrências de **uma** URL PostgreSQL com credencial, host **Neon** (não Railway); nenhuma chave Stripe, `whsec_`, Asaas ou Bearer | Fora das 4 categorias. O dono identifica o projeto Neon e decide se a credencial ainda vale (se valer, girar a senha no Neon); só então a limpeza seletiva. Não foi testada: autenticar num banco com credencial vazada não é verificação segura. |
+
+Nenhuma cópia foi alterada neste ciclo: a revogação no provedor vem primeiro.

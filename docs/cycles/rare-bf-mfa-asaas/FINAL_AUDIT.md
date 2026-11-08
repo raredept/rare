@@ -1,5 +1,13 @@
 # RARE BF / MFA / ASAAS — FINAL CYCLE REPORT
 
+## Atualização CYCLE-07 — contenção P0 do incidente de credenciais (2026-11-08)
+
+- **M-20 OPEN.** Incidente em **staging e produção** (Stripe LIVE incluída). Nenhuma credencial foi girada: Railway e Stripe inacessíveis desta máquina, e produção exige autorização humana. Estado: **PRODUCTION ROTATION READY — HUMAN AUTHORIZATION REQUIRED**.
+- A chave Stripe **TEST** antiga **continua aceita** (HTTP 200, 2026-11-07 e 2026-11-08). A revisão de atividade na Stripe não foi feita (NOT REVIEWED, M-22). O cron da Vercel é UNKNOWN (M-23).
+- Railway: aplicar variáveis gera nova deployment (tratar o pre-deploy `migrate deploy` como executado), e **rollback restaura as variáveis antigas** — nunca usar rollback depois da rotação.
+- `RELEASE_SECURITY_FREEZE` continua **ACTIVE** (guard em código, 34 testes). Matriz P0–P7 e roteiro: [SECURITY_FREEZE_CLOSURE.md](SECURITY_FREEZE_CLOSURE.md); evidência: [CREDENTIAL_INCIDENT_202610_CLOSURE.md](../../security/evidence/CREDENTIAL_INCIDENT_202610_CLOSURE.md); relatório: [cycles/CYCLE-07-P0-CREDENTIAL-CONTAINMENT.md](cycles/CYCLE-07-P0-CREDENTIAL-CONTAINMENT.md).
+- MERGE READY: **NÃO**. PRODUCTION RELEASE READY: **NÃO**. STAGING REAL: **NÃO EXECUTADO**.
+
 ## Atualização CYCLE-05 — integração com `codex/backend-evolution-20261007` (2026-11-07)
 
 - **M-14 resolvido**: a evolução de backend/redesign (`bc2c10c`) foi integrada por merge explícito (`21729fb`) e provada com a regressão completa antes de chegar à branch do PR. 7 conflitos textuais + 11 auto-merges revisados; nada do ciclo (MFA, Promoções, Black Friday, Asaas, `PAYMENT_PROVIDER`, preço no servidor, rollback Stripe, drivers de e-mail) nem da evolução de backend (shell do Admin, endurecimento de APIs, redesign, testes) se perdeu. Classificação em [BACKEND_EVOLUTION_RECONCILIATION.md](BACKEND_EVOLUTION_RECONCILIATION.md); execução em [cycles/CYCLE-05-BACKEND-RECONCILIATION.md](cycles/CYCLE-05-BACKEND-RECONCILIATION.md).

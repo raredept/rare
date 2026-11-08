@@ -19,6 +19,13 @@ QA_LAB_DATABASE_URL=... npm run qa:staging-lab -- --project=webkit --https
 
 Os specs `tests/e2e/bf-mfa-*.spec.ts` fazem asserções no banco (`QA_DATABASE_URL`); contra o staging real, sem acesso ao banco, essas checagens precisam ser trocadas por conferência no Admin.
 
+## Gates antes de qualquer deploy deste PR no staging (CYCLE-06/07)
+
+1. **M-20 fechado** (rotação + revogação + prova nos dois ambientes; ver [SECURITY_FREEZE_CLOSURE.md](SECURITY_FREEZE_CLOSURE.md)). O freeze não bloqueia o staging em código, mas configurar o staging com segredos comprometidos ainda ativos não é homologação válida.
+2. **M-21:** backup do Postgres-MlyZ criado; `npm run db:history-audit -- --expect=staging` limpo (esperado 14 APPLIED + 4 PENDING); `migrate status`; checagem de drift (closure §6). O histórico de 14 migrations verificado em 2026-10-07 não substitui a revalidação no momento do deploy.
+3. O pre-deploy deste PR roda `node scripts/release-freeze.mjs` antes do `migrate deploy`: no staging ele só avisa; conferir no log do deploy (ainda não verificado no Railway).
+4. Nada de rollback de deployment depois da rotação: o Railway restaura as variáveis antigas.
+
 ## Roteiro para quando houver acesso (ordem)
 
 1. Variáveis no serviço web **e** no worker de staging: `ADMIN_MFA_ENCRYPTION_KEY` (nova, só staging), `PAYMENT_PROVIDER=asaas`, `ASAAS_ENV=sandbox`, `ASAAS_API_KEY=$aact_hmlg_…`, `ASAAS_WEBHOOK_TOKEN` (32–255, aleatório, ≠ chave), `ASAAS_PAYMENT_METHODS=pix,card`. Não imprimir valores.

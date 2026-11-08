@@ -1,5 +1,15 @@
 # RARE — credential incident / October 2026
 
+## Containment status — 2026-11-08 (CYCLE-07)
+
+**INCIDENT=P0_OPEN; SCOPE=STAGING+PRODUCTION (including the Stripe LIVE API key); ROTATION=NONE; RELEASE_SECURITY_FREEZE=ACTIVE; PRODUCTION ROTATION READY — HUMAN AUTHORIZATION REQUIRED.** No credential was created, rotated, revoked or configured; no staging or production change.
+
+- The compromised staging Stripe TEST key is **still accepted** (read-only probe, HTTP 200, 2026-11-08T16:10Z; second confirmation). Evidence log: [evidence/CREDENTIAL_INCIDENT_202610_CLOSURE.md](evidence/CREDENTIAL_INCIDENT_202610_CLOSURE.md).
+- Access from this machine: Railway BLOCKED (no Rare project), Stripe Dashboard BLOCKED (no session in any of the four connected browsers), Vercel BLOCKED. Stripe activity review: **NOT REVIEWED** (owner action M-22). Vercel cron caller: UNKNOWN (M-23).
+- Railway documentation (read 2026-11-08): applying variable changes redeploys the affected services (treat the pre-deploy `migrate deploy` as executed); **rollback restores the image and the custom variables**, so a rollback after rotation would bring back compromised values.
+- Shell history: one credentialed PostgreSQL URL (Neon host, outside the four categories), 11 occurrences; validity not tested; owner triage (M-24).
+- Containment matrix (P0–P7), production runbook and closure criteria: [SECURITY_FREEZE_CLOSURE.md](../cycles/rare-bf-mfa-asaas/SECURITY_FREEZE_CLOSURE.md).
+
 ## Status check / freeze enforced in code — 2026-11-07 (CYCLE-06, PR #2 branch)
 
 **INCIDENT=P0_OPEN; ROTATION=NO EVIDENCE OF ANY (the staging Stripe TEST key is provably not revoked); RELEASE_SECURITY_FREEZE=ACTIVE (now enforced in code); RAILWAY_ACCESS=BLOCKED_EXTERNAL.** No credential was created, rotated, revoked or configured, and nothing in staging or production was touched. Sections below are preserved as dated history.
