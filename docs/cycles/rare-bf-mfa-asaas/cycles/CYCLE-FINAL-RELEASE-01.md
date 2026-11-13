@@ -140,6 +140,35 @@ webhook real, mobile/a11y no domínio de staging ou os gates do freeze.
 
 ## Gates restantes
 
+Checkpoint posterior de 2026-11-13:
+
+- Web e worker **SUCCESS no mesmo SHA `0e605d63a163be318b33197e32ad0426dd347e7d`**;
+  CI desse SHA (`43486038899`) PASS. Sources permanentes na branch do PR, aguardam CI.
+- Configuração aplicada e relida nos dois serviços: Asaas/Sandbox, chave com prefixo
+  correto, MFA obrigatório/chave 32 bytes, sessão e cron novos, token de webhook
+  independente, ausência de `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` e
+  `CRON_SECRET_PREVIOUS`. Checkout fechado. Carregamento do token de webhook
+  comprovado por HTTP: ausente 401, errado 401, correto 200.
+- Cookie Admin QA assinado com o segredo de sessão antigo: **401** no endpoint
+  protegido. Nenhuma chamada autenticada ao cron mutável foi usada como teste.
+- Schema real: `prisma migrate status` atualizado e `migrate diff` **sem diferenças**.
+  **M-21 CLOSED** para este snapshot/candidato: banco identificado, backup anterior
+  restaurável, histórico e schema verificados, migrations aditivas aplicadas.
+- **MFA/Admin Chromium em staging real: 8/8 PASS**, com contas QA novas e sintéticas:
+  anônimo, cliente, pending, enrollment, TOTP errado/replay, recovery code único,
+  logout/cookie copiado, rate limit, segundo Admin/reset e redirects hostis.
+  Traces, vídeo, screenshots e snapshots automáticos do MFA desativados.
+- Conta Sandbox com status geral APPROVED; chave Pix EVP criada e ACTIVE, sem
+  divulgar seu valor. Webhook real cadastrado com 13 eventos tratados e endpoint
+  staging. Cadastro/auth não equivalem à entrega real de evento, ainda pendente.
+- Revisão adicional reproduziu falha de vínculo de cliente na conciliação Asaas:
+  payment/order/reference eram verificados, mas o customer podia divergir.
+  Agora o mapeamento persistido é obrigatório antes de qualquer alteração de pedido,
+  estoque ou estado. Seis regressões falharam antes e passaram após a correção;
+  targeted 50/50, unit 177 arquivos/1624 testes, TypeScript, lint, build, audit e
+  release guard PASS. QA PostgreSQL BF/Asaas: 8/8 PASS (provider simulado).
+  Essa correção ainda precisa de deploy e prova Sandbox real.
+
 1. Conter sessões/cron em staging e produção; provar rejeição dos segredos antigos.
 2. Remover credenciais Stripe dos consumers ativos e comprovar checkout fechado.
 3. Alinhar web/worker à branch candidata, guard, variáveis e secrets independentes.

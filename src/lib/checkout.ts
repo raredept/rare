@@ -1062,6 +1062,15 @@ export async function processAsaasPayment(payment: AsaasPayment) {
       await flagOrderIncident(tx, order, "mismatch", `Cobrança Asaas não confere: ${order.orderNumber}`, "Uma cobrança Asaas apontou para este pedido mas não corresponde ao pedido. Nada foi alterado. Verifique no painel do Asaas.");
       return { status: "payment_mismatch" as const };
     }
+    // The provider can change a charge's customer independently of its reference. Verify
+    // the stored customer mapping before binding an id or applying ANY payment/stock state.
+    const customer = order.customerId
+      ? await tx.customer.findUnique({ where: { id: order.customerId }, select: { asaasCustomerId: true } })
+      : null;
+    if (!customer?.asaasCustomerId || payment.customerId !== customer.asaasCustomerId) {
+      await flagOrderIncident(tx, order, "mismatch", `Cliente Asaas não confere: ${order.orderNumber}`, "A cobrança Asaas não corresponde ao cliente vinculado ao pedido. Nada foi alterado. Verifique no painel do Asaas.");
+      return { status: "payment_mismatch" as const };
+    }
     if (!order.asaasPaymentId) await tx.order.update({ where: { id: order.id }, data: { asaasPaymentId: payment.id } });
 
     const outcome = classifyAsaasPayment(payment);

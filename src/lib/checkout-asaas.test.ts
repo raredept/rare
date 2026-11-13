@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => {
     $queryRaw: vi.fn(),
     $executeRaw: vi.fn(),
     order: { findFirst: vi.fn(), findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), create: vi.fn(), update: vi.fn() },
+    customer: { findUnique: vi.fn() },
     productVariant: { findMany: vi.fn(), updateMany: vi.fn() },
     inventoryMovement: { create: vi.fn() },
     emailOutbox: { createMany: vi.fn() },
@@ -51,7 +52,7 @@ function asaasOrder(overrides: Record<string, unknown> = {}) {
   return {
     id: "order_asaas_1", orderNumber: "RARE-ASAAS", status: "awaiting_payment", paymentProvider: "asaas", paymentMethod: "pix",
     asaasPaymentId: "pay_080225913252", stripePaymentIntentId: null, totalInCents: 17000, reservationExpiresAt: new Date("2026-11-27T15:30:00Z"),
-    customerName: "Ana", customerEmail: "ana@example.com", customerPhone: null, customerNameSnapshot: "Ana", customerEmailSnapshot: "ana@example.com",
+    customerId: "customer_000001", customerName: "Ana", customerEmail: "ana@example.com", customerPhone: null, customerNameSnapshot: "Ana", customerEmailSnapshot: "ana@example.com",
     customerPhoneSnapshot: null, shippingAddressSnapshot: { city: "São Paulo" }, billingAddressSnapshot: null,
     items: [{ id: "item_1", productId: "prod_1", variantId: "var_1", quantity: 1 }],
     ...overrides,
@@ -67,6 +68,7 @@ beforeEach(() => {
   process.env = { ...originalEnv, APP_ENV: "staging", APP_URL: "https://staging.rare.example", PAYMENT_PROVIDER: "asaas", ASAAS_ENV: "sandbox", ASAAS_API_KEY: sandboxKey, ASAAS_WEBHOOK_TOKEN: "w".repeat(40), SHIPPING_ENABLED: "true", SHIPPING_PROVIDER: "manual", SHIPPING_ORIGIN_CEP: "01001000" };
   mocks.prisma.$transaction.mockImplementation(async (work: unknown) => (typeof work === "function" ? (work as (client: typeof mocks.tx) => unknown)(mocks.tx) : Promise.all(work as Promise<unknown>[])));
   mocks.tx.order.findFirst.mockResolvedValue({ id: "order_asaas_1" });
+  mocks.tx.customer.findUnique.mockResolvedValue({ asaasCustomerId: "cus_000005401844" });
   mocks.tx.$queryRaw.mockResolvedValue([]);
   mocks.tx.order.findUniqueOrThrow.mockResolvedValue(asaasOrder());
   mocks.tx.productVariant.updateMany.mockResolvedValue({ count: 1 });
@@ -139,6 +141,28 @@ describe("processAsaasPayment (authoritative state)", () => {
   it("does not accept a charge whose reference points to another order", async () => {
     mocks.tx.order.findFirst.mockResolvedValueOnce({ id: "order_asaas_1" });
     await expect(processAsaasPayment(payment({ externalReference: "someone_elses_order" }))).resolves.toEqual({ status: "payment_mismatch" });
+  });
+
+  it.each([
+    { status: "RECEIVED" }, { status: "REFUNDED" }, { status: "PENDING", deleted: true },
+    { status: "AWAITING_RISK_ANALYSIS" },
+  ])("rejects another customer's payment before any $status effect", async (state) => {
+    mocks.tx.order.findUniqueOrThrow.mockResolvedValue(asaasOrder({ asaasPaymentId: null }));
+    await expect(processAsaasPayment(payment({ ...state, customerId: "cus_othercustomer" }))).resolves.toEqual({ status: "payment_mismatch" });
+    expect(mocks.tx.order.update).not.toHaveBeenCalled();
+    expect(mocks.tx.productVariant.updateMany).not.toHaveBeenCalled();
+    expect(mocks.tx.inventoryMovement.create).not.toHaveBeenCalled();
+    expect(mocks.notifyAdminsOfPaidOrder).not.toHaveBeenCalled();
+    expect(mocks.tx.adminNotification.createMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: [expect.objectContaining({ type: "payment_mismatch", orderId: "order_asaas_1" })],
+    }));
+  });
+
+  it.each([null, { asaasCustomerId: null }])("fails closed when the stored customer binding is absent (%s)", async (customer) => {
+    mocks.tx.customer.findUnique.mockResolvedValue(customer);
+    await expect(processAsaasPayment(payment())).resolves.toEqual({ status: "payment_mismatch" });
+    expect(mocks.tx.order.update).not.toHaveBeenCalled();
+    expect(mocks.tx.inventoryMovement.create).not.toHaveBeenCalled();
   });
 
   it("does not mark a card order paid by a Pix confirmation", async () => {
