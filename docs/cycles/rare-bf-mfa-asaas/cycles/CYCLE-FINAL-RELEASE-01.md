@@ -20,6 +20,11 @@ head remoto inicial `b30599ce30d6d33a6a839f5948bb3b45396383b7`, main
   Revogação externa Stripe pode permanecer `MANUAL_PENDING`, sem ser declarada feita.
   O registro real permanece **ACTIVE**, com todos os gates externos ainda falsos.
 - Atualização transitiva do lockfile eliminou os dois alertas baixos do audit.
+- Revisão posterior reproduziu dois problemas adicionais: o CLI de readiness
+  ainda dizia que Stripe estava configurado; e o webhook media caracteres após
+  carregar o corpo inteiro, aceitando mais de 64 KiB com texto UTF-8 multibyte.
+  Corrigidos com diagnóstico Asaas/fail-closed e leitura limitada por bytes.
+  Regressões: CLI em quatro providers e webhook multibyte/stream interrompido.
 
 ## Railway e Asaas — evidência real
 
@@ -81,15 +86,21 @@ ou o código mudarem antes do deploy. Dados do backup não entram no Git ou rela
 |---|---|
 | npm ci / build standalone | PASS; 35 Server Actions verificadas |
 | TypeScript / lint | PASS |
-| Unit | PASS: 177 arquivos, 1616 testes |
+| Unit | PASS: 177 arquivos, 1618 testes após correção do limite do webhook |
 | npm audit --omit=dev | PASS: zero vulnerabilidades |
 | PostgreSQL QA Asaas/BF | PASS: 8 provas, transporte simulado |
 | PostgreSQL QA reconciliação | PASS: 13 provas, novas cobranças Stripe recusadas, zero chamadas externas |
 | Lab Chromium | PASS: Asaas 24, desconhecido 2, Stripe desativado 2 |
 | Logs/integridade Chromium | zero vazamentos em 67 valores verificados; zero anomalias |
-| Lab WebKit | EM EXECUÇÃO |
+| Lab WebKit | EM EXECUÇÃO; MFA, webhook anterior à correção de bytes, promoções e matriz 320–1920 PASS |
 | Lab Firefox | PENDENTE nesta execução |
 | Release guard | PASS: 6 OK, 2 WARNING (cron Vercel histórico e freeze ACTIVE), zero FAIL |
+| CLI de readiness | Regressão reproduzida antes da correção; 4/4 PASS após (unset/stripe/unknown/asaas) |
+| Webhook limitado por bytes | Regressão reproduzida (200 em vez de 413); testes direcionados 18/18 PASS após |
+
+Commit `06a5994b676d5bc79125a379e1fdb3aabc3c3ef6` publicado, PR mantido Draft e
+descrição atualizada. CI GitHub run `43478479815` PASS nesse commit. Correções
+posteriores de readiness/webhook exigem novo build, CI e smoke de navegador.
 
 Testes locais e transporte simulado não satisfazem Sandbox real, MFA em staging,
 webhook real, mobile/a11y no domínio de staging ou os gates do freeze.

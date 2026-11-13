@@ -1,6 +1,7 @@
 import { after, NextResponse, type NextRequest } from "next/server";
 import { getAsaasConfig, verifyAsaasWebhookToken, type AsaasConfig } from "@/lib/asaas";
 import { parseAsaasWebhookBody, processAsaasWebhookEvents, storeAsaasWebhookEvent } from "@/lib/asaas-webhook";
+import { readBoundedRequestBody, RequestBodyTooLargeError } from "@/lib/request-body";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,8 +24,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const rawBody = await request.text();
-  if (rawBody.length > maxBodyBytes) return NextResponse.json({ error: "Payload too large" }, { status: 413 });
+  let rawBody: string;
+  try {
+    rawBody = new TextDecoder().decode(await readBoundedRequestBody(request, maxBodyBytes));
+  } catch (error) {
+    return error instanceof RequestBodyTooLargeError
+      ? NextResponse.json({ error: "Payload too large" }, { status: 413 })
+      : NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  }
   let body: unknown = null;
   try {
     body = JSON.parse(rawBody);

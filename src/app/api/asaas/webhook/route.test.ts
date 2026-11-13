@@ -100,6 +100,38 @@ describe("POST /api/asaas/webhook", () => {
     expect((await POST(post({ ...event, padding: "x".repeat(70 * 1024) }))).status).toBe(413);
   });
 
+  it("enforces the payload limit in UTF-8 bytes, including multibyte text", async () => {
+    const { POST } = await import("@/app/api/asaas/webhook/route");
+    const body = JSON.stringify({ ...event, padding: "é".repeat(35 * 1024) });
+    expect(body.length).toBeLessThan(64 * 1024);
+    expect(Buffer.byteLength(body)).toBeGreaterThan(64 * 1024);
+    expect((await POST(post(body))).status).toBe(413);
+    expect(mocks.createMany).not.toHaveBeenCalled();
+    expect(mocks.after).not.toHaveBeenCalled();
+  });
+
+  it("cancels an oversized stream before draining it even with a false content-length", async () => {
+    const { POST } = await import("@/app/api/asaas/webhook/route");
+    let pulls = 0;
+    const cancel = vi.fn();
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulls += 1;
+        if (pulls > 4) controller.close();
+        else controller.enqueue(new Uint8Array(40 * 1024));
+      },
+      cancel,
+    }, { highWaterMark: 0 });
+    const request = new NextRequest("https://staging.rare.example/api/asaas/webhook", {
+      method: "POST", body: stream, duplex: "half",
+      headers: { "asaas-access-token": token, "content-length": "1" },
+    } as NonNullable<ConstructorParameters<typeof NextRequest>[1]>);
+    expect((await POST(request)).status).toBe(413);
+    expect(pulls).toBe(2);
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(mocks.createMany).not.toHaveBeenCalled();
+  });
+
   it("answers 500 (so Asaas retries) only when the event could not be stored", async () => {
     mocks.createMany.mockRejectedValueOnce(new Error("db down"));
     const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
