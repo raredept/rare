@@ -46,6 +46,15 @@ Web ainda usa `integration/pre-go-live`. O executor observado é
 config-as-code selecionado. Precisa ser alinhado ao guard e à branch do PR antes
 do deploy candidato. Source/SHA do worker e SHA completo do web ainda pendentes.
 
+Depois da auditoria do backup, ficaram **preparadas, sem aplicar deploy**, alterações
+do web: branch `cycle/rare-bf-mfa-asaas-01`, pre-deploy incluindo o freeze guard e
+`ADMIN_MFA_ENCRYPTION_KEY` gerada com 32 bytes aleatórios independentes. Presença da
+variável e alterações pendentes confirmadas na UI; carregamento pelo runtime não
+comprovado. Sessão/cron, token do webhook e worker ainda precisam de configuração.
+O CLI autenticado nesta máquina continua sem acesso ao projeto Rare (consulta
+somente leitura recusada); solicitado login pela conta do perfil SkyLab, sem tokens
+no chat. Produção não alterada.
+
 Conta Asaas Sandbox criada, confirmação de email e SMS concluídas pelo proprietário.
 Chave Sandbox emitida e transferida diretamente à variável `ASAAS_API_KEY` do web
 staging; prefixo Sandbox confirmado sem divulgar valor. Sem teste de API ou cobrança
@@ -74,6 +83,7 @@ existente. Criado backup lógico no console do Postgres de staging com `umask 07
 - Drift do snapshot contra as 15 migrations aplicadas: **nenhuma diferença**.
 - Ensaio das três migrations pendentes na cópia local: **PASS**.
 - Status após ensaio: schema atualizado; drift contra schema do candidato: zero.
+- Nove consultas de integridade na cópia restaurada após ensaio: zero anomalias.
 
 Pendentes no staging real: `20261106120000_admin_mfa_audit`,
 `20261106130000_promotions`, `20261106140000_asaas_payments`.
@@ -92,15 +102,38 @@ ou o código mudarem antes do deploy. Dados do backup não entram no Git ou rela
 | PostgreSQL QA reconciliação | PASS: 13 provas, novas cobranças Stripe recusadas, zero chamadas externas |
 | Lab Chromium | PASS: Asaas 24, desconhecido 2, Stripe desativado 2 |
 | Logs/integridade Chromium | zero vazamentos em 67 valores verificados; zero anomalias |
-| Lab WebKit | EM EXECUÇÃO; MFA, webhook anterior à correção de bytes, promoções e matriz 320–1920 PASS |
-| Lab Firefox | PENDENTE nesta execução |
+| Lab WebKit | PASS: 24 + 2 + 2; matriz 320–1920 e axe PASS; regressão de pagamentos repetida após rebuild: 3 + 2 + 2 PASS |
+| Lab Firefox | PASS: 24 + 2 + 2, incluindo limite UTF-8 do webhook, MFA, promoções, responsividade e axe |
+| Pagamentos Chromium após rebuild | PASS: 3 + 2 + 2, incluindo limite UTF-8 e ausência de persistência do evento rejeitado |
+| Logs/integridade das rodadas finais | zero vazamentos detectados; nove contagens de integridade zeradas |
 | Release guard | PASS: 6 OK, 2 WARNING (cron Vercel histórico e freeze ACTIVE), zero FAIL |
 | CLI de readiness | Regressão reproduzida antes da correção; 4/4 PASS após (unset/stripe/unknown/asaas) |
 | Webhook limitado por bytes | Regressão reproduzida (200 em vez de 413); testes direcionados 18/18 PASS após |
 
 Commit `06a5994b676d5bc79125a379e1fdb3aabc3c3ef6` publicado, PR mantido Draft e
 descrição atualizada. CI GitHub run `43478479815` PASS nesse commit. Correções
-posteriores de readiness/webhook exigem novo build, CI e smoke de navegador.
+posteriores de readiness/webhook publicadas em `23f2a6039cbd0ad16bdb6d822f993293969ef22a`:
+CI run `43481118153` PASS, incluindo build. Build local atualizado PASS; Firefox completo
+e regressões de pagamentos Chromium/WebKit concluídos sequencialmente, sem sobreposição.
+
+## Avanço real após autenticação do CLI
+
+- Acesso ao projeto Rare confirmado pela conta do workspace correto. O bloqueio de
+  autenticação do CLI descrito acima foi resolvido pelo proprietário.
+- Web publicou `23f2a6039cbd0ad16bdb6d822f993293969ef22a` (deployment
+  `8c816911-42e0-4194-8dd0-2c5afe4d1d62`); worker ainda em
+  `f15e5b670c6627088bb2c072df30cf1cffea3597`, `integration/pre-go-live`.
+- Auditoria oficial contra o banco **real** de staging, em transação READ ONLY:
+  **18 APPLIED / 0 PENDING / 0 FAILED / 0 ROLLED_BACK / 0 CHECKSUM_MISMATCH /
+  0 EXTRA**. Checksums correspondem à variante LF do Git; CRLF local não é drift.
+- Primeira chamada real e somente leitura ao Asaas Sandbox: HTTPS e autenticação
+  **PASS (HTTP 200)**. Não houve cobrança nesta verificação.
+- Preparado patch único, ainda sem commit/deploy neste checkpoint, para web e worker:
+  branch candidata, CI obrigatório, Asaas Sandbox, MFA, segredos novos independentes
+  para sessão/cron/webhook, remoção de credenciais Stripe e checkout fechado.
+  Somente o web executa migrations; worker inicia com o freeze guard.
+- Produção foi inventariada somente para leitura: web e worker em `main @ 4ea73f5`.
+  Nenhuma variável, migration ou deployment de produção alterado.
 
 Testes locais e transporte simulado não satisfazem Sandbox real, MFA em staging,
 webhook real, mobile/a11y no domínio de staging ou os gates do freeze.

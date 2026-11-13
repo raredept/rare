@@ -127,10 +127,15 @@ test("Asaas webhook: token, persistence, duplicates, malformed and oversized bod
   expect(JSON.parse(malformed.text)).toMatchObject({ ignored: true });
   const oversized = await post({ "asaas-access-token": token }, JSON.stringify({ id: "evt_big", event: "PAYMENT_CREATED", pad: "x".repeat(70 * 1024) }));
   expect(oversized.status).toBe(413);
+  const multibyteEventId = `evt_qa_utf8_${randomBytes(6).toString("hex")}`;
+  const multibyte = await post({ "asaas-access-token": token }, JSON.stringify({ id: multibyteEventId, event: "ACCOUNT_STATUS_UPDATED", pad: "é".repeat(35 * 1024) }));
+  expect(multibyte.status).toBe(413);
   const fakePayment = await post({ "asaas-access-token": token }, JSON.stringify({ id: `evt_qa_bad_${randomBytes(4).toString("hex")}`, event: "PAYMENT_RECEIVED", payment: { id: "../../v3/customers" } }));
   expect(fakePayment.status).toBe(200);
 
   await withDatabase(async (db) => {
+    const rejected = await db.query(`SELECT id FROM "AsaasWebhookEvent" WHERE id = $1`, [multibyteEventId]);
+    expect(rejected.rowCount).toBe(0);
     const rows = await db.query(`SELECT status, "paymentId" FROM "AsaasWebhookEvent" WHERE id = $1`, [eventId]);
     expect(rows.rows).toEqual([{ status: "ignored", paymentId: null }]);
     const bad = await db.query(`SELECT "paymentId" FROM "AsaasWebhookEvent" WHERE id LIKE 'evt_qa_bad_%'`);
