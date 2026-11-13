@@ -1062,8 +1062,8 @@ export async function processAsaasPayment(payment: AsaasPayment) {
       await flagOrderIncident(tx, order, "mismatch", `Cobrança Asaas não confere: ${order.orderNumber}`, "Uma cobrança Asaas apontou para este pedido mas não corresponde ao pedido. Nada foi alterado. Verifique no painel do Asaas.");
       return { status: "payment_mismatch" as const };
     }
-    // The provider can change a charge's customer independently of its reference. Verify
-    // the stored customer mapping before binding an id or applying ANY payment/stock state.
+    // A charge can carry our reference but belong to another customer. Verify the stored
+    // customer mapping before binding an id or applying ANY payment/stock state.
     const customer = order.customerId
       ? await tx.customer.findUnique({ where: { id: order.customerId }, select: { asaasCustomerId: true } })
       : null;

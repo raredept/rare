@@ -1,9 +1,11 @@
 > **Atualização vigente — 2026-11-13:** ver [RARE-FINAL-RELEASE-01](cycles/CYCLE-FINAL-RELEASE-01.md).
 > Asaas é o único provider autorizado para novos pagamentos. Stripe não é fallback;
 > rollback fecha checkout (`PAYMENT_PROVIDER=disabled`, `CHECKOUT_ENABLED=false`).
-> Backup real de staging criado, baixado e restaurado localmente: 15 migrations aplicadas,
-> 3 pendentes, checksums e drift limpos; ensaio local das 3 migrations PASS.
-> Staging do PR ainda não publicado; homologação real e contenção interna continuam pendentes.
+> Staging real publicado: web/worker c93f2f4, 18 migrations aplicadas, zero pendentes/drift.
+> MFA real Chromium/Firefox/WebKit: 8/8 em cada. Sessões antigas rejeitadas nos dois ambientes.
+> Produção contida no main anterior, checkout OFF; Stripe removida dos consumers ativos.
+> Primeiro Pix Sandbox calculou R$ 170 corretamente; formato real do ID revelou bug corrigido
+> em 54e0ac8, aguardando CI/deploy/reteste. Lifecycle, promoções e E2E comercial em andamento.
 > Freeze ACTIVE, PR Draft. As seções abaixo preservam evidência histórica dos ciclos anteriores.
 # RARE BF / MFA / ASAAS — FINAL CYCLE REPORT
 

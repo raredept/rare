@@ -146,6 +146,10 @@ async function reconcilePixExpiry(order: Order): Promise<ReconcileResult> {
  */
 async function reconcileAsaasExpiry(order: Order): Promise<ReconcileResult> {
   const config = getAsaasConfig();
+  const customer = order.customerId
+    ? await prisma.customer.findUnique({ where: { id: order.customerId }, select: { asaasCustomerId: true } })
+    : null;
+  if (!customer?.asaasCustomerId) throw new Error("SESSION_ORDER_MISMATCH");
   let paymentId = order.asaasPaymentId;
   if (!paymentId) {
     // The creation response was lost. Asaas's own listing says whether a charge exists.
@@ -155,7 +159,11 @@ async function reconcileAsaasExpiry(order: Order): Promise<ReconcileResult> {
       const released = await releaseAsaasOrderWithoutPayment(order.id);
       return { outcome: released ? "released" : "terminal", checkedAt: new Date() };
     }
-    paymentId = (found.find((payment) => classifyAsaasPayment(payment) === "paid") ?? found[0]).id;
+    // An ambiguous creation must not close just one of several still-payable charges
+    // and then free the reservation. Leave it for reconciliation/manual review.
+    if (found.length !== 1) throw new Error("SESSION_CREATION_UNCONFIRMED");
+    if (found[0].customerId !== customer.asaasCustomerId) throw new Error("SESSION_ORDER_MISMATCH");
+    paymentId = found[0].id;
   }
 
   const read = async (id: string): Promise<AsaasPayment> => {
@@ -164,27 +172,36 @@ async function reconcileAsaasExpiry(order: Order): Promise<ReconcileResult> {
     } catch (error) {
       // A deleted charge may no longer be listed: that is the "can no longer be paid" answer.
       if (error instanceof AsaasError && error.code === "AsaasNotFound") {
-        return { id, status: "DELETED", billingType: null, amountInCents: null, customerId: null, externalReference: order.id, invoiceUrl: null, deleted: true };
+        // The id is bound on the order or came from the verified reference/customer
+        // above. A 404 has no customer payload: carry that stored identity, not null.
+        return { id, status: "DELETED", billingType: null, amountInCents: null, customerId: customer.asaasCustomerId, externalReference: order.id, invoiceUrl: null, deleted: true };
       }
       throw error;
     }
   };
 
   let payment = await read(paymentId);
-  if (payment.externalReference !== order.id) throw new Error("SESSION_ORDER_MISMATCH");
+  if (payment.externalReference !== order.id || payment.customerId !== customer.asaasCustomerId) throw new Error("SESSION_ORDER_MISMATCH");
+
+  const applyVerified = async (current: AsaasPayment) => {
+    const result = await processAsaasPayment(current);
+    // The provider status alone cannot complete a job if the application rejected it.
+    if (result.status === "payment_mismatch" || result.status === "order_not_found") throw new Error("SESSION_ORDER_MISMATCH");
+    return result;
+  };
 
   const settle = async (current: AsaasPayment): Promise<ReconcileResult | null> => {
     const outcome = classifyAsaasPayment(current);
     if (outcome === "paid") {
-      await processAsaasPayment(current);
+      await applyVerified(current);
       return { outcome: "paid", checkedAt: new Date() };
     }
     if (outcome === "processing") {
-      await processAsaasPayment(current);
+      await applyVerified(current);
       return { outcome: "processing", checkedAt: new Date() };
     }
     if (outcome === "refunded" || outcome === "chargeback" || outcome === "refund_pending") {
-      await processAsaasPayment(current);
+      await applyVerified(current);
       return { outcome: "terminal", checkedAt: new Date() };
     }
     return null;
@@ -204,7 +221,7 @@ async function reconcileAsaasExpiry(order: Order): Promise<ReconcileResult> {
     if (raced) return raced;
   }
   if (classifyAsaasPayment(payment) !== "closed") throw new Error("PROVIDER_NOT_EXPIRED");
-  const result = await processAsaasPayment(payment);
+  const result = await applyVerified(payment);
   return { outcome: result.status === "released" ? "released" : "terminal", checkedAt: new Date() };
 }
 

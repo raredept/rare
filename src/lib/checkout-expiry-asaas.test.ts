@@ -3,6 +3,7 @@ import { AsaasError } from "@/lib/asaas";
 
 const mocks = vi.hoisted(() => ({
   findUniqueOrThrow: vi.fn(),
+  findCustomer: vi.fn(),
   processAsaasPayment: vi.fn(),
   releaseAsaasOrderWithoutPayment: vi.fn(),
   getAsaasPayment: vi.fn(),
@@ -10,7 +11,7 @@ const mocks = vi.hoisted(() => ({
   findAsaasPaymentsForOrder: vi.fn(),
 }));
 
-vi.mock("@/lib/prisma", () => ({ prisma: { order: { findUniqueOrThrow: mocks.findUniqueOrThrow } } }));
+vi.mock("@/lib/prisma", () => ({ prisma: { order: { findUniqueOrThrow: mocks.findUniqueOrThrow }, customer: { findUnique: mocks.findCustomer } } }));
 vi.mock("@/lib/stripe", () => ({ getStripe: vi.fn() }));
 vi.mock("@/lib/checkout", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/checkout")>();
@@ -32,12 +33,13 @@ vi.mock("@/lib/asaas", async (importOriginal) => ({
   findAsaasPaymentsForOrder: mocks.findAsaasPaymentsForOrder,
 }));
 
-const order = { id: "order_asaas_1", status: "awaiting_payment", paymentProvider: "asaas", asaasPaymentId: "pay_080225913252", createdAt: new Date(Date.now() - 3_600_000) };
+const order = { id: "order_asaas_1", customerId: "customer_qa", status: "awaiting_payment", paymentProvider: "asaas", asaasPaymentId: "pay_080225913252", createdAt: new Date(Date.now() - 3_600_000) };
 const pending = { id: "pay_080225913252", status: "PENDING", billingType: "PIX", amountInCents: 17000, customerId: "cus_1", externalReference: "order_asaas_1", invoiceUrl: null, deleted: false };
 
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.findUniqueOrThrow.mockResolvedValue(order);
+  mocks.findCustomer.mockResolvedValue({ asaasCustomerId: "cus_1" });
 });
 
 describe("Asaas checkout expiry", () => {
@@ -70,9 +72,42 @@ describe("Asaas checkout expiry", () => {
   it("treats a charge that disappeared after deletion as closed", async () => {
     mocks.getAsaasPayment.mockResolvedValueOnce(pending).mockRejectedValueOnce(new AsaasError("rejected", "AsaasNotFound", 404));
     mocks.deleteAsaasPayment.mockResolvedValueOnce(true);
-    mocks.processAsaasPayment.mockResolvedValueOnce({ status: "released" });
+    mocks.processAsaasPayment.mockImplementation(async (payment) => ({ status: payment.customerId === "cus_1" ? "released" : "payment_mismatch" }));
     const { reconcileCheckoutExpiry } = await import("@/lib/checkout-expiry");
     await expect(reconcileCheckoutExpiry("order_asaas_1")).resolves.toMatchObject({ outcome: "released" });
+    expect(mocks.processAsaasPayment).toHaveBeenCalledWith(expect.objectContaining({ deleted: true, customerId: "cus_1" }));
+  });
+
+  it("never reports paid when payment reconciliation rejected the binding or value", async () => {
+    mocks.getAsaasPayment.mockResolvedValueOnce({ ...pending, status: "RECEIVED" });
+    mocks.processAsaasPayment.mockResolvedValueOnce({ status: "payment_mismatch" });
+    const { reconcileCheckoutExpiry } = await import("@/lib/checkout-expiry");
+    await expect(reconcileCheckoutExpiry("order_asaas_1")).rejects.toThrow("SESSION_ORDER_MISMATCH");
+    expect(mocks.deleteAsaasPayment).not.toHaveBeenCalled();
+  });
+
+  it("does not delete a payable charge belonging to another customer", async () => {
+    mocks.getAsaasPayment.mockResolvedValueOnce({ ...pending, customerId: "cus_other" });
+    const { reconcileCheckoutExpiry } = await import("@/lib/checkout-expiry");
+    await expect(reconcileCheckoutExpiry("order_asaas_1")).rejects.toThrow("SESSION_ORDER_MISMATCH");
+    expect(mocks.deleteAsaasPayment).not.toHaveBeenCalled();
+  });
+
+  it("holds an ambiguous reservation when more than one charge exists for its reference", async () => {
+    mocks.findUniqueOrThrow.mockResolvedValue({ ...order, asaasPaymentId: null });
+    mocks.findAsaasPaymentsForOrder.mockResolvedValueOnce([pending, { ...pending, id: "pay_0_qa123456789abc" }]);
+    const { reconcileCheckoutExpiry } = await import("@/lib/checkout-expiry");
+    await expect(reconcileCheckoutExpiry("order_asaas_1")).rejects.toThrow("SESSION_CREATION_UNCONFIRMED");
+    expect(mocks.deleteAsaasPayment).not.toHaveBeenCalled();
+    expect(mocks.releaseAsaasOrderWithoutPayment).not.toHaveBeenCalled();
+  });
+
+  it("does not fabricate a customer identity when the stored mapping is missing", async () => {
+    mocks.findCustomer.mockResolvedValueOnce({ asaasCustomerId: null });
+    const { reconcileCheckoutExpiry } = await import("@/lib/checkout-expiry");
+    await expect(reconcileCheckoutExpiry("order_asaas_1")).rejects.toThrow("SESSION_ORDER_MISMATCH");
+    expect(mocks.getAsaasPayment).not.toHaveBeenCalled();
+    expect(mocks.deleteAsaasPayment).not.toHaveBeenCalled();
   });
 
   it("holds the stock while Asaas analyses the payment", async () => {

@@ -6,9 +6,9 @@ Autorização atual do proprietário: contenção de sessão/cron nos dois ambie
 
 Decisão comercial: Asaas é o único provedor novo. Stripe não é fallback; configuração ausente/Stripe/desconhecida falha fechado no candidato. SDK e reconciliação histórica preservados. `CRON_SECRET_PREVIOUS` não é mais aceito pelo candidato.
 
-**Freeze ACTIVE; M-20 OPEN.** Nenhuma rotação/ativação de sessão ou cron foi comprovada nesta execução. Revogação das chaves e webhooks Stripe no provedor: **MANUAL_PENDING**, não declarada feita. A política 2 só permite essa pendência externa após comprovar retirada de todos os consumidores ativos, contenção interna nos dois ambientes e staging/Asaas reais aprovados. Ver [política atual](../cycles/rare-bf-mfa-asaas/SECURITY_FREEZE_CLOSURE.md).
+**Freeze ACTIVE; M-20 OPEN (revogação externa e gates restantes).** Sessão e cron rotacionados em staging/produção, valores anteriores removidos dos consumers web/worker; credenciais Stripe ausentes. Sessões Admin antigas rejeitadas e clientes antigos enviados ao login nos dois ambientes. Produção contida no main anterior, checkout OFF. Revogação das chaves/webhooks Stripe no provedor: **MANUAL_PENDING**, não declarada feita. Cron externo/Vercel continua sem inventário conclusivo; nenhum endpoint cron mutável usado como teste. Staging/Asaas completos ainda bloqueiam release. Ver [política atual](../cycles/rare-bf-mfa-asaas/SECURITY_FREEZE_CLOSURE.md).
 
-Acesso browser confirmado: projeto Railway Rare / staging no SkyLab e conta Asaas. Sandbox criado; emissão da chave aguarda autorização Token SMS pelo responsável. Nenhum segredo foi incluído no relatório. [Execução e resultados](../cycles/rare-bf-mfa-asaas/cycles/CYCLE-FINAL-RELEASE-01.md).
+Acesso browser/CLI confirmado no projeto Rare. Sandbox autorizado, chave própria configurada, webhook cadastrado e primeiro evento real recebido. MFA real passou em Chromium/Firefox/WebKit. Um formato real de paymentId revelou bug corrigido e ainda em reteste. Nenhum segredo foi incluído no relatório. [Execução e resultados](../cycles/rare-bf-mfa-asaas/cycles/CYCLE-FINAL-RELEASE-01.md).
 
 ---
 

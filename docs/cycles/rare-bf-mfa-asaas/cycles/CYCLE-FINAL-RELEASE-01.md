@@ -217,3 +217,28 @@ STAGING: PARTIAL. MERGE READY: NÃO. PRODUCTION READY: NÃO. PR: DRAFT.
 
 Freeze permanece ACTIVE; Sandbox lifecycle, E2E comercial/promotions e reauditoria
 final ainda não passaram. Revogação Stripe externa continua MANUAL_PENDING.
+
+### Reteste Sandbox e expiração
+
+- `54e0ac8`: CI PASS (`43491473147`), web/worker SUCCESS no mesmo SHA.
+  Nova criação Pix HTTP 200, dados Pix persistidos e retorno para a RARE.
+- Cobrança original de criação incerta foi recuperada pelo webhook real
+  PAYMENT_RECEIVED: pedido paid, total R$ 170 e uma única movimentação de venda.
+- Outra cobrança Sandbox com referência desse pedido, mas cliente diferente,
+  gerou PAYMENT_CREATED e PAYMENT_RECEIVED reais. Ambos processados como
+  PAYMENT_MISMATCH; pedido seguiu awaiting_payment sem vínculo errado nem baixa.
+  Só o evento da cobrança legítima o pagou depois.
+- Revisão encontrou gaps no worker de expiração: cliente não conferido antes de
+  DELETE, resultado payment_mismatch tratado como job pago e identidade perdida
+  na resposta 404 após cancelamento. Três regressões reproduziram as falhas.
+  Correção confere cliente antes do provider, preserva identidade do vínculo
+  persistido no 404, mantém retry quando a aplicação rejeita o pagamento e não
+  libera reserva quando a busca retorna múltiplas cobranças ainda ativas.
+- Após correção: TypeScript/lint/build/audit/guard PASS, unit **177/1631**,
+  QA PostgreSQL BF/Asaas 8/8 (transporte simulado). Deploy/reteste real pendentes.
+- Produção: segredo de sessão antigo recusado para Admin (401) e cliente
+  (307 para /entrar); controles com segredo novo passam autenticação (400 de
+  validação no GET sem parâmetros e 200 na conta, respectivamente). Não foi
+  login humano. Logs recentes de web/worker nos dois ambientes: zero matches
+  dos segredos conhecidos/padrões de credencial; isso não é auditoria histórica
+  de uso indevido no provedor Stripe.
