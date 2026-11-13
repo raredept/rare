@@ -3,7 +3,7 @@
   "scope": "production-release",
   "incident": "docs/security/CREDENTIAL_INCIDENT_202610.md",
   "activeSince": "2026-10-04",
-  "summary": "Stripe API keys, Stripe webhook signing secrets, ADMIN_SESSION_SECRET and CRON_SECRET of staging AND production were exposed in tool output. Clear only after every affected credential in both environments is rotated, the old value revoked and proven rejected, and the closure evidence is committed.",
+  "summary": "Production remains frozen until internal session/cron containment in staging and production, removal of Stripe credentials from active consumers, no new Stripe payments or fallback, real staging and Asaas Sandbox validation, and initial production checkout OFF are evidenced. External Stripe credential revocation can remain MANUAL_PENDING without being declared revoked.",
   "lastVerified": {
     "at": "2026-11-07",
     "finding": "The compromised staging Stripe TEST key is still accepted by Stripe (read-only probe, HTTP 200). Rotation not started; Railway access blocked."
@@ -11,6 +11,21 @@
   "closure": {
     "clearedAt": null,
     "clearedBy": null,
-    "evidence": null
-  }
+    "evidence": null,
+    "conditions": {
+      "sessionStagingRotatedAndOldRejected": false,
+      "sessionProductionRotatedAndOldRejected": false,
+      "cronStagingRotatedAndOldRemoved": false,
+      "cronProductionRotatedAndOldRejected": false,
+      "stripeStagingDisconnected": false,
+      "stripeProductionDisconnected": false,
+      "newStripePaymentsImpossible": false,
+      "noStripeFallback": false,
+      "asaasSandboxRealPassed": false,
+      "stagingRealPassed": false,
+      "initialProductionCheckoutOff": false
+    },
+    "legacyStripeCredentialStatus": "MANUAL_PENDING"
+  },
+  "policyVersion": 2
 }

@@ -53,6 +53,10 @@ beforeEach(() => {
     ADMIN_SESSION_SECRET: "admin-session-secret-with-more-than-32-characters",
     ADMIN_MFA_ENCRYPTION_KEY: "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
     CHECKOUT_ENABLED: "true",
+    PAYMENT_PROVIDER: "asaas",
+    ASAAS_ENV: "production",
+    ASAAS_API_KEY: ["$aact", "prod", "fixture" + "0".repeat(40)].join("_"),
+    ASAAS_WEBHOOK_TOKEN: "fixture-token-" + "x".repeat(40),
     STRIPE_SECRET_KEY: "sk_live_value_that_must_not_render",
     STRIPE_WEBHOOK_SECRET: "whsec_value_that_must_not_render",
     RATE_LIMIT_DRIVER: "memory",
@@ -109,7 +113,7 @@ beforeEach(() => {
   ]);
   mocks.prisma.operationalEvidence.findMany.mockResolvedValue([
     {
-      key: "stripe_test_payment",
+      key: "asaas_sandbox_payment",
       status: "passed",
       environment: "staging",
       checkedAt: new Date("2026-06-06T12:00:00.000Z"),
@@ -120,7 +124,7 @@ beforeEach(() => {
       updatedAt: new Date("2026-06-06T12:00:00.000Z"),
     },
     {
-      key: "stripe_webhook_signed",
+      key: "asaas_webhook_authenticated",
       status: "passed",
       environment: "staging",
       checkedAt: new Date("2026-06-06T12:00:00.000Z"),
@@ -156,7 +160,7 @@ describe("AdminReadinessPage", () => {
     expect(html).toContain("npm run media:variants:audit");
     expect(html).toContain("Evidências operacionais");
     expect(html).toContain("Configuração presente não significa homologação concluída");
-    expect(html).toContain("Stripe test payment aprovado");
+    expect(html).toContain("Pagamento Asaas Sandbox aprovado");
     expect(html).toContain("Homologacao operacional pendente");
     expect(html).not.toContain(process.env.STRIPE_SECRET_KEY);
     expect(html).not.toContain(process.env.STRIPE_WEBHOOK_SECRET);

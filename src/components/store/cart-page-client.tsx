@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PaymentMethodPicker, type CheckoutPaymentMethod, type CheckoutPaymentProvider } from "@/components/store/payment-method-picker";
-import { ASAAS_RESERVATION_MINUTES, CHECKOUT_RESERVATION_MINUTES as CHECKOUT_CARD_MINUTES, PIX_RESERVATION_MINUTES as CHECKOUT_PIX_MINUTES } from "@/lib/checkout-policy";
+import { ASAAS_RESERVATION_MINUTES } from "@/lib/checkout-policy";
 import { useCart, type CartItem } from "@/components/store/cart-context";
 import { ProductMediaPlaceholder } from "@/components/store/product-media-placeholder";
 import { InstallmentTerms } from "@/components/store/installment-terms";
@@ -175,7 +175,7 @@ function formatCheckoutMessage(message: string) {
   return message;
 }
 
-export function CartPageClient({ customer, addresses, initialSelectedAddressId, pixAvailable = false, cardAvailable = true, paymentProvider = "stripe", shippingSettings, shippingConfig, welcomeCoupon }: CartPageClientProps) {
+export function CartPageClient({ customer, addresses, initialSelectedAddressId, pixAvailable = false, cardAvailable = true, paymentProvider = "disabled", shippingSettings, shippingConfig, welcomeCoupon }: CartPageClientProps) {
   const { items, subtotalInCents, updateQuantity, removeItem, syncPrices } = useCart();
   const priceSignature = useMemo(() => items.map((item) => `${item.productId}:${item.variantId}`).sort().join("|"), [items]);
   useEffect(() => {
@@ -207,14 +207,12 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
   const usesAsaas = paymentProvider === "asaas";
   // No method available (PAYMENT_PROVIDER=disabled, an unknown value, or an incomplete gateway
   // configuration): say so and do not offer a button that can only fail.
-  const paymentAvailable = paymentProvider !== "disabled" && (pixAvailable || cardAvailable);
+  const paymentAvailable = usesAsaas && (pixAvailable || cardAvailable);
   // Same windows the server reserves stock for (src/lib/checkout.ts): Asaas holds 30 min for both.
-  const paymentWindowMinutes = usesAsaas ? ASAAS_RESERVATION_MINUTES : payWithPix ? CHECKOUT_PIX_MINUTES : CHECKOUT_CARD_MINUTES;
+  const paymentWindowMinutes = ASAAS_RESERVATION_MINUTES;
   const paymentProviderNote = !paymentAvailable
     ? "Pagamentos temporariamente indisponíveis. Tente novamente em alguns minutos."
-    : usesAsaas
-      ? payWithPix ? "Pix processado pelo Asaas" : "Cartão processado na página segura do Asaas"
-      : payWithPix ? "Pix processado pelo Mercado Pago" : "Pagamento seguro pelos métodos habilitados na Stripe";
+    : payWithPix ? "Pix processado pelo Asaas" : "Cartão processado na página segura do Asaas";
   const [shippingOptions, setShippingOptions] = useState<ShippingQuoteOption[]>([]);
   const [shippingQuoteContext, setShippingQuoteContext] = useState<ShippingQuoteContext | null>(null);
   const [selectedShipping, setSelectedShipping] = useState<ShippingSelection | null>(null);

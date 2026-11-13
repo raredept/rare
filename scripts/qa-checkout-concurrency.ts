@@ -50,12 +50,8 @@ async function main() {
     const { runCheckoutExpiryBatch } = await import("../src/lib/checkout-expiry");
     const sessions = new Map<string, Stripe.Checkout.Session>();
     const stripe = getStripe();
-    stripe.checkout.sessions.create = (async (params: Stripe.Checkout.SessionCreateParams) => {
-      const value = { id: `cs_test_${params.client_reference_id}`, url: "https://checkout.stripe.test/qa",
-        metadata: params.metadata, client_reference_id: params.client_reference_id,
-        status: "open", payment_status: "unpaid", payment_intent: null, amount_total: 11000, currency: "brl" } as Stripe.Checkout.Session;
-      assert(params.expires_at! >= Math.floor(Date.now() / 1000) + 1800, "Stripe creation must not receive 15 minutes");
-      sessions.set(value.id, value); return value;
+    stripe.checkout.sessions.create = (async () => {
+      throw new Error("New Stripe payments are retired; this QA only reconciles historical fixtures.");
     }) as typeof stripe.checkout.sessions.create;
     const transportFault = { remaining: 0, sessionId: "" };
     let expireResponseLost = false;
@@ -82,8 +78,27 @@ async function main() {
     // supersedes (expires) the older by design, so the last-unit race needs two different people.
     const rival = await prisma.customer.create({ data: { name: "QA Synthetic Rival", email: "commerce-rival@rare.invalid", cpf: "52998224725", passwordHash: "not-a-login" } });
     const rivalAddress = await prisma.customerAddress.create({ data: { customerId: rival.id, cep: "01001000", street: "QA", number: "2", neighborhood: "QA", city: "Sao Paulo", state: "SP" } });
+    // Seed an already-existing legacy order. Never bypass the application's provider policy to
+    // generate it: the public/domain refusal is separately asserted below, including with keys set.
     async function checkout(item: Awaited<ReturnType<typeof product>>, buyer: { customerId: string; addressId: string } = { customerId: customer.id, addressId: address.id }) {
-      return commerce.createCheckoutSession({ items: [{ productId: item.id, variantId: item.variants[0].id, quantity: 1 }], shippingOptionId: "fixed", customerAddressId: buyer.addressId }, { customerId: buyer.customerId });
+      const deadline = new Date(Date.now() + 15 * 60_000);
+      const order = await prisma.$transaction(async (tx) => {
+        const reserved = await tx.$executeRaw`UPDATE "ProductVariant" SET "reservedStock" = "reservedStock" + 1 WHERE id = ${item.variants[0].id} AND (stock - "reservedStock") >= 1`;
+        assert.equal(reserved, 1, "Historical fixture cannot reserve unavailable stock");
+        const saved = await tx.order.create({ data: {
+          orderNumber: `QA-${randomBytes(8).toString("hex")}`, customerId: buyer.customerId,
+          customerName: "QA Synthetic", customerEmail: "commerce@rare.invalid",
+          subtotalInCents: 10000, shippingInCents: 1000, totalInCents: 11000,
+          status: "awaiting_payment", paymentProvider: "stripe", paymentMethod: "card",
+          reservationExpiresAt: deadline, checkoutDeadlineAt: deadline,
+          checkoutExpiryJob: { create: { deadlineAt: deadline, nextAttemptAt: deadline } },
+          items: { create: { productId: item.id, variantId: item.variants[0].id, productTitleSnapshot: item.title, sizeSnapshot: "QA", quantity: 1, unitPriceInCents: 10000, totalInCents: 10000 } },
+        }, include: { items: true } });
+        await tx.inventoryMovement.create({ data: { type: "reserve", productId: item.id, variantId: item.variants[0].id, orderId: saved.id, orderItemId: saved.items[0].id, reservedDelta: 1, reason: "Historical synthetic fixture" } });
+        return tx.order.update({ where: { id: saved.id }, data: { stripeCheckoutSessionId: `cs_test_${saved.id}` } });
+      });
+      sessions.set(order.stripeCheckoutSessionId!, { id: order.stripeCheckoutSessionId!, metadata: { orderId: order.id }, client_reference_id: order.id, status: "open", payment_status: "unpaid", payment_intent: null, amount_total: 11000, currency: "brl" } as unknown as Stripe.Checkout.Session);
+      return { orderId: order.id, url: "https://checkout.stripe.test/historical-fixture" };
     }
     function session(orderId: string, paymentStatus = "paid") {
       return { id: `cs_test_${orderId}`, metadata: { orderId }, payment_status: paymentStatus, payment_intent: `pi_${orderId}`, amount_total: 11000, currency: "brl", payment_method_types: ["card"] } as unknown as Stripe.Checkout.Session;
@@ -101,11 +116,20 @@ async function main() {
     }
     const proofs: string[] = [];
     const last = await product();
+    const legacyInput = { items: [{ productId: last.id, variantId: last.variants[0].id, quantity: 1 }], shippingOptionId: "fixed", customerAddressId: address.id };
+    for (const provider of [undefined, "stripe", "disabled", "banana"]) {
+      if (provider === undefined) delete process.env.PAYMENT_PROVIDER;
+      else process.env.PAYMENT_PROVIDER = provider;
+      await assert.rejects(commerce.createCheckoutSession(legacyInput, { customerId: customer.id }), /Pagamentos temporariamente indisponíveis/);
+    }
+    assert.equal(await prisma.order.count(), 0);
+    assert.equal((await prisma.productVariant.findUniqueOrThrow({ where: { id: last.variants[0].id } })).reservedStock, 0);
+    proofs.push("retired_stripe_unknown_and_unset_no_order_no_reservation");
     const attempts = await Promise.allSettled([checkout(last), checkout(last, { customerId: rival.id, addressId: rivalAddress.id })]);
     assert.equal(attempts.filter((item) => item.status === "fulfilled").length, 1);
     assert.equal(attempts.filter((item) => item.status === "rejected").length, 1);
     assert.equal(await prisma.order.count(), 1);
-    proofs.push("last_unit_two_checkouts_one_reservation");
+    proofs.push("historical_fixture_last_unit_two_reservations_one_winner");
 
     const reserved = attempts.find((item) => item.status === "fulfilled")!;
     assert.equal(reserved.status, "fulfilled");

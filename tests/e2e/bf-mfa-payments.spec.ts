@@ -5,7 +5,7 @@ import { waitForEntranceAnimations } from "./storefront-fixtures";
 
 // Payment provider as the shopper sees it, and the Asaas webhook endpoint, on a production build
 // (scripts/qa-staging-lab.ts). QA_EXPECT_PROVIDER says which PAYMENT_PROVIDER the server runs with:
-// asaas (default), stripe (rollback) or disabled (an unknown value must fail closed).
+// asaas or disabled (unset, Stripe and unknown values fail closed).
 
 test.describe.configure({ mode: "serial" });
 test.skip(!labEnabled, "Lab only: run through scripts/qa-staging-lab.ts (QA_LAB_ENABLED=1).");
@@ -55,9 +55,7 @@ test(`checkout names only the gateway that charges (${expected})`, async () => {
     expect(text).toContain("Asaas");
     expect(text).toContain("30 minutos");
     expect(text).not.toMatch(/Stripe|Mercado Pago|15 minutos|débito/);
-  } else if (expected === "stripe") {
-    expect(text).toContain("Stripe");
-    expect(text).not.toContain("Asaas");
+
   } else {
     expect(text).toContain("Pagamentos temporariamente indisponíveis");
     expect(text).not.toMatch(/Asaas|Stripe|Mercado Pago|minutos para finalizar/);

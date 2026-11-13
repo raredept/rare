@@ -1,5 +1,17 @@
 # RARE — credential incident / October 2026
 
+## Status atual — 2026-11-13 / RARE-FINAL-RELEASE-01
+
+Autorização atual do proprietário: contenção de sessão/cron nos dois ambientes, staging/backup/migrations e, somente após gates, merge e produção segura. As recusas de autorização nas seções antigas são históricas.
+
+Decisão comercial: Asaas é o único provedor novo. Stripe não é fallback; configuração ausente/Stripe/desconhecida falha fechado no candidato. SDK e reconciliação histórica preservados. `CRON_SECRET_PREVIOUS` não é mais aceito pelo candidato.
+
+**Freeze ACTIVE; M-20 OPEN.** Nenhuma rotação/ativação de sessão ou cron foi comprovada nesta execução. Revogação das chaves e webhooks Stripe no provedor: **MANUAL_PENDING**, não declarada feita. A política 2 só permite essa pendência externa após comprovar retirada de todos os consumidores ativos, contenção interna nos dois ambientes e staging/Asaas reais aprovados. Ver [política atual](../cycles/rare-bf-mfa-asaas/SECURITY_FREEZE_CLOSURE.md).
+
+Acesso browser confirmado: projeto Railway Rare / staging no SkyLab e conta Asaas. Sandbox criado; emissão da chave aguarda autorização Token SMS pelo responsável. Nenhum segredo foi incluído no relatório. [Execução e resultados](../cycles/rare-bf-mfa-asaas/cycles/CYCLE-FINAL-RELEASE-01.md).
+
+---
+
 ## Containment status — 2026-11-08 (CYCLE-07)
 
 **INCIDENT=P0_OPEN; SCOPE=STAGING+PRODUCTION (including the Stripe LIVE API key); ROTATION=NONE; RELEASE_SECURITY_FREEZE=ACTIVE; PRODUCTION ROTATION READY — HUMAN AUTHORIZATION REQUIRED.** No credential was created, rotated, revoked or configured; no staging or production change.

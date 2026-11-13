@@ -46,6 +46,10 @@ beforeEach(() => {
     APP_URL: "https://staging.rare.example",
     NEXT_PUBLIC_APP_URL: "https://staging.rare.example",
     CHECKOUT_ENABLED: "true",
+    PAYMENT_PROVIDER: "asaas",
+    ASAAS_ENV: "production",
+    ASAAS_API_KEY: ["$aact", "prod", "fixture" + "0".repeat(40)].join("_"),
+    ASAAS_WEBHOOK_TOKEN: "fixture-token-" + "x".repeat(40),
     EMAIL_DRIVER: "disabled",
     STRIPE_SECRET_KEY: "stripe-secret-value-that-must-not-be-returned",
     STRIPE_WEBHOOK_SECRET: "stripe-webhook-value-that-must-not-be-returned",
@@ -333,9 +337,10 @@ describe("health route readiness", () => {
     );
   });
 
-  it("returns 200 when checkout is enabled but Stripe secrets are absent", async () => {
+  it("reports an Asaas configuration error without exposing legacy credentials", async () => {
     process.env.DATABASE_URL = "postgresql://rare:password@localhost:5432/rare_test";
     process.env.STRIPE_SECRET_KEY = "";
+    process.env.ASAAS_WEBHOOK_TOKEN = "";
     process.env.STRIPE_WEBHOOK_SECRET = "";
     healthMocks.prisma.$queryRaw.mockResolvedValue([{ ok: 1 }]);
 
@@ -349,8 +354,7 @@ describe("health route readiness", () => {
     expect(body.configuration.ok).toBe(false);
     expect(body.configuration.errors).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ variable: "STRIPE_SECRET_KEY" }),
-        expect.objectContaining({ variable: "STRIPE_WEBHOOK_SECRET" }),
+        expect.objectContaining({ variable: "ASAAS_API_KEY" }),
       ]),
     );
     expect(serialized).not.toContain("postgresql://rare:password@localhost:5432/rare_test");

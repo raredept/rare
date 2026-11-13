@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import { DEVELOPMENT_APP_ENVS, PRODUCTION_APP_ENVS, RESTRICTED_APP_ENVS } from "@/lib/deployment-environment";
 import {
   RELEASE_ENVIRONMENT_NAMES,
+  CONTAINMENT_CONDITIONS,
+  getProductionConfigurationIssue,
   checkReleaseFreeze,
   decideRelease,
   evaluateFreezeRecord,
@@ -14,7 +16,12 @@ import {
 const evidenceExists = (relative: string) => relative === "docs/cycles/rare-bf-mfa-asaas/SECURITY_FREEZE_CLOSURE.md";
 const cleared = {
   state: "CLEARED",
-  closure: { clearedAt: "2026-11-20", clearedBy: "Owner, after Phase S and Phase P", evidence: "docs/cycles/rare-bf-mfa-asaas/SECURITY_FREEZE_CLOSURE.md" },
+  policyVersion: 2,
+  closure: {
+    clearedAt: "2026-11-20", clearedBy: "Owner, after Phase S and Phase P", evidence: "docs/cycles/rare-bf-mfa-asaas/SECURITY_FREEZE_CLOSURE.md",
+    conditions: Object.fromEntries(CONTAINMENT_CONDITIONS.map((name: string) => [name, true])),
+    legacyStripeCredentialStatus: "MANUAL_PENDING",
+  },
 };
 const active = { state: "ACTIVE", closure: { clearedAt: null, clearedBy: null, evidence: null } };
 
@@ -23,6 +30,26 @@ function decide(record: unknown, env: Record<string, string | undefined>) {
 }
 
 describe("release security freeze", () => {
+  it("refuses retired credentials and provider selection even after a recorded closure", () => {
+    for (const PAYMENT_PROVIDER of [undefined, "stripe", "banana"]) {
+      expect(getProductionConfigurationIssue({ PAYMENT_PROVIDER })).not.toBeNull();
+    }
+    for (const name of ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "CRON_SECRET_PREVIOUS"]) {
+      expect(getProductionConfigurationIssue({ PAYMENT_PROVIDER: "disabled", [name]: "synthetic" })).not.toBeNull();
+    }
+    expect(getProductionConfigurationIssue({ PAYMENT_PROVIDER: "disabled" })).toBeNull();
+    expect(getProductionConfigurationIssue({ PAYMENT_PROVIDER: "asaas" })).toBeNull();
+  });
+  it.each(CONTAINMENT_CONDITIONS)("keeps the freeze when internal containment condition %s is missing", (name: string) => {
+    const record = { ...cleared, closure: { ...cleared.closure, conditions: { ...cleared.closure.conditions, [name]: false } } };
+    expect(decide(record, { APP_ENV: "production" })).toMatchObject({ allowed: false });
+  });
+
+  it("allows external Stripe revocation to remain pending only after every internal gate is proved", () => {
+    expect(decide(cleared, { APP_ENV: "production" }).allowed).toBe(true);
+    expect(decide({ ...cleared, policyVersion: 1 }, { APP_ENV: "production" }).allowed).toBe(false);
+    expect(decide({ ...cleared, closure: { ...cleared.closure, legacyStripeCredentialStatus: "SAFE" } }, { APP_ENV: "production" }).allowed).toBe(false);
+  });
   it("fails a production release closed while the freeze is active", () => {
     for (const env of [{ APP_ENV: "production" }, { APP_ENV: "prod" }, { RAILWAY_ENVIRONMENT_NAME: "production" }, { NODE_ENV: "production" }]) {
       expect(decide(active, env)).toMatchObject({ allowed: false, level: "fail", target: "production" });

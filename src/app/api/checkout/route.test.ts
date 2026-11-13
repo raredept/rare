@@ -24,6 +24,12 @@ vi.mock("@/lib/customer-auth", () => ({
 
 const originalEnv = process.env;
 
+// Legacy route/transport error regressions. Unmocked retirement is exercised separately.
+vi.mock("@/lib/payment-provider-config", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/payment-provider-config")>()),
+  getPaymentProvider: () => "stripe",
+}));
+
 beforeEach(() => {
   resetRateLimitMemoryForTests();
   process.env = {

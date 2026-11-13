@@ -12,7 +12,7 @@ import pg from "pg";
 //   - the PRODUCTION build (.next/standalone) with APP_ENV=staging, Basic gate, MFA required,
 //     PAYMENT_PROVIDER=asaas with a Sandbox-shaped fake key (no request ever reaches Asaas),
 //   - the Playwright specs tests/e2e/bf-mfa-*.spec.ts in three phases: asaas, an unknown provider
-//     (must fail closed) and stripe (rollback),
+//     (must fail closed) and retired stripe (must also fail closed),
 //   - a scan of the server output for every secret, code and password used in the run.
 // Every secret is random per run and never printed. Nothing here is a substitute for staging.
 //
@@ -271,7 +271,7 @@ async function main() {
     const phases: Array<{ provider: string; expected: string; specs: string[] }> = [
       { provider: "asaas", expected: "asaas", specs: ["tests/e2e/bf-mfa-admin-security.spec.ts", "tests/e2e/bf-mfa-payments.spec.ts", "tests/e2e/bf-mfa-promotions.spec.ts"] },
       { provider: "qualquer-coisa", expected: "disabled", specs: ["tests/e2e/bf-mfa-payments.spec.ts"] },
-      { provider: "stripe", expected: "stripe", specs: ["tests/e2e/bf-mfa-payments.spec.ts"] },
+      { provider: "stripe", expected: "disabled", specs: ["tests/e2e/bf-mfa-payments.spec.ts"] },
     ];
     // The synthetic Pix order is payable for 25 minutes. WebKit on Windows can spend longer than
     // that in the first phase, and the next phases would then (correctly) see an expired Pix. Each
@@ -298,7 +298,7 @@ async function main() {
       const configuration = health.configuration as { ok?: boolean; errors?: Array<{ variable?: string }> } | undefined;
       // The health route reports variable names and fixed reason codes only (never values).
       console.log(`LAB_HEALTH provider=${phase.provider} status=${String(health.status)} configErrors=${JSON.stringify(configuration?.errors ?? []).slice(0, 800)}`);
-      results[`playwright:${phase.expected}`] = await playwright(phase.specs, phase.expected, `phase-${phase.expected}`);
+      results[`playwright:${phase.provider}`] = await playwright(phase.specs, phase.expected, `phase-${phase.provider}`);
       await stopServer(server);
       server = null;
     }

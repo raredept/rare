@@ -64,12 +64,12 @@ describe("release expired inventory cron route", () => {
     expect(cronMocks.releaseExpiredReservations).toHaveBeenCalledTimes(1);
   });
 
-  it("accepts the previous secret during a rotation window and nothing else", async () => {
+  it("rejects a compromised previous secret even when its old variable remains configured", async () => {
     process.env.CRON_SECRET = "new-cron-secret-with-more-than-32-characters";
     process.env.CRON_SECRET_PREVIOUS = "old-cron-secret-with-more-than-32-characters";
 
     expect((await POST(request("new-cron-secret-with-more-than-32-characters") as never)).status).toBe(200);
-    expect((await POST(request("old-cron-secret-with-more-than-32-characters") as never)).status).toBe(200);
+    expect((await POST(request("old-cron-secret-with-more-than-32-characters") as never)).status).toBe(401);
     expect((await POST(request("third-cron-secret-with-more-than-32-characters") as never)).status).toBe(401);
   });
 

@@ -8,10 +8,11 @@ function render(provider?: "stripe" | "asaas") {
 }
 
 describe("PaymentMethodPicker", () => {
-  it("names Stripe for the card by default (PAYMENT_PROVIDER unset or stripe)", () => {
+  it("names Asaas by default and never offers a retired Stripe picker", () => {
     const html = render();
-    expect(html).toContain("Stripe");
-    expect(html).not.toContain("Asaas");
+    expect(html).not.toContain("Stripe");
+    expect(html).toContain("Asaas");
+    expect(render("stripe")).toBe("");
   });
 
   it("names Asaas, and only credit card, when Asaas takes the payment", () => {

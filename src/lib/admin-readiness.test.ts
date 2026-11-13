@@ -12,6 +12,10 @@ const readyEnv = {
   ADMIN_SESSION_SECRET: "admin-session-secret-with-more-than-32-characters",
   ADMIN_MFA_ENCRYPTION_KEY: "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
   CHECKOUT_ENABLED: "true",
+  PAYMENT_PROVIDER: "asaas",
+  ASAAS_ENV: "production",
+  ASAAS_API_KEY: ["$aact", "prod", "fixture" + "0".repeat(40)].join("_"),
+  ASAAS_WEBHOOK_TOKEN: "fixture-token-" + "x".repeat(40),
   STRIPE_SECRET_KEY: "sk_live_value_that_must_not_leak",
   STRIPE_WEBHOOK_SECRET: "whsec_value_that_must_not_leak",
   RATE_LIMIT_DRIVER: "redis",
@@ -117,10 +121,10 @@ describe("admin readiness", () => {
     const report = build({
       env: {
         ...readyEnv,
-        STRIPE_WEBHOOK_SECRET: "",
+        ASAAS_WEBHOOK_TOKEN: "",
       },
     });
-    const item = report.items.find((current) => current.id === "webhook-stripe-secret");
+    const item = report.items.find((current) => current.id === "payments-asaas-config");
 
     expect(item).toEqual(expect.objectContaining({ severity: "blocked", blocksOpenSales: true, blocksStaging: true }));
   });
@@ -131,7 +135,7 @@ describe("admin readiness", () => {
         ...readyEnv,
         CHECKOUT_ENABLED: "false",
         STRIPE_SECRET_KEY: "",
-        STRIPE_WEBHOOK_SECRET: "",
+        ASAAS_WEBHOOK_TOKEN: "",
       },
     });
     const item = report.items.find((current) => current.id === "checkout-enabled");

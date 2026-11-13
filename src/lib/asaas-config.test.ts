@@ -54,11 +54,19 @@ describe("Asaas environment guard", () => {
 });
 
 describe("payment provider selection", () => {
-  it("keeps Stripe as the default so deploying changes nothing", () => {
-    expect(getPaymentProvider({})).toBe("stripe");
+  it("requires explicit Asaas selection and never restores a retired gateway", () => {
+    expect(getPaymentProvider({})).toBe("disabled");
     expect(getPaymentProvider({ PAYMENT_PROVIDER: "asaas" })).toBe("asaas");
     expect(getPaymentProvider({ PAYMENT_PROVIDER: "disabled" })).toBe("disabled");
     expect(getPaymentProvider({ PAYMENT_PROVIDER: "paypal" })).toBe("disabled");
+  });
+
+  it.each([undefined, "", "stripe", " STRIPE ", "mercadopago", "banana", "disabled"])("offers no method for retired/unset provider %s, even with credentials", (provider) => {
+    for (const APP_ENV of ["development", "staging", "production"]) {
+      const env = { ...staging, APP_ENV, PAYMENT_PROVIDER: provider, PIX_ENABLED: "true", STRIPE_SECRET_KEY: "synthetic-configured", STRIPE_WEBHOOK_SECRET: "synthetic-configured" };
+      expect(getPaymentProvider(env)).toBe("disabled");
+      expect(getAvailableCheckoutMethods(env)).toEqual([]);
+    }
   });
 
   it("offers only configured Asaas methods and none when misconfigured", () => {

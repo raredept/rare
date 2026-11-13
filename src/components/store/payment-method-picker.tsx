@@ -6,30 +6,26 @@ export type CheckoutPaymentProvider = "stripe" | "asaas";
 
 // The shopper must read the name of the gateway that will actually charge them. Asaas takes the
 // card on its hosted invoice as CREDIT_CARD only (no debit there).
-const optionsByProvider: Record<CheckoutPaymentProvider, Array<{ value: CheckoutPaymentMethod; title: string; detail: string }>> = {
-  stripe: [
-    { value: "pix", title: "Pix", detail: "QR code ou copia e cola, com confirmação em instantes." },
-    { value: "card", title: "Cartão de crédito ou débito", detail: "Pagamento em ambiente seguro da Stripe." },
-  ],
-  asaas: [
-    { value: "pix", title: "Pix", detail: "QR code ou copia e cola, com confirmação em instantes." },
-    { value: "card", title: "Cartão de crédito", detail: "Pagamento na página segura do Asaas." },
-  ],
-};
+const asaasOptions: Array<{ value: CheckoutPaymentMethod; title: string; detail: string }> = [
+  { value: "pix", title: "Pix", detail: "QR code ou copia e cola, com confirmação em instantes." },
+  { value: "card", title: "Cartão de crédito", detail: "Pagamento na página segura do Asaas." },
+];
 
 /** Pre-checkout choice. Rendered only when more than one method is available. */
 export function PaymentMethodPicker({
   value,
   onChange,
   disabled,
-  provider = "stripe",
+  provider = "asaas",
 }: {
   value: CheckoutPaymentMethod;
   onChange: (method: CheckoutPaymentMethod) => void;
   disabled?: boolean;
   provider?: CheckoutPaymentProvider;
 }) {
-  const options = optionsByProvider[provider];
+  // Retired provider props must not resurrect Stripe UI, even in stale client state.
+  if (provider !== "asaas") return null;
+  const options = asaasOptions;
   return (
     <fieldset className="mt-5" disabled={disabled}>
       <legend className="text-sm font-semibold text-neutral-950">Forma de pagamento</legend>

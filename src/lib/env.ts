@@ -270,8 +270,6 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
 
   const requireDatabase = options.requireDatabase ?? true;
   const requireAdminAuth = options.requireAdminAuth ?? true;
-  const requireCheckout = options.requireCheckout ?? (production && checkoutEnabled);
-  const requireWebhook = options.requireWebhook ?? (production && checkoutEnabled);
   const requireStorage = options.requireStorage ?? production;
 
   if (!["development", "test", "production"].includes(getNodeEnv(env))) {
@@ -325,8 +323,10 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
 
   const paymentProvider = getPaymentProvider(env);
   const rawPaymentProvider = clean(env.PAYMENT_PROVIDER)?.toLowerCase();
-  if (rawPaymentProvider && !["stripe", "asaas", "disabled"].includes(rawPaymentProvider)) {
-    addIssue(issues, "error", "PAYMENT_PROVIDER", "PAYMENT_PROVIDER must be stripe, asaas or disabled; an unknown value disables payments.");
+  if (rawPaymentProvider && !["asaas", "disabled"].includes(rawPaymentProvider)) {
+    addIssue(issues, "error", "PAYMENT_PROVIDER", "PAYMENT_PROVIDER must be asaas or disabled. Stripe is retired for new payments; invalid values disable payments.");
+  } else if (checkoutEnabled && paymentProvider === "disabled") {
+    addIssue(issues, "error", "PAYMENT_PROVIDER", "Checkout is enabled but no payment provider is available. Set PAYMENT_PROVIDER=asaas or close checkout.");
   }
   if (paymentProvider === "asaas") {
     // Fixed reason code only (never a key or token). Includes the sandbox/production environment guard.
@@ -334,25 +334,6 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
     if (reason) {
       addIssue(issues, checkoutEnabled ? "error" : "warning", "ASAAS_API_KEY", `PAYMENT_PROVIDER=asaas needs ASAAS_ENV, ASAAS_API_KEY and ASAAS_WEBHOOK_TOKEN matching this environment (Sandbox outside production, Production only in production). Motivo: ${reason}.`);
     }
-  }
-
-  if (checkoutEnabled && paymentProvider === "stripe") {
-    const stripeLevel: EnvIssueLevel = requireCheckout ? "error" : "warning";
-    validateRequired(
-      issues,
-      "STRIPE_SECRET_KEY",
-      env.STRIPE_SECRET_KEY,
-      "STRIPE_SECRET_KEY is required when checkout is active.",
-      stripeLevel,
-    );
-    const webhookLevel: EnvIssueLevel = requireWebhook ? "error" : "warning";
-    validateRequired(
-      issues,
-      "STRIPE_WEBHOOK_SECRET",
-      env.STRIPE_WEBHOOK_SECRET,
-      "STRIPE_WEBHOOK_SECRET is required to confirm paid orders from Stripe.",
-      webhookLevel,
-    );
   }
 
   const webPushPublicKey = clean(env.NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY);

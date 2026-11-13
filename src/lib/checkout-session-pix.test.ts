@@ -42,6 +42,13 @@ vi.mock("@/lib/mercadopago", async (importOriginal) => ({
 }));
 
 const originalEnv = process.env;
+
+// Legacy transport regressions only. The real selector cannot create Mercado Pago/Stripe
+// payments; payment-retirement.test.ts covers that policy without mocking the selector.
+vi.mock("@/lib/payment-provider-config", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/payment-provider-config")>()),
+  getPaymentProvider: () => "stripe",
+}));
 const pixInput = {
   items: [{ productId: "prod_1", variantId: "var_1", quantity: 2 }],
   shippingOptionId: "manual:PAC",

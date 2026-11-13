@@ -85,6 +85,14 @@ vi.mock("@/lib/stripe", () => ({
 
 const originalEnv = process.env;
 
+// Retain regression coverage of legacy pricing/reservation and historical transport logic.
+// This test-only selector makes that retired branch reachable; production selection never does.
+// The real selector + HTTP/domain refusal are covered by payment-retirement.test.ts.
+vi.mock("@/lib/payment-provider-config", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/payment-provider-config")>()),
+  getPaymentProvider: () => "stripe",
+}));
+
 const validCheckoutInput = {
   items: [{ productId: "prod_1", variantId: "var_1", quantity: 2 }],
   shippingOptionId: "manual:PAC",

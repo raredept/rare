@@ -1,3 +1,10 @@
+> **Atualização vigente — 2026-11-13:** ver [RARE-FINAL-RELEASE-01](cycles/CYCLE-FINAL-RELEASE-01.md).
+> Asaas é o único provider autorizado para novos pagamentos. Stripe não é fallback;
+> rollback fecha checkout (`PAYMENT_PROVIDER=disabled`, `CHECKOUT_ENABLED=false`).
+> Backup real de staging criado, baixado e restaurado localmente: 15 migrations aplicadas,
+> 3 pendentes, checksums e drift limpos; ensaio local das 3 migrations PASS.
+> Staging do PR ainda não publicado; homologação real e contenção interna continuam pendentes.
+> Freeze ACTIVE, PR Draft. As seções abaixo preservam evidência histórica dos ciclos anteriores.
 # 06 — Migração Stripe → Asaas
 
 ## Estado

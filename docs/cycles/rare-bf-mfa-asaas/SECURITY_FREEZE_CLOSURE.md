@@ -1,5 +1,26 @@
 # Security freeze — fechamento do incidente de credenciais (M-20) e gate do banco de staging (M-21)
 
+## Política vigente — 2026-11-13 (substitui critérios históricos abaixo)
+
+O proprietário aprovou abandonar Stripe para novos pagamentos e autoriza contenção nos dois ambientes. O rollback oficial é `CHECKOUT_ENABLED=false` e `PAYMENT_PROVIDER=disabled`.
+
+A política 2 separa **contenção interna da RARE** de **revogação externa de Stripe**. O registro continua ACTIVE. Para CLEARED, exige data, responsável, arquivo de evidência e `closure.conditions` com todas as condições exatamente `true`:
+
+- Sessão staging e produção rotacionadas e antigas rejeitadas, sem fallback.
+- Cron staging rotacionado/antigo removido; cron produção rotacionado/antigo rejeitado; chamadores inventariados. O candidato ignora `CRON_SECRET_PREVIOUS`.
+- Stripe desconectada dos consumidores ativos nos dois ambientes, sem dependência de credencial exposta para iniciar.
+- Novos pagamentos Stripe impossíveis e nenhum fallback Stripe.
+- Asaas Sandbox **real** e staging **real** PASS.
+- Primeiro deploy de produção com checkout OFF.
+
+`legacyStripeCredentialStatus` deve ser `MANUAL_PENDING` ou `REVOKED`; pendência externa não significa revogação, chave segura ou M-20 fechado. O pre-deploy de produção também recusa seleção Stripe/ausente/desconhecida e qualquer `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` ou `CRON_SECRET_PREVIOUS` remanescente, mesmo após CLEARED. A ausência não comprova contenção sem as evidências de runtime.
+
+**Não houve liberação do freeze nem rotação remota comprovada.** Os testes cobrem cada condição ausente, versão de política incorreta, pendência externa admitida somente após todas as condições e configuração residual insegura. Os critérios antigos de revogação total continuam como histórico, não exigência para declarar um eventual release seguro com incidente externo pendente.
+
+M-21 avançou em 2026-11-13: backup lógico real de staging criado e baixado, restauração local PASS; snapshot com 15 migrations aplicadas e 3 pendentes, checksums e drift limpos. Ensaio local das 3 migrations PASS. Aplicação e verificação pós-migration no staging continuam pendentes. O executor remoto ainda precisa ser alinhado ao guard. [Execução corrente](cycles/CYCLE-FINAL-RELEASE-01.md).
+
+---
+
 **Estado em 2026-11-08 (CYCLE-07):** `RELEASE_SECURITY_FREEZE = ACTIVE` · **M-20 = OPEN (BLOCKED_EXTERNAL; produção: PRODUCTION ROTATION READY — HUMAN AUTHORIZATION REQUIRED)** · **M-21 = OPEN**.
 
 Nenhum valor de credencial aparece neste documento, nem prefixo, sufixo, fingerprint ou hash. Só estados: PRESENT / ABSENT / ROTATED / REVOKED / REJECTED / ACCEPTED / VALIDATED / BLOCKED_EXTERNAL.

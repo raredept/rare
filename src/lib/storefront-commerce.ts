@@ -1,5 +1,5 @@
 import { isCheckoutEnabled } from "@/lib/env";
-import { getAvailableCheckoutMethods, getPaymentProvider } from "@/lib/payment-provider-config";
+import { getAvailableCheckoutMethods } from "@/lib/payment-provider-config";
 
 export type StorefrontCommerceState = {
   checkoutEnabled: boolean;
@@ -10,8 +10,7 @@ export type StorefrontCommerceState = {
   paymentText: string;
 };
 
-// Payment copy must match what Stripe will actually offer. Only claim Pix when it is
-// explicitly enabled; when the methods are managed in the Dashboard, stay generic.
+// Payment copy describes only methods offered by the active provider.
 function getPaymentCopy(paymentMethods?: readonly string[]) {
   const methods = new Set((paymentMethods ?? []).map((method) => method.trim().toLowerCase()).filter(Boolean));
   if (methods.has("pix") && methods.has("card")) return { title: "Pix e cartão", text: "Pagamento por Pix ou cartão no checkout da loja." };
@@ -47,6 +46,6 @@ export function getStorefrontCommerceState(
   env: Record<string, string | undefined> = process.env,
 ): StorefrontCommerceState {
   // Claim only the methods actually offered by the active gateway.
-  const methods = getPaymentProvider(env) === "asaas" ? getAvailableCheckoutMethods(env) : env.STRIPE_PAYMENT_METHOD_TYPES?.split(",");
+  const methods = getAvailableCheckoutMethods(env);
   return buildStorefrontCommerceState(isCheckoutEnabled(env), methods);
 }

@@ -33,16 +33,31 @@ export function readFreezeRecord(root = repositoryRoot) {
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?Z)?$/;
 
+// Owner-authorized release policy, 2026-11-13. Stripe revocation can remain an external incident
+// only after both environments have disconnected it and internal session/cron risks are contained.
+export const CONTAINMENT_CONDITIONS = [
+  "sessionStagingRotatedAndOldRejected", "sessionProductionRotatedAndOldRejected",
+  "cronStagingRotatedAndOldRemoved", "cronProductionRotatedAndOldRejected",
+  "stripeStagingDisconnected", "stripeProductionDisconnected",
+  "newStripePaymentsImpossible", "noStripeFallback", "asaasSandboxRealPassed",
+  "stagingRealPassed", "initialProductionCheckoutOff",
+];
+
 /** ACTIVE unless the record says exactly CLEARED and carries a complete closure. */
 export function evaluateFreezeRecord(record, { evidenceExists }) {
   if (!record || typeof record !== "object") return { state: "ACTIVE", reason: "freeze record missing or unreadable" };
   if (record.state === "ACTIVE") return { state: "ACTIVE", reason: "freeze record is ACTIVE" };
   if (record.state !== "CLEARED") return { state: "ACTIVE", reason: "unrecognised freeze state, treated as ACTIVE" };
+  if (record.policyVersion !== 2) return { state: "ACTIVE", reason: "release policy version 2 required" };
   const closure = record.closure && typeof record.closure === "object" ? record.closure : {};
   const missing = [];
   if (typeof closure.clearedAt !== "string" || !ISO_DATE.test(closure.clearedAt) || Number.isNaN(Date.parse(closure.clearedAt))) missing.push("clearedAt");
   if (typeof closure.clearedBy !== "string" || !closure.clearedBy.trim()) missing.push("clearedBy");
   if (typeof closure.evidence !== "string" || !closure.evidence.trim() || !evidenceExists(closure.evidence)) missing.push("evidence");
+  for (const condition of CONTAINMENT_CONDITIONS) {
+    if (closure.conditions?.[condition] !== true) missing.push(condition);
+  }
+  if (!["MANUAL_PENDING", "REVOKED"].includes(closure.legacyStripeCredentialStatus)) missing.push("legacyStripeCredentialStatus");
   if (missing.length) return { state: "ACTIVE", reason: `CLEARED without a valid closure (${missing.join(", ")}), treated as ACTIVE` };
   return { state: "CLEARED", reason: "freeze cleared with recorded closure evidence" };
 }
@@ -79,6 +94,14 @@ export function decideRelease({ freeze, target, environmentFreeze }) {
   return { allowed: true, level: "warn", active, target, reason, notes };
 }
 
+export function getProductionConfigurationIssue(env) {
+  const retiredCredentials = ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "CRON_SECRET_PREVIOUS"].some((name) => env[name]?.trim());
+  const provider = env.PAYMENT_PROVIDER?.trim().toLowerCase();
+  return retiredCredentials || !["asaas", "disabled"].includes(provider ?? "")
+    ? "production must use Asaas or disabled and contain no retired Stripe/cron credentials"
+    : null;
+}
+
 /** @param {{ root?: string, env?: Record<string, string | undefined>, explicitTarget?: string }} [options] */
 export function checkReleaseFreeze({ root = repositoryRoot, env = process.env, explicitTarget } = {}) {
   const resolvedRoot = path.resolve(root);
@@ -87,7 +110,12 @@ export function checkReleaseFreeze({ root = repositoryRoot, env = process.env, e
     return full.startsWith(resolvedRoot + path.sep) && fs.existsSync(full) && fs.statSync(full).isFile();
   };
   const freeze = evaluateFreezeRecord(readFreezeRecord(resolvedRoot), { evidenceExists });
-  return decideRelease({ freeze, target: resolveReleaseTarget(env, explicitTarget), environmentFreeze: env.RELEASE_SECURITY_FREEZE });
+  const decision = decideRelease({ freeze, target: resolveReleaseTarget(env, explicitTarget), environmentFreeze: env.RELEASE_SECURITY_FREEZE });
+  if (decision.target === "production" && decision.allowed) {
+    const issue = getProductionConfigurationIssue(env);
+    if (issue) return { ...decision, allowed: false, level: "fail", reason: issue };
+  }
+  return decision;
 }
 
 const samePath = (first, second) => (process.platform === "win32" ? first.toLowerCase() === second.toLowerCase() : first === second);
