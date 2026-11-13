@@ -181,3 +181,39 @@ Checkpoint posterior de 2026-11-13:
 10. Asaas Production, piloto financeiro humano e campanha comercial seguem pendentes.
 
 STAGING: PARTIAL. MERGE READY: NÃO. PRODUCTION READY: NÃO. PR: DRAFT.
+
+## Checkpoint real — 2026-11-13, contenção e primeiro Pix
+
+- MFA/Admin em staging: **Chromium 8/8, Firefox 8/8, WebKit 8/8 PASS**.
+  Contas sintéticas independentes; nenhuma evidência sensível de MFA salva.
+- `c93f2f4` passou no CI (`43487504557`) e em web/worker de staging.
+  Checkout Sandbox ativado atrás do gate de staging, com e-mails desabilitados.
+  Fixtures próprias; frete fixo QA de R$ 20, com configuração anterior preservada
+  para restauração. Nenhum preço comercial de produção alterado.
+- Primeiro checkout real enviou R$ 1 no browser; banco e Asaas receberam
+  **R$ 150 + R$ 20 = R$ 170**. Cupom RARE10 não acumulou desconto automático.
+  Customer Sandbox criado e mapeado. Cobrança PENDING, pedido não marcado pago.
+- **Finding real:** Asaas devolveu ID no formato `pay_0_...`; o parser aceitava
+  somente sufixo alfanumérico. Criação ficou com resultado incerto e o webhook
+  PAYMENT_CREATED real chegou, mas foi ignorado por perder o paymentId no parser.
+  Corrigido o mesmo allowlist usado por leitura, Pix, refund, delete, recuperação
+  por referência e inbox; barras, percent encoding e query continuam rejeitados.
+  Três regressões falharam antes; targeted 78/78 e unit 177 arquivos/1627 PASS
+  depois. TypeScript, lint, build, release guard, audit e QA PostgreSQL 8/8 PASS.
+  A cobrança existente será revalidada após o novo deploy, sem retry cego de criação.
+- Backup próprio de produção criado antes da contenção: 107490 bytes, SHA-256
+  `7e69a26fdf31b600871525fb3ad9782fc46f1b38dc5d2bdfc010a61e602aab92`.
+  Cópia fora do Git; restore local isolado PASS. Histórico: 14 aplicadas, 0 falhas,
+  drift anterior zero; ensaio local das quatro aditivas e drift posterior PASS.
+- Produção: rotação independente de sessão/cron, MFA encryption key própria
+  configurada para o futuro release, credenciais Stripe removidas de web/worker,
+  CHECKOUT_ENABLED=false e PAYMENT_PROVIDER=disabled relidos. Deploy de contenção
+  manteve **main @ 4ea73f5**, sem merge nem código novo do PR.
+- **Configuração efetiva:** o `preDeployCommand: []` preparado no Dashboard foi
+  sobreposto pelo `railway.json` antigo no web. O comando efetivo verificou as 14
+  migrations e registrou **No pending migrations to apply**; nenhuma migration
+  nova foi aplicada em produção. Não tratar configuração armazenada como prova
+  de configuração efetiva. Rejeição de sessões antigas e smoke ainda em verificação.
+
+Freeze permanece ACTIVE; Sandbox lifecycle, E2E comercial/promotions e reauditoria
+final ainda não passaram. Revogação Stripe externa continua MANUAL_PENDING.

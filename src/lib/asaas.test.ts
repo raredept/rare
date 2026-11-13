@@ -50,6 +50,24 @@ describe("Asaas transport", () => {
     expect(() => normalizeAsaasPayment({ id: "x" })).toThrow(AsaasError);
   });
 
+  it("accepts the segmented payment id returned by the real Sandbox across the payment lifecycle", async () => {
+    const id = "pay_0_qa123456789abc";
+    const body = { ...paymentBody, id };
+    expect(normalizeAsaasPayment(body).id).toBe(id);
+    await expect(createAsaasPayment(config, { customerId: body.customer, orderId: body.externalReference, orderNumber: "RARE-QA", totalInCents: 17000, method: "pix", dueDate: new Date("2026-11-13T15:00:00Z") }, { fetchImpl: respond(200, body) })).resolves.toMatchObject({ id });
+    const read = respond(200, body);
+    await expect(getAsaasPayment(config, id, { fetchImpl: read })).resolves.toMatchObject({ id });
+    expect(read.mock.calls[0][0]).toBe(`${config.apiBase}/payments/${id}`);
+    await expect(getAsaasPixQrCode(config, id, { fetchImpl: respond(200, { payload: "QA-SANDBOX" }) })).resolves.toMatchObject({ copyPaste: "QA-SANDBOX" });
+    await expect(deleteAsaasPayment(config, id, { fetchImpl: respond(200, { deleted: true }) })).resolves.toBe(true);
+    await expect(refundAsaasPayment(config, id, "QA", { fetchImpl: respond(200, { ...body, status: "REFUNDED" }) })).resolves.toMatchObject({ id, status: "REFUNDED" });
+  });
+
+  it("recovers a segmented payment id by reference after an uncertain creation response", async () => {
+    const id = "pay_0_qa123456789abc";
+    await expect(findAsaasPaymentsForOrder(config, paymentBody.externalReference, { fetchImpl: respond(200, { data: [{ ...paymentBody, id }] }) })).resolves.toEqual([expect.objectContaining({ id, amountInCents: 17000 })]);
+  });
+
   it.each([
     [400, "rejected", "AsaasRejectedRequest"],
     [401, "rejected", "AsaasAuthenticationFailed"],
@@ -80,7 +98,7 @@ describe("Asaas transport", () => {
 
   it("rejects invalid ids before any request", async () => {
     const fetchImpl = respond(200, paymentBody);
-    for (const id of ["../customers", "pay_", "pay_abc/../x", "cus_123456"]) {
+    for (const id of ["../customers", "pay_", "pay_abc/../x", "pay_0_qa123456/../customers", "pay_0_qa123456%2Fcustomers", "pay_0_qa123456?limit=1", "cus_123456"]) {
       await expect(getAsaasPayment(config, id, { fetchImpl })).rejects.toMatchObject({ code: "InvalidAsaasPaymentId" });
     }
     expect(fetchImpl).not.toHaveBeenCalled();

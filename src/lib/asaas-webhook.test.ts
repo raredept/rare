@@ -71,4 +71,9 @@ describe("Asaas webhook inbox processing", () => {
     expect(parseAsaasWebhookBody({ id: "evt 1; DROP", event: "PAYMENT_CONFIRMED" })).toBeNull();
     expect(parseAsaasWebhookBody(null)).toBeNull();
   });
+
+  it("keeps the real Sandbox segmented payment id for asynchronous processing", async () => {
+    const { parseAsaasWebhookBody } = await import("@/lib/asaas-webhook");
+    expect(parseAsaasWebhookBody({ id: "evt_qa_real_shape", event: "PAYMENT_CREATED", payment: { id: "pay_0_qa123456789abc" } })).toEqual({ id: "evt_qa_real_shape", event: "PAYMENT_CREATED", paymentId: "pay_0_qa123456789abc" });
+  });
 });

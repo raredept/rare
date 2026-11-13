@@ -34,7 +34,8 @@ export type AsaasPayment = {
 
 export type AsaasPixQrCode = { copyPaste: string; qrCodeBase64: string | null; expiresAt: string | null };
 
-const PAYMENT_ID = /^pay_[A-Za-z0-9]{6,64}$/;
+// Sandbox also returns segmented ids such as pay_0_... . Keep path/query characters excluded.
+const PAYMENT_ID = /^pay_[A-Za-z0-9_]{6,64}$/;
 const CUSTOMER_ID = /^cus_[A-Za-z0-9]{6,64}$/;
 const ORDER_REFERENCE = /^[A-Za-z0-9_-]{8,120}$/;
 
