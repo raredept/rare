@@ -101,7 +101,7 @@ export default async function PromotionDetailPage({ params }: { params: Promise<
         <h2 id="promotion-history-title" className="text-lg font-black text-neutral-950">Histórico de alterações</h2>
         <ul className="mt-3 divide-y divide-neutral-100 text-sm">
           {history.map((entry) => (
-            <li key={entry.id} className="py-2">
+            <li key={entry.id} className="py-2 [overflow-wrap:anywhere]">
               <span className="font-black">{entry.action.replace("promotion.", "")}</span> · {entry.actorLabel} · {formatBusinessDateTime(entry.createdAt)}
             </li>
           ))}

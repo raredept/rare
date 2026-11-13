@@ -242,3 +242,42 @@ final ainda não passaram. Revogação Stripe externa continua MANUAL_PENDING.
   login humano. Logs recentes de web/worker nos dois ambientes: zero matches
   dos segredos conhecidos/padrões de credencial; isso não é auditoria histórica
   de uso indevido no provedor Stripe.
+
+### Checkpoint — matriz real e histórico de promoções (2026-11-13)
+
+- `4a9ccf6`: CI `43493063221` PASS; web e worker SUCCESS no mesmo SHA.
+  Health 200, banco OK e configuração sem erros. Migrations continuam completas.
+- Corrida Sandbox: cinco clientes sintéticos, uma unidade promocional, um checkout
+  HTTP 200 e quatro recusas por estoque. Provider recebeu R$ 170; webhook real
+  RECEIVED pagou o vencedor, estoque 0/reservado 0, uma reserva e uma venda.
+- Replay de evento real: HTTP 200/duplicate, uma linha de inbox e uma venda.
+  Entrega controlada de CONFIRMED antigo consultou o RECEIVED real no provider;
+  não regrediu o pedido. Isso não é emissão fora de ordem pelo próprio Asaas.
+- Valor divergente real: cobrança alterada para R$ 169 no Sandbox e recebida;
+  pedido de R$ 170 não pago. Depois do prazo, o worker permanece em retry com
+  SESSION_ORDER_MISMATCH, sem concluir falsamente nem liberar estoque.
+- Expiração natural de outro pedido QA: uma tentativa do worker, cobrança
+  deleted=true no Asaas, pedido cancelado, uma única liberação e job completed.
+- Estorno pelo Admin: uma solicitação/auditoria, mesmo após replay da ação;
+  provider mantém um refund AWAITING_CRITICAL_ACTION_AUTHORIZATION. Autorização
+  Sandbox e webhook final ainda pendentes. Estoque não foi reposto automaticamente.
+- Checkout/Pix/pedido/webhook em Chromium, Firefox e WebKit: 3 PASS por browser;
+  cenário de provider desconhecido não executado nesta configuração Asaas.
+  Ampliação da matriz inclui Pix/pedido em dez larguras e axe (em execução).
+  Fixtures concorrentes devem usar clientes separados: iniciar outro checkout
+  do mesmo cliente encerra corretamente o anterior, mesmo antes dos 30 minutos.
+- Promoções reais: validação/XSS/mass assignment, preview, ativação, edição,
+  pausa/Origin/sessões e janela agendada passaram. Responsividade revelou
+  overflow do actorLabel longo no histórico: 412 px em viewport de 320 px.
+  Correção permite quebra de texto; fixture local usa e-mail longo para manter
+  a regressão coberta. Reteste publicado ainda necessário.
+- Após correção: TypeScript, lint, unit 177/1631, build, release guard (6 OK,
+  2 warnings, 0 FAIL), audit runtime 0 e QA PostgreSQL 8/8 PASS.
+- Cartão hospedado abriu no Sandbox por R$ 170; a tentativa automatizada recebeu
+  erro do provider com recaptchaV2Enabled. Não houve confirmação nem prova de
+  retorno. Controle nativo interrompido por não conseguir confirmar a URL;
+  cartão permanece BLOCKED_EXTERNAL, sem tentativa de contornar reCAPTCHA.
+
+PR continua Draft, freeze ACTIVE e staging PARTIAL. Nenhum merge ou deploy de
+funcionalidades do PR em produção. Autorizações Sandbox, matriz completa e
+reauditoria final permanecem gates reais.

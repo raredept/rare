@@ -129,7 +129,8 @@ async function main() {
   const serverLog = path.join(outputDir, `server-${runId}.log`);
   writeFileSync(sensitiveFile, "");
 
-  const admins = Object.fromEntries(["A", "B", "C", "D"].map((key) => [key, { login: `qa-mfa-${key.toLowerCase()}@rare.invalid`, password: `Qa${key}${secret(12)}9z` }]));
+  // Long actor labels must also fit the promotion history at 320 px (real staging regression).
+  const admins = Object.fromEntries(["A", "B", "C", "D"].map((key) => [key, { login: `qa-mfa-${key.toLowerCase()}.${runId}@homologacao.rare.invalid`, password: `Qa${key}${secret(12)}9z` }]));
   const customer = { email: `qa.cliente.${runId}@homologacao.rare.invalid`, password: `QaCliente${secret(10)}7x`, cpf: syntheticCpf() };
   const labSecrets = {
     ADMIN_SESSION_SECRET: secret(48),

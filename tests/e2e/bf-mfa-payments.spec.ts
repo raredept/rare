@@ -1,7 +1,8 @@
 import { randomBytes } from "node:crypto";
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
-import { attachDiagnostics, labContextOptions, labEnabled, rawFetch, requireEnv, withDatabase } from "./lab-helpers";
-import { waitForEntranceAnimations } from "./storefront-fixtures";
+import { attachDiagnostics, expectNoHorizontalOverflow, labContextOptions, labEnabled, rawFetch, requireEnv, withDatabase } from "./lab-helpers";
+import { formatAxeViolations, waitForEntranceAnimations } from "./storefront-fixtures";
 
 // Payment provider as the shopper sees it, and the Asaas webhook endpoint, on a production build
 // (scripts/qa-staging-lab.ts). QA_EXPECT_PROVIDER says which PAYMENT_PROVIDER the server runs with:
@@ -98,6 +99,30 @@ test("checkout API: an unknown PAYMENT_PROVIDER starts no payment and reserves n
   const health = JSON.parse((await rawFetch(playwright.request, "/api/health")).text) as { configuration: { ok: boolean; errors: unknown[] } };
   expect(health.configuration.ok).toBe(false);
   expect(health.configuration.errors.length).toBeGreaterThanOrEqual(2);
+});
+
+test("Pix and paid order remain accessible from 320 to 1920 px", async () => {
+  test.skip(expected !== "asaas", "Requires the Asaas shopper fixtures.");
+  test.setTimeout(180_000);
+  const screens = [
+    `/pedido/pix/${requireEnv("QA_PIX_ORDER_ID")}`,
+    `/minha-conta/pedidos/${requireEnv("QA_PAID_ORDER_ID")}`,
+  ];
+  for (const width of [320, 360, 375, 390, 430, 768, 1024, 1280, 1440, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const screen of screens) {
+      await page.goto(screen);
+      await settledMain();
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await expectNoHorizontalOverflow(page, `${screen} @${width}`);
+      if (width === 320 || width === 1440) {
+        const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+        const blocking = result.violations.filter((item) => item.impact === "serious" || item.impact === "critical");
+        expect(formatAxeViolations(blocking)).toBe("");
+      }
+    }
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 });
 });
 
 test("Asaas webhook: token, persistence, duplicates, malformed and oversized bodies", async ({ playwright }) => {
