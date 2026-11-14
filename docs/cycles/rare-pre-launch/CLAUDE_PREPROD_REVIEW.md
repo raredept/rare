@@ -187,3 +187,127 @@ restaura variáveis antigas). Sem produção neste ciclo.
 - Lab: `output/lab/*.json` e `server-*.log` (fora do Git); varredura de log sem vazamento.
 - Staging: `output/staging-prelaunch/*.json` (fora do Git).
 - QA PostgreSQL: saídas reproduzíveis com `npm run qa:*` (bancos descartáveis).
+
+## 16. RARE-PRE-LAUNCH-04 (Resend + Suporte + retorno Asaas + RBAC + navegadores)
+
+Mesma regra: sessão implementadora, **não aprova produção**. Produção não foi tocada.
+INDEPENDENT_REVIEW_REQUIRED = YES · PR DRAFT · MERGE READY = NO · PRODUCTION READY = NO.
+
+### 16.1 Commits
+
+```
+50d3a01 test(prelaunch): close the Firefox and WebKit matrix on real staging
+a7c6c64 feat(admin): deactivate a customer account without deleting its history
+9133ef6 fix(payments): return hosted Asaas checkout to the order without trusting the redirect
+36df6bc feat(support): add durable customer support requests delivered through Resend
+5b0b4b0 fix(promotions): preserve first-order coupon consumption after refund
+```
+(+ o commit deste documento, só `docs/`.) PR CI **PASS** em `50d3a01`; staging web = worker = `50d3a01` (SUCCESS; o Railway aguardou o CI).
+
+### 16.2 RARE10 (regra nova)
+
+`firstOrderCouponConsumedWhere`: o cupom é consumido por qualquer pedido do cliente que **já teve
+pagamento confirmado** (`paidAt`, carimbado uma vez e nunca apagado) + pedidos legados em status pago.
+Reembolso total/parcial e cancelamento após pagamento **não devolvem** o cupom; pendente, expirado,
+falho e cancelado antes do pagamento não consomem. Aplicado no checkout (servidor), na página de
+checkout e em Minha Conta. Prova em PostgreSQL (`npm run qa:support-coupon`): novo ✔ elegível,
+pendente/falho/cancelado-antes ✔ elegíveis, pago ✘, pago + reembolso solicitado (parcial) ✘,
+pago + reembolsado ✘, pago + cancelado ✘, legado pago sem `paidAt` ✘.
+**Staging real:** o cliente QA com 2 pedidos pagos e depois reembolsados não vê mais o RARE10 em Minha Conta (antes do fix o cupom reaparecia).
+
+### 16.3 Auditoria Resend (antes de codar)
+
+| Peça | Classificação | Nota |
+|---|---|---|
+| `src/lib/resend-email.ts` | KEEP | Idempotency-Key do message id, erros classificados, sem retry no transporte |
+| `src/lib/email-config.ts` | KEEP | `APP_ENV`/modo, allowlist `EMAIL_TEST_RECIPIENTS`, `EMAIL_FROM_ORDERS`, `EMAIL_SEND_NOT_BEFORE` |
+| `transactional-email.ts` | KEEP (+2 kinds) | `support_request`, `support_confirmation` |
+| `email-outbox*.ts` | ADAPT | a outbox exige `orderId`; o suporte tem fila durável própria e **reusa o mesmo provider** (sem 2ª stack) |
+| SMTP/ZeptoMail | KEEP | transportes alternativos |
+| `renderSupportContactEmail` | UNUSED | mantido (testado), não ligado |
+| `EMAIL_FROM_SUPPORT` | UNUSED | não lido pelo código |
+
+DNS público (`raredept.com.br`, Cloudflare): MX = Zoho (mx/mx2/mx3), SPF raiz `include:zohomail.com`,
+DMARC `p=none` (rua/ruf para a caixa oficial). Resend já configurado no domínio raiz:
+`resend._domainkey` (DKIM) e `send.` (MX/SPF de retorno). **Recebimento intacto; MX não foi tocado.**
+Painel Resend: domínio `raredept.com.br` **Verified** (status do provedor, não só registro criado).
+Chave existente: 1 ("Onboarding", envio, nunca usada; token irrecuperável). Nenhuma chave criada
+por esta sessão. Subdomínio `mail.` não existe e não foi necessário.
+
+### 16.4 Suporte
+
+- `/suporte`: Nome, E-mail, Assunto (7 categorias, allowlist no servidor), Mensagem, Produto e Pedido
+  opcionais. Produto resolvido por slug no servidor; pedido só se `order.customerId` = cliente logado
+  (senão `order_not_found`, nada gravado — sem IDOR). Limites 100/254/5000, CR/LF barrado, HTML
+  escapado, honeypot fora do Tab, rate limit por IP (5/15 min + 2/10 s) e por e-mail (5/h), sem CAPTCHA.
+- Persistência antes de qualquer e-mail (`SupportRequest`, protocolo `SUP-XXXXXXXX`,
+  `submissionKey` único → duplo clique = 1 solicitação). Entrega: e-mail da equipe
+  (From = remetente oficial, **Reply-To = cliente**) + confirmação ao cliente ("Recebemos sua
+  solicitação — SUP-…", sem prazo prometido). Idempotency-Key por solicitação e parte.
+  Falha: PENDING com backoff (≤5 tentativas) ou FAILED; worker reprocessa; `/admin/support`
+  (SELLER_ADMIN; SYSTEM_ADMIN negado) mostra status e permite reenviar (auditado).
+- Caixa da equipe: `SUPPORT_INBOX_EMAIL` ou, na falta, `EMAIL_REPLY_TO` (mailbox real já existente,
+  na allowlist do staging) — nenhuma caixa inventada.
+- Peça única vendida: "Esta peça já foi vendida." + "Falar sobre esta peça" →
+  `/suporte?produto=<slug>&categoria=SOLD_OUT_PRODUCT`; sem "Avise-me". Teste de componente.
+- Analytics só com consentimento: `support_page_view`, `support_form_started`, `support_form_submitted` (sem PII).
+- Título segue o template do site: "Suporte | RARE" (o resto do site usa `%s | RARE`, não "RARE Dept").
+- Prova PostgreSQL (`qa:support-coupon`, 8/8): persistência, idempotência, IDOR, e-mail desligado →
+  PENDING, queda do provedor → PENDING e reenvio único, concorrência (2 workers) → 1 envio por parte,
+  falha permanente → FAILED + retry do operador, modo teste não envia a cliente fora da allowlist.
+- **Staging real (SkyLab, 2026-11-14 16:34 BRT):** formulário enviado com duplo clique → protocolo
+  `SUP-568TW6S3`, **1** registro em `/admin/support`, Equipe/Cliente "Pendente" (e-mail do staging
+  está `disabled`). Envio real via Resend: **BLOQUEADO** (falta `RESEND_API_KEY` no staging).
+
+### 16.5 Retorno do Asaas
+
+Código pronto desde CYCLE-03: `callback.successUrl = /minha-conta/pedidos/<id>`, `autoRedirect: true`
+quando `ASAAS_SUCCESS_REDIRECT=true`. A página é só leitura, escopada ao cliente, e agora avisa que a
+confirmação pode levar instantes (só webhook/reconciliação marca pago). **Staging: não ligado.** O
+Asaas exige o domínio do `successUrl` no campo "Site" da conta; ao tentar salvar só esse campo, o
+Asaas exigiu "produto que vende", "regime tributário" e "faturamento mensal" (dados do titular, não
+inventados) e avisa que alterar dados comerciais pode reabrir análise e apagar chaves Pix. Edição
+descartada; nada salvo. → MANUAL.
+
+### 16.6 RBAC
+
+- Staging: **17 contas `ADMIN` legadas** (todas ativas; 14 com MFA, 3 sem), **0** SYSTEM/SELLER.
+  Precisam de papel atribuído (ou desativação, se forem contas QA antigas) antes da produção.
+- Spec novo `tests/e2e/staging-rbac.spec.ts` (opt-in `STAGING_RBAC=1`, sem acesso ao banco): MFA real
+  pela UI, menu, URL direta, API de mídia e **replay de Server Action** do outro papel (categoria
+  criada por SYSTEM → recusada e inexistente; revogar sessões pelo SELLER → recusado e sessão viva).
+  **Não executado**: exige duas contas QA novas criadas em `/admin/users` e as senhas temporárias
+  — esta sessão não digita senhas de login.
+
+### 16.7 Navegadores no staging real
+
+Specs públicos contra o staging (gate via `railway run`, credenciais nunca impressas), produto real
+`hml-camiseta-leve`: a11y (Axe por rota, inclusive `/suporte`), console, teclado, links, smoke de
+release, resiliência e `/suporte` (320–1920 px, Axe, teclado, validação nativa sem POST).
+**Firefox + WebKit: 91 passed, 9 skipped (cenários só de mobile/Chromium e skip link no WebKit), 0 failed.**
+Causas raiz das falhas da 1ª rodada (nenhum timeout aumentado): produto fixo inexistente no staging;
+Firefox recebe o 401 do gate em cada conexão nova (agora a credencial vai preemptiva, como o lab já
+fazia no WebKit); o teste do skip link supunha banner de cookies já respondido; WebKit não percorre
+links com Tab por padrão. Admin responsivo/teclado no staging real: **não executado** (depende das contas QA do §16.6).
+
+### 16.8 Limpeza
+
+Nova ação "Desativar conta" no detalhe do cliente (encerra sessões, mantém pedidos/pagamentos/suporte,
+auditada). Cliente QA Pre-Launch 02: **desativado** no staging em 2026-11-14 (status Inativo, 2 pedidos reembolsados preservados, sessão encerrada → `/entrar`). Nada apagado. Solicitação de suporte `SUP-568TW6S3` mantida como evidência.
+
+### 16.9 Gates
+
+tsc 0 · ESLint 0 · Vitest 188 arquivos / 1977 testes · `qa:support-coupon` 8/8 (PostgreSQL) · `prisma validate` OK · migration sem drift · release guard 6 OK / 2 WARNING (cron Vercel legado; freeze de produção ativo) / 0 FAIL · `npm audit --omit=dev` 0 · varredura de segredos no diff do ciclo: limpa.
+
+### 16.10 MANUAL (pendente do usuário)
+
+| # | Ação | Desbloqueia |
+|---|---|---|
+| 1 | Criar no Resend uma API key de envio restrita a `raredept.com.br` e gravar `RESEND_API_KEY` nos serviços de staging (web e worker); depois `EMAIL_DRIVER=resend` (modo `test` e allowlist já configurados) | e-mail real do suporte no staging (entregue, assunto, Reply-To, contexto) |
+| 2 | Asaas Sandbox → Minha Conta → Informações: preencher os dados exigidos e o Site `https://rare-staging-staging.up.railway.app`; depois `ASAAS_SUCCESS_REDIRECT=true` no `rare-staging` | retorno automático após o cartão |
+| 3 | Criar 2 contas QA novas em `/admin/users` (SYSTEM_ADMIN e SELLER_ADMIN) e rodar `tests/e2e/staging-rbac.spec.ts` com `STAGING_RBAC=1` | RBAC real + Admin responsivo no staging |
+| 4 | Atribuir papel às 17 contas `ADMIN` legadas do staging (ou desativar as QA antigas); idem em produção antes do go-live | fim do acesso total legado |
+
+### 16.11 Veredito desta sessão
+
+STAGING = **PARTIAL** (suporte persistente, RARE10, matriz Firefox/WebKit e CI/SHA provados; e-mail real, retorno do Asaas e RBAC real dependem do §16.10). MERGE READY = NO · PRODUCTION READY = NO · revisão independente obrigatória.
