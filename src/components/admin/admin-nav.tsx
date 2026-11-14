@@ -13,44 +13,53 @@ import {
   PackageCheck,
   Settings,
   ShieldCheck,
+  UserCog,
+  UserRound,
   Users,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { AdminPermission } from "@/lib/admin-permissions";
 
 type NavItem = {
   href: string;
   label: string;
   icon: LucideIcon;
+  permission: AdminPermission;
 };
 
 const navSections: Array<{ label: string; items: NavItem[] }> = [
   {
     label: "Operação",
     items: [
-      { href: "/admin", label: "Visão geral", icon: LayoutDashboard },
-      { href: "/admin/analytics", label: "Analytics", icon: ChartNoAxesCombined },
-      { href: "/admin/orders", label: "Pedidos", icon: PackageCheck },
-      { href: "/admin/customers", label: "Clientes", icon: Users },
-      { href: "/admin/notifications", label: "Notificações", icon: Bell },
+      { href: "/admin", label: "Visão geral", icon: LayoutDashboard, permission: "commerce.dashboard" },
+      { href: "/admin/analytics", label: "Analytics", icon: ChartNoAxesCombined, permission: "analytics.sales" },
+      { href: "/admin/orders", label: "Pedidos", icon: PackageCheck, permission: "commerce.orders" },
+      { href: "/admin/customers", label: "Clientes", icon: Users, permission: "commerce.customers" },
+      { href: "/admin/notifications", label: "Notificações", icon: Bell, permission: "commerce.notifications" },
     ],
   },
   {
     label: "Catálogo",
     items: [
-      { href: "/admin/products", label: "Produtos", icon: Boxes },
-      { href: "/admin/promotions", label: "Promoções", icon: BadgePercent },
-      { href: "/admin/categories", label: "Categorias", icon: FolderTree },
-      { href: "/admin/banners", label: "Banners", icon: Image },
+      { href: "/admin/products", label: "Produtos", icon: Boxes, permission: "commerce.products" },
+      { href: "/admin/promotions", label: "Promoções", icon: BadgePercent, permission: "commerce.promotions" },
+      { href: "/admin/categories", label: "Categorias", icon: FolderTree, permission: "commerce.catalog" },
+      { href: "/admin/banners", label: "Banners", icon: Image, permission: "commerce.catalog" },
     ],
   },
   {
     label: "Sistema",
     items: [
-      { href: "/admin/readiness", label: "Prontidão", icon: ClipboardCheck },
-      { href: "/admin/settings", label: "Configurações", icon: Settings },
-      { href: "/admin/security", label: "Segurança", icon: ShieldCheck },
+      { href: "/admin/users", label: "Usuários", icon: UserCog, permission: "system.users" },
+      { href: "/admin/readiness", label: "Prontidão", icon: ClipboardCheck, permission: "system.readiness" },
+      { href: "/admin/settings", label: "Configurações", icon: Settings, permission: "system.settings" },
+      { href: "/admin/security", label: "Segurança", icon: ShieldCheck, permission: "system.security" },
     ],
+  },
+  {
+    label: "Conta",
+    items: [{ href: "/admin/conta", label: "Minha conta", icon: UserRound, permission: "self.account" }],
   },
 ];
 
@@ -59,18 +68,25 @@ function isActivePath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+/** Mirrors the server guards so nobody is offered a link that ends on the access-denied page. */
 export function AdminNav({
+  permissions,
   unreadNotifications = 0,
   onNavigate,
 }: {
+  permissions: readonly AdminPermission[];
   unreadNotifications?: number;
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
+  const allowed = new Set(permissions);
+  const sections = navSections
+    .map((section) => ({ ...section, items: section.items.filter((item) => allowed.has(item.permission)) }))
+    .filter((section) => section.items.length > 0);
 
   return (
     <nav aria-label="Navegação administrativa" className="space-y-6">
-      {navSections.map((section) => (
+      {sections.map((section) => (
         <div key={section.label}>
           <p className="mb-2 px-3 text-[10px] font-black uppercase tracking-[0.2em] text-neutral-600">
             {section.label}

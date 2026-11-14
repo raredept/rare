@@ -37,6 +37,12 @@ const adminErrorCodes = new Map([
   ["order-refund-duplicate", "O estorno deste pedido já foi solicitado."],
   ["order-refund-unknown", "Sem resposta confirmada do Asaas: verifique no painel do Asaas se o estorno foi criado antes de tentar de novo."],
   ["promotion-incomplete", "A promoção ainda não pode ser ativada: revise desconto, produtos/categorias, datas e título da home."],
+  ["admin-user-invalid", "Revise os dados do usuário."],
+  ["admin-user-not-found", "Usuário Admin não encontrado."],
+  ["admin-user-self-change", "Essa alteração não pode ser feita na sua própria conta. Peça a outro Administrador de Sistema."],
+  ["admin-user-last-system-admin", "Precisa existir pelo menos um Administrador de Sistema ativo."],
+  ["admin-user-email-taken", "Já existe uma conta com este e-mail ou login."],
+  ["admin-user-mfa-reason", "Informe o motivo da redefinição (mínimo de 8 caracteres)."],
 ]);
 
 const adminSuccessCodes = new Map([
@@ -66,6 +72,11 @@ const adminSuccessCodes = new Map([
   ["promotion-pause", "Promoção pausada."],
   ["promotion-end", "Promoção encerrada."],
   ["promotion-duplicated", "Cópia criada como rascunho."],
+  ["admin-user-activated", "Conta reativada."],
+  ["admin-user-deactivated", "Conta desativada e sessões encerradas."],
+  ["admin-user-role-saved", "Papel atualizado e sessões da conta encerradas."],
+  ["admin-user-sessions-revoked", "Sessões da conta encerradas."],
+  ["admin-user-mfa-reset", "Segundo fator redefinido. A conta cadastra um novo no próximo login."],
 ]);
 
 /** Literal messages the Admin actions send as free text. */

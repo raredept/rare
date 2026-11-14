@@ -7,16 +7,20 @@ import { useEffect, useRef, useState } from "react";
 import { logoutAction } from "@/app/admin/(protected)/actions";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { getAdminPageLabel } from "@/lib/admin-page-label";
+import type { AdminPermission } from "@/lib/admin-permissions";
 
 const focusableSelector = "a[href],button:not([disabled]),[tabindex]:not([tabindex='-1'])";
 
 export function AdminHeader({
   adminLabel,
+  permissions,
   unreadNotifications,
 }: {
   adminLabel: string;
+  permissions: readonly AdminPermission[];
   unreadNotifications: number;
 }) {
+  const canSeeNotifications = permissions.includes("commerce.notifications");
   const pathname = usePathname() ?? "/admin";
   const [menuOpen, setMenuOpen] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -105,16 +109,18 @@ export function AdminHeader({
               Ver loja
               <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
             </Link>
-            <Link
-              href="/admin/notifications"
-              className="relative inline-flex h-11 w-11 items-center justify-center rounded-lg border border-neutral-800 text-neutral-300 transition hover:border-neutral-600 hover:text-white"
-              aria-label={unreadNotifications ? `Notificações: ${unreadNotifications} não lidas` : "Notificações"}
-            >
-              <Bell aria-hidden="true" className="h-4 w-4" />
-              {unreadNotifications > 0 ? (
-                <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-white ring-2 ring-black" />
-              ) : null}
-            </Link>
+            {canSeeNotifications ? (
+              <Link
+                href="/admin/notifications"
+                className="relative inline-flex h-11 w-11 items-center justify-center rounded-lg border border-neutral-800 text-neutral-300 transition hover:border-neutral-600 hover:text-white"
+                aria-label={unreadNotifications ? `Notificações: ${unreadNotifications} não lidas` : "Notificações"}
+              >
+                <Bell aria-hidden="true" className="h-4 w-4" />
+                {unreadNotifications > 0 ? (
+                  <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-white ring-2 ring-black" />
+                ) : null}
+              </Link>
+            ) : null}
             <div className="hidden max-w-48 truncate text-right text-xs font-semibold text-neutral-400 xl:block">
               {adminLabel}
             </div>
@@ -153,7 +159,7 @@ export function AdminHeader({
               </button>
             </div>
             <div className="scrollbar-none flex-1 overflow-y-auto py-5">
-              <AdminNav unreadNotifications={unreadNotifications} onNavigate={() => setMenuOpen(false)} />
+              <AdminNav permissions={permissions} unreadNotifications={unreadNotifications} onNavigate={() => setMenuOpen(false)} />
             </div>
             <div className="border-t border-neutral-800 pt-4">
               <p className="truncate px-1 text-xs font-semibold text-neutral-500">{adminLabel}</p>

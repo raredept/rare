@@ -12,7 +12,7 @@ import { parseAdminEntityId } from "@/lib/admin-action-input";
 const allowedManualStatuses: OrderStatus[] = ["processing", "shipped", "delivered", "canceled", "refunded"];
 
 export async function updateOrderStatusAction(formData: FormData) {
-  await requireAdmin();
+  await requireAdmin("commerce.orders");
   const id = parseAdminEntityId(formData.get("id"));
   const status = String(formData.get("status") ?? "");
 
@@ -39,7 +39,7 @@ export async function updateOrderStatusAction(formData: FormData) {
  * "refunded" only when Asaas confirms it. Stock is not restored automatically.
  */
 export async function requestOrderRefundAction(formData: FormData) {
-  const admin = await requireAdmin();
+  const admin = await requireAdmin("commerce.orders");
   const id = String(formData.get("id") ?? "");
   if (!/^[A-Za-z0-9_-]{1,40}$/.test(id) || formData.get("confirm") !== "ESTORNAR") {
     redirect(withAdminActionRefresh(`/admin/orders/${encodeURIComponent(id)}?error=order-refund-failed`));

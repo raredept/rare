@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getCurrentAdmin } from "@/lib/auth";
+import { hasAdminPermission } from "@/lib/admin-permissions";
 import { prisma } from "@/lib/prisma";
 import { isAllowedPushEndpoint } from "@/lib/push-endpoint";
 import { isSameOriginRequest } from "@/lib/request-security";
@@ -30,6 +31,13 @@ async function requireApiAdmin() {
         { error: "Password change required", code: "ADMIN_PASSWORD_CHANGE_REQUIRED" },
         { status: 403, headers: { "Cache-Control": "no-store" } },
       ),
+    };
+  }
+  // Push delivers the order and payment notifications, which belong to the commercial role.
+  if (!hasAdminPermission(admin.role, "commerce.notifications")) {
+    return {
+      admin: null,
+      response: NextResponse.json({ error: "Forbidden", code: "ADMIN_PERMISSION_DENIED" }, { status: 403, headers: { "Cache-Control": "no-store" } }),
     };
   }
   return { admin, response: null };

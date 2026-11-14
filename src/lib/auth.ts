@@ -6,11 +6,20 @@ import { getAdminSessionSecret } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import { ADMIN_MFA_PENDING_COOKIE, ADMIN_SESSION_COOKIE } from "@/lib/auth-constants";
 import { isAdminMfaRequired } from "@/lib/admin-mfa-config";
+import {
+  ADMIN_ROLES,
+  getAdminPermissions,
+  hasAdminPermission,
+  isAdminRole,
+  type AdminPermission,
+  type AdminRole,
+} from "@/lib/admin-permissions";
 
 type AdminSessionPayload = {
   sub: string;
   email: string;
-  role: "ADMIN";
+  /** As issued; authorization always uses the role read from the database. */
+  role: AdminRole;
   mustChangePassword: boolean;
   credentialVersion: string;
   /** Tokens issued before this feature carry none and count as 0. */
@@ -62,7 +71,7 @@ export async function verifyAdminSession(token?: string | null): Promise<AdminSe
     const { payload } = await jwtVerify(token, getSessionSecret(), { algorithms: ["HS256"] });
     if (
       (payload.typ !== undefined && payload.typ !== ADMIN_SESSION_TYPE) ||
-      payload.role !== "ADMIN" ||
+      !isAdminRole(payload.role) ||
       typeof payload.sub !== "string" ||
       typeof payload.email !== "string" ||
       typeof payload.credentialVersion !== "string" ||
@@ -75,7 +84,7 @@ export async function verifyAdminSession(token?: string | null): Promise<AdminSe
     return {
       sub: payload.sub,
       email: payload.email,
-      role: "ADMIN",
+      role: payload.role as AdminRole,
       mustChangePassword: payload.mustChangePassword === true,
       credentialVersion: payload.credentialVersion,
       sessionVersion: typeof payload.sessionVersion === "number" ? payload.sessionVersion : 0,
@@ -102,7 +111,7 @@ export async function getCurrentAdmin() {
   const admin = await prisma.user.findFirst({
     where: {
       id: session.sub,
-      role: "ADMIN",
+      role: { in: [...ADMIN_ROLES] },
       active: true,
     },
     select: {
@@ -135,7 +144,8 @@ export async function getCurrentAdmin() {
     name: admin.name,
     email: admin.email,
     username: admin.username,
-    role: admin.role,
+    role: admin.role as AdminRole,
+    permissions: getAdminPermissions(admin.role),
     mustChangePassword: admin.mustChangePassword,
     sessionVersion: admin.sessionVersion,
     mfaEnabled: Boolean(admin.mfaEnabledAt),
@@ -143,10 +153,23 @@ export async function getCurrentAdmin() {
   };
 }
 
-export async function requireAdmin() {
+export type CurrentAdmin = NonNullable<Awaited<ReturnType<typeof getCurrentAdmin>>>;
+
+export const ADMIN_ACCESS_DENIED_PATH = "/admin/sem-acesso";
+
+/**
+ * Pages, Server Actions and Route Handlers pass the permission they need; the layout alone passes
+ * none (it only needs a valid session). A missing permission ends the request before any data
+ * is read or written.
+ */
+export async function requireAdmin(permission?: AdminPermission) {
   const admin = await getCurrentAdmin();
   if (!admin) redirect("/admin/login");
   if (admin.mustChangePassword) redirect("/admin/change-password");
+  if (permission && !hasAdminPermission(admin.role, permission)) {
+    console.warn("[rbac] denied", JSON.stringify({ role: admin.role, permission }));
+    redirect(ADMIN_ACCESS_DENIED_PATH);
+  }
   return admin;
 }
 
@@ -223,7 +246,7 @@ export async function getPendingMfaAdmin() {
   }
 
   const admin = await prisma.user.findFirst({
-    where: { id: payload.sub, role: "ADMIN", active: true },
+    where: { id: payload.sub, role: { in: [...ADMIN_ROLES] }, active: true },
     select: {
       id: true,
       email: true,

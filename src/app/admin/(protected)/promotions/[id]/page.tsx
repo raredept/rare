@@ -26,7 +26,7 @@ function StatusForm({ id, intent, label, confirm }: { id: string; intent: "activ
 }
 
 export default async function PromotionDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdmin();
+  await requireAdmin("commerce.promotions");
   const { id } = await params;
   const promotion = await prisma.promotion.findUnique({ where: { id }, include: { _count: { select: { products: true, categories: true } } } });
   if (!promotion) notFound();

@@ -6,8 +6,12 @@ datasource db {
   provider = "postgresql"
 }
 
+// ADMIN is the pre-RBAC role: it keeps every permission until an operator assigns one of the
+// two scoped roles (see src/lib/admin-permissions.ts).
 enum UserRole {
   ADMIN
+  SYSTEM_ADMIN
+  SELLER_ADMIN
 }
 
 enum OrderStatus {

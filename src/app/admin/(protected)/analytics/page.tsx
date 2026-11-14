@@ -40,7 +40,7 @@ function formatInteger(value: number) {
 export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
   // Checked here, not only in the layout: layouts do not re-render on client
   // navigation, so every page verifies the session next to its data.
-  await requireAdmin();
+  await requireAdmin("analytics.sales");
   const query = await searchParams;
   const period = resolveAnalyticsPeriod({ preset: query.period, from: query.from, to: query.to });
   const [overview, promotions] = await Promise.all([getAnalyticsOverview(period), getPromotionAnalytics(period)]);

@@ -14,7 +14,7 @@ function text(formData: FormData, key: string) {
 }
 
 export async function saveSettingsAction(formData: FormData) {
-  await requireAdmin();
+  await requireAdmin("system.settings");
   const parsedResult = settingsFormSchema.safeParse({
     instagramUrl: text(formData, "instagramUrl") || undefined,
     storeName: text(formData, "storeName"),

@@ -23,7 +23,7 @@ async function main() {
   const { prisma } = await import("../src/lib/prisma");
   const { resetAdminMfa } = await import("../src/lib/admin-mfa");
   try {
-    const user = await prisma.user.findFirst({ where: { role: "ADMIN", email: { equals: email, mode: "insensitive" } }, select: { id: true } });
+    const user = await prisma.user.findFirst({ where: { role: { in: ["ADMIN", "SYSTEM_ADMIN", "SELLER_ADMIN"] }, email: { equals: email, mode: "insensitive" } }, select: { id: true } });
     if (!user) throw new Error("No Admin account with this e-mail.");
     const result = await resetAdminMfa(user.id, "cli:admin-mfa-reset", reason);
     console.log(JSON.stringify({ reset: true, recoveryCodesRemoved: result.recoveryCodesRemoved, sessionsRevoked: true }));

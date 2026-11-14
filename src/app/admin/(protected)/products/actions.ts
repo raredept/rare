@@ -175,7 +175,7 @@ async function collectUploadedUrls(formData: FormData) {
 }
 
 export async function saveProductAction(productId: string | null, formData: FormData) {
-  await requireAdmin();
+  await requireAdmin("commerce.products");
   const normalizedProductId = productId ? parseAdminEntityId(productId) : null;
   if (productId && !normalizedProductId) {
     redirectWithProductsListError("Produto inválido.");
@@ -406,7 +406,7 @@ export async function saveProductAction(productId: string | null, formData: Form
 }
 
 export async function toggleProductActiveAction(formData: FormData) {
-  await requireAdmin();
+  await requireAdmin("commerce.products");
   const id = parseAdminEntityId(formData.get("id"));
   const active = getString(formData, "active") === "true";
 
@@ -441,7 +441,7 @@ export async function toggleProductActiveAction(formData: FormData) {
 }
 
 export async function deleteProductAction(formData: FormData) {
-  await requireAdmin();
+  await requireAdmin("commerce.products");
   const id = parseAdminEntityId(formData.get("id"));
   if (!id) redirectWithProductsListError("Produto inválido.");
   const product = await prisma.product.findUnique({

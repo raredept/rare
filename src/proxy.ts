@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 import { ADMIN_PUBLIC_PATHS, ADMIN_SESSION_COOKIE, CUSTOMER_SESSION_COOKIE } from "@/lib/auth-constants";
 import { isAdminMfaRequired } from "@/lib/admin-mfa-config";
+import { isAdminRole } from "@/lib/admin-permissions";
 import { getOptionalAdminSessionSecret } from "@/lib/env";
 import { checkStagingAccess, isRestrictedEnvironment } from "@/lib/staging-access";
 import packageJson from "../package.json";
@@ -29,7 +30,7 @@ async function hasValidAdminSession(request: NextRequest) {
     // never even reaches an Admin route when MFA is required.
     return (
       (payload.typ === undefined || payload.typ === "admin") &&
-      payload.role === "ADMIN" &&
+      isAdminRole(payload.role) &&
       typeof payload.sub === "string" &&
       typeof payload.credentialVersion === "string" &&
       (!isAdminMfaRequired() || payload.mfa === true)

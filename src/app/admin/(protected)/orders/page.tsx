@@ -39,7 +39,7 @@ function buildWhere(filters: ReturnType<typeof parseAdminOrderFilters>): Prisma.
 export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   // Checked here, not only in the layout: layouts do not re-render on client
   // navigation, so every page verifies the session next to its data.
-  await requireAdmin();
+  await requireAdmin("commerce.orders");
   const filters = parseAdminOrderFilters(await searchParams);
   const where = buildWhere(filters);
 

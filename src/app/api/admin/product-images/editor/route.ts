@@ -22,7 +22,7 @@ function fail(error: unknown) {
 }
 
 export async function GET(request: NextRequest) {
-  const admin = await requireAdmin();
+  const admin = await requireAdmin("commerce.media");
   const limited = await rateLimit(`admin-image-preview:${admin.id}`, 120, 60_000);
   if (!limited.ok) return NextResponse.json({ error: "Aguarde um instante." }, { status: 429 });
   try {
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const admin = await requireAdmin();
+  const admin = await requireAdmin("commerce.media");
   if (!isSameOriginRequest(request)) return NextResponse.json({ error: "Origem inválida." }, { status: 403 });
   const limited = await rateLimit(`admin-image-editor:${admin.id}`, 60, 60_000);
   if (!limited.ok) return NextResponse.json({ error: "Aguarde um instante." }, { status: 429 });

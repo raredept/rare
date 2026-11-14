@@ -87,7 +87,7 @@ async function parseBannerForm(formData: FormData, editId?: string) {
 }
 
 export async function createBannerAction(formData: FormData) {
-  await requireAdmin();
+  await requireAdmin("commerce.catalog");
   const parsed = await parseBannerForm(formData);
 
   const banner = await prisma.homeBannerSlide.create({
@@ -99,7 +99,7 @@ export async function createBannerAction(formData: FormData) {
 }
 
 export async function updateBannerAction(formData: FormData) {
-  await requireAdmin();
+  await requireAdmin("commerce.catalog");
   const id = parseAdminEntityId(formData.get("id"));
   if (!id) redirectWithBannerError("Banner nao encontrado.");
 
@@ -115,7 +115,7 @@ export async function updateBannerAction(formData: FormData) {
 }
 
 export async function toggleBannerActiveAction(formData: FormData) {
-  await requireAdmin();
+  await requireAdmin("commerce.catalog");
   const id = parseAdminEntityId(formData.get("id"));
   if (!id) redirectWithBannerError("Banner nao encontrado.");
   const active = text(formData, "active") === "true";
@@ -130,7 +130,7 @@ export async function toggleBannerActiveAction(formData: FormData) {
 }
 
 export async function deleteBannerAction(formData: FormData) {
-  await requireAdmin();
+  await requireAdmin("commerce.catalog");
   const id = parseAdminEntityId(formData.get("id"));
   if (!id) redirectWithBannerError("Banner nao encontrado.");
 
@@ -168,7 +168,7 @@ async function moveBanner(id: string, direction: "up" | "down") {
 }
 
 export async function moveBannerUpAction(formData: FormData) {
-  await requireAdmin();
+  await requireAdmin("commerce.catalog");
   const id = parseAdminEntityId(formData.get("id"));
   if (!id) redirectWithBannerError("Banner nao encontrado.");
   await moveBanner(id, "up");
@@ -177,7 +177,7 @@ export async function moveBannerUpAction(formData: FormData) {
 }
 
 export async function moveBannerDownAction(formData: FormData) {
-  await requireAdmin();
+  await requireAdmin("commerce.catalog");
   const id = parseAdminEntityId(formData.get("id"));
   if (!id) redirectWithBannerError("Banner nao encontrado.");
   await moveBanner(id, "down");

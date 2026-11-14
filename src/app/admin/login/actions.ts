@@ -7,6 +7,7 @@ import { getSafeAdminNext } from "@/lib/safe-redirect";
 import { loginSchema } from "@/lib/validators";
 import { setAdminMfaPendingCookie, setAdminSessionCookie, signAdminMfaPendingToken, signAdminSession } from "@/lib/auth";
 import { getAdminMfaConfigurationIssue, isAdminMfaRequired } from "@/lib/admin-mfa-config";
+import { ADMIN_ROLES } from "@/lib/admin-permissions";
 
 export type LoginState = {
   error?: string;
@@ -29,7 +30,7 @@ export async function loginAction(_state: LoginState, formData: FormData): Promi
 
   const user = await prisma.user.findFirst({
     where: {
-      role: "ADMIN",
+      role: { in: [...ADMIN_ROLES] },
       active: true,
       OR: [
         { email: { equals: identifier, mode: "insensitive" } },

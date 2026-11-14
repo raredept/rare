@@ -8,7 +8,7 @@ import { redirect } from "next/navigation";
 import { parseAdminEntityId } from "@/lib/admin-action-input";
 
 export async function markAllAdminNotificationsReadAction() {
-  await requireAdmin();
+  await requireAdmin("commerce.notifications");
 
   await prisma.adminNotification.updateMany({
     where: { readAt: null },
@@ -21,7 +21,7 @@ export async function markAllAdminNotificationsReadAction() {
 }
 
 export async function markAdminNotificationReadAction(formData: FormData) {
-  await requireAdmin();
+  await requireAdmin("commerce.notifications");
   const id = parseAdminEntityId(formData.get("id"));
 
   if (!id) {

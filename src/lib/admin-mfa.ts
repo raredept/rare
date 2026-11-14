@@ -1,6 +1,7 @@
 import QRCode from "qrcode";
 import { prisma } from "@/lib/prisma";
 import { recordAdminAudit } from "@/lib/admin-audit";
+import { isAdminRole } from "@/lib/admin-permissions";
 import {
   generateRecoveryCodes,
   hashRecoveryCode,
@@ -224,14 +225,14 @@ export async function countUnusedRecoveryCodes(userId: string) {
 }
 
 /**
- * High-risk operation, for an operator with database access (see docs/runbooks): removes the
- * factor, every recovery code and every session of the account. The next login goes through
- * enrollment again. Recorded in the audit log.
+ * High-risk operation, run by a SYSTEM_ADMIN from /admin/users or by an operator with database
+ * access (see docs/runbooks): removes the factor, every recovery code and every session of the
+ * account. The next login goes through enrollment again. Recorded in the audit log.
  */
-export async function resetAdminMfa(userId: string, actorLabel: string, reason: string) {
+export async function resetAdminMfa(userId: string, actorLabel: string, reason: string, actorId: string | null = null) {
   return prisma.$transaction(async (tx) => {
     const before = await tx.user.findUnique({ where: { id: userId }, select: { id: true, role: true, mfaEnabledAt: true } });
-    if (!before || before.role !== "ADMIN") throw new Error("ADMIN_NOT_FOUND");
+    if (!before || !isAdminRole(before.role)) throw new Error("ADMIN_NOT_FOUND");
     await tx.user.update({
       where: { id: userId },
       data: {
@@ -245,7 +246,7 @@ export async function resetAdminMfa(userId: string, actorLabel: string, reason: 
     });
     const removed = await tx.adminMfaRecoveryCode.deleteMany({ where: { userId } });
     await recordAdminAudit(tx, {
-      actor: { id: null, label: actorLabel },
+      actor: { id: actorId, label: actorLabel },
       action: "mfa.reset",
       entityType: "User",
       entityId: userId,
@@ -254,7 +255,7 @@ export async function resetAdminMfa(userId: string, actorLabel: string, reason: 
     });
     // Visible in the Admin bell for every administrator, not only in the database.
     await tx.adminNotification.createMany({
-      data: [{ type: "security_mfa_reset", title: "Segundo fator redefinido", body: "A verificação em duas etapas de uma conta Admin foi redefinida por procedimento técnico. Confirme que foi autorizado.", href: "/admin/security", dedupeKey: `mfa-reset:${userId}:${Date.now()}` }],
+      data: [{ type: "security_mfa_reset", title: "Segundo fator redefinido", body: "A verificação em duas etapas de uma conta Admin foi redefinida por procedimento técnico. Confirme que foi autorizado.", href: "/admin/conta", dedupeKey: `mfa-reset:${userId}:${Date.now()}` }],
     });
     return { recoveryCodesRemoved: removed.count };
   });

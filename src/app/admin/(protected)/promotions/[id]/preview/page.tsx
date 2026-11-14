@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 // becomes public. Mobile is a 390 px frame (the component uses container queries).
 
 export default async function PromotionPreviewPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdmin();
+  await requireAdmin("commerce.promotions");
   const { id } = await params;
   const promotion = await prisma.promotion.findUnique({
     where: { id },

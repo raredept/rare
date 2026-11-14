@@ -4,6 +4,7 @@ import { logoutAction } from "@/app/admin/(protected)/actions";
 import { AdminHeader } from "@/components/admin/admin-header";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { AdminToast } from "@/components/admin/admin-toast";
+import { hasAdminPermission } from "@/lib/admin-permissions";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -11,7 +12,9 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const admin = await requireAdmin();
-  const unreadNotifications = await prisma.adminNotification.count({ where: { readAt: null } });
+  const unreadNotifications = hasAdminPermission(admin.role, "commerce.notifications")
+    ? await prisma.adminNotification.count({ where: { readAt: null } })
+    : 0;
 
   return (
     <div className="admin-dark min-h-screen bg-neutral-950 text-neutral-100">
@@ -24,7 +27,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           <span className="admin-brand-subtitle mt-1 block text-[10px] font-black uppercase tracking-[0.22em]">Admin</span>
         </Link>
         <div className="scrollbar-none mt-8 flex-1 overflow-y-auto">
-          <AdminNav unreadNotifications={unreadNotifications} />
+          <AdminNav permissions={admin.permissions} unreadNotifications={unreadNotifications} />
         </div>
         <div className="mt-5 border-t border-neutral-900 pt-4">
           <p className="truncate px-1 text-xs font-semibold text-neutral-500">{admin.username ?? admin.email}</p>
@@ -40,7 +43,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
       </aside>
 
       <div className="lg:pl-72">
-        <AdminHeader adminLabel={admin.username ?? admin.email} unreadNotifications={unreadNotifications} />
+        <AdminHeader adminLabel={admin.username ?? admin.email} permissions={admin.permissions} unreadNotifications={unreadNotifications} />
         <main id="admin-main-content" className="admin-page-transition mx-auto w-full max-w-[1680px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           {children}
         </main>

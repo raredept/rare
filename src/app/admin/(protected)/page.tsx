@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getDashboardSnapshot, LOW_STOCK_THRESHOLD } from "@/lib/admin-analytics";
+import { getAdminHomePath, hasAdminPermission } from "@/lib/admin-permissions";
 import { buildCatalogIssues, type CatalogIssue } from "@/lib/admin-catalog-issues";
 import { buildAdminReadiness, type ReadinessReport } from "@/lib/admin-readiness";
 import { MagnitudeBars, type MagnitudeRow } from "@/components/admin/analytics-charts";
@@ -22,7 +24,10 @@ function formatInteger(value: number) {
 export default async function AdminDashboardPage() {
   // Checked here, not only in the layout: layouts do not re-render on client
   // navigation, so every page verifies the session next to its data.
-  await requireAdmin();
+  const admin = await requireAdmin("self.account");
+  // /admin is where every login lands; an account without the commercial dashboard goes to its own area.
+  if (!hasAdminPermission(admin.role, "commerce.dashboard")) redirect(getAdminHomePath(admin.role));
+  const canSeeReadiness = hasAdminPermission(admin.role, "system.readiness");
   // Orders are aggregated in the database. The catalog queries stay row-level
   // because the readiness and catalog-issue checks genuinely need each product,
   // and the catalog is bounded by what the store sells rather than by how much
@@ -83,11 +88,13 @@ export default async function AdminDashboardPage() {
 
   const activeProducts = catalogProducts.filter((product) => product.active).length;
   const catalogIssues = buildCatalogIssues({ products: catalogProducts, categories: catalogCategories });
-  const readinessReport = buildAdminReadiness({
-    settings,
-    products: catalogProducts,
-    categories: catalogCategories,
-  });
+  const readinessReport = canSeeReadiness
+    ? buildAdminReadiness({
+        settings,
+        products: catalogProducts,
+        categories: catalogCategories,
+      })
+    : null;
 
   const statusRows: MagnitudeRow[] = snapshot.ordersByStatus.map((entry) => ({
     id: entry.status,
@@ -206,7 +213,7 @@ export default async function AdminDashboardPage() {
         </div>
       </section>
 
-      <ReadinessSummaryCard report={readinessReport} />
+      {readinessReport ? <ReadinessSummaryCard report={readinessReport} /> : null}
 
       <section className="mt-8 rounded-lg border border-neutral-200 bg-white p-5">
         <div className="flex flex-wrap items-center justify-between gap-4">

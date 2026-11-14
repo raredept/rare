@@ -55,7 +55,7 @@ type AdminReadinessPageProps = {
 export default async function AdminReadinessPage({ searchParams }: AdminReadinessPageProps) {
   // Checked here, not only in the layout: layouts do not re-render on client
   // navigation, so every page verifies the session next to its data.
-  await requireAdmin();
+  await requireAdmin("system.readiness");
   const params = (await searchParams) ?? {};
   const [settings, products, categories, banners, operationalEvidenceStorage] = await Promise.all([
     prisma.storeSettings.findUnique({

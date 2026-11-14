@@ -15,7 +15,7 @@ type CustomersPageProps = {
 };
 
 export default async function AdminCustomersPage({ searchParams }: CustomersPageProps) {
-  await requireAdmin();
+  await requireAdmin("commerce.customers");
   const filters = await searchParams;
   const page = normalizeAdminPage(filters.page);
   const query = typeof filters.q === "string" ? filters.q.trim().slice(0, 100) : undefined;

@@ -24,7 +24,7 @@ function getMaxRequestBytes() {
 }
 
 export async function POST(request: NextRequest) {
-  const admin = await requireAdmin();
+  const admin = await requireAdmin("commerce.media");
   if (!isSameOriginRequest(request)) {
     return NextResponse.json({ error: "Origem de upload invalida." }, { status: 403 });
   }

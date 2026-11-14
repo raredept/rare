@@ -23,7 +23,7 @@ const sorts = {
 type SearchParams = { q?: string; status?: string; from?: string; to?: string; sort?: string; page?: string };
 
 export default async function PromotionsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  await requireAdmin();
+  await requireAdmin("commerce.promotions");
   const filters = await searchParams;
   const now = new Date();
   const status = statuses.includes(filters.status as PromotionStatusValue) ? (filters.status as PromotionStatusValue) : null;

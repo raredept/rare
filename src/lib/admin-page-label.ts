@@ -15,6 +15,9 @@ const routeLabels = [
   { path: "/admin/readiness", label: "Prontidão" },
   { path: "/admin/settings", label: "Configurações" },
   { path: "/admin/security", label: "Segurança" },
+  { path: "/admin/users", label: "Usuários" },
+  { path: "/admin/conta", label: "Minha conta" },
+  { path: "/admin/sem-acesso", label: "Sem acesso" },
 ];
 
 const exactOnlyPaths = new Set(["/admin/products/new", "/admin/promotions/new"]);

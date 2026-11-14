@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { regenerateRecoveryCodesAction, type RegenerateCodesState } from "@/app/admin/(protected)/security/actions";
+import { regenerateRecoveryCodesAction, type RegenerateCodesState } from "@/app/admin/(protected)/conta/actions";
 
 export function RegenerateRecoveryCodesForm() {
   const [state, formAction, pending] = useActionState<RegenerateCodesState, FormData>(regenerateRecoveryCodesAction, {});

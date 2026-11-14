@@ -19,7 +19,7 @@ type ProductsPageProps = {
 };
 
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
-  await requireAdmin();
+  await requireAdmin("commerce.products");
   const filters = await searchParams;
   const page = normalizeAdminPage(filters.page);
   const query = typeof filters.q === "string" ? filters.q.trim().slice(0, 100) : undefined;

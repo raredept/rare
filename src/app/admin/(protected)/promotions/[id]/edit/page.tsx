@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 export default async function EditPromotionPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdmin();
+  await requireAdmin("commerce.promotions");
   const { id } = await params;
   const promotion = await prisma.promotion.findUnique({ where: { id }, include: { products: { select: { productId: true } }, categories: { select: { categoryId: true } } } });
   if (!promotion) notFound();

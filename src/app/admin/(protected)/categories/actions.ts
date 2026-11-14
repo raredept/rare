@@ -32,7 +32,7 @@ function revalidateCategoryPaths(currentSlug?: string, previousSlug?: string | n
 }
 
 export async function saveCategoryAction(formData: FormData) {
-  await requireAdmin();
+  await requireAdmin("commerce.catalog");
   const submittedId = value(formData, "id");
   const id = submittedId ? (parseAdminEntityId(submittedId) ?? "") : "";
   if (submittedId && !id) redirectWithCategoryError("");
@@ -86,7 +86,7 @@ export async function saveCategoryAction(formData: FormData) {
 }
 
 export async function deleteCategoryAction(formData: FormData) {
-  await requireAdmin();
+  await requireAdmin("commerce.catalog");
   const id = parseAdminEntityId(formData.get("id"));
   if (!id) redirectWithCategoryError("");
   const category = await prisma.category.findUnique({ where: { id }, select: { slug: true } });
@@ -96,7 +96,7 @@ export async function deleteCategoryAction(formData: FormData) {
 }
 
 export async function toggleCategoryActiveAction(formData: FormData) {
-  await requireAdmin();
+  await requireAdmin("commerce.catalog");
   const id = parseAdminEntityId(formData.get("id"));
   if (!id) redirectWithCategoryError("");
   const active = value(formData, "active") === "true";

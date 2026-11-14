@@ -3,6 +3,7 @@
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { getCurrentAdmin, setAdminSessionCookie, signAdminSession } from "@/lib/auth";
+import { ADMIN_ROLES } from "@/lib/admin-permissions";
 import { prisma } from "@/lib/prisma";
 
 export type ChangePasswordState = {
@@ -47,7 +48,7 @@ export async function changePasswordAction(
   const result = await prisma.user.updateMany({
     where: {
       id: admin.id,
-      role: "ADMIN",
+      role: { in: [...ADMIN_ROLES] },
       active: true,
       mustChangePassword: true,
     },

@@ -15,7 +15,7 @@ type CustomerDetailPageProps = {
 export default async function AdminCustomerDetailPage({ params }: CustomerDetailPageProps) {
   // Checked here, not only in the layout: layouts do not re-render on client
   // navigation, so every page verifies the session next to its data.
-  await requireAdmin();
+  await requireAdmin("commerce.customers");
   const { id } = await params;
   const customer = await prisma.customer.findUnique({
     where: { id },

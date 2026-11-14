@@ -6,7 +6,7 @@ import { requireAdmin } from "@/lib/auth";
 export const dynamic = "force-dynamic";
 
 export default async function NewPromotionPage() {
-  await requireAdmin();
+  await requireAdmin("commerce.promotions");
   const options = await loadPromotionFormOptions();
   return (
     <div>

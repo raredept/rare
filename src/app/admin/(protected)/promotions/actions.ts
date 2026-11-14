@@ -58,7 +58,7 @@ function promotionData(input: PromotionInput) {
 }
 
 export async function savePromotionAction(_state: PromotionFormState, formData: FormData): Promise<PromotionFormState> {
-  const admin = await requireAdmin();
+  const admin = await requireAdmin("commerce.promotions");
   const now = new Date();
   const promotionId = readId(formData);
   const existing = promotionId
@@ -127,7 +127,7 @@ const transitions: Record<"activate" | "pause" | "end", { from: PromotionStatus[
 };
 
 export async function changePromotionStatusAction(formData: FormData) {
-  const admin = await requireAdmin();
+  const admin = await requireAdmin("commerce.promotions");
   const promotionId = readId(formData);
   const intent = formData.get("intent");
   if (!promotionId || (intent !== "activate" && intent !== "pause" && intent !== "end")) {
@@ -163,7 +163,7 @@ export async function changePromotionStatusAction(formData: FormData) {
 }
 
 export async function duplicatePromotionAction(formData: FormData) {
-  const admin = await requireAdmin();
+  const admin = await requireAdmin("commerce.promotions");
   const promotionId = readId(formData);
   const source = promotionId
     ? await prisma.promotion.findUnique({ where: { id: promotionId }, include: { products: { select: { productId: true } }, categories: { select: { categoryId: true } } } })

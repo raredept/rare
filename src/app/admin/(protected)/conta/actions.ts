@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 export type RegenerateCodesState = { error?: string; recoveryCodes?: string[] };
 
 export async function regenerateRecoveryCodesAction(_state: RegenerateCodesState, formData: FormData): Promise<RegenerateCodesState> {
-  const admin = await requireAdmin();
+  const admin = await requireAdmin("self.account");
   if (!(await checkMfaRateLimit(admin.id))) return { error: "Muitas tentativas. Aguarde alguns minutos." };
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: admin.id },

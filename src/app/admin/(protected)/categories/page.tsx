@@ -16,7 +16,7 @@ type CategoriesPageProps = {
 export default async function CategoriesPage({ searchParams }: CategoriesPageProps) {
   // Checked here, not only in the layout: layouts do not re-render on client
   // navigation, so every page verifies the session next to its data.
-  await requireAdmin();
+  await requireAdmin("commerce.catalog");
   const filters = (await searchParams) ?? {};
   const categories = await prisma.category.findMany({
     include: {
