@@ -1,6 +1,7 @@
 import { Suspense, type ReactNode } from "react";
 import { CartProvider } from "@/components/store/cart-context";
 import { CartDrawer } from "@/components/store/cart-drawer";
+import { CookieConsent } from "@/components/store/cookie-consent";
 import { SiteAnalytics } from "@/components/store/site-analytics";
 import { StoreFooter } from "@/components/store/footer";
 import { StoreHeader } from "@/components/store/header";
@@ -19,6 +20,7 @@ export default async function StoreLayout({ children }: { children: ReactNode })
     <CartProvider>
       <div className="storefront-motion-root flex min-h-screen flex-col bg-neutral-50">
         <a href="#store-main" className="store-skip-link">Pular para o conteúdo</a>
+        <CookieConsent />
         <SiteAnalytics />
         <Suspense fallback={null}>
           <RouteProgress />

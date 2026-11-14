@@ -6,6 +6,7 @@ const pages = [
   { path: "/contato", load: () => import("@/app/(store)/contato/page"), title: "Contato" },
   { path: "/politica-de-envio", load: () => import("@/app/(store)/politica-de-envio/page"), title: "Política de envio" },
   { path: "/privacidade-e-termos", load: () => import("@/app/(store)/privacidade-e-termos/page"), title: "Privacidade e termos" },
+  { path: "/politica-de-cookies", load: () => import("@/app/(store)/politica-de-cookies/page"), title: "Política de cookies" },
   { path: "/trocas-e-devolucoes", load: () => import("@/app/(store)/trocas-e-devolucoes/page"), title: "Trocas e Devoluções" },
 ] as const;
 
