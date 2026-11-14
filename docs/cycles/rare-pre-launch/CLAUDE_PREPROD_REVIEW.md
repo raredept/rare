@@ -105,11 +105,26 @@ lab E2E (Disponível → Vendida → Inconsistente, dashboard e prontidão).
 
 ## 9. Asaas
 
-**NÃO revalidado neste ciclo — BLOQUEADO.**
+**Staging real em `f9f0cc6` (Sandbox), 2026-11-14, pelo Chrome do operador.** Código de pagamento
+não mudou neste ciclo; regressão local: `qa:bf-asaas` 8/8 e `qa:checkout-concurrency` 13/13.
 
-- Código Asaas não mudou neste ciclo (nenhum arquivo de pagamento alterado). Regressão local: `qa:bf-asaas` 8/8 (Pix/vínculo de cliente/valor/duplicado/fora de ordem/divergência/expiração/refund sem reposição, transporte simulado) e `qa:checkout-concurrency` 12/12; lab: checkout/Pix/pedido/webhook (token, duplicado, malformado, limite de bytes) PASS e provedores desconhecido/Stripe fecham.
-- Staging real: o runner com contas QA foi negado pelo classificador; pelo Chrome do usuário há sessão Admin, mas **não há sessão de cliente** no staging, então nenhum Pix novo foi criado nesta sessão.
-- Cartão Sandbox, retorno à RARE e conclusão do refund (`AWAITING_CRITICAL_ACTION_AUTHORIZATION`): **MANUAL** — reCAPTCHA e autorização de ação crítica são do titular da conta; não contornados. O navegador "SkyLab" conectado pelo usuário tem sessão no painel Sandbox; nenhuma ação foi feita nele.
+| Fluxo | Evidência | Resultado |
+|---|---|---|
+| Refund antigo (`RARE-20261113-2XSVOT`, R$ 170) | Asaas: estorno "Concluído" (13/11 17:25); RARE: "Reembolsado", 1 solicitação | PASS (autorização crítica já dada) |
+| Pix novo (`RARE-20261114-NNXGEW`) | Cliente QA sintético criado no staging; R$ 25 + frete fixo QA R$ 20 − RARE10 R$ 2,50 = **R$ 42,50** no servidor e na cobrança Asaas; cliente Asaas = "Cliente QA Pre-Launch 02"; "Confirmar pagamento" (ação de Sandbox) → webhook → pedido **Pago** | PASS |
+| Analytics do servidor | Mesmo pedido: 1 checkout, 1 pagamento iniciado, 1 compra confirmada, top vendidos — com analytics comportamental recusado no navegador | PASS |
+| Refund Pix pelo Admin | "ESTORNAR" uma vez (13:40:13) → Asaas "Aguardando autorização crítica" → **operador autorizou** → Asaas "Concluído R$ −42,50" (1 linha) → RARE **Reembolsado** via webhook | PASS |
+| Cartão (`RARE-20261114-YSTPER`, R$ 42,50) | Redireciona para a fatura hospedada Asaas; **operador** preencheu o cartão de teste e resolveu o reCAPTCHA (não contornado); fatura "Pago com cartão" → webhook → pedido **Pago** (método card); cliente vê "Pago · Cartão" | PASS |
+| Retorno à RARE após o cartão | `ASAAS_SUCCESS_REDIRECT` não ligado no staging (M-11, opcional, exige domínio cadastrado no Asaas); a fatura não redireciona; o cliente volta à loja e vê o pedido pago | MANUAL (M-11) |
+| Refund cartão pelo Admin | "ESTORNAR" uma vez (13:45:44) → Asaas "Concluído R$ 42,50" sem autorização crítica (1 linha) → RARE **Reembolsado** | PASS |
+| Estoque | Vendas baixaram o estoque; estornos não repõem (by design); prontidão "Estoque integro" depois de tudo | PASS |
+
+Observação de negócio: com o único pedido pago estornado, o cliente volta a ver o cupom RARE10 de
+primeira compra (o código conta só pedidos pagos). Confirmar se é a regra desejada.
+Não exercitados no staging nesta sessão: fora de ordem, divergência de valor, expiração e corrida de
+estoque (cobertos no ciclo anterior e nos QAs locais).
+Fixtures deixadas no staging: cliente QA "Cliente QA Pre-Launch 02" (e-mail `@homologacao.rare.invalid`,
+senha aleatória nunca exibida), endereço sintético e os dois pedidos reembolsados.
 
 ## 10. Testes e gates
 
@@ -148,7 +163,7 @@ lab E2E (Disponível → Vendida → Inconsistente, dashboard e prontidão).
 - Migração das contas `ADMIN` reais para SYSTEM/SELLER (RBAC.md).
 - Search Console (SEO.md).
 - Runner automatizado no staging (permissão), Firefox/WebKit e papéis SYSTEM/SELLER no staging real, e o teste de 8 telas no WebKit (tempo).
-- Asaas Sandbox: cartão (reCAPTCHA), retorno, autorização do refund pendente.
+- Asaas: retorno automático à loja após o cartão (M-11, opcional). Cliente QA sintético a desativar no staging quando não for mais útil.
 - Atualizar a descrição do PR #2 (não editada por esta sessão).
 
 ## 13. Riscos
