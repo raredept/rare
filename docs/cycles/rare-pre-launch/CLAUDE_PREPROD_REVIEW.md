@@ -115,7 +115,7 @@ não mudou neste ciclo; regressão local: `qa:bf-asaas` 8/8 e `qa:checkout-concu
 | Analytics do servidor | Mesmo pedido: 1 checkout, 1 pagamento iniciado, 1 compra confirmada, top vendidos — com analytics comportamental recusado no navegador | PASS |
 | Refund Pix pelo Admin | "ESTORNAR" uma vez (13:40:13) → Asaas "Aguardando autorização crítica" → **operador autorizou** → Asaas "Concluído R$ −42,50" (1 linha) → RARE **Reembolsado** via webhook | PASS |
 | Cartão (`RARE-20261114-YSTPER`, R$ 42,50) | Redireciona para a fatura hospedada Asaas; **operador** preencheu o cartão de teste e resolveu o reCAPTCHA (não contornado); fatura "Pago com cartão" → webhook → pedido **Pago** (método card); cliente vê "Pago · Cartão" | PASS |
-| Retorno à RARE após o cartão | `ASAAS_SUCCESS_REDIRECT` não ligado no staging (M-11, opcional, exige domínio cadastrado no Asaas); a fatura não redireciona; o cliente volta à loja e vê o pedido pago | MANUAL (M-11) |
+| Retorno à RARE após o cartão | Na época, `ASAAS_SUCCESS_REDIRECT` não estava ligado. **Resolvido no §16.5** (`RARE-20261114-BYCPRK`) | PASS (§16.5) |
 | Refund cartão pelo Admin | "ESTORNAR" uma vez (13:45:44) → Asaas "Concluído R$ 42,50" sem autorização crítica (1 linha) → RARE **Reembolsado** | PASS |
 | Estoque | Vendas baixaram o estoque; estornos não repõem (by design); prontidão "Estoque integro" depois de tudo | PASS |
 
@@ -196,6 +196,8 @@ INDEPENDENT_REVIEW_REQUIRED = YES · PR DRAFT · MERGE READY = NO · PRODUCTION 
 ### 16.1 Commits
 
 ```
+743c666 test(rbac): validate system and seller roles in staging
+4662719 docs(prelaunch): record the RARE-PRE-LAUNCH-04 staging evidence
 50d3a01 test(prelaunch): close the Firefox and WebKit matrix on real staging
 a7c6c64 feat(admin): deactivate a customer account without deleting its history
 9133ef6 fix(payments): return hosted Asaas checkout to the order without trusting the redirect
@@ -272,11 +274,35 @@ por esta sessão. Subdomínio `mail.` não existe e não foi necessário.
 
 Código pronto desde CYCLE-03: `callback.successUrl = /minha-conta/pedidos/<id>`, `autoRedirect: true`
 quando `ASAAS_SUCCESS_REDIRECT=true`. A página é só leitura, escopada ao cliente, e agora avisa que a
-confirmação pode levar instantes (só webhook/reconciliação marca pago). **Staging: não ligado.** O
-Asaas exige o domínio do `successUrl` no campo "Site" da conta; ao tentar salvar só esse campo, o
-Asaas exigiu "produto que vende", "regime tributário" e "faturamento mensal" (dados do titular, não
-inventados) e avisa que alterar dados comerciais pode reabrir análise e apagar chaves Pix. Edição
-descartada; nada salvo. → MANUAL.
+confirmação pode levar instantes (só webhook/reconciliação marca pago).
+
+O Asaas exige o domínio do `successUrl` no campo "Site" da conta, e salvar esse campo pede dados do
+titular ("produto que vende", "regime tributário", "faturamento mensal"). Esta sessão não inventou
+esses dados: **o usuário preencheu e salvou a conta Sandbox**. Depois disso, a sessão conferiu Site =
+`https://rare-staging-staging.up.railway.app` e cadastro "Aprovado", e ligou
+`ASAAS_SUCCESS_REDIRECT=true` **só no `rare-staging`** (`ASAAS_ENV=sandbox`). O redeploy terminou com
+SUCCESS em `743c666`.
+
+**Staging real (SkyLab, 2026-11-14 ~18:00 BRT), `RARE-20261114-BYCPRK`:**
+- **Pedido:** cliente QA sintético novo "Cliente QA Pre-Launch 04" (e-mail `.invalid`, senha aleatória
+  nunca exibida), endereço sintético, cartão. Total: R$ 25 + frete fixo R$ 20 − RARE10 R$ 2,50 = **R$ 42,50**.
+- **Estoque do produto sintético:** antes 94 disponíveis / 0 reservados / 4 vendidos; com a fatura
+  aberta 93 / **1** / 4.
+- **Pagamento:** o **usuário** preencheu o cartão de teste e resolveu o reCAPTCHA, sem contorno.
+- **Retorno automático:** a aba saiu de `sandbox.asaas.com` (referrer) direto para
+  `/minha-conta/pedidos/<id>` do próprio cliente: "Pago · Cartão", R$ 42,50.
+- **Ordem nos logs HTTP do `rare-staging`:** `POST /api/asaas/webhook` 200 às 21:01:20.57Z, **antes** do
+  `GET /minha-conta/pedidos/<id>` 200 às 21:01:23.09Z. A página de retorno não grava nada (só leitura),
+  então o "Pago" veio do webhook, não do redirect.
+- **E-mail:** o worker tentou o `payment_approved` (21:01:28Z) e recusou com
+  `EmailRecipientNotAllowlisted`, porque o cliente `.invalid` não está na allowlist do modo `test`
+  (correto).
+- **Estoque depois:** 93 / **0** / **5**; a reserva foi consumida pela venda.
+
+Não exercitado no staging: o aviso "a confirmação pode levar alguns instantes" (`awaiting_payment`),
+porque o webhook chegou antes do retorno. O aviso tem cobertura de teste unitário.
+Fixtures: cliente "Cliente QA Pre-Launch 04", o endereço sintético e o pedido pago (não estornado),
+mantidos como evidência.
 
 ### 16.6 RBAC
 
@@ -322,10 +348,20 @@ tsc 0 · ESLint 0 · Vitest 188 arquivos / 1977 testes · `qa:support-coupon` 8/
 | # | Ação | Desbloqueia |
 |---|---|---|
 | 1 | ~~Resend no staging~~ **FEITO** pelo usuário; allowlist completada nesta sessão. Em produção: chave própria, `EMAIL_DELIVERY_MODE` de produção e caixa `@raredept.com.br` | — |
-| 2 | Asaas Sandbox → Minha Conta → Informações: preencher os dados exigidos e o Site `https://rare-staging-staging.up.railway.app`; depois `ASAAS_SUCCESS_REDIRECT=true` no `rare-staging` | retorno automático após o cartão |
+| 2 | ~~Asaas Sandbox: Site + dados do titular~~ **FEITO** pelo usuário; `ASAAS_SUCCESS_REDIRECT=true` ligado no `rare-staging`; retorno provado (§16.5). Em produção: Site `https://raredept.com.br` na conta Asaas de produção antes de ligar a flag lá | — |
 | 3 | ~~Contas QA SYSTEM/SELLER~~ **FEITO**; RBAC real provado. Admin responsivo em Firefox/WebKit no staging real segue só no lab | — |
 | 4 | Atribuir papel às 16 contas `ADMIN` legadas do staging (ou desativar as QA antigas); idem em produção antes do go-live | fim do acesso total legado |
 
 ### 16.11 Veredito desta sessão
 
-STAGING = **PARTIAL**: suporte persistente, e-mail real pelo Resend, RARE10, RBAC real (UI, URL, API e Server Action), matriz Firefox/WebKit e CI/SHA provados. Falta o **retorno automático do Asaas** (§16.10 item 2). O Admin responsivo em Firefox/WebKit no staging real também não foi rodado. MERGE READY = NO · PRODUCTION READY = NO · revisão independente obrigatória.
+STAGING = **PASS** (escopo do RARE-PRE-LAUNCH-04). Provados no staging real:
+- suporte persistente e e-mail real pelo Resend;
+- RARE10;
+- RBAC real (UI, URL, API e Server Action);
+- matriz Firefox/WebKit dos specs públicos;
+- **retorno automático do Asaas, com "Pago" só via webhook e estoque coerente**;
+- CI/SHA.
+
+Ressalva para o revisor: o Admin responsivo/teclado em Firefox/WebKit tem prova só no lab, não no
+staging real. MERGE READY = NO · PRODUCTION READY = NO · revisão independente obrigatória.
+INDEPENDENT_CLAUDE_REVIEW ainda não deu GO, então o clean slate de produção segue bloqueado.
