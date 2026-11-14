@@ -31,6 +31,7 @@ describe("robots metadata route", () => {
     for (const env of [
       { NODE_ENV: "development", APP_URL: "http://localhost:3000" },
       { NODE_ENV: "production", APP_URL: "https://rare-preview.up.railway.app" },
+      { NODE_ENV: "production", APP_ENV: "staging", APP_URL: "https://raredept.com.br" },
     ]) {
       const result = buildRobots(env);
       const rules = Array.isArray(result.rules) ? result.rules[0] : result.rules;
