@@ -631,3 +631,24 @@ model AsaasWebhookEvent {
   @@index([paymentId])
   @@index([receivedAt])
 }
+
+/// Storefront analytics event. Behavioural rows exist only for visitors who accepted analytics.
+/// No IP, no user agent, no customer, name, e-mail, CPF or phone: visitorHash / sessionHash are keyed
+/// hashes of random browser ids, and path is a pathname without query string. Checkout, payment and
+/// purchase figures are not stored here: the dashboard reads them from the orders.
+model SiteAnalyticsEvent {
+  id          String   @id @default(cuid())
+  /// Allowlisted in src/lib/site-analytics-events.ts.
+  type        String
+  visitorHash String
+  sessionHash String
+  path        String
+  /// No foreign key: an event outlives a deleted product.
+  productId   String?
+  /// mobile | tablet | desktop — a coarse class, never the user agent.
+  device      String
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt, type])
+  @@index([type, productId, createdAt])
+}

@@ -8,6 +8,7 @@ import { useCart, useCartDrawer } from "@/components/store/cart-context";
 import { ProductMedia } from "@/components/store/product-media";
 import { ProductMediaPlaceholder } from "@/components/store/product-media-placeholder";
 import { formatMoney } from "@/lib/money";
+import { trackAnalyticsEvent } from "@/lib/site-analytics-client";
 import {
   getPreferredProductCardMedia,
   getProductMediaLabel,
@@ -242,6 +243,11 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
     setZoomImageIndex(null);
     window.setTimeout(() => zoomTriggerRef.current?.focus(), 0);
   }, []);
+
+  // No-op without analytics consent.
+  useEffect(() => {
+    trackAnalyticsEvent("product_view", { productId: product.id });
+  }, [product.id]);
 
   useEffect(() => {
     if (zoomImageIndex === null) return;

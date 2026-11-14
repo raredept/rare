@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { trackAnalyticsEvent } from "@/lib/site-analytics-client";
 
 export type CartItem = {
   productId: string;
@@ -103,6 +104,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const subtotalInCents = useMemo(() => items.reduce((sum, item) => sum + item.priceInCents * item.quantity, 0), [items]);
 
   const addItem = useCallback((newItem: CartItem) => {
+    // No-op without analytics consent.
+    trackAnalyticsEvent("add_to_cart", { productId: newItem.productId });
     setItems((current) => {
       const safeItem = {
         ...newItem,

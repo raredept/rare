@@ -51,6 +51,7 @@ export function ProductCard({ product, commerce, priority = false, headingLevel 
     <article className="group h-full min-w-0">
       <Link
         href={`/produto/${product.slug}`}
+        data-analytics-product={product.id}
         className={`store-product-card flex h-full cursor-pointer flex-col border-b border-neutral-200 bg-transparent pb-4 hover:border-neutral-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 ${styles.card}`}
       >
         <div className="relative aspect-[4/5] overflow-hidden rounded-lg bg-neutral-100">

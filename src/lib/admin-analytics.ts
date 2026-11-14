@@ -111,7 +111,7 @@ function commercialDayExpression(column: Prisma.Sql) {
 }
 
 /** Midnight of a commercial day, expressed the way the column stores it (naive UTC). */
-function commercialDayBoundary(day: string, dayOffset: number) {
+export function commercialDayBoundary(day: string, dayOffset: number) {
   // Both parameters are cast explicitly: Postgres cannot resolve `date + $n`
   // when the parameter arrives untyped.
   return Prisma.sql`(((${day}::date + ${dayOffset}::int)::timestamp AT TIME ZONE ${ANALYTICS_TIME_ZONE}) AT TIME ZONE 'UTC')`;
@@ -126,7 +126,7 @@ function paidInPeriod(fromDay: string, toDay: string) {
   `;
 }
 
-function toNumber(value: unknown) {
+export function toNumber(value: unknown) {
   if (typeof value === "bigint") return Number(value);
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
   if (typeof value === "string") {

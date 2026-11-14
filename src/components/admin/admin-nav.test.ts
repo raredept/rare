@@ -19,6 +19,8 @@ const sellerPermissions = getAdminPermissions("SELLER_ADMIN");
 
 const commerceHrefs = ["/admin", "/admin/analytics", "/admin/orders", "/admin/customers", "/admin/notifications", "/admin/products", "/admin/promotions", "/admin/categories", "/admin/banners"];
 const systemHrefs = ["/admin/users", "/admin/readiness", "/admin/settings", "/admin/security"];
+/** analytics.site: both scoped roles. */
+const sharedHrefs = ["/admin/analytics/site", "/admin/conta"];
 
 describe("Admin navigation", () => {
   it("lists every section for the legacy full-access role", () => {
@@ -34,7 +36,7 @@ describe("Admin navigation", () => {
   it("shows only system areas to SYSTEM_ADMIN", () => {
     navigation.pathname = "/admin/users";
     const html = renderToStaticMarkup(createElement(AdminNav, { permissions: systemPermissions }));
-    for (const href of [...systemHrefs, "/admin/conta"]) expect(html).toContain(`href="${href}"`);
+    for (const href of [...systemHrefs, ...sharedHrefs]) expect(html).toContain(`href="${href}"`);
     for (const href of commerceHrefs) expect(html).not.toContain(`href="${href}"`);
     expect(html).not.toContain(">Catálogo<");
   });
@@ -42,9 +44,16 @@ describe("Admin navigation", () => {
   it("hides readiness, security, users and settings from SELLER_ADMIN", () => {
     navigation.pathname = "/admin";
     const html = renderToStaticMarkup(createElement(AdminNav, { permissions: sellerPermissions }));
-    for (const href of [...commerceHrefs, "/admin/conta"]) expect(html).toContain(`href="${href}"`);
+    for (const href of [...commerceHrefs, ...sharedHrefs]) expect(html).toContain(`href="${href}"`);
     for (const href of systemHrefs) expect(html).not.toContain(`href="${href}"`);
     expect(html).not.toContain(">Sistema<");
+  });
+
+  it("marks only the most specific item as the current page", () => {
+    navigation.pathname = "/admin/analytics/site";
+    const html = renderToStaticMarkup(createElement(AdminNav, { permissions: legacyPermissions }));
+    expect(html.match(/aria-current="page"/g)).toHaveLength(1);
+    expect(html).toMatch(/href="\/admin\/analytics\/site"[^>]*aria-current="page"/);
   });
 
   it("renders nothing navigable without permissions", () => {

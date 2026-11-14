@@ -1,11 +1,6 @@
 import Link from "next/link";
 import { getAnalyticsOverview, getPromotionAnalytics, LOW_STOCK_THRESHOLD } from "@/lib/admin-analytics";
-import {
-  ANALYTICS_PERIOD_PRESETS,
-  formatDayRangeLabel,
-  resolveAnalyticsPeriod,
-  type AnalyticsPeriodPreset,
-} from "@/lib/analytics-period";
+import { formatDayRangeLabel, resolveAnalyticsPeriod } from "@/lib/analytics-period";
 import {
   ChartCard,
   ChartEmptyState,
@@ -15,6 +10,7 @@ import {
   type MagnitudeRow,
 } from "@/components/admin/analytics-charts";
 import { KpiTile } from "@/components/admin/analytics-kpi";
+import { AnalyticsPeriodFilter } from "@/components/admin/analytics-period-filter";
 import { formatMoney } from "@/lib/money";
 import { formatOrderStatus } from "@/lib/order-display";
 import { requireAdmin } from "@/lib/auth";
@@ -23,14 +19,6 @@ export const dynamic = "force-dynamic";
 
 type AnalyticsPageProps = {
   searchParams: Promise<{ period?: string; from?: string; to?: string }>;
-};
-
-const presetLabels: Record<AnalyticsPeriodPreset, string> = {
-  today: "Hoje",
-  "7d": "7 dias",
-  "30d": "30 dias",
-  "90d": "90 dias",
-  custom: "Personalizado",
 };
 
 function formatInteger(value: number) {
@@ -82,7 +70,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         </p>
       </div>
 
-      <PeriodFilter period={period} />
+      <AnalyticsPeriodFilter period={period} basePath="/admin/analytics" />
 
       <section aria-labelledby="analytics-sales" className="mt-6">
         <h2 id="analytics-sales" className="sr-only">
@@ -293,47 +281,6 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         carrinhos abandonados e funil não são exibidos: seriam números inventados.
       </p>
     </div>
-  );
-}
-
-function PeriodFilter({ period }: { period: ReturnType<typeof resolveAnalyticsPeriod> }) {
-  return (
-    <form className="mt-6 rounded-lg border border-neutral-200 bg-white p-4" role="search">
-      <fieldset>
-        <legend className="text-[11px] font-black uppercase tracking-wide text-neutral-500">Período</legend>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {ANALYTICS_PERIOD_PRESETS.filter((preset) => preset !== "custom").map((preset) => (
-            <Link
-              key={preset}
-              href={`/admin/analytics?period=${preset}`}
-              aria-current={period.preset === preset ? "page" : undefined}
-              className={`rounded-full border px-3 py-2 text-xs font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${
-                period.preset === preset
-                  ? "border-neutral-950 bg-black text-white"
-                  : "border-neutral-300 text-neutral-700 hover:border-neutral-950 hover:text-neutral-950"
-              }`}
-            >
-              {presetLabels[preset]}
-            </Link>
-          ))}
-        </div>
-
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-          <input type="hidden" name="period" value="custom" />
-          <label className="flex-1 text-xs font-black uppercase tracking-wide text-neutral-500">
-            De
-            <input type="date" name="from" defaultValue={period.fromDay} className="admin-input mt-1" max={period.toDay} />
-          </label>
-          <label className="flex-1 text-xs font-black uppercase tracking-wide text-neutral-500">
-            Até
-            <input type="date" name="to" defaultValue={period.toDay} className="admin-input mt-1" />
-          </label>
-          <button type="submit" className="h-[42px] rounded-lg bg-black px-4 text-sm font-black text-white">
-            Aplicar
-          </button>
-        </div>
-      </fieldset>
-    </form>
   );
 }
 

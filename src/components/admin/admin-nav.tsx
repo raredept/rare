@@ -10,6 +10,7 @@ import {
   FolderTree,
   Image,
   LayoutDashboard,
+  MousePointerClick,
   PackageCheck,
   Settings,
   ShieldCheck,
@@ -34,6 +35,7 @@ const navSections: Array<{ label: string; items: NavItem[] }> = [
     items: [
       { href: "/admin", label: "Visão geral", icon: LayoutDashboard, permission: "commerce.dashboard" },
       { href: "/admin/analytics", label: "Analytics", icon: ChartNoAxesCombined, permission: "analytics.sales" },
+      { href: "/admin/analytics/site", label: "Analytics do site", icon: MousePointerClick, permission: "analytics.site" },
       { href: "/admin/orders", label: "Pedidos", icon: PackageCheck, permission: "commerce.orders" },
       { href: "/admin/customers", label: "Clientes", icon: Users, permission: "commerce.customers" },
       { href: "/admin/notifications", label: "Notificações", icon: Bell, permission: "commerce.notifications" },
@@ -63,9 +65,17 @@ const navSections: Array<{ label: string; items: NavItem[] }> = [
   },
 ];
 
-function isActivePath(pathname: string, href: string) {
+function matchesPath(pathname: string, href: string) {
   if (href === "/admin") return pathname === href;
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+const allHrefs = navSections.flatMap((section) => section.items.map((item) => item.href));
+
+/** The most specific item wins: /admin/analytics/site is not also "Analytics". */
+function isActivePath(pathname: string, href: string) {
+  if (!matchesPath(pathname, href)) return false;
+  return !allHrefs.some((other) => other.length > href.length && other.startsWith(`${href}/`) && matchesPath(pathname, other));
 }
 
 /** Mirrors the server guards so nobody is offered a link that ends on the access-denied page. */

@@ -2,6 +2,7 @@
 // or its pages fall back to the generic "Admin" title.
 
 const routeLabels = [
+  { path: "/admin/analytics/site", label: "Analytics do site" },
   { path: "/admin/analytics", label: "Analytics" },
   { path: "/admin/products/new", label: "Novo produto" },
   { path: "/admin/products", label: "Produtos" },

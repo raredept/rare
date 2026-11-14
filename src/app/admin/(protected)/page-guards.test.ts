@@ -16,6 +16,8 @@ const root = path.join(process.cwd(), "src/app/admin/(protected)");
 const MODULE_PERMISSIONS: Record<string, (typeof ADMIN_PERMISSIONS)[number]> = {
   "": "self.account",
   analytics: "analytics.sales",
+  // Nested area with its own permission (SYSTEM_ADMIN and SELLER_ADMIN).
+  "analytics/site": "analytics.site",
   banners: "commerce.catalog",
   categories: "commerce.catalog",
   conta: "self.account",
@@ -41,6 +43,7 @@ function walk(dir: string, fileName: string): string[] {
 
 function moduleOf(file: string) {
   const parts = path.relative(root, file).split(path.sep);
+  if (parts.length > 2 && `${parts[0]}/${parts[1]}` in MODULE_PERMISSIONS) return `${parts[0]}/${parts[1]}`;
   return parts.length > 1 ? parts[0] : "";
 }
 
