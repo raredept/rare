@@ -25,7 +25,7 @@ import { checkoutRequestSchema } from "@/lib/validators";
 import { makeOrderNumber } from "@/lib/slug";
 import { canTransitionManually, invalidOrderTransitionMessage, releasableReservationStatuses, shouldReleaseReservationOnStatusChange } from "@/lib/order-status";
 import { notifyAdminsOfPaidOrder } from "@/lib/admin-notifications";
-import { getFirstOrderCouponDiscount, paidOrderStatuses } from "@/lib/coupons";
+import { firstOrderCouponConsumedWhere, getFirstOrderCouponDiscount, paidOrderStatuses } from "@/lib/coupons";
 import { priceProduct } from "@/lib/promotions/engine";
 import { loadApplicablePromotionRules } from "@/lib/promotions/store";
 import { enqueueOrderShippedEmail, enqueuePaidOrderEmail } from "@/lib/email-outbox";
@@ -517,13 +517,9 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
     ? await ensureAsaasCustomer(asaasConfig, { ...checkoutCustomer, cpf: checkoutCustomer.cpf as string })
     : null;
 
+  // Any order whose payment was ever confirmed consumes the first-order coupon, refunded or not.
   const paidOrderCount = parsed.couponCode
-    ? await prisma.order.count({
-        where: {
-          customerId: checkoutCustomer.id,
-          status: { in: [...paidOrderStatuses] },
-        },
-      })
+    ? await prisma.order.count({ where: firstOrderCouponConsumedWhere(checkoutCustomer.id) })
     : 0;
 
   const customerAddresses: CustomerAddressForCheckout[] = await prisma.customerAddress.findMany({

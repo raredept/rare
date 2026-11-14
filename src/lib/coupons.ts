@@ -3,6 +3,19 @@ export const FIRST_ORDER_COUPON_PERCENT = 10;
 
 export const paidOrderStatuses = ["paid", "processing", "shipped", "delivered"] as const;
 
+/**
+ * The first-order benefit is consumed by the first order whose payment was confirmed, and stays
+ * consumed: a later refund, cancellation or chargeback does not give it back (no coupon -> buy ->
+ * refund -> coupon loop). `paidAt` is stamped once when the provider confirms the payment and is
+ * never cleared, so it is the durable, auditable marker. Orders that were never paid (pending,
+ * awaiting payment, expired, failed, canceled before payment) have no `paidAt` and consume nothing.
+ */
+export function firstOrderCouponConsumedWhere(customerId: string) {
+  // The status branch only covers legacy rows paid before `paidAt` existed; a refund moves the
+  // status away from it, which is why `paidAt` is the rule.
+  return { customerId, OR: [{ paidAt: { not: null } }, { status: { in: [...paidOrderStatuses] } }] };
+}
+
 export function normalizeCouponCode(value: string | null | undefined) {
   const normalized = value?.trim().toUpperCase();
   return normalized || null;
