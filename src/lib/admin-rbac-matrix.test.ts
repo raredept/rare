@@ -177,6 +177,7 @@ describe("RBAC matrix: surfaces", () => {
     ["src/app/admin/(protected)/banners/actions.ts", "commerce.catalog"],
     ["src/app/admin/(protected)/notifications/actions.ts", "commerce.notifications"],
     ["src/app/admin/(protected)/support/actions.ts", "commerce.support"],
+    ["src/app/admin/(protected)/customers/actions.ts", "commerce.customers"],
     ["src/app/admin/(protected)/users/actions.ts", "system.users"],
     ["src/app/admin/(protected)/settings/actions.ts", "system.settings"],
     ["src/app/admin/(protected)/readiness/actions.ts", "system.readiness"],

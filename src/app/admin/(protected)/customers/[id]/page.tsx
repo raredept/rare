@@ -5,6 +5,8 @@ import { formatOrderStatus, isPaidRevenueStatus } from "@/lib/order-display";
 import { maskCpf } from "@/lib/privacy";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
+import { setCustomerActiveAction } from "@/app/admin/(protected)/customers/actions";
+import { AdminSubmitButton } from "@/components/admin/admin-submit-button";
 
 export const dynamic = "force-dynamic";
 
@@ -70,9 +72,20 @@ export default async function AdminCustomerDetailPage({ params }: CustomerDetail
           <h1 className="text-2xl font-black text-neutral-950">{customer.name}</h1>
           <p className="mt-1 text-sm font-semibold text-neutral-600">{customer.email}</p>
         </div>
-        <Link href="/admin/customers" className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-black">
-          Voltar
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <form action={setCustomerActiveAction}>
+            <input type="hidden" name="customerId" value={customer.id} />
+            <input type="hidden" name="active" value={customer.active ? "false" : "true"} />
+            <AdminSubmitButton
+              idleLabel={customer.active ? "Desativar conta" : "Reativar conta"}
+              pendingLabel="Salvando..."
+              className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-black hover:bg-neutral-950 hover:text-white"
+            />
+          </form>
+          <Link href="/admin/customers" className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-black">
+            Voltar
+          </Link>
+        </div>
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-4">

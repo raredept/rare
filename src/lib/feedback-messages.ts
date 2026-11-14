@@ -25,6 +25,7 @@ export const CATEGORY_SLUG_TAKEN_CODE = "category-slug-taken";
 
 const adminErrorCodes = new Map([
   ["support-invalid", "Solicitação de suporte inválida."],
+  ["customer-invalid", "Cliente inválido."],
   ["product-save-failed", "Não foi possível salvar o produto."],
   ["category-save-failed", "Não foi possível salvar a categoria."],
   [CATEGORY_SLUG_TAKEN_CODE, "Já existe uma categoria com este slug. Escolha outro slug e salve novamente."],
@@ -49,6 +50,8 @@ const adminErrorCodes = new Map([
 
 const adminSuccessCodes = new Map([
   ["support-retried", "Envio da solicitação recolocado na fila."],
+  ["customer-deactivated", "Conta do cliente desativada. Pedidos e histórico foram mantidos."],
+  ["customer-reactivated", "Conta do cliente reativada."],
   ["support-unchanged", "Nada a reenviar: a solicitação não está com falha."],
   ["product-created", "Produto criado com sucesso."],
   ["product-saved", "Produto salvo com sucesso."],
