@@ -130,7 +130,9 @@ async function main() {
   writeFileSync(sensitiveFile, "");
 
   // Long actor labels must also fit the promotion history at 320 px (real staging regression).
-  const admins = Object.fromEntries(["A", "B", "C", "D"].map((key) => [key, { login: `qa-mfa-${key.toLowerCase()}.${runId}@homologacao.rare.invalid`, password: `Qa${key}${secret(12)}9z` }]));
+  // A-D: legacy ADMIN (MFA specs). E: SYSTEM_ADMIN and F: SELLER_ADMIN (RBAC per role).
+  const adminRoles: Record<string, "ADMIN" | "SYSTEM_ADMIN" | "SELLER_ADMIN"> = { A: "ADMIN", B: "ADMIN", C: "ADMIN", D: "ADMIN", E: "SYSTEM_ADMIN", F: "SELLER_ADMIN" };
+  const admins = Object.fromEntries(Object.keys(adminRoles).map((key) => [key, { login: `qa-mfa-${key.toLowerCase()}.${runId}@homologacao.rare.invalid`, password: `Qa${key}${secret(12)}9z` }]));
   const customer = { email: `qa.cliente.${runId}@homologacao.rare.invalid`, password: `QaCliente${secret(10)}7x`, cpf: syntheticCpf() };
   const labSecrets = {
     ADMIN_SESSION_SECRET: secret(48),
@@ -163,7 +165,9 @@ async function main() {
       const win = await db.query(`SELECT p.id, p.slug, p.title FROM "Product" p JOIN "ProductImage" i ON i."productId" = p.id WHERE i.url = '/seed-products/calca-high-strapped.svg' LIMIT 1`);
       assert(bf.rows[0] && win.rows[0], "Seed products not found.");
       await db.query(`UPDATE "Product" SET "priceInCents" = 20000, active = true WHERE id = $1`, [bf.rows[0].id]);
-      await db.query(`UPDATE "ProductVariant" SET stock = CASE WHEN size = 'M' THEN 1 ELSE 0 END, "reservedStock" = 0, active = true WHERE "productId" = $1`, [bf.rows[0].id]);
+      // M: 1 unit for sale plus the 1 unit the synthetic Pix order (awaiting payment) holds, so the
+      // inventory integrity audit sees reservations that match the open orders.
+      await db.query(`UPDATE "ProductVariant" SET stock = CASE WHEN size = 'M' THEN 2 ELSE 0 END, "reservedStock" = CASE WHEN size = 'M' THEN 1 ELSE 0 END, active = true WHERE "productId" = $1`, [bf.rows[0].id]);
       const variant = await db.query(`SELECT id FROM "ProductVariant" WHERE "productId" = $1 AND size = 'M'`, [bf.rows[0].id]);
       Object.assign(fixture, {
         QA_BF_PRODUCT_ID: bf.rows[0].id, QA_BF_PRODUCT_SLUG: bf.rows[0].slug, QA_BF_PRODUCT_TITLE: bf.rows[0].title, QA_BF_VARIANT_ID: variant.rows[0].id,
@@ -173,8 +177,8 @@ async function main() {
       for (const [key, admin] of Object.entries(admins)) {
         await db.query(
           `INSERT INTO "User" (id, name, email, username, "passwordHash", role, active, "mustChangePassword", "createdAt", "updatedAt")
-           VALUES ($1, $2, $3, NULL, $4, 'ADMIN'::"UserRole", true, false, timezone('UTC', now()), timezone('UTC', now()))`,
-          [`qa_admin_${key.toLowerCase()}`, `QA Admin ${key}`, admin.login, await bcrypt.hash(admin.password, 12)],
+           VALUES ($1, $2, $3, NULL, $4, $5::"UserRole", true, false, timezone('UTC', now()), timezone('UTC', now()))`,
+          [`qa_admin_${key.toLowerCase()}`, `QA Admin ${key}`, admin.login, await bcrypt.hash(admin.password, 12), adminRoles[key]],
         );
       }
       const customerId = `qa_customer_${runId}`;
@@ -270,7 +274,7 @@ async function main() {
     ], { ...testEnv(expected), PLAYWRIGHT_JSON_OUTPUT_NAME: path.join(outputDir, `${label}-${project}-${runId}.json`) }, label);
 
     const phases: Array<{ provider: string; expected: string; specs: string[] }> = [
-      { provider: "asaas", expected: "asaas", specs: ["tests/e2e/bf-mfa-admin-security.spec.ts", "tests/e2e/bf-mfa-payments.spec.ts", "tests/e2e/bf-mfa-promotions.spec.ts"] },
+      { provider: "asaas", expected: "asaas", specs: ["tests/e2e/bf-mfa-admin-security.spec.ts", "tests/e2e/bf-mfa-payments.spec.ts", "tests/e2e/bf-mfa-promotions.spec.ts", "tests/e2e/prelaunch-consent-analytics.spec.ts", "tests/e2e/prelaunch-rbac-inventory.spec.ts"] },
       { provider: "qualquer-coisa", expected: "disabled", specs: ["tests/e2e/bf-mfa-payments.spec.ts"] },
       { provider: "stripe", expected: "disabled", specs: ["tests/e2e/bf-mfa-payments.spec.ts"] },
     ];

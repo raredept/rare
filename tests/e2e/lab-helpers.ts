@@ -84,9 +84,22 @@ export function labBaseUrl() {
   return requireEnv("PLAYWRIGHT_BASE_URL");
 }
 
-/** Options for contexts created by hand (shared across serial tests): same base URL and gate as the config. */
-export function labContextOptions() {
+/**
+ * Options for contexts created by hand (shared across serial tests): same base URL and gate as the config.
+ * The cookie banner is not what most specs test: their contexts start with a stored refusal (the
+ * privacy-preserving choice) so the banner does not cover the page. The consent spec passes
+ * `{ cookieConsent: "undecided" }` to start as a brand-new visitor.
+ */
+export function labContextOptions(options: { cookieConsent?: "refused" | "undecided" } = {}) {
+  const url = new URL(labBaseUrl());
+  const storageState = (options.cookieConsent ?? "refused") === "refused"
+    ? {
+        cookies: [{ name: "rare_cookie_consent", value: `v1.a0.${Math.floor(Date.now() / 1000)}`, domain: url.hostname, path: "/", expires: -1, httpOnly: false, secure: url.protocol === "https:", sameSite: "Lax" as const }],
+        origins: [],
+      }
+    : undefined;
   return {
+    ...(storageState ? { storageState } : {}),
     baseURL: labBaseUrl(),
     // The lab's TLS proxy (WebKit runs) uses a throwaway self-signed certificate.
     ignoreHTTPSErrors: labBaseUrl().startsWith("https://localhost"),
@@ -135,7 +148,11 @@ export function isRedirectToLogin(response: { status: number; headers: Record<st
 }
 
 export async function withDatabase<T>(work: (client: pg.Client) => Promise<T>) {
-  const client = new pg.Client({ connectionString: requireEnv("QA_DATABASE_URL") });
+  const connectionString = requireEnv("QA_DATABASE_URL");
+  const local = ["localhost", "127.0.0.1", "[::1]"].includes(new URL(connectionString).hostname);
+  // A remote (staging) database is never reached in plaintext; see scripts/qa-staging-prelaunch.ts.
+  const ssl = local ? undefined : { rejectUnauthorized: process.env.STAGING_DB_TLS_UNVERIFIED !== "1" };
+  const client = new pg.Client({ connectionString, ssl });
   await client.connect();
   try {
     return await work(client);
