@@ -123,7 +123,11 @@ function checkFeatureFlags() {
   if (!/^MEDIA_BACKFILL_ALLOW_PRODUCTION=["']false["']$/m.test(envExample)) fail("flags", "Backfill de produção deve ficar bloqueado.");
   if (!/return env\.CHECKOUT_ENABLED === CHECKOUT_ENABLED_VALUE/.test(envSource)) fail("flags", "Checkout deve exigir o literal CHECKOUT_ENABLED=true.");
   if (!/if \(!isCheckoutEnabled\(\)\)/.test(shippingRoute)) fail("flags", "A rota de frete deve falhar fechada com checkout pausado.");
-  if (!/offers:\s*input\.checkoutEnabled\s*\?/.test(structuredData)) fail("flags", "Product.offers deve depender da flag de checkout.");
+  // The Offer carries the price shown on the page (RARE-PRE-LAUNCH-01, docs/cycles/rare-pre-launch/SEO.md);
+  // what must stay behind the checkout flag is the purchasability claim: InStock only while checkout is on.
+  const gatedInStock = /input\.checkoutEnabled\s*\?\s*"https:\/\/schema\.org\/InStock"/;
+  if (!gatedInStock.test(structuredData)) fail("flags", "Product.offers só pode declarar InStock com a flag de checkout ligada.");
+  if (/schema\.org\/InStock/.test(structuredData.replace(gatedInStock, ""))) fail("flags", "Product.offers declara InStock fora da flag de checkout.");
   if (!failures.some((item) => item.label === "flags")) ok("flags:safe-defaults");
 }
 
