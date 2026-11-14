@@ -65,6 +65,8 @@ test.beforeAll(async ({ browser }) => {
 async function seedTamperedCart() {
   const { id, variantId, slug, title } = product();
   await shopper.goto("/");
+  // Seed only after the CartProvider hydrated: an earlier write is overwritten by its first persist.
+  await shopper.waitForLoadState("networkidle");
   await shopper.evaluate(([productId, variant, productSlug, productTitle]) => {
     window.localStorage.setItem("rare_store_cart", JSON.stringify([{ productId, variantId: variant, title: productTitle, slug: productSlug, size: "M", priceInCents: 100, quantity: 1, maxQuantity: 1 }]));
   }, [id, variantId, slug, title]);

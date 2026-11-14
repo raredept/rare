@@ -38,6 +38,8 @@ async function settledMain() {
 
 async function openCheckoutWithCart() {
   await page.goto("/");
+  // Seed only after the CartProvider hydrated: an earlier write is overwritten by its first persist.
+  await page.waitForLoadState("networkidle");
   await page.evaluate(([productId, variantId, slug, title]) => {
     window.localStorage.setItem("rare_store_cart", JSON.stringify([{ productId, variantId, title, slug, size: "M", priceInCents: 20000, quantity: 1, maxQuantity: 1 }]));
   }, [requireEnv("QA_BF_PRODUCT_ID"), requireEnv("QA_BF_VARIANT_ID"), requireEnv("QA_BF_PRODUCT_SLUG"), requireEnv("QA_BF_PRODUCT_TITLE")]);

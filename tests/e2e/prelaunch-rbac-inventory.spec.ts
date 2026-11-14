@@ -168,6 +168,8 @@ test("a one-of-a-kind piece sold twice is inconsistent: critical for the seller,
 });
 
 test("new Admin screens: no horizontal overflow from 320 to 1920 px and no axe violation", async () => {
+  // 8 screens x 10 widths + axe: WebKit on Windows needs more than the file's 5-minute budget.
+  test.setTimeout(900_000);
   const screens: Array<[Session, string]> = [
     [system, "/admin/users"], [system, "/admin/conta"], [system, "/admin/security"], [system, "/admin/sem-acesso"], [system, "/admin/analytics/site"],
     [seller, "/admin/conta"], [seller, "/admin/sem-acesso"], [seller, "/admin/products?stock=unique"],
