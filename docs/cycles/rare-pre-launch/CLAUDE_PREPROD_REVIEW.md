@@ -257,7 +257,16 @@ por esta sessão. Subdomínio `mail.` não existe e não foi necessário.
   falha permanente → FAILED + retry do operador, modo teste não envia a cliente fora da allowlist.
 - **Staging real (SkyLab, 2026-11-14 16:34 BRT):** formulário enviado com duplo clique → protocolo
   `SUP-568TW6S3`, **1** registro em `/admin/support`, Equipe/Cliente "Pendente" (e-mail do staging
-  está `disabled`). Envio real via Resend: **BLOQUEADO** (falta `RESEND_API_KEY` no staging).
+  está `disabled`).
+- **E-mail real (2026-11-14 17:30 BRT), depois que o usuário configurou o Resend no staging:** a caixa de
+  suporte não estava na allowlist de teste → a equipe de `SUP-568TW6S3` falhou com
+  `EmailRecipientNotAllowlisted` (trava correta do modo `test`). Com autorização do usuário a caixa foi
+  incluída em `EMAIL_TEST_RECIPIENTS` (web e worker, valor nunca exibido). Novo envio `SUP-FKS4EKTJ`:
+  Resend **Delivered** para os dois; equipe com From `RARE <contato@raredept.com.br>`, **Reply-To = cliente**,
+  tag `support_request`, assunto `[RARE Suporte] SUP-FKS4EKTJ — Pedido`, corpo com protocolo, categoria,
+  nome, e-mail, data e mensagem; confirmação "Recebemos sua solicitação — SUP-FKS4EKTJ". O usuário
+  confirmou o recebimento nas duas caixas. Reenvio de `SUP-568TW6S3` pelo `/admin/support` (SELLER):
+  equipe ENVIADO; confirmação segue FALHOU porque o cliente QA (`.invalid`) não está na allowlist (correto).
 
 ### 16.5 Retorno do Asaas
 
@@ -271,13 +280,22 @@ descartada; nada salvo. → MANUAL.
 
 ### 16.6 RBAC
 
-- Staging: **17 contas `ADMIN` legadas** (todas ativas; 14 com MFA, 3 sem), **0** SYSTEM/SELLER.
-  Precisam de papel atribuído (ou desativação, se forem contas QA antigas) antes da produção.
+- Staging: **16 contas `ADMIN` legadas** ativas + **1 SYSTEM_ADMIN** + **1 SELLER_ADMIN** (contas QA criadas
+  e com MFA cadastrado pelo usuário). As legadas precisam de papel (ou desativação) antes da produção.
+- **RBAC real no staging (SkyLab, sessões reais com MFA, 2026-11-14):**
+
+| Papel | UI / menu | URL direta | API | Server Action do outro papel |
+|---|---|---|---|---|
+| SELLER_ADMIN ("Administrador Vendedor") | só áreas comerciais + Analytics do site + Suporte | Usuários, Segurança, Prontidão, Configurações → Sem acesso; 9 páginas comerciais abrem | — (não há API só de sistema) | "Encerrar sessões" (ação de Usuários) contra a própria conta → **Sem acesso**, sessão continua viva |
+| SYSTEM_ADMIN ("Administrador de Sistema") | só Usuários, Prontidão, Configurações, Segurança, Analytics do site, Conta; `/admin` → Usuários | Pedidos, Produtos, Promoções, Categorias, Clientes, Suporte, Analytics → Sem acesso | editor de imagens, upload e presign → redirect "Sem acesso", nenhum JSON | criar categoria, ocultar produto, reenviar suporte → **Sem acesso**; categoria de teste inexistente depois |
+
+  Todas as tentativas de Server Action usaram IDs válidos do build em uso (sem `x-nextjs-action-not-found`).
+  Uma tentativa anterior com ID de um build antigo respondeu 409 "action not found" e foi descartada como prova.
+  As APIs negadas respondem redirect para "Sem acesso" em vez de 401/403 (já documentado; recusam e não expõem dados).
 - Spec novo `tests/e2e/staging-rbac.spec.ts` (opt-in `STAGING_RBAC=1`, sem acesso ao banco): MFA real
   pela UI, menu, URL direta, API de mídia e **replay de Server Action** do outro papel (categoria
   criada por SYSTEM → recusada e inexistente; revogar sessões pelo SELLER → recusado e sessão viva).
-  **Não executado**: exige duas contas QA novas criadas em `/admin/users` e as senhas temporárias
-  — esta sessão não digita senhas de login.
+  Não usado: as contas QA já estavam com MFA cadastrado; a prova acima foi feita pelo navegador.
 
 ### 16.7 Navegadores no staging real
 
@@ -303,11 +321,11 @@ tsc 0 · ESLint 0 · Vitest 188 arquivos / 1977 testes · `qa:support-coupon` 8/
 
 | # | Ação | Desbloqueia |
 |---|---|---|
-| 1 | Criar no Resend uma API key de envio restrita a `raredept.com.br` e gravar `RESEND_API_KEY` nos serviços de staging (web e worker); depois `EMAIL_DRIVER=resend` (modo `test` e allowlist já configurados) | e-mail real do suporte no staging (entregue, assunto, Reply-To, contexto) |
+| 1 | ~~Resend no staging~~ **FEITO** pelo usuário; allowlist completada nesta sessão. Em produção: chave própria, `EMAIL_DELIVERY_MODE` de produção e caixa `@raredept.com.br` | — |
 | 2 | Asaas Sandbox → Minha Conta → Informações: preencher os dados exigidos e o Site `https://rare-staging-staging.up.railway.app`; depois `ASAAS_SUCCESS_REDIRECT=true` no `rare-staging` | retorno automático após o cartão |
-| 3 | Criar 2 contas QA novas em `/admin/users` (SYSTEM_ADMIN e SELLER_ADMIN) e rodar `tests/e2e/staging-rbac.spec.ts` com `STAGING_RBAC=1` | RBAC real + Admin responsivo no staging |
-| 4 | Atribuir papel às 17 contas `ADMIN` legadas do staging (ou desativar as QA antigas); idem em produção antes do go-live | fim do acesso total legado |
+| 3 | ~~Contas QA SYSTEM/SELLER~~ **FEITO**; RBAC real provado. Admin responsivo em Firefox/WebKit no staging real segue só no lab | — |
+| 4 | Atribuir papel às 16 contas `ADMIN` legadas do staging (ou desativar as QA antigas); idem em produção antes do go-live | fim do acesso total legado |
 
 ### 16.11 Veredito desta sessão
 
-STAGING = **PARTIAL** (suporte persistente, RARE10, matriz Firefox/WebKit e CI/SHA provados; e-mail real, retorno do Asaas e RBAC real dependem do §16.10). MERGE READY = NO · PRODUCTION READY = NO · revisão independente obrigatória.
+STAGING = **PARTIAL**: suporte persistente, e-mail real pelo Resend, RARE10, RBAC real (UI, URL, API e Server Action), matriz Firefox/WebKit e CI/SHA provados. Falta o **retorno automático do Asaas** (§16.10 item 2). O Admin responsivo em Firefox/WebKit no staging real também não foi rodado. MERGE READY = NO · PRODUCTION READY = NO · revisão independente obrigatória.
