@@ -20,6 +20,7 @@ type StoreFooterProps = {
 };
 
 const baseServiceLinks = [
+  { href: "/suporte", label: "Suporte" },
   { href: "/trocas-e-devolucoes", label: "Trocas e devoluções" },
   { href: "/minha-conta", label: "Minha conta" },
   { href: "/minha-conta/pedidos", label: "Meus pedidos" },

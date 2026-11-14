@@ -10,6 +10,7 @@ import {
   FolderTree,
   Image,
   LayoutDashboard,
+  LifeBuoy,
   MousePointerClick,
   PackageCheck,
   Settings,
@@ -39,6 +40,7 @@ const navSections: Array<{ label: string; items: NavItem[] }> = [
       { href: "/admin/orders", label: "Pedidos", icon: PackageCheck, permission: "commerce.orders" },
       { href: "/admin/customers", label: "Clientes", icon: Users, permission: "commerce.customers" },
       { href: "/admin/notifications", label: "Notificações", icon: Bell, permission: "commerce.notifications" },
+      { href: "/admin/support", label: "Suporte", icon: LifeBuoy, permission: "commerce.support" },
     ],
   },
   {

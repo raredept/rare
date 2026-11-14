@@ -35,6 +35,8 @@ type ProductDetailClientProps = {
     variants: { id: string; size: string; stock: number; reservedStock: number; active: boolean }[];
     /** Server-computed price (automatic promotion applied). Defaults to the catalog price. */
     pricing?: ProductPrice;
+    /** UNIQUE: one-of-a-kind piece; sold out means sold, and it is not restocked. */
+    stockPolicy?: "STANDARD" | "UNIQUE";
   };
   productUrl: string;
   whatsappNumber?: string | null;
@@ -219,6 +221,7 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
   const hasZoomNavigation = zoomableImageIndexes.length > 1;
   const cartImage = getPreferredProductCardMedia(product.images);
   const soldOut = purchasableVariants.every((variant) => getAvailableStock(variant.stock, variant.reservedStock) <= 0);
+  const uniqueSold = soldOut && product.stockPolicy === "UNIQUE";
   const fullDescription = product.description.trim();
   const shortDescription = product.shortDescription.trim();
   const mainDescription = shortDescription || fullDescription;
@@ -531,7 +534,7 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
       <aside className="lg:sticky lg:top-36 lg:self-start">
         <p className="text-xs font-black uppercase tracking-[0.24em] text-neutral-500">Seleção RARE</p>
         <h1 className="mt-3 text-3xl font-black tracking-tight text-neutral-950 lg:text-4xl">{product.title}</h1>
-        {soldOut ? <p className="mt-3 inline-flex rounded-full bg-black px-3 py-1 text-xs font-black uppercase tracking-wide text-white">Esgotado</p> : null}
+        {soldOut ? <p className="mt-3 inline-flex rounded-full bg-black px-3 py-1 text-xs font-black uppercase tracking-wide text-white">{uniqueSold ? "Vendida" : "Esgotado"}</p> : null}
         {mainDescription ? (
           <p className="mt-4 max-w-xl whitespace-pre-line text-sm font-semibold leading-6 text-neutral-600">{mainDescription}</p>
         ) : null}
@@ -585,8 +588,19 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
             disabled={!commerceState.checkoutEnabled || soldOut || !selectedVariant || availableStock <= 0}
             className="h-12 w-full rounded-lg bg-black px-6 text-sm font-black uppercase tracking-[0.14em] text-white transition-[background-color,box-shadow,transform] duration-150 hover:bg-neutral-800 hover:shadow-[0_10px_30px_rgba(15,23,42,0.16)] active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-neutral-500 disabled:shadow-none"
           >
-            {soldOut || availableStock <= 0 ? "ESGOTADO" : !commerceState.checkoutEnabled ? commerceState.checkoutActionLabel : "ADICIONAR AO CARRINHO"}
+            {soldOut || availableStock <= 0 ? (uniqueSold ? "PEÇA VENDIDA" : "ESGOTADO") : !commerceState.checkoutEnabled ? commerceState.checkoutActionLabel : "ADICIONAR AO CARRINHO"}
           </button>
+
+          {uniqueSold ? (
+            // A one-of-a-kind piece is not restocked: no "notify me", an invitation to talk instead.
+            <div className="rounded-md border border-neutral-200 bg-white px-4 py-4 text-sm font-semibold leading-6 text-neutral-700">
+              <p className="font-black text-neutral-950">Esta peça já foi vendida.</p>
+              <p className="mt-1">Gostou dela? Fale com a RARE para conhecer peças semelhantes.</p>
+              <Link href={`/suporte?produto=${encodeURIComponent(product.slug)}&categoria=SOLD_OUT_PRODUCT`} className="mt-3 inline-flex min-h-11 items-center text-xs font-black uppercase tracking-[0.16em] text-neutral-950 underline underline-offset-4">
+                Falar sobre esta peça
+              </Link>
+            </div>
+          ) : null}
 
           {!commerceState.checkoutEnabled ? <p className="rounded-md bg-neutral-100 px-4 py-3 text-sm font-semibold leading-6 text-neutral-600">O catálogo continua disponível. Fale com a RARE para consultar esta peça; nenhum pagamento será solicitado pela loja agora.</p> : null}
 

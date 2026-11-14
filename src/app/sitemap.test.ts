@@ -38,6 +38,7 @@ describe("sitemap metadata route", () => {
       "https://raredept.com.br",
       "https://raredept.com.br/sobre",
       "https://raredept.com.br/contato",
+      "https://raredept.com.br/suporte",
       "https://raredept.com.br/politica-de-envio",
       "https://raredept.com.br/privacidade-e-termos",
       "https://raredept.com.br/politica-de-cookies",

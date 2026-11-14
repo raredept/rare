@@ -145,6 +145,7 @@ model Customer {
   asaasCustomerId String?           @unique
   addresses       CustomerAddress[]
   orders          Order[]
+  supportRequests SupportRequest[]
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 
@@ -218,6 +219,7 @@ model Product {
   orderItems            OrderItem[]
   inventoryMovements    InventoryMovement[]
   promotions            PromotionProduct[]
+  supportRequests       SupportRequest[]
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
 
@@ -312,6 +314,7 @@ model Order {
   inventoryMovements      InventoryMovement[]
   adminNotifications      AdminNotification[]
   emailOutbox             EmailOutbox[]
+  supportRequests         SupportRequest[]
   createdAt               DateTime            @default(now())
   updatedAt               DateTime            @updatedAt
 
@@ -651,4 +654,62 @@ model SiteAnalyticsEvent {
 
   @@index([createdAt, type])
   @@index([type, productId, createdAt])
+}
+
+enum SupportCategory {
+  PRODUCT_QUESTION
+  SOLD_OUT_PRODUCT
+  ORDER
+  PAYMENT
+  SHIPPING
+  RETURN
+  OTHER
+}
+
+enum SupportDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+/// Customer support request from /suporte. Persisted BEFORE any e-mail is attempted, so a provider
+/// failure never loses a message. `status` tracks the e-mail to the store team, `confirmationStatus`
+/// the acknowledgement to the customer; both are delivered with idempotency keys derived from the
+/// id (support/<id>/team, support/<id>/customer) and retried by the worker under a lease.
+model SupportRequest {
+  id                   String                @id @default(cuid())
+  /// Public reference shown to the customer (SUP-XXXXXXXX).
+  protocol             String                @unique
+  /// One-time token of the form render: a double submit returns the same request.
+  submissionKey        String                @unique
+  customerId           String?
+  customer             Customer?             @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  productId            String?
+  product              Product?              @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productTitleSnapshot String?
+  productSlugSnapshot  String?
+  orderId              String?
+  order                Order?                @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  orderNumberSnapshot  String?
+  name                 String
+  email                String
+  category             SupportCategory
+  message              String
+  status               SupportDeliveryStatus @default(PENDING)
+  attempts             Int                   @default(0)
+  emailSentAt          DateTime?
+  lastErrorCode        String?
+  confirmationStatus   SupportDeliveryStatus @default(PENDING)
+  confirmationSentAt   DateTime?
+  confirmationErrorCode String?
+  nextAttemptAt        DateTime              @default(now())
+  leaseToken           String?
+  leaseExpiresAt       DateTime?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  @@index([createdAt])
+  @@index([status, nextAttemptAt])
+  @@index([confirmationStatus, nextAttemptAt])
+  @@index([customerId, createdAt])
 }

@@ -3,7 +3,7 @@
 // checkout, payment and purchase is read from the orders on the server and can never be posted.
 
 /** Behavioural events, accepted only with analytics consent. */
-export const CLIENT_ANALYTICS_EVENTS = ["page_view", "product_view", "product_click", "add_to_cart"] as const;
+export const CLIENT_ANALYTICS_EVENTS = ["page_view", "product_view", "product_click", "add_to_cart", "support_page_view", "support_form_started", "support_form_submitted"] as const;
 export type ClientAnalyticsEventType = (typeof CLIENT_ANALYTICS_EVENTS)[number];
 
 /** Events that need a product. */

@@ -53,6 +53,7 @@
     "qa:admin-rbac": "tsx scripts/qa-admin-rbac.ts",
     "qa:inventory-policy": "tsx scripts/qa-inventory-policy.ts",
     "qa:site-analytics": "tsx scripts/qa-site-analytics.ts",
+    "qa:support-coupon": "tsx scripts/qa-support-coupon.ts",
     "qa:staging-lab": "tsx scripts/qa-staging-lab.ts",
     "shipping:dimensions:audit": "tsx scripts/audit-product-shipping-dimensions.ts",
     "shipping:audit-products": "tsx scripts/audit-product-shipping-dimensions.ts",

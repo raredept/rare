@@ -30,6 +30,7 @@ const MODULE_PERMISSIONS: Record<string, (typeof ADMIN_PERMISSIONS)[number]> = {
   security: "system.security",
   "sem-acesso": "self.account",
   settings: "system.settings",
+  support: "commerce.support",
   users: "system.users",
 };
 

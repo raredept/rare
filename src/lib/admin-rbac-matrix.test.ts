@@ -123,13 +123,13 @@ describe("RBAC matrix: signed-in Admins with a verified second factor", () => {
       "self.account": true, "system.users": true, "system.security": true, "system.readiness": true, "system.settings": true,
       "analytics.site": true, "analytics.sales": false, "commerce.dashboard": false, "commerce.orders": false, "commerce.customers": false,
       "commerce.products": false, "commerce.inventory": false, "commerce.promotions": false, "commerce.catalog": false, "commerce.media": false,
-      "commerce.notifications": false,
+      "commerce.notifications": false, "commerce.support": false,
     },
     SELLER_ADMIN: {
       "self.account": true, "system.users": false, "system.security": false, "system.readiness": false, "system.settings": false,
       "analytics.site": true, "analytics.sales": true, "commerce.dashboard": true, "commerce.orders": true, "commerce.customers": true,
       "commerce.products": true, "commerce.inventory": true, "commerce.promotions": true, "commerce.catalog": true, "commerce.media": true,
-      "commerce.notifications": true,
+      "commerce.notifications": true, "commerce.support": true,
     },
   };
 
@@ -176,6 +176,7 @@ describe("RBAC matrix: surfaces", () => {
     ["src/app/admin/(protected)/categories/actions.ts", "commerce.catalog"],
     ["src/app/admin/(protected)/banners/actions.ts", "commerce.catalog"],
     ["src/app/admin/(protected)/notifications/actions.ts", "commerce.notifications"],
+    ["src/app/admin/(protected)/support/actions.ts", "commerce.support"],
     ["src/app/admin/(protected)/users/actions.ts", "system.users"],
     ["src/app/admin/(protected)/settings/actions.ts", "system.settings"],
     ["src/app/admin/(protected)/readiness/actions.ts", "system.readiness"],

@@ -12,6 +12,7 @@ const routeLabels = [
   { path: "/admin/banners", label: "Banners" },
   { path: "/admin/orders", label: "Pedidos" },
   { path: "/admin/notifications", label: "Notificações" },
+  { path: "/admin/support", label: "Suporte" },
   { path: "/admin/customers", label: "Clientes" },
   { path: "/admin/readiness", label: "Prontidão" },
   { path: "/admin/settings", label: "Configurações" },

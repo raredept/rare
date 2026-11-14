@@ -25,6 +25,7 @@ export const ADMIN_PERMISSIONS = [
   "commerce.catalog",
   "commerce.media",
   "commerce.notifications",
+  "commerce.support",
 ] as const;
 export type AdminPermission = (typeof ADMIN_PERMISSIONS)[number];
 
@@ -50,6 +51,7 @@ const SELLER_PERMISSIONS: readonly AdminPermission[] = [
   "commerce.catalog",
   "commerce.media",
   "commerce.notifications",
+  "commerce.support",
 ];
 
 const ROLE_PERMISSIONS: Record<AdminRole, ReadonlySet<AdminPermission>> = {

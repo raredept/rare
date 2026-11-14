@@ -39,6 +39,14 @@ async function main() {
       } catch (error) {
         console.error(JSON.stringify({ at: new Date().toISOString(), email: "OUTBOX_BATCH_FAILED", code: error instanceof Error ? error.name : "unknown" }));
       }
+      // Support requests are persisted first; this retries their e-mails (team, then confirmation).
+      try {
+        const { processSupportRequests } = await import("../src/lib/support-requests");
+        const support = await processSupportRequests(prisma, { limit: 10 });
+        if (support.processed) console.log(JSON.stringify({ at: new Date().toISOString(), support }));
+      } catch (error) {
+        console.error(JSON.stringify({ at: new Date().toISOString(), support: "SUPPORT_BATCH_FAILED", code: error instanceof Error ? error.name : "unknown" }));
+      }
     }
     if (process.argv.includes("--once")) break;
     await new Promise((resolve) => setTimeout(resolve, Math.max(100, CHECKOUT_WORKER_POLL_MS - (Date.now() - started))));
