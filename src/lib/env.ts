@@ -3,6 +3,10 @@ import { getEmailConfigurationIssue, getEmailConfigurationStatus } from "@/lib/e
 import { detectConfigDrift } from "@/lib/config-drift";
 import { isRestrictedAppEnv } from "@/lib/deployment-environment";
 import { getMelhorEnvioBaseUrlIssue } from "@/lib/melhor-envio-endpoint";
+import { getMercadoPagoConfigurationIssue, isPixEnabled } from "@/lib/mercadopago-config";
+import { getAdminMfaConfigurationIssue, getAdminMfaPolicyWarning, isAdminMfaRequired } from "@/lib/admin-mfa-config";
+import { getAsaasConfigurationIssue } from "@/lib/asaas-config";
+import { getPaymentProvider } from "@/lib/payment-provider-config";
 
 type EnvIssueLevel = "error" | "warning";
 
@@ -266,8 +270,6 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
 
   const requireDatabase = options.requireDatabase ?? true;
   const requireAdminAuth = options.requireAdminAuth ?? true;
-  const requireCheckout = options.requireCheckout ?? (production && checkoutEnabled);
-  const requireWebhook = options.requireWebhook ?? (production && checkoutEnabled);
   const requireStorage = options.requireStorage ?? production;
 
   if (!["development", "test", "production"].includes(getNodeEnv(env))) {
@@ -291,6 +293,19 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
     }
   }
 
+  if (requireAdminAuth && isAdminMfaRequired(env)) {
+    // Without this key no administrator can enroll or answer the MFA step, i.e. nobody can enter
+    // the Admin. Fail the configuration check loudly instead of locking the team out silently.
+    const reason = getAdminMfaConfigurationIssue(env);
+    if (reason) {
+      addIssue(issues, "error", "ADMIN_MFA_ENCRYPTION_KEY", `Admin MFA is required in this environment and needs ADMIN_MFA_ENCRYPTION_KEY (32 random bytes, base64, distinct from the session secret). Motivo: ${reason}.`);
+    }
+  }
+  const mfaPolicyWarning = getAdminMfaPolicyWarning(env);
+  if (mfaPolicyWarning) {
+    addIssue(issues, "warning", "ADMIN_MFA_REQUIRED", `ADMIN_MFA_REQUIRED=false is ignored in production: Admin MFA stays mandatory. Motivo: ${mfaPolicyWarning}.`);
+  }
+
   const appUrl = clean(env.APP_URL) ?? clean(env.NEXT_PUBLIC_APP_URL);
   if (production) {
     validateRequired(
@@ -306,23 +321,19 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
     addIssue(issues, "error", "APP_URL", "APP_URL/NEXT_PUBLIC_APP_URL must be an absolute http(s) URL.");
   }
 
-  if (checkoutEnabled) {
-    const stripeLevel: EnvIssueLevel = requireCheckout ? "error" : "warning";
-    validateRequired(
-      issues,
-      "STRIPE_SECRET_KEY",
-      env.STRIPE_SECRET_KEY,
-      "STRIPE_SECRET_KEY is required when checkout is active.",
-      stripeLevel,
-    );
-    const webhookLevel: EnvIssueLevel = requireWebhook ? "error" : "warning";
-    validateRequired(
-      issues,
-      "STRIPE_WEBHOOK_SECRET",
-      env.STRIPE_WEBHOOK_SECRET,
-      "STRIPE_WEBHOOK_SECRET is required to confirm paid orders from Stripe.",
-      webhookLevel,
-    );
+  const paymentProvider = getPaymentProvider(env);
+  const rawPaymentProvider = clean(env.PAYMENT_PROVIDER)?.toLowerCase();
+  if (rawPaymentProvider && !["asaas", "disabled"].includes(rawPaymentProvider)) {
+    addIssue(issues, "error", "PAYMENT_PROVIDER", "PAYMENT_PROVIDER must be asaas or disabled. Stripe is retired for new payments; invalid values disable payments.");
+  } else if (checkoutEnabled && paymentProvider === "disabled") {
+    addIssue(issues, "error", "PAYMENT_PROVIDER", "Checkout is enabled but no payment provider is available. Set PAYMENT_PROVIDER=asaas or close checkout.");
+  }
+  if (paymentProvider === "asaas") {
+    // Fixed reason code only (never a key or token). Includes the sandbox/production environment guard.
+    const reason = getAsaasConfigurationIssue(env);
+    if (reason) {
+      addIssue(issues, checkoutEnabled ? "error" : "warning", "ASAAS_API_KEY", `PAYMENT_PROVIDER=asaas needs ASAAS_ENV, ASAAS_API_KEY and ASAAS_WEBHOOK_TOKEN matching this environment (Sandbox outside production, Production only in production). Motivo: ${reason}.`);
+    }
   }
 
   const webPushPublicKey = clean(env.NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY);
@@ -330,7 +341,14 @@ export function validateEnvironment(options: EnvValidationOptions = {}) {
     // The reason code says which rule failed (for example a production deployment in
     // test delivery mode) without echoing any mailbox, host or token.
     const reason = getEmailConfigurationIssue(env);
-    addIssue(issues, "error", "EMAIL_DRIVER", `Use EMAIL_DRIVER=disabled, or a complete smtp/zeptomail configuration with an explicit environment, delivery mode, backlog cutoff and test allowlist outside production.${reason ? ` Motivo: ${reason}.` : ""}`);
+    addIssue(issues, "error", "EMAIL_DRIVER", `Use EMAIL_DRIVER=disabled, or a complete smtp/zeptomail/resend configuration with an explicit environment, delivery mode, backlog cutoff and test allowlist outside production.${reason ? ` Motivo: ${reason}.` : ""}`);
+  }
+  if (isPixEnabled(env)) {
+    // Same idea as e-mail: a fixed reason code, never a token or secret.
+    const reason = getMercadoPagoConfigurationIssue(env);
+    if (reason) {
+      addIssue(issues, "error", "PIX_ENABLED", `PIX_ENABLED=true needs a complete Mercado Pago configuration for this environment (MERCADOPAGO_ACCESS_TOKEN and MERCADOPAGO_WEBHOOK_SECRET). Motivo: ${reason}.`);
+    }
   }
   const webPushPrivateKey = clean(env.WEB_PUSH_VAPID_PRIVATE_KEY);
   if (production) {

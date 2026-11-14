@@ -5,3 +5,16 @@ export const CHECKOUT_RESERVATION_MS = CHECKOUT_RESERVATION_MINUTES * 60_000;
 // sessions at the commercial deadline; this is a provider-side fallback only.
 export const STRIPE_SESSION_FALLBACK_SECONDS = 31 * 60;
 export const CHECKOUT_WORKER_POLL_MS = 15_000;
+// Mercado Pago refuses a Pix that expires in less than 30 minutes, so a Pix order holds its
+// stock for that long. The provider-side expiry sits a little later: the durable worker closes
+// the Pix at the commercial deadline, and the request must still clear the 30-minute floor
+// when it reaches Mercado Pago.
+export const PIX_RESERVATION_MINUTES = 30;
+export const PIX_PROVIDER_EXPIRY_GRACE_SECONDS = 120;
+// A just-created payment may take a moment to show up in Mercado Pago's search.
+export const PIX_SEARCH_SETTLE_MS = 180_000;
+// Asaas (card on the hosted invoice, or Pix): one window for both, long enough for 3-D Secure on
+// the invoice page. The worker deletes the charge at the deadline before releasing the stock.
+export const ASAAS_RESERVATION_MINUTES = 30;
+// A just-created charge may take a moment to show up in the Asaas listing.
+export const ASAAS_SEARCH_SETTLE_MS = 180_000;

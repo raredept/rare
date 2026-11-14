@@ -1,5 +1,9 @@
 # Runbook de preview e staging do release candidate
 
+> Discovery atual (2026-10-03), alvo Railway real e gates de deploy/homologação:
+> [STAGING_SAFETY.md](runbooks/STAGING_SAFETY.md). O laboratório existente não está no
+> bootstrap fechado nem contém o candidato Admin; não fazer deploy antes de autorizar migrations.
+
 > Histórico do RC de catálogo. Para a execução atual, escopo/autorização em
 > `RARE_FINALIZACAO_PROMPT.md` e estado em `FINAL_RELEASE_STATUS.md` prevalecem.
 > Homologação SMTP controlada agora segue [transactional-email.md](transactional-email.md);

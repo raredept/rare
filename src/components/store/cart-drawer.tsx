@@ -214,7 +214,7 @@ function CartDrawerItem({
           </Link>
           <p className="mt-1 text-xs font-semibold text-white/65">Tamanho: {item.size}</p>
           <div className="mt-3 flex items-center justify-between gap-3">
-            <span className="whitespace-nowrap text-sm font-black text-success">{formatMoney(item.priceInCents)}</span>
+            <span className="whitespace-nowrap text-sm font-black text-emerald-400">{formatMoney(item.priceInCents)}</span>
             <button
               type="button"
               onClick={() => removeItem(item.variantId)}
@@ -228,12 +228,12 @@ function CartDrawerItem({
         </div>
       </div>
       <div className="mt-3 flex items-center justify-between gap-3 border-t border-white/10 pt-3">
-        <div className="flex h-10 items-center rounded-lg border border-white/15">
+        <div className="flex h-11 items-center rounded-lg border border-white/15">
           <button
             type="button"
             onClick={() => updateQuantity(item.variantId, item.quantity - 1)}
             disabled={!canDecrease}
-            className="flex h-10 w-10 items-center justify-center text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:text-white/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+            className="flex h-11 w-11 items-center justify-center text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:text-white/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
             aria-label="Diminuir quantidade"
           >
             <Minus className="h-4 w-4" />
@@ -245,7 +245,7 @@ function CartDrawerItem({
             type="button"
             onClick={() => updateQuantity(item.variantId, item.quantity + 1)}
             disabled={!canIncrease}
-            className="flex h-10 w-10 items-center justify-center text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:text-white/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+            className="flex h-11 w-11 items-center justify-center text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:text-white/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
             aria-label="Aumentar quantidade"
           >
             <Plus className="h-4 w-4" />

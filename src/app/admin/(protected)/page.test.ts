@@ -37,6 +37,10 @@ vi.mock("@/lib/prisma", () => ({
   prisma: mocks.prisma,
 }));
 
+vi.mock("@/lib/promotions/admin", () => ({
+  getPromotionDashboardSummary: async () => ({ active: 0, scheduled: 0, endingSoon: [], alerts: [] }),
+}));
+
 vi.mock("next/link", () => ({
   default: ({ href, children, ...props }: { href: string; children: ReactNode }) =>
     createElement("a", { href, ...props }, children),

@@ -13,7 +13,7 @@ const now = new Date("2026-06-06T12:00:00.000Z");
 
 function row(overrides: Partial<StoredOperationalEvidence>): StoredOperationalEvidence {
   return {
-    key: "stripe_test_payment",
+    key: "asaas_sandbox_payment",
     status: "passed",
     environment: "staging",
     checkedAt: now,
@@ -31,8 +31,8 @@ describe("admin operational evidence", () => {
     expect(expectedOperationalEvidence.map((item) => item.key)).toEqual([
       "redis_shared_health",
       "public_smoke",
-      "stripe_test_payment",
-      "stripe_webhook_signed",
+      "asaas_sandbox_payment",
+      "asaas_webhook_authenticated",
       "order_paid_admin",
       "inventory_reserve_sale_release",
       "inventory_expiration_release",
@@ -45,29 +45,44 @@ describe("admin operational evidence", () => {
     expect(expectedOperationalEvidence.every((item) => item.blocksOpenSales)).toBe(true);
   });
 
-  it("blocks open sales when Stripe test payment evidence is missing", () => {
+  it("blocks open sales when Asaas Sandbox payment evidence is missing", () => {
     const rows = expectedOperationalEvidence
-      .filter((item) => item.key !== "stripe_test_payment")
+      .filter((item) => item.key !== "asaas_sandbox_payment")
       .map((item) => row({ key: item.key, environment: item.defaultEnvironment }));
     const report = buildOperationalEvidenceReport(rows);
-    const stripeItem = report.items.find((item) => item.key === "stripe_test_payment");
+    const stripeItem = report.items.find((item) => item.key === "asaas_sandbox_payment");
 
     expect(stripeItem).toEqual(expect.objectContaining({ status: "pending", missingForOpenSales: true }));
     expect(report.openSalesReady).toBe(false);
   });
 
-  it("removes the Stripe blocker when the evidence is passed", () => {
+  it("removes the Asaas blocker when the evidence is passed", () => {
     const rows = expectedOperationalEvidence.map((item) => row({ key: item.key, environment: item.defaultEnvironment }));
     const report = buildOperationalEvidenceReport(rows);
-    const stripeItem = report.items.find((item) => item.key === "stripe_test_payment");
+    const stripeItem = report.items.find((item) => item.key === "asaas_sandbox_payment");
 
     expect(stripeItem).toEqual(expect.objectContaining({ status: "passed", missingForOpenSales: false }));
     expect(report.openSalesReady).toBe(true);
   });
 
+  it("does not accept historical Stripe proof as evidence of Asaas homologation", () => {
+    const report = buildOperationalEvidenceReport([
+      row({ key: "stripe_test_payment", status: "passed" }),
+      row({ key: "stripe_webhook_signed", status: "passed" }),
+    ]);
+    expect(report.items.find((item) => item.key === "asaas_sandbox_payment")?.missingForOpenSales).toBe(true);
+    expect(report.items.find((item) => item.key === "asaas_webhook_authenticated")?.missingForOpenSales).toBe(true);
+  });
+
+  it("rejects Asaas credentials in operational notes and sanitizes stored copies", () => {
+    const key = ["$aact", "hmlg", "fixture" + "0".repeat(40)].join("_");
+    expect(parseOperationalEvidenceInput({ key: "asaas_sandbox_payment", status: "passed", environment: "staging", notes: key }).success).toBe(false);
+    expect(sanitizeOperationalEvidenceDisplayText(key)).not.toContain(key);
+  });
+
   it("rejects secrets and sensitive personal data in submitted notes", () => {
     const result = parseOperationalEvidenceInput({
-      key: "stripe_webhook_signed",
+      key: "asaas_webhook_authenticated",
       status: "passed",
       environment: "staging",
       checkedByLabel: "Equipe",
@@ -101,7 +116,7 @@ describe("admin operational evidence", () => {
     expect(report.items.find((item) => item.key === "redis_shared_health")).toEqual(
       expect.objectContaining({ satisfiedForOpenSales: true }),
     );
-    expect(report.items.find((item) => item.key === "stripe_test_payment")).toEqual(
+    expect(report.items.find((item) => item.key === "asaas_sandbox_payment")).toEqual(
       expect.objectContaining({ status: "pending", missingForOpenSales: true }),
     );
     expect(report.openSalesBlockedCount).toBe(expectedOperationalEvidence.length - 1);

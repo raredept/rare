@@ -3,7 +3,9 @@ export type TransactionalEmailKind =
   | "payment_approved"
   | "payment_declined"
   | "order_shipped"
-  | "support_contact";
+  | "support_contact"
+  | "support_request"
+  | "support_confirmation";
 
 export type TransactionalEmailMessage = {
   kind: TransactionalEmailKind;
@@ -68,7 +70,7 @@ export function escapeEmailHtml(value: string) {
 }
 
 function orderTemplate(
-  kind: Exclude<TransactionalEmailKind, "support_contact">,
+  kind: Exclude<TransactionalEmailKind, "support_contact" | "support_request" | "support_confirmation">,
   input: OrderEmailInput,
   title: string,
   detail: string,

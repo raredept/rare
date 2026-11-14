@@ -5,6 +5,7 @@
     "buildCommand": "npx prisma generate"
   },
   "deploy": {
+    "preDeployCommand": "node scripts/release-freeze.mjs",
     "startCommand": "npm run checkout:worker",
     "cronSchedule": null,
     "healthcheckPath": null,

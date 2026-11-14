@@ -10,9 +10,10 @@ import { requireAdmin } from "@/lib/auth";
 import { saveUploadedImage } from "@/lib/storage";
 import { ACTIVE_PRODUCT_SHIPPING_DATA_ERROR, hasCompleteProductShippingData, productFormSchema } from "@/lib/validators";
 import { slugify } from "@/lib/slug";
-import { PRODUCT_SLUG_TAKEN_MESSAGE } from "@/lib/feedback-messages";
+import { PRODUCT_SLUG_TAKEN_MESSAGE, UNIQUE_STOCK_LIMIT_MESSAGE } from "@/lib/feedback-messages";
 import { isUniqueViolationOn } from "@/lib/prisma-errors";
 import { PRODUCT_SHIPPING_LIMITS, type ProductShippingField } from "@/lib/product-shipping-readiness";
+import { parseAdminEntityId } from "@/lib/admin-action-input";
 
 function productFormPath(productId: string | null) {
   return productId ? `/admin/products/${productId}/edit` : "/admin/products/new";
@@ -174,7 +175,12 @@ async function collectUploadedUrls(formData: FormData) {
 }
 
 export async function saveProductAction(productId: string | null, formData: FormData) {
-  await requireAdmin();
+  await requireAdmin("commerce.products");
+  const normalizedProductId = productId ? parseAdminEntityId(productId) : null;
+  if (productId && !normalizedProductId) {
+    redirectWithProductsListError("Produto inválido.");
+  }
+  productId = normalizedProductId;
 
   let variants: ParsedVariant[];
   try {
@@ -234,6 +240,7 @@ export async function saveProductAction(productId: string | null, formData: Form
     featured,
     featuredSortOrder,
     sortOrder: Number(getString(formData, "sortOrder") || 0),
+    stockPolicy: getString(formData, "stockPolicy") || undefined,
   });
 
   if (!parsedResult.success) {
@@ -241,6 +248,11 @@ export async function saveProductAction(productId: string | null, formData: Form
   }
 
   const parsed = parsedResult.data;
+  // A one-of-a-kind piece is one physical unit. More than one would make every "sold" / "reserved"
+  // reading ambiguous, so it is refused here instead of surfacing later as an inconsistency.
+  if (parsed.stockPolicy === "UNIQUE" && variants.reduce((total, variant) => total + variant.stock, 0) > 1) {
+    redirectWithProductFormError(productId, UNIQUE_STOCK_LIMIT_MESSAGE, shippingDraft);
+  }
   await validateActiveCategorySelection(productId, parsed.categoryId, parsed.subcategoryId);
 
   const slug = parsed.slug ? slugify(parsed.slug) : slugify(title);
@@ -303,6 +315,7 @@ export async function saveProductAction(productId: string | null, formData: Form
             featured: parsed.featured,
             featuredSortOrder: parsed.featured ? parsed.featuredSortOrder : null,
             sortOrder: parsed.sortOrder,
+            stockPolicy: parsed.stockPolicy,
           },
           include: {
             category: { select: { slug: true } },
@@ -328,6 +341,7 @@ export async function saveProductAction(productId: string | null, formData: Form
             featured: parsed.featured,
             featuredSortOrder: parsed.featured ? parsed.featuredSortOrder : null,
             sortOrder: parsed.sortOrder,
+            stockPolicy: parsed.stockPolicy,
           },
           include: {
             category: { select: { slug: true } },
@@ -400,9 +414,11 @@ export async function saveProductAction(productId: string | null, formData: Form
 }
 
 export async function toggleProductActiveAction(formData: FormData) {
-  await requireAdmin();
-  const id = getString(formData, "id");
+  await requireAdmin("commerce.products");
+  const id = parseAdminEntityId(formData.get("id"));
   const active = getString(formData, "active") === "true";
+
+  if (!id) redirectWithProductsListError("Produto inválido.");
 
   if (!active) {
     const productForActivation = await prisma.product.findUnique({
@@ -433,8 +449,9 @@ export async function toggleProductActiveAction(formData: FormData) {
 }
 
 export async function deleteProductAction(formData: FormData) {
-  await requireAdmin();
-  const id = getString(formData, "id");
+  await requireAdmin("commerce.products");
+  const id = parseAdminEntityId(formData.get("id"));
+  if (!id) redirectWithProductsListError("Produto inválido.");
   const product = await prisma.product.findUnique({
     where: { id },
     select: {

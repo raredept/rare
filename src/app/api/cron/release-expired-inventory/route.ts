@@ -24,11 +24,8 @@ function authorizeCron(request: NextRequest) {
   }
 
   const authorization = request.headers.get("authorization") ?? "";
-  // CRON_SECRET_PREVIOUS lets the secret be rotated without downtime: deploy the
-  // new value to the app first, switch the caller, then drop the previous one.
-  const accepted = [secret, clean(process.env.CRON_SECRET_PREVIOUS)].filter((value): value is string => Boolean(value));
-  const matches = accepted.map((value) => safeEqual(authorization, `Bearer ${value}`));
-  if (!matches.some(Boolean)) {
+  // Incident containment: a retired secret must never remain accepted as a fallback.
+  if (!safeEqual(authorization, `Bearer ${secret}`)) {
     return {
       ok: false as const,
       response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),

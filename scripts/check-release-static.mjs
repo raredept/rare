@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { checkReleaseFreeze } from "./release-freeze.mjs";
 
 const root = process.cwd();
 const failures = [];
@@ -113,12 +114,20 @@ function checkFeatureFlags() {
   const shippingRoute = fs.readFileSync(path.join(root, "src", "app", "api", "shipping", "quote", "route.ts"), "utf8");
   const structuredData = fs.readFileSync(path.join(root, "src", "lib", "structured-data.tsx"), "utf8");
 
+  // A variable assigned twice means an edit split a line: the later value silently wins.
+  const envKeys = envExample.split(/\r?\n/).map((line) => line.match(/^([A-Z][A-Z0-9_]*)=/)?.[1]).filter(Boolean);
+  const repeatedKeys = [...new Set(envKeys.filter((key, index) => envKeys.indexOf(key) !== index))];
+  if (repeatedKeys.length) fail("flags", `.env.example atribui mais de uma vez: ${repeatedKeys.join(", ")}.`);
   if (!/^CHECKOUT_ENABLED=["']false["']$/m.test(envExample)) fail("flags", ".env.example deve manter CHECKOUT_ENABLED=false.");
   if (!/^EMAIL_DRIVER=["']disabled["']$/m.test(envExample)) fail("flags", ".env.example deve manter EMAIL_DRIVER=disabled.");
   if (!/^MEDIA_BACKFILL_ALLOW_PRODUCTION=["']false["']$/m.test(envExample)) fail("flags", "Backfill de produção deve ficar bloqueado.");
   if (!/return env\.CHECKOUT_ENABLED === CHECKOUT_ENABLED_VALUE/.test(envSource)) fail("flags", "Checkout deve exigir o literal CHECKOUT_ENABLED=true.");
   if (!/if \(!isCheckoutEnabled\(\)\)/.test(shippingRoute)) fail("flags", "A rota de frete deve falhar fechada com checkout pausado.");
-  if (!/offers:\s*input\.checkoutEnabled\s*\?/.test(structuredData)) fail("flags", "Product.offers deve depender da flag de checkout.");
+  // The Offer carries the price shown on the page (RARE-PRE-LAUNCH-01, docs/cycles/rare-pre-launch/SEO.md);
+  // what must stay behind the checkout flag is the purchasability claim: InStock only while checkout is on.
+  const gatedInStock = /input\.checkoutEnabled\s*\?\s*"https:\/\/schema\.org\/InStock"/;
+  if (!gatedInStock.test(structuredData)) fail("flags", "Product.offers só pode declarar InStock com a flag de checkout ligada.");
+  if (/schema\.org\/InStock/.test(structuredData.replace(gatedInStock, ""))) fail("flags", "Product.offers declara InStock fora da flag de checkout.");
   if (!failures.some((item) => item.label === "flags")) ok("flags:safe-defaults");
 }
 
@@ -172,6 +181,16 @@ function checkHostingDrift() {
   }
 }
 
+// The credential-incident freeze (docs/security/RELEASE_FREEZE.json). A production release check
+// (RELEASE_TARGET=production, or a production APP_ENV) fails while it is active; review runs warn.
+function checkSecurityFreeze() {
+  const decision = checkReleaseFreeze({ root });
+  if (decision.level === "fail") fail("security:release-freeze", `RELEASE_SECURITY_FREEZE ativo: ${decision.reason}. Release de produção bloqueado.`);
+  else if (decision.level === "warn") warn("security:release-freeze", `RELEASE_SECURITY_FREEZE ativo (${decision.reason}); produção bloqueada, alvo atual: ${decision.target}.`);
+  else ok("security:release-freeze");
+  for (const note of decision.notes) warn("security:release-freeze", note);
+}
+
 const files = repositoryFiles();
 const baseRef = process.env.RELEASE_BASE_REF || "origin/main";
 checkArtifacts(files);
@@ -181,6 +200,7 @@ checkFeatureFlags();
 checkPublicVariables(files);
 checkBrowserBundle();
 checkHostingDrift();
+checkSecurityFreeze();
 
 console.log(`Summary: ${checks.length} OK, ${warnings.length} WARNING, ${failures.length} FAIL.`);
 if (failures.length) process.exitCode = 1;

@@ -20,6 +20,19 @@ const baseProduct = {
 };
 
 describe("ProductCard", () => {
+  it("shares a layout-specific sizes override with primary and hover media without eager loading", () => {
+    const sizes = "(max-width: 767px) 50vw, 20vw";
+    const html = renderToStaticMarkup(createElement(ProductCard, {
+      product: { ...baseProduct, images: [
+        { url: "/uploads/products/front.webp", alt: "Frente" },
+        { url: "/uploads/products/back.webp", alt: "Verso" },
+      ] },
+      mediaSizes: sizes,
+    }));
+    expect(html.match(/sizes="\(max-width: 767px\) 50vw, 20vw"/g)).toHaveLength(2);
+    expect(html.match(/loading="lazy"/g)).toHaveLength(2);
+    expect(html).not.toContain('fetchPriority="high"');
+  });
   it("renders the primary image and second sorted image for hover", () => {
     const html = renderToStaticMarkup(
       createElement(ProductCard, {

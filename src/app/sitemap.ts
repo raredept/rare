@@ -9,8 +9,10 @@ const PUBLIC_STATIC_ROUTES = [
   { path: "/", priority: 1 },
   { path: "/sobre", priority: 0.5 },
   { path: "/contato", priority: 0.5 },
+  { path: "/suporte", priority: 0.5 },
   { path: "/politica-de-envio", priority: 0.5 },
   { path: "/privacidade-e-termos", priority: 0.4 },
+  { path: "/politica-de-cookies", priority: 0.3 },
   { path: "/trocas-e-devolucoes", priority: 0.5 },
 ] as const;
 

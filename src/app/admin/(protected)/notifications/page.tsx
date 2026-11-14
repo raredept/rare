@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminNotificationsPage() {
   // Checked here, not only in the layout: layouts do not re-render on client
   // navigation, so every page verifies the session next to its data.
-  await requireAdmin();
+  await requireAdmin("commerce.notifications");
   const [notifications, unreadCount, activeSubscriptionCount] = await Promise.all([
     prisma.adminNotification.findMany({
       orderBy: { createdAt: "desc" },

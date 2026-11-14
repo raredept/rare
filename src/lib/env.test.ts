@@ -9,6 +9,7 @@ beforeEach(() => {
     NODE_ENV: "development",
     DATABASE_URL: "postgresql://local/rare",
     ADMIN_SESSION_SECRET: "dev-secret-with-more-than-32-characters",
+    ADMIN_MFA_ENCRYPTION_KEY: "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
     NEXT_PUBLIC_APP_URL: "http://localhost:3000",
     STORAGE_DRIVER: "local",
     STRIPE_SECRET_KEY: "",
@@ -21,6 +22,17 @@ afterEach(() => {
 });
 
 describe("environment validation", () => {
+  it("reports an unknown PAYMENT_PROVIDER as an error instead of falling back to a gateway", () => {
+    process.env.PAYMENT_PROVIDER = "qualquer-coisa";
+    process.env.CHECKOUT_ENABLED = "true";
+    const result = validateEnvironment();
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.some((issue) => issue.variable === "PAYMENT_PROVIDER")).toBe(true);
+    // Never silently Stripe: no Stripe requirement is raised for a provider nobody chose.
+    expect([...result.errors, ...result.warnings].some((issue) => issue.variable === "STRIPE_SECRET_KEY")).toBe(false);
+  });
+
   it("keeps checkout disabled by default when the feature flag is absent", () => {
     const result = validateEnvironment();
 
@@ -39,17 +51,17 @@ describe("environment validation", () => {
     },
   );
 
-  it("warns about missing Stripe configuration in development when checkout is explicitly enabled", () => {
+  it("rejects checkout enabled without an explicit Asaas provider", () => {
     process.env.CHECKOUT_ENABLED = "true";
     const result = validateEnvironment();
 
     expect(isCheckoutEnabled()).toBe(true);
-    expect(result.ok).toBe(true);
-    expect(result.warnings.some((issue) => issue.variable === "STRIPE_SECRET_KEY")).toBe(true);
-    expect(result.warnings.some((issue) => issue.variable === "STRIPE_WEBHOOK_SECRET")).toBe(true);
+    expect(result.ok).toBe(false);
+    expect(result.errors.some((issue) => issue.variable === "PAYMENT_PROVIDER")).toBe(true);
+    expect([...result.errors, ...result.warnings].some((issue) => issue.variable === "STRIPE_SECRET_KEY")).toBe(false);
   });
 
-  it("requires Stripe configuration in production when checkout is active", () => {
+  it("reports a missing Asaas selection in production without requiring Stripe credentials", () => {
     process.env = {
       ...process.env,
       NODE_ENV: "production",
@@ -66,11 +78,12 @@ describe("environment validation", () => {
     const result = validateEnvironment();
 
     expect(result.ok).toBe(false);
-    expect(result.errors.some((issue) => issue.variable === "STRIPE_SECRET_KEY")).toBe(true);
-    expect(result.errors.some((issue) => issue.variable === "STRIPE_WEBHOOK_SECRET")).toBe(true);
+    expect(result.errors.some((issue) => issue.variable === "PAYMENT_PROVIDER")).toBe(true);
+    expect(result.errors.some((issue) => issue.variable === "STRIPE_SECRET_KEY")).toBe(false);
+    expect(result.errors.some((issue) => issue.variable === "STRIPE_WEBHOOK_SECRET")).toBe(false);
   });
 
-  it("accepts Stripe test-mode style configuration without exposing secret values", () => {
+  it("does not let configured legacy Stripe credentials reopen checkout", () => {
     process.env = {
       ...process.env,
       NODE_ENV: "production",
@@ -88,8 +101,9 @@ describe("environment validation", () => {
 
     const result = validateEnvironment();
 
-    expect(result.ok).toBe(true);
-    expect(result.errors).toEqual([]);
+    expect(result.ok).toBe(false);
+    expect(result.errors.some((issue) => issue.variable === "PAYMENT_PROVIDER")).toBe(true);
+    expect(JSON.stringify(result)).not.toContain(process.env.STRIPE_SECRET_KEY);
   });
 
   it("does not require Stripe secrets when checkout is explicitly disabled", () => {

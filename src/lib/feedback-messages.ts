@@ -20,18 +20,36 @@ import { invalidOrderTransitionMessage } from "@/lib/order-status";
 export const ACTIVE_PRODUCT_SHIPPING_DATA_MESSAGE = "Informe peso, altura, largura e comprimento maiores que 0 para ativar o produto.";
 
 export const PRODUCT_SLUG_TAKEN_MESSAGE = "Já existe um produto com este slug. Escolha outro slug e salve novamente.";
+export const UNIQUE_STOCK_LIMIT_MESSAGE = "Peça única aceita no máximo 1 unidade no total. Reduza o estoque ou use a política Padrão.";
 export const CATEGORY_SLUG_TAKEN_CODE = "category-slug-taken";
 
 const adminErrorCodes = new Map([
+  ["support-invalid", "Solicitação de suporte inválida."],
   ["product-save-failed", "Não foi possível salvar o produto."],
   ["category-save-failed", "Não foi possível salvar a categoria."],
   [CATEGORY_SLUG_TAKEN_CODE, "Já existe uma categoria com este slug. Escolha outro slug e salve novamente."],
   ["banner-save-failed", "Não foi possível salvar o banner."],
   ["settings-save-failed", "Não foi possível salvar as configurações."],
+  ["settings-validation", "Revise os campos das configurações antes de salvar."],
   ["order-status-failed", "Não foi possível atualizar o pedido."],
+  ["promotion-action-failed", "Não foi possível concluir a ação na promoção."],
+  ["promotion-not-found", "Promoção não encontrada."],
+  ["promotion-invalid-transition", "Essa mudança de status não é permitida (ou a promoção mudou enquanto isso). Recarregue e tente de novo."],
+  ["order-refund-failed", "Não foi possível pedir o estorno. Confira o status do pedido e a configuração do Asaas."],
+  ["order-refund-duplicate", "O estorno deste pedido já foi solicitado."],
+  ["order-refund-unknown", "Sem resposta confirmada do Asaas: verifique no painel do Asaas se o estorno foi criado antes de tentar de novo."],
+  ["promotion-incomplete", "A promoção ainda não pode ser ativada: revise desconto, produtos/categorias, datas e título da home."],
+  ["admin-user-invalid", "Revise os dados do usuário."],
+  ["admin-user-not-found", "Usuário Admin não encontrado."],
+  ["admin-user-self-change", "Essa alteração não pode ser feita na sua própria conta. Peça a outro Administrador de Sistema."],
+  ["admin-user-last-system-admin", "Precisa existir pelo menos um Administrador de Sistema ativo."],
+  ["admin-user-email-taken", "Já existe uma conta com este e-mail ou login."],
+  ["admin-user-mfa-reason", "Informe o motivo da redefinição (mínimo de 8 caracteres)."],
 ]);
 
 const adminSuccessCodes = new Map([
+  ["support-retried", "Envio da solicitação recolocado na fila."],
+  ["support-unchanged", "Nada a reenviar: a solicitação não está com falha."],
   ["product-created", "Produto criado com sucesso."],
   ["product-saved", "Produto salvo com sucesso."],
   ["product-hidden", "Produto ocultado."],
@@ -51,11 +69,24 @@ const adminSuccessCodes = new Map([
   ["settings-saved", "Configurações salvas."],
   ["password-updated", "Senha atualizada com sucesso."],
   ["order-status-saved", "Status do pedido atualizado."],
+  ["order-refund-requested", "Estorno solicitado ao Asaas. O pedido vira \"Reembolsado\" quando o Asaas confirmar."],
+  ["promotion-created", "Promoção criada como rascunho."],
+  ["promotion-saved", "Promoção salva."],
+  ["promotion-activate", "Promoção ativada (ou programada para o início definido)."],
+  ["promotion-pause", "Promoção pausada."],
+  ["promotion-end", "Promoção encerrada."],
+  ["promotion-duplicated", "Cópia criada como rascunho."],
+  ["admin-user-activated", "Conta reativada."],
+  ["admin-user-deactivated", "Conta desativada e sessões encerradas."],
+  ["admin-user-role-saved", "Papel atualizado e sessões da conta encerradas."],
+  ["admin-user-sessions-revoked", "Sessões da conta encerradas."],
+  ["admin-user-mfa-reset", "Segundo fator redefinido. A conta cadastra um novo no próximo login."],
 ]);
 
 /** Literal messages the Admin actions send as free text. */
 export const ADMIN_SERVER_MESSAGES: ReadonlySet<string> = new Set([
   // products
+  "Produto inválido.",
   "URL de mídia inválida. Use um caminho do site ou uma URL http(s).",
   "Selecione uma subcategoria ativa.",
   "Selecione uma categoria ativa.",
@@ -68,6 +99,7 @@ export const ADMIN_SERVER_MESSAGES: ReadonlySet<string> = new Set([
   "Falha ao processar imagem enviada.",
   ACTIVE_PRODUCT_SHIPPING_DATA_MESSAGE,
   PRODUCT_SLUG_TAKEN_MESSAGE,
+  UNIQUE_STOCK_LIMIT_MESSAGE,
   // banners
   "Nao foi possivel salvar o banner.",
   "Banner nao encontrado.",

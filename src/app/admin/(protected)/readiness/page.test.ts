@@ -1,6 +1,7 @@
 import { createElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { requireAdmin } from "@/lib/auth";
 
 // Every Admin page checks the session itself; the page logic is what is under test here.
 vi.mock("@/lib/auth", () => ({ requireAdmin: vi.fn(async () => ({ id: "admin-1", role: "ADMIN" })) }));
@@ -34,6 +35,10 @@ vi.mock("next/link", () => ({
     createElement("a", { href, ...props }, children),
 }));
 
+vi.mock("@/app/admin/(protected)/readiness/actions", () => ({
+  saveOperationalEvidenceAction: vi.fn(),
+}));
+
 const originalEnv = process.env;
 
 beforeEach(() => {
@@ -46,7 +51,12 @@ beforeEach(() => {
     NEXT_PUBLIC_APP_URL: "https://rare.example",
     DATABASE_URL: "postgresql://user:password@db.example/rare",
     ADMIN_SESSION_SECRET: "admin-session-secret-with-more-than-32-characters",
+    ADMIN_MFA_ENCRYPTION_KEY: "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
     CHECKOUT_ENABLED: "true",
+    PAYMENT_PROVIDER: "asaas",
+    ASAAS_ENV: "production",
+    ASAAS_API_KEY: ["$aact", "prod", "fixture" + "0".repeat(40)].join("_"),
+    ASAAS_WEBHOOK_TOKEN: "fixture-token-" + "x".repeat(40),
     STRIPE_SECRET_KEY: "sk_live_value_that_must_not_render",
     STRIPE_WEBHOOK_SECRET: "whsec_value_that_must_not_render",
     RATE_LIMIT_DRIVER: "memory",
@@ -103,7 +113,7 @@ beforeEach(() => {
   ]);
   mocks.prisma.operationalEvidence.findMany.mockResolvedValue([
     {
-      key: "stripe_test_payment",
+      key: "asaas_sandbox_payment",
       status: "passed",
       environment: "staging",
       checkedAt: new Date("2026-06-06T12:00:00.000Z"),
@@ -114,7 +124,7 @@ beforeEach(() => {
       updatedAt: new Date("2026-06-06T12:00:00.000Z"),
     },
     {
-      key: "stripe_webhook_signed",
+      key: "asaas_webhook_authenticated",
       status: "passed",
       environment: "staging",
       checkedAt: new Date("2026-06-06T12:00:00.000Z"),
@@ -132,10 +142,10 @@ afterEach(() => {
 });
 
 describe("AdminReadinessPage", () => {
-  it("renders readiness status, blockers, actions and sanitized links", async () => {
+  it("renders readiness status, blockers and sanitized links with absent searchParams", async () => {
     const { default: AdminReadinessPage } = await import("@/app/admin/(protected)/readiness/page");
     process.env = { ...process.env, NODE_ENV: "production" };
-    const element = await AdminReadinessPage();
+    const element = await AdminReadinessPage({});
     const html = renderToStaticMarkup(element as ReactElement);
 
     expect(html).toContain("Prontidão de Venda");
@@ -150,7 +160,7 @@ describe("AdminReadinessPage", () => {
     expect(html).toContain("npm run media:variants:audit");
     expect(html).toContain("Evidências operacionais");
     expect(html).toContain("Configuração presente não significa homologação concluída");
-    expect(html).toContain("Stripe test payment aprovado");
+    expect(html).toContain("Pagamento Asaas Sandbox aprovado");
     expect(html).toContain("Homologacao operacional pendente");
     expect(html).not.toContain(process.env.STRIPE_SECRET_KEY);
     expect(html).not.toContain(process.env.STRIPE_WEBHOOK_SECRET);
@@ -159,6 +169,7 @@ describe("AdminReadinessPage", () => {
     expect(html).not.toContain(process.env.R2_SECRET_ACCESS_KEY);
     expect(html).not.toContain(process.env.MELHOR_ENVIO_TOKEN);
     expect(html).not.toContain("sk_test_value_that_must_not_render");
+    expect(requireAdmin).toHaveBeenCalledOnce();
   }, 10_000);
 
   it("renders a sanitized fallback when operational evidence table is not migrated", async () => {
@@ -168,7 +179,7 @@ describe("AdminReadinessPage", () => {
     });
     const { default: AdminReadinessPage } = await import("@/app/admin/(protected)/readiness/page");
     process.env = { ...process.env, NODE_ENV: "production" };
-    const element = await AdminReadinessPage();
+    const element = await AdminReadinessPage({});
     const html = renderToStaticMarkup(element as ReactElement);
 
     expect(html).toContain("Tabela de evidências ainda não aplicada");
@@ -178,5 +189,36 @@ describe("AdminReadinessPage", () => {
     expect(html).not.toContain("does not exist");
     expect(html).not.toContain("P2021");
     expect(html).not.toContain(process.env.DATABASE_URL);
+  });
+
+  it("preserves success and escaped error messages from promised searchParams", async () => {
+    const { default: AdminReadinessPage } = await import("@/app/admin/(protected)/readiness/page");
+    const element = await AdminReadinessPage({
+      searchParams: Promise.resolve({ success: "evidence-saved", error: "Revise <evidência>" }),
+    });
+    const html = renderToStaticMarkup(element as ReactElement);
+
+    expect(html).toContain("Evidência salva.");
+    expect(html).toContain("Revise &lt;evidência&gt;");
+    expect(html).toContain('role="alert"');
+    expect(html).not.toContain("Revise <evidência>");
+    expect(requireAdmin).toHaveBeenCalledOnce();
+    expect(mocks.prisma.storeSettings.findUnique).toHaveBeenCalledOnce();
+    expect(mocks.prisma.product.findMany).toHaveBeenCalledOnce();
+    expect(mocks.prisma.category.findMany).toHaveBeenCalledOnce();
+    expect(mocks.prisma.homeBannerSlide.findMany).toHaveBeenCalledOnce();
+    expect(mocks.prisma.operationalEvidence.findMany).toHaveBeenCalledOnce();
+  });
+
+  it("authorizes before loading readiness data with absent searchParams", async () => {
+    vi.mocked(requireAdmin).mockRejectedValueOnce(new Error("Unauthorized"));
+    const { default: AdminReadinessPage } = await import("@/app/admin/(protected)/readiness/page");
+
+    await expect(AdminReadinessPage({})).rejects.toThrow("Unauthorized");
+    expect(mocks.prisma.storeSettings.findUnique).not.toHaveBeenCalled();
+    expect(mocks.prisma.product.findMany).not.toHaveBeenCalled();
+    expect(mocks.prisma.category.findMany).not.toHaveBeenCalled();
+    expect(mocks.prisma.homeBannerSlide.findMany).not.toHaveBeenCalled();
+    expect(mocks.prisma.operationalEvidence.findMany).not.toHaveBeenCalled();
   });
 });

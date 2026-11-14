@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { updateOrderStatusAction } from "@/app/admin/(protected)/orders/actions";
+import { requestOrderRefundAction, updateOrderStatusAction } from "@/app/admin/(protected)/orders/actions";
 import { AdminSubmitButton } from "@/components/admin/admin-submit-button";
 import { formatCep } from "@/lib/cep";
 import { formatAddressSnapshotLines } from "@/lib/customer-order";
@@ -28,7 +28,7 @@ type OrderDetailPageProps = {
 export default async function OrderDetailPage({ params }: OrderDetailPageProps) {
   // Checked here, not only in the layout: layouts do not re-render on client
   // navigation, so every page verifies the session next to its data.
-  await requireAdmin();
+  await requireAdmin("commerce.orders");
   const { id } = await params;
   const order = await prisma.order.findUnique({
     where: { id },
@@ -57,6 +57,11 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
                   <p className="font-semibold text-neutral-500">
                     Tamanho {item.sizeSnapshot} · Qtd {item.quantity}
                   </p>
+                  {item.promotionId ? (
+                    <p className="mt-1 text-xs font-semibold text-emerald-700">
+                      {item.promotionName ?? "Promoção"}{item.promotionCode ? ` (${item.promotionCode})` : ""}: {formatMoney(item.basePriceInCents ?? item.unitPriceInCents)} → {formatMoney(item.unitPriceInCents)} (- {formatMoney(item.promotionDiscountInCents)}/un.)
+                    </p>
+                  ) : null}
                 </div>
                 <p className="whitespace-nowrap font-black text-neutral-950">{formatMoney(item.totalInCents)}</p>
               </div>
@@ -76,6 +81,12 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
                 <span>Pagamento</span>
                 <span>{formatPaymentMethod(order.paymentMethod)}</span>
               </div>
+              {order.promotionDiscountInCents > 0 ? (
+                <div className="flex justify-between text-emerald-700">
+                  <span>Promoções (já no subtotal)</span>
+                  <span className="whitespace-nowrap">- {formatMoney(order.promotionDiscountInCents)}</span>
+                </div>
+              ) : null}
               <div className="flex justify-between">
                 <span>Subtotal</span>
                 <span className="whitespace-nowrap">{formatMoney(order.subtotalInCents)}</span>
@@ -109,7 +120,8 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
             <h2 className="text-lg font-black text-neutral-950">Cliente</h2>
             <div className="mt-4 space-y-2 text-sm font-semibold text-neutral-600">
               <p>Nome: {order.customer?.name ?? order.customerNameSnapshot ?? order.customerName ?? "-"}</p>
-              <p>E-mail: {order.customer?.email ?? order.customerEmailSnapshot ?? order.customerEmail ?? "-"}</p>
+              {/* A long address has no break opportunity and widened the whole order page. */}
+              <p className="break-all">E-mail: {order.customer?.email ?? order.customerEmailSnapshot ?? order.customerEmail ?? "-"}</p>
               <p>Telefone: {order.customerPhoneSnapshot ?? order.customerPhone ?? "-"}</p>
               <p>CPF: {order.customerCpfSnapshot ? maskCpf(order.customerCpfSnapshot) : "-"}</p>
               {order.customer ? (
@@ -157,10 +169,36 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
           <section className="rounded-lg border border-neutral-200 bg-white p-5">
             <h2 className="text-lg font-black text-neutral-950">Pagamento</h2>
             <div className="mt-4 space-y-2 break-all text-xs font-semibold text-neutral-600">
-              <p>Checkout: {maskExternalId(order.stripeCheckoutSessionId)}</p>
-              <p>Payment Intent: {maskExternalId(order.stripePaymentIntentId)}</p>
+              {order.paymentProvider === "asaas" ? (
+                <>
+                  <p>Provedor: Asaas</p>
+                  <p>Cobrança: {maskExternalId(order.asaasPaymentId)}</p>
+                  {order.refundRequestedAt ? <p>Estorno solicitado em {order.refundRequestedAt.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</p> : null}
+                </>
+              ) : order.paymentProvider === "mercadopago" ? (
+                <>
+                  <p>Provedor: Mercado Pago</p>
+                  <p>Pagamento: {maskExternalId(order.mercadoPagoPaymentId)}</p>
+                </>
+              ) : (
+                <>
+                  <p>Checkout: {maskExternalId(order.stripeCheckoutSessionId)}</p>
+                  <p>Payment Intent: {maskExternalId(order.stripePaymentIntentId)}</p>
+                </>
+              )}
               <p>Método: {order.paymentMethod ?? "-"}</p>
             </div>
+            {order.paymentProvider === "asaas" && order.asaasPaymentId && !order.refundRequestedAt && ["paid", "processing", "shipped", "delivered"].includes(order.status) ? (
+              <form action={requestOrderRefundAction} className="mt-4 space-y-2 border-t border-neutral-200 pt-4">
+                <input type="hidden" name="id" value={order.id} />
+                <label className="block text-xs font-semibold text-neutral-600">
+                  Estorno total no Asaas. Digite ESTORNAR para confirmar:
+                  <input name="confirm" required pattern="ESTORNAR" autoComplete="off" className="admin-input mt-1" />
+                </label>
+                <button type="submit" className="h-10 w-full rounded-lg border border-red-400 text-xs font-black text-red-700">Solicitar estorno total</button>
+                <p className="text-[11px] text-neutral-500">O estoque não volta automaticamente. Ajuste-o quando a peça retornar.</p>
+              </form>
+            ) : null}
           </section>
         </aside>
       </div>

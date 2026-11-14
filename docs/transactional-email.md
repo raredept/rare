@@ -2,7 +2,7 @@
 
 O release implementa outbox persistente e dois transportes explícitos, `smtp` (compatível com Zoho) e `zeptomail` (REST/HTTPS, para ambientes que bloqueiam SMTP de saída). A entrega externa continua **não homologada** e produção mantém `EMAIL_DRIVER=disabled`. O proprietário confirmou a caixa Zoho `contato@raredept.com.br`; faltam host/região, credencial SMTP e destinatário controlado para o ensaio. Estado consolidado: [FINAL_RELEASE_STATUS.md](../FINAL_RELEASE_STATUS.md).
 
-## Drivers de transporte: `disabled`, `smtp`, `zeptomail`
+## Drivers de transporte: `disabled`, `smtp`, `zeptomail`, `resend`
 
 `EMAIL_DRIVER` escolhe **explicitamente** o transporte. Outbox, claim/finish, retries, idempotência `(orderId, kind)`, templates (`payment_approved`, `order_shipped`), `EMAIL_DELIVERY_MODE`, `EMAIL_TEST_RECIPIENTS` e `EMAIL_SEND_NOT_BEFORE` são os mesmos nos três; só a camada de envio muda. **Não existe fallback automático** entre transportes: se o driver escolhido falhar, a linha segue a regra do outbox e nunca é reenviada por outro transporte.
 
@@ -10,6 +10,7 @@ O release implementa outbox persistente e dois transportes explícitos, `smtp` (
 | --- | --- | --- |
 | `disabled` | padrão e **produção enquanto não autorizada** | não assume linhas, não abre conexão; a intenção continua sendo gravada |
 | `smtp` | local, outro provedor, fallback operacional **manual** | Nodemailer; a Railway bloqueia SMTP de saída (587/465/2525 em timeout), então não funciona em containers Railway |
+| `resend` | Railway (HTTPS 443) | REST `POST https://api.resend.com/emails`, `Authorization: Bearer <API key>`, com `Idempotency-Key` por mensagem. Ver "Driver `resend`" abaixo |
 | `zeptomail` | Railway (HTTPS 443) | REST `POST https://api.zeptomail.com/v1.1/email`, `Authorization: Zoho-enczapikey <Send Mail token>` |
 
 ### Variáveis do driver `zeptomail`
@@ -60,6 +61,35 @@ Cada tentativa registra uma linha JSON sanitizada: `provider`, `messageKind`, `o
 ### Rollback
 
 Parar os envios **não exige reverter código:** `EMAIL_DRIVER=disabled` nos serviços web e worker. O outbox segue enfileirando; ao religar, `EMAIL_SEND_NOT_BEFORE` impede enviar o backlog. Voltar ao SMTP é só `EMAIL_DRIVER=smtp` (as variáveis `SMTP_*` legadas ficam nos ambientes até a migração ser consolidada; a limpeza é tarefa separada).
+
+## Driver `resend`
+
+| Variável | Requisito |
+| --- | --- |
+| `EMAIL_DRIVER` | `resend` |
+| `RESEND_API_KEY` | **Segredo.** Chave com permissão *Sending access*, restrita ao domínio `raredept.com.br` (aceita com ou sem o prefixo `Bearer `). Somente Railway/servidor: nunca Git, log, relatório, bundle ou resposta de erro |
+| `EMAIL_FROM_ORDERS` | Remetente; precisa pertencer ao domínio **verificado** no Resend (`contato@raredept.com.br`) |
+| `EMAIL_REPLY_TO` | Opcional |
+| `APP_ENV`, `EMAIL_DELIVERY_MODE`, `EMAIL_TEST_RECIPIENTS`, `EMAIL_SEND_NOT_BEFORE` | Iguais aos outros drivers |
+
+Configure nos **dois** serviços: web (enfileira) e worker (envia). O endpoint é fixo no código; não existe variável para trocá-lo, então a chave nunca vai a outro host.
+
+- Corpo: `from` (`RARE <remetente>`), `to` (um destinatário), `reply_to`, `subject`, `text`, `html` e a tag `kind` (tipo da mensagem, sem PII).
+- `Idempotency-Key` = `rare-` + 64 hex derivados do id da mensagem do outbox. O Resend guarda a chave por 24 h e devolve o resultado original se a mesma mensagem for repetida. Por isso timeout e queda de conexão viram `retry` (no ZeptoMail viram `uncertain`).
+- Timeout de 15 s, sem redirecionamentos, sem repetição na camada HTTP: só o outbox repete.
+- Rastreio de abertura e clique fica desligado no domínio (padrão do Resend).
+
+| Sintoma (código no outbox ou no log) | Causa provável | Ação |
+| --- | --- | --- |
+| `MissingRESEND_API_KEY`, `InvalidResendApiKey` | chave ausente, com espaço, ou que não começa com `re_` | recolar a chave no serviço (web **e** worker) |
+| `ResendAuthenticationFailed` (401) | chave inválida ou revogada | criar nova chave *Sending access* |
+| `ResendForbidden` (403) | domínio do remetente não verificado, chave suspensa, ou conta ainda em modo de teste | conferir *Domains* no Resend e `EMAIL_FROM_ORDERS` |
+| `ResendQuotaExceeded` (429 `daily_quota_exceeded` / `monthly_quota_exceeded`) | cota do plano esgotada (plano gratuito: 100/dia) | subir de plano; depois revisar as linhas `failed` |
+| `ResendRateLimited`, `ResendServerError`, `ResendDeadlineExceeded`, `ResendResponseLost`, `ResendConcurrentAttempt` | limite por segundo, instabilidade ou resposta perdida | o outbox repete sozinho com a mesma chave de idempotência |
+| `ResendIdempotencyConflict` (409), `ResendUnexpectedResponse` (`uncertain`) | a mesma mensagem já foi enviada com outro corpo, ou resposta irreconhecível | conferir *Emails* no Resend, depois `email:review-outbox` |
+| `ResendRejectedRequest` (400/422) | campo inválido | conferir remetente e destinatário |
+
+DNS do Resend para `raredept.com.br` (convive com o Zoho, que continua dono do MX e do SPF da raiz): TXT `resend._domainkey` (DKIM), CNAME `send` e CNAME `rsend` (retorno/SPF), todos "DNS only" no Cloudflare. Não ative *Receiving* no Resend: o MX de recebimento na raiz tiraria os e-mails do Zoho.
 
 ## Pagamento, fila e falhas
 

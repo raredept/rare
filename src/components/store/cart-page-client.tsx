@@ -4,6 +4,8 @@ import { Loader2, MapPin, Minus, Plus, Trash2, UserRound } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { PaymentMethodPicker, type CheckoutPaymentMethod, type CheckoutPaymentProvider } from "@/components/store/payment-method-picker";
+import { ASAAS_RESERVATION_MINUTES } from "@/lib/checkout-policy";
 import { useCart, type CartItem } from "@/components/store/cart-context";
 import { ProductMediaPlaceholder } from "@/components/store/product-media-placeholder";
 import { InstallmentTerms } from "@/components/store/installment-terms";
@@ -38,6 +40,12 @@ type CartPageClientProps = {
   };
   addresses: CheckoutAddress[];
   initialSelectedAddressId: string;
+  // Decided on the server: Pix is offered only when it is enabled and fully configured.
+  pixAvailable?: boolean;
+  cardAvailable?: boolean;
+  // PAYMENT_PROVIDER, also decided on the server: the copy and the payment window follow it.
+  // "disabled" (or an unknown value) offers no payment at all.
+  paymentProvider?: CheckoutPaymentProvider | "disabled";
   shippingSettings: ProvisionalShippingSettings & {
     shippingInstructions?: string | null;
   };
@@ -167,9 +175,44 @@ function formatCheckoutMessage(message: string) {
   return message;
 }
 
-export function CartPageClient({ customer, addresses, initialSelectedAddressId, shippingSettings, shippingConfig, welcomeCoupon }: CartPageClientProps) {
-  const { items, subtotalInCents, updateQuantity, removeItem } = useCart();
+export function CartPageClient({ customer, addresses, initialSelectedAddressId, pixAvailable = false, cardAvailable = true, paymentProvider = "disabled", shippingSettings, shippingConfig, welcomeCoupon }: CartPageClientProps) {
+  const { items, subtotalInCents, updateQuantity, removeItem, syncPrices } = useCart();
+  const priceSignature = useMemo(() => items.map((item) => `${item.productId}:${item.variantId}`).sort().join("|"), [items]);
+  useEffect(() => {
+    if (!priceSignature) return;
+    const controller = new AbortController();
+    fetch("/api/cart/pricing", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({ items: priceSignature.split("|").map((pair) => {
+        const [productId, variantId] = pair.split(":");
+        return { productId, variantId };
+      }) }),
+    })
+      .then(async (response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (data?.prices) syncPrices(data.prices);
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [priceSignature, syncPrices]);
+  // Coupons never stack with an automatic promotion: the server applies the coupon only to items
+  // without one, and so does this preview.
+  const couponEligibleSubtotalInCents = items.filter((item) => !item.promotional).reduce((sum, item) => sum + item.priceInCents * item.quantity, 0);
+  const hasPromotionalItems = items.some((item) => item.promotional);
   const [selectedAddressId, setSelectedAddressId] = useState(initialSelectedAddressId);
+  const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>(cardAvailable || !pixAvailable ? "card" : "pix");
+  const payWithPix = pixAvailable && paymentMethod === "pix";
+  const usesAsaas = paymentProvider === "asaas";
+  // No method available (PAYMENT_PROVIDER=disabled, an unknown value, or an incomplete gateway
+  // configuration): say so and do not offer a button that can only fail.
+  const paymentAvailable = usesAsaas && (pixAvailable || cardAvailable);
+  // Same windows the server reserves stock for (src/lib/checkout.ts): Asaas holds 30 min for both.
+  const paymentWindowMinutes = ASAAS_RESERVATION_MINUTES;
+  const paymentProviderNote = !paymentAvailable
+    ? "Pagamentos temporariamente indisponíveis. Tente novamente em alguns minutos."
+    : payWithPix ? "Pix processado pelo Asaas" : "Cartão processado na página segura do Asaas";
   const [shippingOptions, setShippingOptions] = useState<ShippingQuoteOption[]>([]);
   const [shippingQuoteContext, setShippingQuoteContext] = useState<ShippingQuoteContext | null>(null);
   const [selectedShipping, setSelectedShipping] = useState<ShippingSelection | null>(null);
@@ -226,7 +269,7 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
     ? selectedShippingOption?.amountCents ?? 0
     : legacyShippingPreview.result?.shippingInCents ?? 0;
   const totalInCents = subtotalInCents + shippingInCents;
-  const discountInCents = welcomeCoupon ? calculatePercentDiscountInCents(subtotalInCents, welcomeCoupon.percentOff) : 0;
+  const discountInCents = welcomeCoupon ? calculatePercentDiscountInCents(couponEligibleSubtotalInCents, welcomeCoupon.percentOff) : 0;
   const discountedTotalInCents = totalInCents - discountInCents;
 
   const checkoutPayload = useMemo(
@@ -249,11 +292,13 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
               selectedShippingMethod: legacyShippingPreview.result?.shippingMethod,
             }),
         couponCode: welcomeCoupon?.code,
+        paymentMethod: payWithPix ? "pix" as const : "card" as const,
       };
     },
     [
       checkoutCep,
       items,
+      payWithPix,
       legacyShippingPreview.result?.shippingMethod,
       selectedAddressId,
       selectedShippingOption?.id,
@@ -541,6 +586,11 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
               <p className="mt-2 text-sm font-semibold leading-6 text-emerald-900">
                 Cupom <span className="font-black tracking-wide">{welcomeCoupon.code}</span> aplicado automaticamente após o cadastro.
               </p>
+              {hasPromotionalItems ? (
+                <p className="mt-2 text-sm font-semibold leading-6 text-emerald-900">
+                  O cupom não é cumulativo com promoções: vale só para os itens sem desconto automático.
+                </p>
+              ) : null}
             </section>
           ) : null}
 
@@ -781,22 +831,25 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
             </div>
           </div>
           {error ? <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{error}</p> : null}
-          <p className="mt-5 text-sm font-semibold leading-6 text-neutral-700">Ao iniciar o pagamento, você terá 15 minutos para finalizar. O prazo fica salvo com seu pedido e não se renova ao voltar à loja. Pagamentos já em processamento aguardam confirmação.</p>
+          {paymentAvailable && pixAvailable && cardAvailable ? <PaymentMethodPicker value={paymentMethod} onChange={setPaymentMethod} disabled={loading} provider={usesAsaas ? "asaas" : "stripe"} /> : null}
+          {paymentAvailable ? (
+            <p className="mt-5 text-sm font-semibold leading-6 text-neutral-700">Ao iniciar o pagamento, você terá {paymentWindowMinutes} minutos para finalizar. O prazo fica salvo com seu pedido e não se renova ao voltar à loja. Pagamentos já em processamento aguardam confirmação.</p>
+          ) : null}
           <button
             type="button"
             onClick={checkout}
-            disabled={loading || needsCpf || (shippingConfig.enabled && !selectedShippingOption)}
+            disabled={loading || needsCpf || !paymentAvailable || (shippingConfig.enabled && !selectedShippingOption)}
             className="mt-6 flex h-12 w-full items-center justify-center rounded-lg bg-black px-6 text-sm font-black uppercase tracking-wide text-white transition hover:bg-neutral-800 disabled:cursor-wait disabled:bg-neutral-500"
           >
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Finalizar compra
           </button>
-          <p className="mt-3 text-center text-xs font-bold text-neutral-500">Pagamento seguro pelos métodos habilitados na Stripe</p>
+          <p className="mt-3 text-center text-xs font-bold text-neutral-500">{paymentProviderNote}</p>
           <div className="mt-4 grid gap-2 border-t border-neutral-200 pt-4 text-center text-xs font-bold text-neutral-500 sm:grid-cols-2">
-            <Link href="/politica-de-envio" className="underline underline-offset-4 hover:text-neutral-950">
+            <Link href="/politica-de-envio" className="inline-flex min-h-11 items-center justify-center underline underline-offset-4 hover:text-neutral-950">
               Política de envio
             </Link>
-            <Link href="/trocas-e-devolucoes" className="underline underline-offset-4 hover:text-neutral-950">
+            <Link href="/trocas-e-devolucoes" className="inline-flex min-h-11 items-center justify-center underline underline-offset-4 hover:text-neutral-950">
               Trocas e devoluções
             </Link>
           </div>
@@ -857,8 +910,16 @@ function CartItems({
               </div>
             </div>
             <span className="hidden text-sm font-semibold text-neutral-700 lg:block">{item.size}</span>
-            <span className="whitespace-nowrap text-sm font-bold text-neutral-950">{formatMoney(item.priceInCents)}</span>
-            <div className="flex h-10 w-32 items-center rounded-lg border border-neutral-300">
+            <span className="whitespace-nowrap text-sm font-bold text-neutral-950">
+              {item.promotional && item.basePriceInCents && item.basePriceInCents > item.priceInCents ? (
+                <>
+                  <span className="sr-only">Preço original {formatMoney(item.basePriceInCents)}, preço promocional </span>
+                  <s aria-hidden="true" className="mr-1 font-semibold text-neutral-600">{formatMoney(item.basePriceInCents)}</s>
+                </>
+              ) : null}
+              {formatMoney(item.priceInCents)}
+            </span>
+            <div className="flex h-11 w-32 items-center rounded-lg border border-neutral-300">
               <button
                 type="button"
                 onClick={() => updateQuantity(item.variantId, item.quantity - 1)}

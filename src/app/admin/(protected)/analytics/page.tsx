@@ -1,11 +1,6 @@
 import Link from "next/link";
-import { getAnalyticsOverview, LOW_STOCK_THRESHOLD } from "@/lib/admin-analytics";
-import {
-  ANALYTICS_PERIOD_PRESETS,
-  formatDayRangeLabel,
-  resolveAnalyticsPeriod,
-  type AnalyticsPeriodPreset,
-} from "@/lib/analytics-period";
+import { getAnalyticsOverview, getPromotionAnalytics, LOW_STOCK_THRESHOLD } from "@/lib/admin-analytics";
+import { formatDayRangeLabel, resolveAnalyticsPeriod } from "@/lib/analytics-period";
 import {
   ChartCard,
   ChartEmptyState,
@@ -15,6 +10,7 @@ import {
   type MagnitudeRow,
 } from "@/components/admin/analytics-charts";
 import { KpiTile } from "@/components/admin/analytics-kpi";
+import { AnalyticsPeriodFilter } from "@/components/admin/analytics-period-filter";
 import { formatMoney } from "@/lib/money";
 import { formatOrderStatus } from "@/lib/order-display";
 import { requireAdmin } from "@/lib/auth";
@@ -25,14 +21,6 @@ type AnalyticsPageProps = {
   searchParams: Promise<{ period?: string; from?: string; to?: string }>;
 };
 
-const presetLabels: Record<AnalyticsPeriodPreset, string> = {
-  today: "Hoje",
-  "7d": "7 dias",
-  "30d": "30 dias",
-  "90d": "90 dias",
-  custom: "Personalizado",
-};
-
 function formatInteger(value: number) {
   return new Intl.NumberFormat("pt-BR").format(value);
 }
@@ -40,10 +28,10 @@ function formatInteger(value: number) {
 export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
   // Checked here, not only in the layout: layouts do not re-render on client
   // navigation, so every page verifies the session next to its data.
-  await requireAdmin();
+  await requireAdmin("analytics.sales");
   const query = await searchParams;
   const period = resolveAnalyticsPeriod({ preset: query.period, from: query.from, to: query.to });
-  const overview = await getAnalyticsOverview(period);
+  const [overview, promotions] = await Promise.all([getAnalyticsOverview(period), getPromotionAnalytics(period)]);
   const { totals, previousTotals, inventory } = overview;
 
   const hasSales = totals.paidOrders > 0;
@@ -82,7 +70,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         </p>
       </div>
 
-      <PeriodFilter period={period} />
+      <AnalyticsPeriodFilter period={period} basePath="/admin/analytics" />
 
       <section aria-labelledby="analytics-sales" className="mt-6">
         <h2 id="analytics-sales" className="sr-only">
@@ -197,7 +185,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           <KpiTile
             label="Produtos esgotados"
             value={formatInteger(inventory.soldOutActiveProducts)}
-            hint="Ativos e sem unidade vendável"
+            hint="Reposição: ativos e sem unidade vendável"
             higherIsBetter={false}
           />
         </div>
@@ -207,7 +195,8 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             <div>
               <h3 className="text-base font-black text-neutral-950">Variações críticas</h3>
               <p className="mt-1 text-xs font-semibold text-neutral-500">
-                Até {LOW_STOCK_THRESHOLD} unidades vendáveis, esgotadas primeiro.
+                Itens de reposição com até {LOW_STOCK_THRESHOLD} unidades vendáveis, esgotados primeiro. Peças únicas não entram por
+                quantidade: {formatInteger(inventory.uniqueAvailableProducts)} disponível(is), {formatInteger(inventory.uniqueUnavailableProducts)} vendida(s) ou reservada(s).
               </p>
             </div>
             <Link
@@ -240,7 +229,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                       <td className="py-2.5 text-right font-semibold text-neutral-600">{entry.stock}</td>
                       <td className="py-2.5 text-right font-semibold text-neutral-600">{entry.reservedStock}</td>
                       <td className={`py-2.5 text-right font-black ${entry.sellable <= 0 ? "text-red-700" : "text-neutral-950"}`}>
-                        {entry.sellable <= 0 ? "Esgotado" : entry.sellable}
+                        {entry.sellable <= 0 ? "Esgotado" : `${entry.sellable} · ${entry.level === "critical" ? "crítico" : "baixo"}`}
                       </td>
                       <td className="py-2.5 text-right">
                         <Link
@@ -263,53 +252,35 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         </div>
       </section>
 
+      <section aria-labelledby="analytics-promotions" className="mt-8 rounded-lg border border-neutral-200 bg-white p-5">
+        <h2 id="analytics-promotions" className="text-lg font-black text-neutral-950">Promoções no período</h2>
+        <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            ["Pedidos com promoção", formatInteger(promotions.ordersWithPromotion)],
+            ["Receita promocional", formatMoney(promotions.promotionalRevenueInCents)],
+            ["Desconto concedido", formatMoney(promotions.discountGrantedInCents)],
+            ["Itens vendidos em promoção", formatInteger(promotions.promotionalItemsSold)],
+          ].map(([term, value]) => (
+            <div key={term}><dt className="text-xs font-black uppercase tracking-wide text-neutral-500">{term}</dt><dd className="mt-1 text-xl font-black">{value}</dd></div>
+          ))}
+        </dl>
+        {promotions.topPromotions.length ? (
+          <ol className="mt-4 list-decimal space-y-1 pl-5 text-sm">
+            {promotions.topPromotions.map((entry) => (
+              <li key={entry.id}>
+                <Link href={`/admin/promotions/${entry.id}`} className="font-black underline underline-offset-2">{entry.label}</Link> — {formatInteger(entry.orders)} pedido(s) · {formatInteger(entry.quantity)} un. · {formatMoney(entry.revenueInCents)} · desconto {formatMoney(entry.discountInCents)}
+              </li>
+            ))}
+          </ol>
+        ) : <p className="mt-4 text-sm text-neutral-500">Nenhuma venda paga com promoção no período.</p>}
+      </section>
+
       <p className="mt-8 text-xs font-semibold leading-5 text-neutral-500">
-        Receita considera pedidos pagos, em preparo, enviados e entregues, na data do pagamento confirmado pela Stripe.
+        Receita considera pedidos pagos, em preparo, enviados e entregues, na data do pagamento confirmado pelo provedor de pagamento.
         Reembolsados e cancelados ficam de fora. Não há telemetria de visitas nesta loja, então taxa de conversão,
         carrinhos abandonados e funil não são exibidos: seriam números inventados.
       </p>
     </div>
-  );
-}
-
-function PeriodFilter({ period }: { period: ReturnType<typeof resolveAnalyticsPeriod> }) {
-  return (
-    <form className="mt-6 rounded-lg border border-neutral-200 bg-white p-4" role="search">
-      <fieldset>
-        <legend className="text-[11px] font-black uppercase tracking-wide text-neutral-500">Período</legend>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {ANALYTICS_PERIOD_PRESETS.filter((preset) => preset !== "custom").map((preset) => (
-            <Link
-              key={preset}
-              href={`/admin/analytics?period=${preset}`}
-              aria-current={period.preset === preset ? "page" : undefined}
-              className={`rounded-full border px-3 py-2 text-xs font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${
-                period.preset === preset
-                  ? "border-neutral-950 bg-black text-white"
-                  : "border-neutral-300 text-neutral-700 hover:border-neutral-950 hover:text-neutral-950"
-              }`}
-            >
-              {presetLabels[preset]}
-            </Link>
-          ))}
-        </div>
-
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-          <input type="hidden" name="period" value="custom" />
-          <label className="flex-1 text-xs font-black uppercase tracking-wide text-neutral-500">
-            De
-            <input type="date" name="from" defaultValue={period.fromDay} className="admin-input mt-1" max={period.toDay} />
-          </label>
-          <label className="flex-1 text-xs font-black uppercase tracking-wide text-neutral-500">
-            Até
-            <input type="date" name="to" defaultValue={period.toDay} className="admin-input mt-1" />
-          </label>
-          <button type="submit" className="h-[42px] rounded-lg bg-black px-4 text-sm font-black text-white">
-            Aplicar
-          </button>
-        </div>
-      </fieldset>
-    </form>
   );
 }
 

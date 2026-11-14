@@ -110,7 +110,7 @@ test("first access blocks pages, API and a real Server Action, rotates the passw
   await expect(replacementPage).toHaveURL(/\/admin(?:\?|$)/);
 
   await currentPage.goto("/admin");
-  await expect(currentPage.getByRole("heading", { name: /Visao geral|Painel|Admin/i })).toBeVisible();
+  await expect(currentPage.getByRole("heading", { name: "Visão geral", exact: true })).toBeVisible();
 
   await Promise.all([
     currentContext.close(),

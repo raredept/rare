@@ -13,11 +13,14 @@ describe("storefront structured data", () => {
     expect(buildOrganizationJsonLd(appUrl)).toMatchObject({
       "@type": "Organization",
       name: "RARE",
+      alternateName: ["RARE Dept", "raredept"],
       url: appUrl,
       sameAs: ["https://www.instagram.com/rare.deptt/"],
     });
     expect(buildWebsiteJsonLd(appUrl)).toMatchObject({
       "@type": "WebSite",
+      name: "RARE",
+      alternateName: ["RARE Dept", "raredept"],
       url: appUrl,
       potentialAction: {
         "@type": "SearchAction",
@@ -26,7 +29,7 @@ describe("storefront structured data", () => {
     });
   });
 
-  it("omits Offer while checkout is paused", () => {
+  it("keeps the displayed price but claims no availability while checkout is paused", () => {
     const data = buildProductJsonLd({
       name: "Camiseta RARE",
       description: "Camiseta importada.",
@@ -40,10 +43,28 @@ describe("storefront structured data", () => {
     });
 
     expect(data).toMatchObject({ "@type": "Product", brand: { "@type": "Brand", name: "RARE" }, sku: "RARE-001" });
-    expect(data.offers).toBeUndefined();
+    expect(JSON.parse(stringifyJsonLd(data)).offers).toEqual({
+      "@type": "Offer",
+      priceCurrency: "BRL",
+      price: "199.90",
+      url: "https://raredept.com.br/produto/camiseta-rare",
+    });
   });
 
-  it("adds an accurate Offer only when checkout is enabled", () => {
+  it("reports sold-out items as OutOfStock even while checkout is paused", () => {
+    const data = buildProductJsonLd({
+      name: "Camiseta RARE",
+      imageUrls: [],
+      priceInCents: 19990,
+      inStock: false,
+      url: "https://raredept.com.br/produto/camiseta-rare",
+      checkoutEnabled: false,
+    });
+
+    expect(data.offers).toMatchObject({ availability: "https://schema.org/OutOfStock" });
+  });
+
+  it("adds an accurate Offer when checkout is enabled", () => {
     const data = buildProductJsonLd({
       name: "Camiseta RARE",
       imageUrls: [],

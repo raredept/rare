@@ -1,5 +1,7 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { AtSign, MessageCircle } from "lucide-react";
+import { CookiePreferencesButton } from "@/components/store/cookie-consent";
 import { virtualCatalogCategories } from "@/lib/catalog-categories";
 import { buildStorefrontCommerceState, type StorefrontCommerceState } from "@/lib/storefront-commerce";
 import { getInstagramUrl } from "@/lib/store-social";
@@ -18,6 +20,7 @@ type StoreFooterProps = {
 };
 
 const baseServiceLinks = [
+  { href: "/suporte", label: "Suporte" },
   { href: "/trocas-e-devolucoes", label: "Trocas e devoluções" },
   { href: "/minha-conta", label: "Minha conta" },
   { href: "/minha-conta/pedidos", label: "Meus pedidos" },
@@ -28,6 +31,7 @@ const institutionalLinks = [
   { href: "/contato", label: "Contato" },
   { href: "/politica-de-envio", label: "Política de envio" },
   { href: "/privacidade-e-termos", label: "Privacidade e termos" },
+  { href: "/politica-de-cookies", label: "Política de cookies" },
 ];
 
 const footerLinkClass =
@@ -36,9 +40,11 @@ const footerLinkClass =
 function FooterNavList({
   label,
   links,
+  children,
 }: {
   label: string;
   links: { href: string; label: string; id?: string }[];
+  children?: ReactNode;
 }) {
   return (
     <nav aria-label={label}>
@@ -49,6 +55,7 @@ function FooterNavList({
             {link.label}
           </Link>
         ))}
+        {children}
       </div>
     </nav>
   );
@@ -104,7 +111,9 @@ export function StoreFooter({ categories, whatsappNumber, instagramUrl, commerce
 
         <FooterNavList label="Categorias" links={categoryLinks} />
         <FooterNavList label="Atendimento" links={serviceLinks} />
-        <FooterNavList label="Institucional" links={institutionalLinks} />
+        <FooterNavList label="Institucional" links={institutionalLinks}>
+          <CookiePreferencesButton className={`${footerLinkClass} cursor-pointer text-left`} />
+        </FooterNavList>
       </div>
 
       <div className="border-t border-white/10">

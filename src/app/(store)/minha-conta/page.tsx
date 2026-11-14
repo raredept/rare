@@ -3,7 +3,7 @@ import { AccountShell } from "@/components/store/account-shell";
 import { logoutCustomerAction } from "@/lib/customer-actions";
 import { requireCustomer } from "@/lib/customer-auth";
 import { formatMoney } from "@/lib/money";
-import { FIRST_ORDER_COUPON_CODE, FIRST_ORDER_COUPON_PERCENT, paidOrderStatuses } from "@/lib/coupons";
+import { FIRST_ORDER_COUPON_CODE, FIRST_ORDER_COUPON_PERCENT, firstOrderCouponConsumedWhere } from "@/lib/coupons";
 import { isPaidRevenueStatus } from "@/lib/order-display";
 import { prisma } from "@/lib/prisma";
 import { getStorefrontCommerceState } from "@/lib/storefront-commerce";
@@ -35,7 +35,7 @@ export default async function MyAccountPage() {
         state: true,
       },
     }),
-    prisma.order.count({ where: { customerId: customer.id, status: { in: [...paidOrderStatuses] } } }),
+    prisma.order.count({ where: firstOrderCouponConsumedWhere(customer.id) }),
   ]);
   const paidTotal = orders
     .filter((order) => isPaidRevenueStatus(order.status))

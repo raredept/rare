@@ -1,9 +1,12 @@
 import { randomUUID } from "node:crypto";
 import type Stripe from "stripe";
-import type { CheckoutExpiryJob } from "@prisma/client";
+import type { CheckoutExpiryJob, Order } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
-import { processStripeCheckoutEvent, processStripePaymentIntentEvent } from "@/lib/checkout";
+import { classifyAsaasPayment, processAsaasPayment, processMercadoPagoPayment, processStripeCheckoutEvent, processStripePaymentIntentEvent, releaseAsaasOrderWithoutPayment, releasePixOrderWithoutPayment } from "@/lib/checkout";
+import { ASAAS_SEARCH_SETTLE_MS, PIX_SEARCH_SETTLE_MS } from "@/lib/checkout-policy";
+import { AsaasError, deleteAsaasPayment, findAsaasPaymentsForOrder, getAsaasConfig, getAsaasPayment, type AsaasPayment } from "@/lib/asaas";
+import { cancelMercadoPagoPayment, findMercadoPagoPaymentsForOrder, getMercadoPagoConfig, getMercadoPagoPayment, type MercadoPagoPayment } from "@/lib/mercadopago";
 import { releasableReservationStatuses } from "@/lib/order-status";
 
 const LEASE_MS = 120_000;
@@ -33,6 +36,8 @@ async function recoverSession(order: { id: string; createdAt: Date }) {
 export async function reconcileCheckoutExpiry(orderId: string): Promise<ReconcileResult> {
   const order = await prisma.order.findUniqueOrThrow({ where: { id: orderId } });
   if (!releasableReservationStatuses.includes(order.status)) return { outcome: "terminal" };
+  if (order.paymentProvider === "mercadopago") return reconcilePixExpiry(order);
+  if (order.paymentProvider === "asaas") return reconcileAsaasExpiry(order);
   const stripe = getStripe();
   const sessionId = order.stripeCheckoutSessionId ?? await recoverSession(order);
   let session = await stripe.checkout.sessions.retrieve(sessionId, { expand: ["payment_intent"] });
@@ -79,6 +84,144 @@ export async function reconcileCheckoutExpiry(orderId: string): Promise<Reconcil
   }
   if (session.status !== "expired") throw new Error("PROVIDER_NOT_EXPIRED");
   const result = await processStripeCheckoutEvent(`reconcile:${session.id}:expired`, "checkout.session.expired", session);
+  return { outcome: result.status === "released" ? "released" : "terminal", checkedAt: new Date() };
+}
+
+/**
+ * Pix counterpart of the Stripe reconciliation: settle a payment that arrived, otherwise close
+ * the Pix at Mercado Pago FIRST and release the stock only once the provider confirms it can no
+ * longer be paid. A Pix that is still payable never loses its reservation.
+ */
+async function reconcilePixExpiry(order: Order): Promise<ReconcileResult> {
+  const config = getMercadoPagoConfig();
+  let paymentId = order.mercadoPagoPaymentId;
+  if (!paymentId) {
+    // The creation response was lost. Mercado Pago's own search says whether a Pix exists.
+    const found = await findMercadoPagoPaymentsForOrder(config, order.id);
+    if (!found.length) {
+      if (Date.now() - order.createdAt.getTime() < PIX_SEARCH_SETTLE_MS) throw new Error("SESSION_CREATION_UNCONFIRMED");
+      const released = await releasePixOrderWithoutPayment(order.id);
+      return { outcome: released ? "released" : "terminal", checkedAt: new Date() };
+    }
+    paymentId = (found.find((payment) => payment.status === "approved") ?? found[0]).id;
+  }
+
+  let payment = await getMercadoPagoPayment(config, paymentId);
+  if (payment.externalReference !== order.id) throw new Error("SESSION_ORDER_MISMATCH");
+
+  const settle = async (current: MercadoPagoPayment): Promise<ReconcileResult | null> => {
+    if (current.status === "approved") {
+      await processMercadoPagoPayment(current);
+      return { outcome: "paid", checkedAt: new Date() };
+    }
+    if (current.status === "in_process" || current.status === "authorized" || current.status === "in_mediation") {
+      await prisma.order.updateMany({ where: { id: order.id, status: { in: releasableReservationStatuses } }, data: { reservationExpiresAt: null } });
+      return { outcome: "processing", checkedAt: new Date() };
+    }
+    return null;
+  };
+
+  const settled = await settle(payment);
+  if (settled) return settled;
+  if (payment.status === "pending") {
+    try {
+      await cancelMercadoPagoPayment(config, payment.id);
+    } catch {
+      // Paid meanwhile, already closed, or a timeout: read the authoritative state again.
+      // A second error bubbles into a durable retry with the stock still held.
+    }
+    payment = await getMercadoPagoPayment(config, payment.id);
+    const raced = await settle(payment);
+    if (raced) return raced;
+  }
+  if (payment.status !== "cancelled" && payment.status !== "rejected") throw new Error("PROVIDER_NOT_EXPIRED");
+  const result = await processMercadoPagoPayment(payment);
+  return { outcome: result.status === "released" ? "released" : "terminal", checkedAt: new Date() };
+}
+
+/**
+ * Asaas counterpart: settle a payment that arrived, otherwise DELETE the charge at Asaas first
+ * (a Pix QR stays payable for months otherwise) and release the stock only once Asaas confirms it
+ * can no longer be paid. A charge that is still payable never loses its reservation.
+ */
+async function reconcileAsaasExpiry(order: Order): Promise<ReconcileResult> {
+  const config = getAsaasConfig();
+  const customer = order.customerId
+    ? await prisma.customer.findUnique({ where: { id: order.customerId }, select: { asaasCustomerId: true } })
+    : null;
+  if (!customer?.asaasCustomerId) throw new Error("SESSION_ORDER_MISMATCH");
+  let paymentId = order.asaasPaymentId;
+  if (!paymentId) {
+    // The creation response was lost. Asaas's own listing says whether a charge exists.
+    const found = (await findAsaasPaymentsForOrder(config, order.id)).filter((payment) => !payment.deleted);
+    if (!found.length) {
+      if (Date.now() - order.createdAt.getTime() < ASAAS_SEARCH_SETTLE_MS) throw new Error("SESSION_CREATION_UNCONFIRMED");
+      const released = await releaseAsaasOrderWithoutPayment(order.id);
+      return { outcome: released ? "released" : "terminal", checkedAt: new Date() };
+    }
+    // An ambiguous creation must not close just one of several still-payable charges
+    // and then free the reservation. Leave it for reconciliation/manual review.
+    if (found.length !== 1) throw new Error("SESSION_CREATION_UNCONFIRMED");
+    if (found[0].customerId !== customer.asaasCustomerId) throw new Error("SESSION_ORDER_MISMATCH");
+    paymentId = found[0].id;
+  }
+
+  const read = async (id: string): Promise<AsaasPayment> => {
+    try {
+      return await getAsaasPayment(config, id);
+    } catch (error) {
+      // A deleted charge may no longer be listed: that is the "can no longer be paid" answer.
+      if (error instanceof AsaasError && error.code === "AsaasNotFound") {
+        // The id is bound on the order or came from the verified reference/customer
+        // above. A 404 has no customer payload: carry that stored identity, not null.
+        return { id, status: "DELETED", billingType: null, amountInCents: null, customerId: customer.asaasCustomerId, externalReference: order.id, invoiceUrl: null, deleted: true };
+      }
+      throw error;
+    }
+  };
+
+  let payment = await read(paymentId);
+  if (payment.externalReference !== order.id || payment.customerId !== customer.asaasCustomerId) throw new Error("SESSION_ORDER_MISMATCH");
+
+  const applyVerified = async (current: AsaasPayment) => {
+    const result = await processAsaasPayment(current);
+    // The provider status alone cannot complete a job if the application rejected it.
+    if (result.status === "payment_mismatch" || result.status === "order_not_found") throw new Error("SESSION_ORDER_MISMATCH");
+    return result;
+  };
+
+  const settle = async (current: AsaasPayment): Promise<ReconcileResult | null> => {
+    const outcome = classifyAsaasPayment(current);
+    if (outcome === "paid") {
+      await applyVerified(current);
+      return { outcome: "paid", checkedAt: new Date() };
+    }
+    if (outcome === "processing") {
+      await applyVerified(current);
+      return { outcome: "processing", checkedAt: new Date() };
+    }
+    if (outcome === "refunded" || outcome === "chargeback" || outcome === "refund_pending") {
+      await applyVerified(current);
+      return { outcome: "terminal", checkedAt: new Date() };
+    }
+    return null;
+  };
+
+  const settled = await settle(payment);
+  if (settled) return settled;
+  if (classifyAsaasPayment(payment) === "pending") {
+    try {
+      await deleteAsaasPayment(config, payment.id);
+    } catch {
+      // Paid meanwhile, already removed, or a timeout: read the authoritative state again.
+      // A second error bubbles into a durable retry with the stock still held.
+    }
+    payment = await read(payment.id);
+    const raced = await settle(payment);
+    if (raced) return raced;
+  }
+  if (classifyAsaasPayment(payment) !== "closed") throw new Error("PROVIDER_NOT_EXPIRED");
+  const result = await applyVerified(payment);
   return { outcome: result.status === "released" ? "released" : "terminal", checkedAt: new Date() };
 }
 

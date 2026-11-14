@@ -1,5 +1,6 @@
 import { getProductMediaTypeFromUrl, getProductVideoPoster } from "@/lib/product-media";
 import { isVariantPurchasable } from "@/lib/stock";
+import type { StockPolicy } from "@/lib/stock-policy";
 import { hasCompleteProductShippingData } from "@/lib/validators";
 
 export type CatalogIssueTone = "danger" | "warning" | "muted";
@@ -32,6 +33,8 @@ export type CatalogIssueProduct = {
   heightCm: number | null;
   images: Array<{ url: string }>;
   variants: Array<{ active: boolean; stock: number; reservedStock: number }>;
+  /** Defaults to STANDARD (replenishable) when the caller does not load it. */
+  stockPolicy?: StockPolicy;
 };
 
 export type CatalogIssueCategory = {
@@ -88,12 +91,18 @@ function collectProductIssues(products: CatalogIssueProduct[]) {
 
     if (product.active && !hasPurchasableVariant) {
       if (activeVariants.length) {
-        addProductIssue(issues, product, {
-          type: "active-product-no-stock",
-          tone: "danger",
-          title: `${product.title} sem estoque disponivel`,
-          description: "Produto ativo sem variacao ativa com estoque livre.",
-        });
+        // Quantity is not an integrity problem. A one-of-a-kind piece with no free unit was sold or
+        // is reserved: its normal end state, nothing to fix. A replenishable item out of stock is
+        // worth a reminder, never a blocker. Contradictory numbers are reported by the inventory
+        // integrity audit (src/lib/inventory-integrity.ts), whatever the quantity.
+        if (product.stockPolicy !== "UNIQUE") {
+          addProductIssue(issues, product, {
+            type: "active-product-no-stock",
+            tone: "warning",
+            title: `${product.title} sem estoque disponivel`,
+            description: "Produto de reposicao ativo sem variacao ativa com estoque livre.",
+          });
+        }
       } else {
         addProductIssue(issues, product, {
           type: "active-product-no-purchasable-variant",

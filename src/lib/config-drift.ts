@@ -95,17 +95,6 @@ export function detectConfigDrift(env: EnvLike = process.env): ConfigDrift[] {
     });
   }
 
-  // Unset means "whatever the Stripe Dashboard enables", which can include
-  // asynchronous methods (Pix, boleto) that homologation never exercised.
-  if (environment === "production" && !clean(env.STRIPE_PAYMENT_METHOD_TYPES)) {
-    drift.push({
-      level: "warning",
-      variable: "STRIPE_PAYMENT_METHOD_TYPES",
-      message:
-        "Métodos de pagamento não definidos em produção; a Stripe usará os que estiverem ligados no Dashboard. Defina card ou card,pix, os mesmos homologados.",
-    });
-  }
-
   const shippingProvider = clean(env.SHIPPING_PROVIDER)?.toLowerCase();
   if (shippingProvider === "melhor_envio") {
     const melhorEnvioMode = getMelhorEnvioMode(env);
@@ -140,6 +129,17 @@ export function detectConfigDrift(env: EnvLike = process.env): ConfigDrift[] {
       variable: "APP_URL",
       message: "Homologação apontando para o domínio de produção. Links, retornos do Stripe e e-mails sairiam para a loja real.",
     });
+  }
+
+  // Asaas: the key prefix says which Asaas environment it belongs to. A production key outside
+  // production would charge real money from a homologation run; a sandbox key behind the live
+  // store would hand out charges that never settle.
+  const asaasKey = clean(env.ASAAS_API_KEY);
+  if (asaasKey?.startsWith("$aact_prod_") && environment !== "production") {
+    drift.push({ level: "error", variable: "ASAAS_API_KEY", message: `Chave Asaas de PRODUÇÃO em ambiente de ${describeEnvironment(environment)}. Use a chave do Sandbox ($aact_hmlg_) fora de produção.` });
+  }
+  if (asaasKey?.startsWith("$aact_hmlg_") && environment === "production" && clean(env.PAYMENT_PROVIDER)?.toLowerCase() === "asaas") {
+    drift.push({ level: "error", variable: "ASAAS_API_KEY", message: "Chave Asaas de Sandbox em produção com PAYMENT_PROVIDER=asaas: as cobranças não seriam liquidadas. Use a chave de produção ($aact_prod_)." });
   }
 
   return drift;

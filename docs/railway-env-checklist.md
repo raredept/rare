@@ -1,5 +1,10 @@
 # Checklist de variaveis de ambiente Railway — RARE
 
+> Para discovery live e preparação atual (2026-10-03), use
+> [STAGING_SAFETY.md](runbooks/STAGING_SAFETY.md) e [CRON_OWNERSHIP.md](runbooks/CRON_OWNERSHIP.md).
+> Exemplos históricos de URL/cron abaixo não são inventário live nem autorização de redeploy:
+> o pre-deploy atual aplica migrations e exige checkpoint/executor/autorização antes do deploy.
+
 Este documento e o checklist operacional para configurar a RARE na Railway. Ele usa somente nomes de variaveis encontrados no projeto e nao contem secrets reais.
 
 ## 1. Avisos importantes
@@ -49,7 +54,7 @@ A Railway injeta variaveis de sistema como `PORT`, `RAILWAY_ENVIRONMENT_NAME` e,
 | `ADMIN_SESSION_SECRET` | `...32+ caracteres...` | Sim | `AUTH_SECRET` tambem e aceito como alias. |
 | `CHECKOUT_ENABLED` | `false` | Sim | Alterar para `true` so depois da homologacao aprovada. |
 | `SHIPPING_ENABLED` | `false` | Sim neste RC | Impede cotacao automatica enquanto o checkout esta pausado. |
-| `EMAIL_DRIVER` | `disabled` | Sim neste RC | Outbox com transportes explícitos `smtp` e `zeptomail` (HTTPS); ver docs/transactional-email.md. Produção segue `disabled`. |
+| `EMAIL_DRIVER` | `disabled` | Sim neste RC | Outbox com transportes explícitos `smtp`, `zeptomail` e `resend` (os dois últimos por HTTPS); ver docs/transactional-email.md. Produção segue `disabled`. |
 | `RAILPACK_NODE_NPM_INSTALL` | `npm ci` | Sim no build | Instalação reproduzível do lockfile; variável de build do Railpack. |
 | `RATE_LIMIT_DRIVER` | `redis` | Sim para venda aberta | `memory` gera warning e nao e compartilhado entre replicas. |
 | `REDIS_URL` | `${{Redis.REDIS_URL}}` | Sim com Redis Railway | Conexao TCP privada com o Redis do projeto. |

@@ -6,6 +6,7 @@ import { withAdminActionRefresh } from "@/lib/admin-action-refresh";
 import { requireAdmin } from "@/lib/auth";
 import { homeBannerInputSchema } from "@/lib/home-banners";
 import { prisma } from "@/lib/prisma";
+import { parseAdminEntityId } from "@/lib/admin-action-input";
 
 function text(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -86,7 +87,7 @@ async function parseBannerForm(formData: FormData, editId?: string) {
 }
 
 export async function createBannerAction(formData: FormData) {
-  await requireAdmin();
+  await requireAdmin("commerce.catalog");
   const parsed = await parseBannerForm(formData);
 
   const banner = await prisma.homeBannerSlide.create({
@@ -98,8 +99,8 @@ export async function createBannerAction(formData: FormData) {
 }
 
 export async function updateBannerAction(formData: FormData) {
-  await requireAdmin();
-  const id = text(formData, "id");
+  await requireAdmin("commerce.catalog");
+  const id = parseAdminEntityId(formData.get("id"));
   if (!id) redirectWithBannerError("Banner nao encontrado.");
 
   const parsed = await parseBannerForm(formData, id);
@@ -114,8 +115,9 @@ export async function updateBannerAction(formData: FormData) {
 }
 
 export async function toggleBannerActiveAction(formData: FormData) {
-  await requireAdmin();
-  const id = text(formData, "id");
+  await requireAdmin("commerce.catalog");
+  const id = parseAdminEntityId(formData.get("id"));
+  if (!id) redirectWithBannerError("Banner nao encontrado.");
   const active = text(formData, "active") === "true";
 
   const banner = await prisma.homeBannerSlide.update({
@@ -128,8 +130,8 @@ export async function toggleBannerActiveAction(formData: FormData) {
 }
 
 export async function deleteBannerAction(formData: FormData) {
-  await requireAdmin();
-  const id = text(formData, "id");
+  await requireAdmin("commerce.catalog");
+  const id = parseAdminEntityId(formData.get("id"));
   if (!id) redirectWithBannerError("Banner nao encontrado.");
 
   await prisma.$transaction([prisma.homeBannerSlide.delete({ where: { id } }), ...(await normalizeSortOrdersWithout(id))]);
@@ -166,15 +168,19 @@ async function moveBanner(id: string, direction: "up" | "down") {
 }
 
 export async function moveBannerUpAction(formData: FormData) {
-  await requireAdmin();
-  await moveBanner(text(formData, "id"), "up");
+  await requireAdmin("commerce.catalog");
+  const id = parseAdminEntityId(formData.get("id"));
+  if (!id) redirectWithBannerError("Banner nao encontrado.");
+  await moveBanner(id, "up");
   revalidateBannerPaths();
   redirect(withAdminActionRefresh(bannerListPath({ success: "banner-reordered" })));
 }
 
 export async function moveBannerDownAction(formData: FormData) {
-  await requireAdmin();
-  await moveBanner(text(formData, "id"), "down");
+  await requireAdmin("commerce.catalog");
+  const id = parseAdminEntityId(formData.get("id"));
+  if (!id) redirectWithBannerError("Banner nao encontrado.");
+  await moveBanner(id, "down");
   revalidateBannerPaths();
   redirect(withAdminActionRefresh(bannerListPath({ success: "banner-reordered" })));
 }

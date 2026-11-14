@@ -5,7 +5,9 @@ import { checkLoginRateLimit, verifyPasswordConstantCost } from "@/lib/login-gua
 import { prisma } from "@/lib/prisma";
 import { getSafeAdminNext } from "@/lib/safe-redirect";
 import { loginSchema } from "@/lib/validators";
-import { setAdminSessionCookie, signAdminSession } from "@/lib/auth";
+import { setAdminMfaPendingCookie, setAdminSessionCookie, signAdminMfaPendingToken, signAdminSession } from "@/lib/auth";
+import { getAdminMfaConfigurationIssue, isAdminMfaRequired } from "@/lib/admin-mfa-config";
+import { ADMIN_ROLES } from "@/lib/admin-permissions";
 
 export type LoginState = {
   error?: string;
@@ -28,7 +30,7 @@ export async function loginAction(_state: LoginState, formData: FormData): Promi
 
   const user = await prisma.user.findFirst({
     where: {
-      role: "ADMIN",
+      role: { in: [...ADMIN_ROLES] },
       active: true,
       OR: [
         { email: { equals: identifier, mode: "insensitive" } },
@@ -42,6 +44,19 @@ export async function loginAction(_state: LoginState, formData: FormData): Promi
     return { error: "Credenciais inválidas." };
   }
 
+  const next = getSafeAdminNext(formData.get("next"));
+
+  // The password alone never yields an Admin session when a second factor applies: only a
+  // short-lived "pending" credential that the MFA step (or the mandatory enrollment) accepts.
+  if (isAdminMfaRequired() || user.mfaEnabledAt) {
+    if (getAdminMfaConfigurationIssue()) {
+      console.error("[auth] admin MFA is required but its server key is not configured");
+      return { error: "Verificação em duas etapas indisponível no servidor. Avise o responsável técnico." };
+    }
+    await setAdminMfaPendingCookie(await signAdminMfaPendingToken(user, next));
+    redirect(user.mfaEnabledAt ? "/admin/mfa" : "/admin/mfa/setup");
+  }
+
   const token = await signAdminSession(user);
   await setAdminSessionCookie(token);
 
@@ -49,5 +64,5 @@ export async function loginAction(_state: LoginState, formData: FormData): Promi
     redirect("/admin/change-password");
   }
 
-  redirect(getSafeAdminNext(formData.get("next")));
+  redirect(next);
 }

@@ -192,9 +192,9 @@ describe("assertCheckoutCredentialsMatchEnvironment", () => {
 });
 
 describe("payment methods in production", () => {
-  it("warns when production leaves the methods to the Stripe Dashboard", () => {
+  it("does not recommend enabling retired Stripe methods in production", () => {
     const env = { APP_ENV: "production", NODE_ENV: "production", STRIPE_SECRET_KEY: LIVE_KEY, STRIPE_PAYMENT_METHOD_TYPES: undefined };
-    expect(variables(env)).toEqual(["warning:STRIPE_PAYMENT_METHOD_TYPES"]);
+    expect(variables(env)).toEqual([]);
     // A warning, never a checkout block.
     expect(() => assertCheckoutCredentialsMatchEnvironment({ ...env, CHECKOUT_ENABLED: "true" })).not.toThrow();
   });

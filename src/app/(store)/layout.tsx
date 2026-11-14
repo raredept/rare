@@ -1,6 +1,8 @@
 import { Suspense, type ReactNode } from "react";
 import { CartProvider } from "@/components/store/cart-context";
 import { CartDrawer } from "@/components/store/cart-drawer";
+import { CookieConsent } from "@/components/store/cookie-consent";
+import { SiteAnalytics } from "@/components/store/site-analytics";
 import { StoreFooter } from "@/components/store/footer";
 import { StoreHeader } from "@/components/store/header";
 import { RouteProgress } from "@/components/store/route-progress";
@@ -17,12 +19,15 @@ export default async function StoreLayout({ children }: { children: ReactNode })
   return (
     <CartProvider>
       <div className="storefront-motion-root flex min-h-screen flex-col bg-neutral-50">
+        <a href="#store-main" className="store-skip-link">Pular para o conteúdo</a>
+        <CookieConsent />
+        <SiteAnalytics />
         <Suspense fallback={null}>
           <RouteProgress />
         </Suspense>
         <StoreHeader categories={categories} />
         <CartDrawer commerce={commerce} />
-        <main className="flex-1 bg-neutral-50">{children}</main>
+        <main id="store-main" tabIndex={-1} className="flex-1 bg-neutral-50">{children}</main>
         <StoreFooter categories={categories} whatsappNumber={settings.whatsappNumber} instagramUrl={settings.instagramUrl} commerce={commerce} />
       </div>
     </CartProvider>

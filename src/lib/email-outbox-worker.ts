@@ -4,6 +4,7 @@ import { formatMoney } from "@/lib/money";
 import { createHash } from "node:crypto";
 import { getEmailDeliveryConfig, type EmailDeliveryConfig } from "@/lib/email-config";
 import { assertEmailRecipientAllowed, createSmtpEmailProvider } from "@/lib/smtp-email";
+import { createResendEmailProvider } from "@/lib/resend-email";
 import { createZeptoMailEmailProvider } from "@/lib/zeptomail-email";
 import { deliverTransactionalEmail, EmailDeliveryError, renderOrderShippedEmail, renderPaymentApprovedEmail, type EmailDeliveryResult, type TransactionalEmailProvider } from "@/lib/transactional-email";
 
@@ -15,7 +16,15 @@ type DeliveryDecision = Exclude<EmailDeliveryResult, { status: "disabled" }>;
 
 // The transport is chosen only by EMAIL_DRIVER. There is no automatic fallback between transports.
 export function createEmailProvider(config: EmailDeliveryConfig): TransactionalEmailProvider {
-  return config.driver === "zeptomail" ? createZeptoMailEmailProvider(config) : createSmtpEmailProvider(config);
+  if (config.driver === "zeptomail") return createZeptoMailEmailProvider(config);
+  if (config.driver === "resend") return createResendEmailProvider(config);
+  return createSmtpEmailProvider(config);
+}
+
+// HTTPS transports return "<driver>:<request id>"; SMTP returns the message id, which is not logged.
+function providerRequestId(id: string) {
+  const match = /^(?:zeptomail|resend):(.+)$/.exec(id);
+  return match ? match[1] : null;
 }
 
 // Sanitized operational log: opaque hashes and enums only. Never the recipient, subject/body,
@@ -147,7 +156,7 @@ export async function processEmailOutbox(options: {
       status,
       code: decision.status === "accepted" ? null : decision.code,
       providerErrorCode: decision.status !== "accepted" && decision.detail ? decision.detail : null,
-      providerRequestId: decision.status === "accepted" && decision.id.startsWith("zeptomail:") ? decision.id.slice("zeptomail:".length) : null,
+      providerRequestId: decision.status === "accepted" ? providerRequestId(decision.id) : null,
       latencyMs: Date.now() - startedAt,
     });
   }

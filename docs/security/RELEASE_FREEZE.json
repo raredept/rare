@@ -1,0 +1,31 @@
+{
+  "state": "ACTIVE",
+  "scope": "production-release",
+  "incident": "docs/security/CREDENTIAL_INCIDENT_202610.md",
+  "activeSince": "2026-10-04",
+  "summary": "Production remains frozen until internal session/cron containment in staging and production, removal of Stripe credentials from active consumers, no new Stripe payments or fallback, real staging and Asaas Sandbox validation, and initial production checkout OFF are evidenced. External Stripe credential revocation can remain MANUAL_PENDING without being declared revoked.",
+  "lastVerified": {
+    "at": "2026-11-13",
+    "finding": "Internal session rotation verified in both environments; old Admin and customer credentials rejected. Cron rotated and previous removed on web/worker, but external callers remain unresolved and no mutable cron probe was executed. Stripe absent from active consumers; production checkout OFF on unchanged main. Real Sandbox lifecycle and full staging gates still pending. External Stripe revocation MANUAL_PENDING."
+  },
+  "closure": {
+    "clearedAt": null,
+    "clearedBy": null,
+    "evidence": null,
+    "conditions": {
+      "sessionStagingRotatedAndOldRejected": true,
+      "sessionProductionRotatedAndOldRejected": true,
+      "cronStagingRotatedAndOldRemoved": true,
+      "cronProductionRotatedAndOldRejected": false,
+      "stripeStagingDisconnected": true,
+      "stripeProductionDisconnected": true,
+      "newStripePaymentsImpossible": true,
+      "noStripeFallback": true,
+      "asaasSandboxRealPassed": false,
+      "stagingRealPassed": false,
+      "initialProductionCheckoutOff": true
+    },
+    "legacyStripeCredentialStatus": "MANUAL_PENDING"
+  },
+  "policyVersion": 2
+}

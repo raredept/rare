@@ -26,8 +26,17 @@ export type ZeptoMailEmailConfig = EmailDeliveryPolicy & {
   sendToken: string;
 };
 
-export type EmailDeliveryConfig = SmtpEmailConfig | ZeptoMailEmailConfig;
-export type EmailDriverName = "disabled" | "smtp" | "zeptomail";
+export type ResendEmailConfig = EmailDeliveryPolicy & {
+  driver: "resend";
+  endpoint: typeof RESEND_EMAILS_ENDPOINT;
+  apiKey: string;
+};
+
+export type EmailDeliveryConfig = SmtpEmailConfig | ZeptoMailEmailConfig | ResendEmailConfig;
+export type EmailDriverName = "disabled" | "smtp" | "zeptomail" | "resend";
+
+// Fixed on purpose, not configurable: the API key is only ever posted to Resend's own API host.
+export const RESEND_EMAILS_ENDPOINT = "https://api.resend.com/emails" as const;
 
 export const ZEPTOMAIL_DEFAULT_API_BASE = "https://api.zeptomail.com/v1.1";
 // One host per ZeptoMail data center. A configurable base URL must never let the Send Mail
@@ -141,6 +150,25 @@ export function getZeptoMailEmailConfig(env: Record<string, string | undefined> 
   return { driver: "zeptomail", ...transport, ...policy };
 }
 
+// Accept the key exactly as pasted from the Resend console, with or without the "Bearer "
+// scheme, and never anything that could split or extend a header.
+export function normalizeResendApiKey(raw: string | undefined) {
+  const value = (raw ?? "").trim().replace(/^Bearer\s+/i, "").trim();
+  return /^re_[A-Za-z0-9_-]{8,200}$/.test(value) ? value : null;
+}
+
+export function getResendEmailConfig(env: Record<string, string | undefined> = process.env): ResendEmailConfig | null {
+  const driver = getTransactionalEmailDriver(env);
+  if (driver === "disabled") return null;
+  if (driver !== "resend") throw new EmailDeliveryError("failed", "UnsupportedEmailDriver");
+  const { transport, policy } = readPolicyThen(env, "InvalidEmailMailbox", () => {
+    const apiKey = normalizeResendApiKey(requireValue(env, "RESEND_API_KEY"));
+    if (!apiKey) throw new EmailDeliveryError("failed", "InvalidResendApiKey");
+    return { apiKey, endpoint: RESEND_EMAILS_ENDPOINT };
+  });
+  return { driver: "resend", ...transport, ...policy };
+}
+
 // Returns the validated configuration of the explicitly selected driver (null = disabled).
 // There is intentionally no fallback from one transport to another.
 export function getEmailDeliveryConfig(env: Record<string, string | undefined> = process.env): EmailDeliveryConfig | null {
@@ -148,6 +176,7 @@ export function getEmailDeliveryConfig(env: Record<string, string | undefined> =
   if (driver === "disabled") return null;
   if (driver === "smtp") return getSmtpEmailConfig(env);
   if (driver === "zeptomail") return getZeptoMailEmailConfig(env);
+  if (driver === "resend") return getResendEmailConfig(env);
   throw new EmailDeliveryError("failed", "UnsupportedEmailDriver");
 }
 
@@ -155,14 +184,14 @@ export function getEmailConfigurationStatus(env: Record<string, string | undefin
   try {
     const config = getEmailDeliveryConfig(env);
     if (!config) return "intentionally_disabled";
-    return config.driver === "zeptomail" ? "zeptomail_configured_delivery_unverified" : "smtp_configured_delivery_unverified";
+    return `${config.driver}_configured_delivery_unverified` as const;
   } catch {
     return "missing_required_configuration";
   }
 }
 
-// The fixed reason code for an invalid configuration, e.g. EmailEnvironmentModeMismatch
-// or MissingZEPTOMAIL_SEND_TOKEN. Codes name a rule or a variable, never a value, so
+// The fixed reason code for an invalid configuration, e.g. EmailEnvironmentModeMismatch,
+// MissingZEPTOMAIL_SEND_TOKEN or MissingRESEND_API_KEY. Codes name a rule or a variable, never a value, so
 // they are safe for operator-facing readiness output.
 export function getEmailConfigurationIssue(env: Record<string, string | undefined> = process.env): string | null {
   try {
@@ -176,7 +205,7 @@ export function getEmailConfigurationIssue(env: Record<string, string | undefine
 // Admin-only readiness. Booleans and enum names only: no host, token, mailbox or allowlist content.
 export function getEmailReadiness(env: Record<string, string | undefined> = process.env) {
   const driver = getTransactionalEmailDriver(env);
-  const known = driver === "disabled" || driver === "smtp" || driver === "zeptomail";
+  const known = driver === "disabled" || driver === "smtp" || driver === "zeptomail" || driver === "resend";
   let configured = false;
   try {
     configured = getEmailDeliveryConfig(env) !== null;

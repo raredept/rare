@@ -17,10 +17,11 @@ vi.mock("next/link", () => ({
 }));
 
 import AdminLayout from "@/app/admin/(protected)/layout";
+import { getAdminPermissions } from "@/lib/admin-permissions";
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.requireAdmin.mockResolvedValue({ username: "operador", email: "operador@rare.example" });
+  mocks.requireAdmin.mockResolvedValue({ username: "operador", email: "operador@rare.example", role: "SELLER_ADMIN", permissions: getAdminPermissions("SELLER_ADMIN") });
   mocks.notificationCount.mockResolvedValue(0);
 });
 
@@ -42,6 +43,20 @@ describe("AdminLayout logout", () => {
     // One lives in the sidebar (hidden below lg), the other only below lg, so
     // exactly one is visible at any width.
     expect(forms.some((formClass) => formClass.includes("lg:hidden"))).toBe(true);
-    expect(html).toMatch(/<aside[^>]*class="[^"]*hidden[^"]*lg:block/);
+    expect(html).toMatch(/<aside[^>]*aria-label="Menu lateral do Admin"[^>]*class="[^"]*hidden[^"]*lg:flex/);
+  });
+
+  it("skips the unread notification query and bell for an Admin without the commercial inbox", async () => {
+    mocks.requireAdmin.mockResolvedValue({ username: "sistema", email: "sistema@rare.example", role: "SYSTEM_ADMIN", permissions: getAdminPermissions("SYSTEM_ADMIN") });
+    const html = await render();
+    expect(mocks.notificationCount).not.toHaveBeenCalled();
+    expect(html).not.toContain("href=\"/admin/notifications\"");
+  });
+
+  it("counts unread notifications for the seller", async () => {
+    mocks.notificationCount.mockResolvedValue(2);
+    const html = await render();
+    expect(mocks.notificationCount).toHaveBeenCalledTimes(1);
+    expect(html).toContain("href=\"/admin/notifications\"");
   });
 });

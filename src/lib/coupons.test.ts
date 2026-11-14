@@ -3,6 +3,7 @@ import {
   calculatePercentDiscountInCents,
   FIRST_ORDER_COUPON_CODE,
   getFirstOrderCouponDiscount,
+  firstOrderCouponConsumedWhere,
   normalizeCouponCode,
 } from "@/lib/coupons";
 
@@ -23,5 +24,15 @@ describe("first order coupons", () => {
     expect(() => getFirstOrderCouponDiscount({ code: "OUTRO", subtotalInCents: 19990, paidOrderCount: 0 })).toThrow(
       "Cupom inválido ou disponível apenas na primeira compra.",
     );
+  });
+});
+
+describe("first order coupon consumption", () => {
+  it("is keyed on a confirmed payment, never on the current status", () => {
+    // A refund changes the status but never clears paidAt: the benefit stays consumed.
+    expect(firstOrderCouponConsumedWhere("cus_1")).toEqual({
+      customerId: "cus_1",
+      OR: [{ paidAt: { not: null } }, { status: { in: ["paid", "processing", "shipped", "delivered"] } }],
+    });
   });
 });

@@ -16,6 +16,10 @@ export function checkStagingAccess(request: NextRequest) {
   if (!isRestrictedEnvironment()) return null;
   const path = request.nextUrl.pathname;
   if (path === "/api/stripe/webhook" && request.method === "POST") return null;
+  // Signed by Mercado Pago and verified by the route itself, like the Stripe webhook.
+  if (path === "/api/mercadopago/webhook" && request.method === "POST") return null;
+  // Authenticated by the asaas-access-token header, verified by the route itself.
+  if (path === "/api/asaas/webhook" && request.method === "POST") return null;
   if (["/api/health", "/robots.txt"].includes(path) && ["GET", "HEAD"].includes(request.method)) return null;
 
   const username = process.env.STAGING_ACCESS_USERNAME;
