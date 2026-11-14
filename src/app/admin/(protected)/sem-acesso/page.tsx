@@ -10,7 +10,7 @@ export default async function AdminAccessDeniedPage() {
   const admin = await requireAdmin("self.account");
 
   return (
-    <div className="max-w-xl rounded-lg border border-neutral-200 bg-white p-6">
+    <div className="min-w-0 max-w-xl rounded-lg border border-neutral-200 bg-white p-5 [overflow-wrap:anywhere] sm:p-6">
       <h1 className="text-2xl font-black text-neutral-950">Sem acesso a esta área</h1>
       <p className="mt-2 text-sm text-neutral-600">
         O seu papel não inclui esta área do Admin. Se precisar dela, peça a um Administrador de Sistema.

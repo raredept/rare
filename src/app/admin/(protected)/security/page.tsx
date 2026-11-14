@@ -37,14 +37,14 @@ export default async function AdminSystemSecurityPage() {
   ];
 
   return (
-    <div className="max-w-5xl">
+    <div className="min-w-0 max-w-5xl [overflow-wrap:anywhere]">
       <h1 className="text-2xl font-black text-neutral-950">Segurança do sistema</h1>
       <section className="mt-6 rounded-lg border border-neutral-200 bg-white p-5" aria-labelledby="mfa-policy-title">
         <h2 id="mfa-policy-title" className="text-lg font-black text-neutral-950">Política de verificação em duas etapas</h2>
         <p className="mt-2 text-sm font-semibold">{mfaRequired ? "Obrigatória para todas as contas Admin." : "Não obrigatória neste ambiente."}</p>
         {mfaIssue ? <p role="alert" className="mt-2 text-sm font-semibold text-red-700">{mfaIssue}</p> : null}
-        {mfaWarning ? <p className="mt-2 text-sm text-amber-800">{mfaWarning}</p> : null}
-        <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-4">
+        {mfaWarning ? <p className="mt-2 text-sm text-amber-700">{mfaWarning}</p> : null}
+        <dl className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
           {stats.map((stat) => (
             <div key={stat.label}>
               <dt className="text-xs font-black uppercase tracking-wide text-neutral-500">{stat.label}</dt>
@@ -53,7 +53,7 @@ export default async function AdminSystemSecurityPage() {
           ))}
         </dl>
         {legacyRole > 0 ? (
-          <p className="mt-4 text-sm text-amber-800">
+          <p className="mt-4 text-sm text-amber-700">
             Contas com papel legado têm acesso total. Atribua Administrador de Sistema ou Administrador Vendedor em Usuários.
           </p>
         ) : null}

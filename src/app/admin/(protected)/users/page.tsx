@@ -23,7 +23,7 @@ export default async function AdminUsersPage() {
   const users = await listAdminUsers();
 
   return (
-    <div className="max-w-5xl">
+    <div className="min-w-0 max-w-5xl [overflow-wrap:anywhere]">
       <h1 className="text-2xl font-black text-neutral-950">Usuários</h1>
       <p className="mt-1 text-sm text-neutral-600">
         Administrador de Sistema: usuários, segurança, prontidão, configurações e analytics do site. Administrador Vendedor: pedidos,
@@ -35,17 +35,17 @@ export default async function AdminUsersPage() {
           const self = user.id === admin.id;
           const roleLabel = isAdminRole(user.role) ? ADMIN_ROLE_LABELS[user.role] : user.role;
           return (
-            <article key={user.id} className="rounded-lg border border-neutral-200 bg-white p-5" aria-label={`Conta ${user.username ?? user.email}`}>
+            <article key={user.id} className="min-w-0 rounded-lg border border-neutral-200 bg-white p-4 sm:p-5" aria-label={`Conta ${user.username ?? user.email}`}>
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0">
                   <h2 className="text-base font-black text-neutral-950">
                     {user.name}
                     {self ? <span className="ml-2 rounded bg-neutral-950 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">Você</span> : null}
                   </h2>
                   <p className="text-sm text-neutral-600">{user.email}{user.username ? ` · ${user.username}` : ""}</p>
-                  <p className="mt-1 font-mono text-[11px] text-neutral-400">ID {user.id}</p>
+                  <p className="mt-1 break-all font-mono text-[11px] text-neutral-400">ID {user.id}</p>
                 </div>
-                <dl className="grid grid-cols-3 gap-4 text-xs">
+                <dl className="grid w-full grid-cols-1 gap-3 text-xs sm:w-auto sm:grid-cols-3 sm:gap-4">
                   <div><dt className="font-black uppercase tracking-wide text-neutral-500">Status</dt><dd className="mt-1 font-semibold">{user.active ? "Ativa" : "Desativada"}</dd></div>
                   <div><dt className="font-black uppercase tracking-wide text-neutral-500">2 etapas</dt><dd className="mt-1 font-semibold">{user.mfaEnabledAt ? `Desde ${formatDate(user.mfaEnabledAt)}` : "Não cadastrada"}</dd></div>
                   <div><dt className="font-black uppercase tracking-wide text-neutral-500">Papel</dt><dd className="mt-1 font-semibold">{roleLabel}</dd></div>
@@ -53,11 +53,11 @@ export default async function AdminUsersPage() {
               </div>
 
               <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-neutral-200 pt-4">
-                <form action={assignAdminRoleAction} className="flex items-end gap-2">
+                <form action={assignAdminRoleAction} className="flex w-full flex-wrap items-end gap-2 sm:w-auto">
                   <input type="hidden" name="userId" value={user.id} />
-                  <label className="block">
+                  <label className="block min-w-0 flex-1 sm:flex-none">
                     <span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-neutral-500">Papel</span>
-                    <select name="role" defaultValue={user.role === "ADMIN" ? "" : user.role} required className="admin-input h-10 py-0 text-sm">
+                    <select name="role" defaultValue={user.role === "ADMIN" ? "" : user.role} required className="admin-input h-10 w-full max-w-full py-0 text-sm">
                       {user.role === "ADMIN" ? <option value="" disabled>Escolha um papel</option> : null}
                       {ASSIGNABLE_ADMIN_ROLES.map((role) => (
                         <option key={role} value={role} disabled={self && role !== "SYSTEM_ADMIN"}>{ADMIN_ROLE_LABELS[role]}</option>

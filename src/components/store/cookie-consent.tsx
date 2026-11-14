@@ -90,6 +90,13 @@ export function CookieConsent() {
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
         data-cookie-preferences
+        // Esc always closes (the native cancel can be swallowed by the browser's close-watcher rules).
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            dialogRef.current?.close();
+          }
+        }}
         className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-2xl overflow-y-auto rounded-lg border border-neutral-300 bg-white p-0 text-neutral-950 shadow-2xl backdrop:bg-black/60"
       >
         <div className="p-5 sm:p-6">

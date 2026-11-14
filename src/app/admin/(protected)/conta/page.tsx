@@ -16,11 +16,11 @@ export default async function AdminAccountPage() {
   const remaining = user.mfaEnabledAt ? await countUnusedRecoveryCodes(admin.id) : 0;
 
   return (
-    <div className="max-w-3xl">
+    <div className="min-w-0 max-w-3xl [overflow-wrap:anywhere]">
       <h1 className="text-2xl font-black text-neutral-950">Minha conta</h1>
       <section className="mt-6 rounded-lg border border-neutral-200 bg-white p-5" aria-labelledby="account-role-title">
         <h2 id="account-role-title" className="text-lg font-black text-neutral-950">Acesso</h2>
-        <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+        <dl className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
           <div><dt className="text-xs font-black uppercase tracking-wide text-neutral-500">Login</dt><dd className="mt-1 font-semibold">{admin.username ?? admin.email}</dd></div>
           <div><dt className="text-xs font-black uppercase tracking-wide text-neutral-500">Papel</dt><dd className="mt-1 font-semibold">{ADMIN_ROLE_LABELS[admin.role]}</dd></div>
         </dl>
@@ -28,7 +28,7 @@ export default async function AdminAccountPage() {
       </section>
       <section className="mt-6 rounded-lg border border-neutral-200 bg-white p-5" aria-labelledby="mfa-status-title">
         <h2 id="mfa-status-title" className="text-lg font-black text-neutral-950">Verificação em duas etapas</h2>
-        <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
+        <dl className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
           <div><dt className="text-xs font-black uppercase tracking-wide text-neutral-500">Status</dt><dd className="mt-1 font-semibold">{user.mfaEnabledAt ? "Ativa" : "Não ativada"}</dd></div>
           <div><dt className="text-xs font-black uppercase tracking-wide text-neutral-500">Ativada em</dt><dd className="mt-1 font-semibold">{formatDateTime(user.mfaEnabledAt)}</dd></div>
           <div><dt className="text-xs font-black uppercase tracking-wide text-neutral-500">Códigos de recuperação restantes</dt><dd className="mt-1 font-semibold">{user.mfaEnabledAt ? remaining : "—"}</dd></div>
