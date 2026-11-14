@@ -26,6 +26,12 @@ export default defineConfig({
             username: process.env.STAGING_ACCESS_USERNAME,
             password: process.env.STAGING_ACCESS_PASSWORD ?? "",
           },
+          // Sent up front: Firefox takes the gate's 401 challenge on every new connection (document,
+          // chunks, fonts, images) before retrying, which the console specs would report as errors.
+          // External hosts are blocked by the specs outside production, so the header stays on staging.
+          extraHTTPHeaders: {
+            authorization: `Basic ${Buffer.from(`${process.env.STAGING_ACCESS_USERNAME}:${process.env.STAGING_ACCESS_PASSWORD ?? ""}`).toString("base64")}`,
+          },
         }
       : {}),
     locale: "pt-BR",

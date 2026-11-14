@@ -14,7 +14,12 @@ async function expectVisibleFocus(locator: Locator) {
   expect(visible).toBe(true);
 }
 
-test("skip link precede o Header, recebe foco visível e leva ao conteúdo", async ({ page }) => {
+test("skip link precede o Header, recebe foco visível e leva ao conteúdo", async ({ page, baseURL }, testInfo) => {
+  // WebKit (like Safari by default) does not move Tab through links, so the sequence is not observable there.
+  test.skip(testInfo.project.name === "webkit", "WebKit não percorre links com Tab por padrão.");
+  // A visitor who already answered the cookie banner: the banner has its own keyboard spec.
+  const url = new URL(baseURL ?? "http://127.0.0.1:3100");
+  await page.context().addCookies([{ name: "rare_cookie_consent", value: `v1.a0.${Math.floor(Date.now() / 1000)}`, domain: url.hostname, path: "/", secure: url.protocol === "https:", sameSite: "Lax" }]);
   await page.goto("/");
   await page.keyboard.press("Tab");
   const skip = page.getByRole("link", { name: "Pular para o conteúdo", exact: true });

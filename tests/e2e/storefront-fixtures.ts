@@ -10,6 +10,7 @@ export const publicAuditRoutes = [
   { name: "login", path: "/entrar" },
   { name: "register", path: "/cadastro" },
   { name: "contact", path: "/contato" },
+  { name: "support", path: "/suporte" },
   { name: "about", path: "/sobre" },
   { name: "returns", path: "/trocas-e-devolucoes" },
   { name: "shipping", path: "/politica-de-envio" },
@@ -83,12 +84,15 @@ const MANIFEST_401 = "response 401: /manifest.webmanifest";
  * Behind the staging Basic gate, browsers fetch the web manifest without
  * credentials (WebKit always does) and get 401. Production has no gate. Only
  * that is excused, only when the gate is configured, and the URL-less console
- * line only when the manifest is the sole 401.
+ * line only when the gate 401s are the only ones. Firefox also gets the gate's
+ * challenge on the document itself before retrying with the credentials: the
+ * caller passes that path and asserts the document ended in 200.
  */
-export function withoutStagingGateNoise(issues: readonly string[]) {
+export function withoutStagingGateNoise(issues: readonly string[], documentPath?: string) {
   if (!process.env.STAGING_ACCESS_USERNAME) return [...issues];
-  const onlyManifest401 = issues.filter((issue) => issue.startsWith("response 401:")).every((issue) => issue === MANIFEST_401);
-  return issues.filter((issue) => issue !== MANIFEST_401 && !(onlyManifest401 && /status of 401 \(\)$/.test(issue)));
+  const gate = new Set([MANIFEST_401, ...(documentPath ? [`response 401: ${documentPath}`] : [])]);
+  const onlyGate401 = issues.filter((issue) => issue.startsWith("response 401:")).every((issue) => gate.has(issue));
+  return issues.filter((issue) => !gate.has(issue) && !(onlyGate401 && /status of 401 \(\)$/.test(issue)));
 }
 
 export function formatAxeViolations(violations: Array<{ id: string; impact?: string | null; nodes: Array<{ target: unknown; failureSummary?: string }> }>) {
