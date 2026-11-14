@@ -10,6 +10,7 @@ import {
   type StoredOperationalEvidence,
 } from "@/lib/admin-operational-evidence";
 import { isCheckoutEnabled, validateEnvironment } from "@/lib/env";
+import type { InventoryIntegrityReport } from "@/lib/inventory-integrity";
 import { buildMediaVariantAuditReport, type MediaVariantAuditEntry } from "@/lib/media-variant-audit";
 import { getRateLimitStatus } from "@/lib/rate-limit-config";
 import { getSecurityHeaders } from "@/lib/security-headers";
@@ -94,6 +95,8 @@ export type BuildAdminReadinessInput = {
   mediaAuditEntries?: MediaVariantAuditEntry[];
   operationalEvidenceStorageAvailable?: boolean;
   operationalEvidenceRows?: StoredOperationalEvidence[];
+  /** Omit to skip the audit (pure callers); null when it could not be read. */
+  inventoryIntegrity?: InventoryIntegrityReport | null;
 };
 
 export const readinessAreaLabels: Record<ReadinessArea, string> = {
@@ -567,9 +570,10 @@ function addShippingItems(items: ReadinessItem[], env: Record<string, string | u
   });
 }
 
+// Readiness measures integrity, not quantity: an item out of stock is a reminder, and a sold
+// one-of-a-kind piece is not an issue at all. Contradictory stock numbers block (addInventoryItems).
 function catalogSeverity(issue: CatalogIssue): ReadinessSeverity {
   if (
-    issue.type === "active-product-no-stock" ||
     issue.type === "active-product-no-purchasable-variant" ||
     (issue.type === "product-missing-shipping-data" && issue.tone === "danger")
   ) {
@@ -582,7 +586,6 @@ function catalogSeverity(issue: CatalogIssue): ReadinessSeverity {
 
 function catalogBlocksOpenSales(issue: CatalogIssue) {
   return (
-    issue.type === "active-product-no-stock" ||
     issue.type === "active-product-no-purchasable-variant" ||
     (issue.type === "product-missing-shipping-data" && issue.tone === "danger")
   );
@@ -637,6 +640,58 @@ function addCatalogItems(items: ReadinessItem[], products: CatalogIssueProduct[]
       description: "Nao foram encontradas pendencias criticas em produtos ativos.",
       impact: "Catalogo pode seguir para validacao operacional.",
       recommendedAction: "Revisar warnings visuais antes de campanha ou trafego pago.",
+      adminHref: "/admin/products",
+      blocksOpenSales: false,
+      blocksStaging: false,
+      dependsOnClient: false,
+    });
+  }
+}
+
+function addInventoryItems(items: ReadinessItem[], report: InventoryIntegrityReport | null | undefined) {
+  if (report === undefined) return;
+  if (report === null) {
+    addItem(items, {
+      id: "inventory-integrity-unavailable",
+      area: "catalog",
+      title: "Integridade do estoque nao verificada",
+      severity: "warning",
+      description: "A auditoria de integridade do estoque nao pode ser lida nesta consulta.",
+      impact: "Sem a auditoria nao ha prova de que reservas, vendas e estoque conferem.",
+      recommendedAction: "Recarregar a pagina; se persistir, verificar o banco de dados.",
+      adminHref: "/admin/readiness",
+      blocksOpenSales: false,
+      blocksStaging: false,
+      dependsOnClient: false,
+    });
+    return;
+  }
+
+  for (const product of report.inconsistent) {
+    addItem(items, {
+      id: `inventory:${product.productId}`,
+      area: "catalog",
+      title: `${product.title} com estoque inconsistente`,
+      severity: "blocked",
+      description: `${product.inconsistencyLabels.join("; ")}.`,
+      impact: "Os numeros de estoque, reserva e venda deste item se contradizem; vender assim pode gerar venda dupla ou pedido sem peca.",
+      recommendedAction: "Conferir a peca fisica e os pedidos do item e corrigir o estoque no cadastro do produto.",
+      adminHref: `/admin/products/${product.productId}/edit`,
+      blocksOpenSales: true,
+      blocksStaging: false,
+      dependsOnClient: true,
+    });
+  }
+
+  if (!report.inconsistent.length) {
+    addItem(items, {
+      id: "inventory-integrity",
+      area: "catalog",
+      title: "Estoque integro",
+      severity: "ok",
+      description: `${report.products.length} produto(s) auditado(s): reservas conferem com os pedidos em aberto e nenhuma peca unica foi vendida ou reservada em duplicidade.`,
+      impact: "Quantidade baixa ou peca unica vendida nao sao pendencias: a prontidao mede integridade, nao quantidade.",
+      recommendedAction: "Nenhuma acao necessaria.",
       adminHref: "/admin/products",
       blocksOpenSales: false,
       blocksStaging: false,
@@ -734,6 +789,7 @@ export function buildAdminReadiness(input: BuildAdminReadinessInput): ReadinessR
   );
   addShippingItems(items, env, input.settings);
   addCatalogItems(items, input.products, input.categories);
+  addInventoryItems(items, input.inventoryIntegrity);
   addSeoAndSecurityItems(items);
   addDocumentationItems(items, documentation);
 

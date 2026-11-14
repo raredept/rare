@@ -197,7 +197,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           <KpiTile
             label="Produtos esgotados"
             value={formatInteger(inventory.soldOutActiveProducts)}
-            hint="Ativos e sem unidade vendável"
+            hint="Reposição: ativos e sem unidade vendável"
             higherIsBetter={false}
           />
         </div>
@@ -207,7 +207,8 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             <div>
               <h3 className="text-base font-black text-neutral-950">Variações críticas</h3>
               <p className="mt-1 text-xs font-semibold text-neutral-500">
-                Até {LOW_STOCK_THRESHOLD} unidades vendáveis, esgotadas primeiro.
+                Itens de reposição com até {LOW_STOCK_THRESHOLD} unidades vendáveis, esgotados primeiro. Peças únicas não entram por
+                quantidade: {formatInteger(inventory.uniqueAvailableProducts)} disponível(is), {formatInteger(inventory.uniqueUnavailableProducts)} vendida(s) ou reservada(s).
               </p>
             </div>
             <Link
@@ -240,7 +241,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                       <td className="py-2.5 text-right font-semibold text-neutral-600">{entry.stock}</td>
                       <td className="py-2.5 text-right font-semibold text-neutral-600">{entry.reservedStock}</td>
                       <td className={`py-2.5 text-right font-black ${entry.sellable <= 0 ? "text-red-700" : "text-neutral-950"}`}>
-                        {entry.sellable <= 0 ? "Esgotado" : entry.sellable}
+                        {entry.sellable <= 0 ? "Esgotado" : `${entry.sellable} · ${entry.level === "critical" ? "crítico" : "baixo"}`}
                       </td>
                       <td className="py-2.5 text-right">
                         <Link

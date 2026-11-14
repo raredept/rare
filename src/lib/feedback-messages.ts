@@ -20,6 +20,7 @@ import { invalidOrderTransitionMessage } from "@/lib/order-status";
 export const ACTIVE_PRODUCT_SHIPPING_DATA_MESSAGE = "Informe peso, altura, largura e comprimento maiores que 0 para ativar o produto.";
 
 export const PRODUCT_SLUG_TAKEN_MESSAGE = "Já existe um produto com este slug. Escolha outro slug e salve novamente.";
+export const UNIQUE_STOCK_LIMIT_MESSAGE = "Peça única aceita no máximo 1 unidade no total. Reduza o estoque ou use a política Padrão.";
 export const CATEGORY_SLUG_TAKEN_CODE = "category-slug-taken";
 
 const adminErrorCodes = new Map([
@@ -95,6 +96,7 @@ export const ADMIN_SERVER_MESSAGES: ReadonlySet<string> = new Set([
   "Falha ao processar imagem enviada.",
   ACTIVE_PRODUCT_SHIPPING_DATA_MESSAGE,
   PRODUCT_SLUG_TAKEN_MESSAGE,
+  UNIQUE_STOCK_LIMIT_MESSAGE,
   // banners
   "Nao foi possivel salvar o banner.",
   "Banner nao encontrado.",

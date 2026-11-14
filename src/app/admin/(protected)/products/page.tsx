@@ -9,7 +9,9 @@ import { getAdminCategoryFilterLabel, sortAdminCategoryFilterOptions } from "@/l
 import { classifyProductImageUrl, getProductMediaLabel, getProductMediaTypeFromUrl } from "@/lib/admin-product-images";
 import { formatMoney } from "@/lib/money";
 import { normalizeAdminPage } from "@/lib/admin-pagination";
-import { getAdminProductRows, getAdminProductSummary } from "@/lib/admin-products-data";
+import { getAdminProductRows, getAdminProductSummary, parseAdminProductStockFilter } from "@/lib/admin-products-data";
+import { getInventoryIntegrityReport } from "@/lib/inventory-integrity";
+import { STOCK_POLICY_LABELS, STOCK_STATE_LABELS, STOCK_STATE_TONES, type StockStateTone } from "@/lib/stock-policy";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +27,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   const query = typeof filters.q === "string" ? filters.q.trim().slice(0, 100) : undefined;
   const status: "active" | "hidden" | undefined = filters.status === "active" || filters.status === "hidden" ? filters.status : undefined;
   const featured: "true" | undefined = filters.featured === "true" ? "true" : undefined;
-  const stock: "low" | "out" | undefined = filters.stock === "low" || filters.stock === "out" ? filters.stock : undefined;
+  const stock = parseAdminProductStockFilter(filters.stock);
   const category = typeof filters.category === "string" ? filters.category.trim().slice(0, 100) || undefined : undefined;
   const normalizedFilters = { page, query, status, featured, stock, category };
   const [categories, productPage, summary] = await Promise.all([
@@ -38,6 +40,10 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
     getAdminProductSummary(),
   ]);
   const { products, hasNextPage } = productPage;
+  // Stock state of the listed products only, read in one snapshot with their orders.
+  const stockReport = await getInventoryIntegrityReport(products.map((product) => product.id));
+  const stockByProduct = new Map(stockReport.products.map((entry) => [entry.productId, entry]));
+  const stockBadgeTones: Record<StockStateTone, "neutral" | "muted" | "danger" | "warning"> = { ok: "neutral", warning: "warning", danger: "danger", muted: "muted" };
   const categoryFilterOptions = sortAdminCategoryFilterOptions(categories);
 
   return (
@@ -56,7 +62,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <SummaryMetric label="Ativos" value={summary.active} />
         <SummaryMetric label="Ocultos" value={summary.hidden} />
-        <SummaryMetric label="Estoque baixo" value={summary.lowStock} />
+        <SummaryMetric label="Reposição com estoque baixo" value={summary.lowStock} />
         <SummaryMetric label="Sem imagem" value={summary.missingImages} />
       </div>
 
@@ -82,8 +88,10 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
         <div className="flex gap-2">
           <select aria-label="Filtrar por estoque" name="stock" defaultValue={stock ?? ""} className="admin-input">
             <option value="">Estoque: todos</option>
-            <option value="low">Estoque baixo</option>
-            <option value="out">Esgotado</option>
+            <option value="low">Reposição: estoque baixo</option>
+            <option value="out">Reposição: esgotado</option>
+            <option value="unique">Peças únicas</option>
+            <option value="unique-unavailable">Peças únicas vendidas ou reservadas</option>
           </select>
           <button className="min-h-11 rounded-lg bg-black px-4 text-sm font-black text-white">Filtrar</button>
         </div>
@@ -101,8 +109,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
           {products.map((product) => {
             const stock = product.variants.reduce((sum, variant) => sum + variant.stock - variant.reservedStock, 0);
             const reservedStock = product.variants.reduce((sum, variant) => sum + variant.reservedStock, 0);
-            const soldOut = stock <= 0;
-            const lowStock = stock > 0 && stock <= 3;
+            const stockEntry = stockByProduct.get(product.id);
             const missingShippingData = !product.weightGrams || !product.lengthCm || !product.widthCm || !product.heightCm;
             const mainImage = product.images[0];
             const imageSource = mainImage ? classifyProductImageUrl(mainImage.url) : null;
@@ -135,8 +142,8 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                           </Badge>
                         </>
                       ) : null}
-                      {soldOut ? <Badge tone="danger">Esgotado</Badge> : null}
-                      {lowStock ? <Badge tone="warning">Estoque baixo</Badge> : null}
+                      <Badge tone="muted">{product.stockPolicy === "UNIQUE" ? "Peça única" : "Reposição"}</Badge>
+                      {stockEntry ? <Badge tone={stockBadgeTones[STOCK_STATE_TONES[stockEntry.state]]}>{STOCK_STATE_LABELS[stockEntry.state]}</Badge> : null}
                       {!product.images[0] ? <Badge tone="muted">Sem imagem</Badge> : null}
                       {imageSource ? <Badge tone={imageSource === "Seed" ? "warning" : "muted"}>{imageSource}</Badge> : null}
                       {mediaType ? <Badge tone={mediaType === "video" ? "dark" : "muted"}>{getProductMediaLabel(mediaType)}</Badge> : null}
@@ -154,6 +161,13 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                   <p className="mt-1 text-xs font-semibold text-neutral-500">
                     {reservedStock} reservado(s) · {product.variants.length} variação(ões)
                   </p>
+                  <p className="mt-1 text-xs font-semibold text-neutral-500">
+                    Política: {STOCK_POLICY_LABELS[product.stockPolicy]}
+                    {stockEntry && stockEntry.soldUnits > 0 ? ` · ${stockEntry.soldUnits} vendida(s)` : ""}
+                  </p>
+                  {stockEntry?.inconsistencyLabels.length ? (
+                    <p className="mt-1 text-xs font-black text-red-200">{stockEntry.inconsistencyLabels.join(" · ")}</p>
+                  ) : null}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Link href={`/admin/products/${product.id}/edit`} className="inline-flex min-h-11 items-center rounded-lg border border-neutral-700 px-3 py-2 text-xs font-black text-neutral-200 transition hover:border-neutral-300 hover:bg-white hover:text-black">

@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { ADMIN_PAGE_SIZE } from "@/lib/admin-pagination";
 import { prisma } from "@/lib/prisma";
+import { LOW_STOCK_THRESHOLD } from "@/lib/stock-policy";
 
 export type AdminProductListFilters = {
   category?: string;
@@ -8,8 +9,16 @@ export type AdminProductListFilters = {
   page: number;
   query?: string;
   status?: "active" | "hidden";
-  stock?: "low" | "out";
+  /** low / out: replenishable (STANDARD) items by quantity. unique / unique-unavailable: one-of-a-kind pieces. */
+  stock?: AdminProductStockFilter;
 };
+
+export const ADMIN_PRODUCT_STOCK_FILTERS = ["low", "out", "unique", "unique-unavailable"] as const;
+export type AdminProductStockFilter = (typeof ADMIN_PRODUCT_STOCK_FILTERS)[number];
+
+export function parseAdminProductStockFilter(value: unknown): AdminProductStockFilter | undefined {
+  return (ADMIN_PRODUCT_STOCK_FILTERS as readonly unknown[]).includes(value) ? (value as AdminProductStockFilter) : undefined;
+}
 
 type ProductIdRow = { id: string };
 type CountRow = { count: number };
@@ -52,8 +61,12 @@ function buildSqlConditions(filters: AdminProductListFilters) {
   if (filters.status === "active") conditions.push(Prisma.sql`product."active" = true`);
   if (filters.status === "hidden") conditions.push(Prisma.sql`product."active" = false`);
   if (filters.featured === "true") conditions.push(Prisma.sql`product."featured" = true`);
-  if (filters.stock === "low") conditions.push(Prisma.sql`COALESCE(stock."available", 0) BETWEEN 1 AND 3`);
-  if (filters.stock === "out") conditions.push(Prisma.sql`COALESCE(stock."available", 0) <= 0`);
+  // Quantity filters only make sense for replenishable items: a one-of-a-kind piece with one unit is
+  // not "low" and a sold one is not "out of stock".
+  if (filters.stock === "low") conditions.push(Prisma.sql`product."stockPolicy" = 'STANDARD' AND COALESCE(stock."available", 0) BETWEEN 1 AND ${LOW_STOCK_THRESHOLD}`);
+  if (filters.stock === "out") conditions.push(Prisma.sql`product."stockPolicy" = 'STANDARD' AND COALESCE(stock."available", 0) <= 0`);
+  if (filters.stock === "unique") conditions.push(Prisma.sql`product."stockPolicy" = 'UNIQUE'`);
+  if (filters.stock === "unique-unavailable") conditions.push(Prisma.sql`product."stockPolicy" = 'UNIQUE' AND COALESCE(stock."available", 0) <= 0`);
   return conditions;
 }
 
@@ -115,9 +128,10 @@ export async function getAdminProductSummary() {
       FROM (
         SELECT variant."productId"
         FROM "ProductVariant" AS variant
-        WHERE variant."active" = true
+        JOIN "Product" AS product ON product."id" = variant."productId"
+        WHERE variant."active" = true AND product."stockPolicy" = 'STANDARD'
         GROUP BY variant."productId"
-        HAVING SUM(variant."stock" - variant."reservedStock") BETWEEN 1 AND 3
+        HAVING SUM(variant."stock" - variant."reservedStock") BETWEEN 1 AND ${LOW_STOCK_THRESHOLD}
       ) AS low_stock_products
     `),
   ]);

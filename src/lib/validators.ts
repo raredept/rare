@@ -4,6 +4,7 @@ export { hasCompleteProductShippingData } from "@/lib/product-shipping-readiness
 import { isValidCep, parseCep } from "@/lib/cep";
 import { isValidCpf, normalizeCpf } from "@/lib/cpf";
 import { shippingModes } from "@/lib/shipping";
+import { STOCK_POLICIES } from "@/lib/stock-policy";
 import { normalizeInstagramUrl } from "@/lib/store-social";
 
 export const checkoutItemSchema = z.object({
@@ -151,6 +152,7 @@ export const productFormSchema = z
     featured: z.boolean(),
     featuredSortOrder: z.number().int().min(1).max(999999).nullable(),
     sortOrder: z.number().int().min(0).max(999999),
+    stockPolicy: z.enum(STOCK_POLICIES).default("STANDARD"),
   })
   .superRefine((data, context) => {
     if (!data.active || hasCompleteProductShippingData(data)) return;

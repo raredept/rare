@@ -2,6 +2,7 @@ import { Prisma, type OrderStatus } from "@prisma/client";
 import { ANALYTICS_TIME_ZONE, listDays, type AnalyticsPeriod } from "@/lib/analytics-period";
 import { paidRevenueStatuses } from "@/lib/order-display";
 import { prisma } from "@/lib/prisma";
+import { getStandardStockLevel, LOW_STOCK_THRESHOLD } from "@/lib/stock-policy";
 
 /**
  * Every figure here is aggregated by Postgres.
@@ -53,10 +54,17 @@ export type InventorySummary = {
   totalStock: number;
   reservedStock: number;
   sellableStock: number;
+  /** STANDARD (replenishable) variants only: a one-of-a-kind piece is never low or sold out. */
   soldOutVariants: number;
+  /** STANDARD variants only, 1..LOW_STOCK_THRESHOLD sellable units. */
   lowStockVariants: number;
   activeVariants: number;
+  /** STANDARD active products with no sellable unit. */
   soldOutActiveProducts: number;
+  /** Active UNIQUE pieces a shopper can buy now. */
+  uniqueAvailableProducts: number;
+  /** Active UNIQUE pieces with no sellable unit (reserved or sold): a normal state, not a problem. */
+  uniqueUnavailableProducts: number;
 };
 
 export type CriticalStockEntry = {
@@ -66,6 +74,7 @@ export type CriticalStockEntry = {
   stock: number;
   reservedStock: number;
   sellable: number;
+  level: "sold_out" | "critical" | "low";
 };
 
 export type AnalyticsOverview = {
@@ -83,8 +92,8 @@ export type AnalyticsOverview = {
   newCustomers: number;
 };
 
-/** A variant at or below this sellable count is surfaced as critical. */
-export const LOW_STOCK_THRESHOLD = 3;
+/** A STANDARD variant at or below this sellable count is surfaced in the critical list. */
+export { LOW_STOCK_THRESHOLD };
 
 const TOP_ENTRY_LIMIT = 8;
 const CRITICAL_STOCK_LIMIT = 12;
@@ -384,6 +393,8 @@ type RawInventoryRow = {
   soldOutVariants: unknown;
   lowStockVariants: unknown;
   activeVariants: unknown;
+  uniqueAvailableProducts: unknown;
+  uniqueUnavailableProducts: unknown;
 };
 
 export async function getInventorySummary(): Promise<InventorySummary> {
@@ -393,12 +404,16 @@ export async function getInventorySummary(): Promise<InventorySummary> {
         COALESCE(SUM("v"."stock"), 0)::bigint AS "totalStock",
         COALESCE(SUM("v"."reservedStock"), 0)::bigint AS "reservedStock",
         COALESCE(SUM(GREATEST("v"."stock" - "v"."reservedStock", 0)), 0)::bigint AS "sellableStock",
-        COUNT(*) FILTER (WHERE "v"."stock" - "v"."reservedStock" <= 0)::int AS "soldOutVariants",
+        COUNT(*) FILTER (WHERE "p"."stockPolicy" = 'STANDARD' AND "v"."stock" - "v"."reservedStock" <= 0)::int AS "soldOutVariants",
         COUNT(*) FILTER (
-          WHERE "v"."stock" - "v"."reservedStock" > 0
+          WHERE "p"."stockPolicy" = 'STANDARD'
+            AND "v"."stock" - "v"."reservedStock" > 0
             AND "v"."stock" - "v"."reservedStock" <= ${LOW_STOCK_THRESHOLD}
         )::int AS "lowStockVariants",
-        COUNT(*)::int AS "activeVariants"
+        COUNT(*)::int AS "activeVariants",
+        COUNT(DISTINCT "p"."id") FILTER (WHERE "p"."stockPolicy" = 'UNIQUE' AND "v"."stock" - "v"."reservedStock" > 0)::int AS "uniqueAvailableProducts",
+        (COUNT(DISTINCT "p"."id") FILTER (WHERE "p"."stockPolicy" = 'UNIQUE')
+          - COUNT(DISTINCT "p"."id") FILTER (WHERE "p"."stockPolicy" = 'UNIQUE' AND "v"."stock" - "v"."reservedStock" > 0))::int AS "uniqueUnavailableProducts"
       FROM "ProductVariant" "v"
       JOIN "Product" "p" ON "p"."id" = "v"."productId"
       WHERE "v"."active" = true AND "p"."active" = true
@@ -414,6 +429,8 @@ export async function getInventorySummary(): Promise<InventorySummary> {
     lowStockVariants: toNumber(row?.lowStockVariants),
     activeVariants: toNumber(row?.activeVariants),
     soldOutActiveProducts,
+    uniqueAvailableProducts: toNumber(row?.uniqueAvailableProducts),
+    uniqueUnavailableProducts: toNumber(row?.uniqueUnavailableProducts),
   };
 }
 
@@ -423,6 +440,7 @@ async function countSoldOutActiveProducts() {
     SELECT COUNT(*)::int AS "count"
     FROM "Product" "p"
     WHERE "p"."active" = true
+      AND "p"."stockPolicy" = 'STANDARD'
       AND NOT EXISTS (
         SELECT 1 FROM "ProductVariant" "v"
         WHERE "v"."productId" = "p"."id"
@@ -436,18 +454,22 @@ async function countSoldOutActiveProducts() {
 export async function getCriticalStock(): Promise<CriticalStockEntry[]> {
   // Filter and rank by sellable stock in Postgres. Taking 200 by physical
   // stock first missed heavily reserved variants further down the catalog.
-  return prisma.$queryRaw<CriticalStockEntry[]>`
+  // UNIQUE pieces never enter this list by quantity: one unit is their normal state and zero after
+  // a sale means "sold". Their only critical state is an inconsistency (inventory-integrity.ts).
+  const rows = await prisma.$queryRaw<Omit<CriticalStockEntry, "level">[]>`
     SELECT "v"."productId", "p"."title" AS "productTitle", "v"."size",
       "v"."stock", "v"."reservedStock",
       ("v"."stock" - "v"."reservedStock")::int AS "sellable"
     FROM "ProductVariant" "v"
     JOIN "Product" "p" ON "p"."id" = "v"."productId"
     WHERE "v"."active" = true AND "p"."active" = true
+      AND "p"."stockPolicy" = 'STANDARD'
       AND "v"."stock" - "v"."reservedStock" <= ${LOW_STOCK_THRESHOLD}
     ORDER BY ("v"."stock" - "v"."reservedStock") ASC,
       "v"."productId" ASC, "v"."size" ASC
     LIMIT ${CRITICAL_STOCK_LIMIT}
   `;
+  return rows.map((row) => ({ ...row, level: getStandardStockLevel(row.sellable) as CriticalStockEntry["level"] }));
 }
 
 async function countNewCustomers(period: AnalyticsPeriod) {

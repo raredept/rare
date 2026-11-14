@@ -12,6 +12,7 @@ import {
   type ReadinessReport,
   type ReadinessSeverity,
 } from "@/lib/admin-readiness";
+import { getInventoryIntegrityReport } from "@/lib/inventory-integrity";
 import {
   buildOperationalEvidenceReport,
   isOperationalEvidenceStorageUnavailableError,
@@ -57,7 +58,7 @@ export default async function AdminReadinessPage({ searchParams }: AdminReadines
   // navigation, so every page verifies the session next to its data.
   await requireAdmin("system.readiness");
   const params = (await searchParams) ?? {};
-  const [settings, products, categories, banners, operationalEvidenceStorage] = await Promise.all([
+  const [settings, products, categories, banners, operationalEvidenceStorage, inventoryIntegrity] = await Promise.all([
     prisma.storeSettings.findUnique({
       where: { id: "store" },
       select: {
@@ -72,6 +73,7 @@ export default async function AdminReadinessPage({ searchParams }: AdminReadines
         id: true,
         title: true,
         active: true,
+        stockPolicy: true,
         weightGrams: true,
         lengthCm: true,
         widthCm: true,
@@ -109,6 +111,8 @@ export default async function AdminReadinessPage({ searchParams }: AdminReadines
       },
     }),
     getOperationalEvidenceStorage(),
+    // null (not a crash) when the audit cannot be read: readiness reports it as "not verified".
+    getInventoryIntegrityReport().catch(() => null),
   ]);
   const operationalEvidenceReport = buildOperationalEvidenceReport(operationalEvidenceStorage.rows, {
     storageAvailable: operationalEvidenceStorage.available,
@@ -124,6 +128,7 @@ export default async function AdminReadinessPage({ searchParams }: AdminReadines
     ],
     operationalEvidenceRows: operationalEvidenceStorage.rows,
     operationalEvidenceStorageAvailable: operationalEvidenceStorage.available,
+    inventoryIntegrity,
     documentation: getDocumentationStatus(),
   });
   const groupedItems = groupReadinessItems(report.items);

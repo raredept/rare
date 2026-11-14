@@ -4,6 +4,8 @@ import { getDashboardSnapshot, LOW_STOCK_THRESHOLD } from "@/lib/admin-analytics
 import { getAdminHomePath, hasAdminPermission } from "@/lib/admin-permissions";
 import { buildCatalogIssues, type CatalogIssue } from "@/lib/admin-catalog-issues";
 import { buildAdminReadiness, type ReadinessReport } from "@/lib/admin-readiness";
+import { getInventoryIntegrityReport } from "@/lib/inventory-integrity";
+import { STOCK_STATE_LABELS } from "@/lib/stock-policy";
 import { MagnitudeBars, type MagnitudeRow } from "@/components/admin/analytics-charts";
 import { formatMoney } from "@/lib/money";
 import { formatOrderStatus } from "@/lib/order-display";
@@ -32,14 +34,16 @@ export default async function AdminDashboardPage() {
   // because the readiness and catalog-issue checks genuinely need each product,
   // and the catalog is bounded by what the store sells rather than by how much
   // it has sold.
-  const [promotionSummary, snapshot, catalogProducts, catalogCategories, settings, recentOrders, recentNotifications] = await Promise.all([
+  const [promotionSummary, snapshot, inventoryIntegrity, catalogProducts, catalogCategories, settings, recentOrders, recentNotifications] = await Promise.all([
     getPromotionDashboardSummary(),
     getDashboardSnapshot(DASHBOARD_WINDOW_DAYS),
+    getInventoryIntegrityReport(),
     prisma.product.findMany({
       select: {
         id: true,
         title: true,
         active: true,
+        stockPolicy: true,
         weightGrams: true,
         lengthCm: true,
         widthCm: true,
@@ -93,8 +97,12 @@ export default async function AdminDashboardPage() {
         settings,
         products: catalogProducts,
         categories: catalogCategories,
+        inventoryIntegrity,
       })
     : null;
+  // Critical = a replenishable variant running out, or numbers that contradict each other. A
+  // one-of-a-kind piece with one unit (normal) or zero after a sale (sold) is never counted.
+  const criticalStockCount = snapshot.inventory.lowStockVariants + snapshot.inventory.soldOutVariants + inventoryIntegrity.inconsistent.length;
 
   const statusRows: MagnitudeRow[] = snapshot.ordersByStatus.map((entry) => ({
     id: entry.status,
@@ -149,10 +157,10 @@ export default async function AdminDashboardPage() {
           />
           <ActionCard
             label="Variações críticas"
-            value={formatInteger(snapshot.inventory.lowStockVariants + snapshot.inventory.soldOutVariants)}
+            value={formatInteger(criticalStockCount)}
             href="/admin/analytics"
-            tone={snapshot.inventory.soldOutVariants > 0 ? "attention" : "calm"}
-            description={`Até ${LOW_STOCK_THRESHOLD} unidades vendáveis`}
+            tone={snapshot.inventory.soldOutVariants > 0 || inventoryIntegrity.inconsistent.length > 0 ? "attention" : "calm"}
+            description={`Reposição com até ${LOW_STOCK_THRESHOLD} un. ou estoque inconsistente; peça única vendida não conta`}
           />
           <ActionCard
             label="Pendências do catálogo"
@@ -336,7 +344,24 @@ export default async function AdminDashboardPage() {
               Ver tudo
             </Link>
           </div>
+          <p className="mt-1 text-xs font-semibold text-neutral-500">
+            Peças únicas: {formatInteger(snapshot.inventory.uniqueAvailableProducts)} disponível(is) · {formatInteger(snapshot.inventory.uniqueUnavailableProducts)} vendida(s) ou reservada(s), sem alerta.
+          </p>
           <div className="mt-4 divide-y divide-neutral-200">
+            {inventoryIntegrity.inconsistent.slice(0, 8).map((product) => (
+              <div key={`inconsistent-${product.productId}`} className="flex items-center justify-between gap-4 py-3 text-sm">
+                <div className="min-w-0">
+                  <p className="break-words font-black text-neutral-950">{product.title}</p>
+                  <p className="font-semibold text-neutral-500">{product.inconsistencyLabels.join(" · ")}</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-black text-red-700">{STOCK_STATE_LABELS.inconsistent}</p>
+                  <Link href={`/admin/products/${product.productId}/edit`} className="text-xs font-black uppercase tracking-wide text-neutral-600">
+                    Editar
+                  </Link>
+                </div>
+              </div>
+            ))}
             {snapshot.criticalStock.length ? (
               snapshot.criticalStock.slice(0, 8).map((variant) => (
                 <div key={`${variant.productId}-${variant.size}`} className="flex items-center justify-between gap-4 py-3 text-sm">
@@ -357,7 +382,7 @@ export default async function AdminDashboardPage() {
                   </div>
                 </div>
               ))
-            ) : (
+            ) : inventoryIntegrity.inconsistent.length ? null : (
               <p className="py-8 text-sm text-neutral-500">Nenhuma variação ativa em nível crítico.</p>
             )}
           </div>

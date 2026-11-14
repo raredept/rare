@@ -51,6 +51,14 @@ enum PromotionScope {
   SELECTED_CATEGORIES
 }
 
+/// STANDARD: replenishable item (quantity levels apply). UNIQUE: one-of-a-kind piece — one unit
+/// is normal, zero after a sale is "sold"; only contradictory numbers are critical
+/// (see src/lib/stock-policy.ts).
+enum StockPolicy {
+  STANDARD
+  UNIQUE
+}
+
 enum InventoryMovementType {
   reserve
   release
@@ -204,6 +212,7 @@ model Product {
   featured              Boolean             @default(false)
   featuredSortOrder     Int?
   sortOrder             Int                 @default(0)
+  stockPolicy           StockPolicy         @default(STANDARD)
   images                ProductImage[]
   variants              ProductVariant[]
   orderItems            OrderItem[]

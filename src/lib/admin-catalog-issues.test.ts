@@ -41,6 +41,36 @@ describe("admin catalog issues", () => {
     );
   });
 
+  it("treats a replenishable item out of stock as a reminder, not a danger", () => {
+    const issues = buildCatalogIssues({
+      products: [product({ id: "prod-no-stock", stockPolicy: "STANDARD", variants: [{ active: true, stock: 0, reservedStock: 0 }] })],
+      categories: [category()],
+    });
+
+    expect(issues.find((issue) => issue.type === "active-product-no-stock")?.tone).toBe("warning");
+  });
+
+  it.each([
+    ["sold", [{ active: true, stock: 0, reservedStock: 0 }]],
+    ["reserved", [{ active: true, stock: 1, reservedStock: 1 }]],
+  ])("does not list a one-of-a-kind piece that is %s", (_state, variants) => {
+    const issues = buildCatalogIssues({
+      products: [product({ id: "prod-unique", stockPolicy: "UNIQUE", variants })],
+      categories: [category()],
+    });
+
+    expect(issues.filter((issue) => issue.id.endsWith(":prod-unique"))).toEqual([]);
+  });
+
+  it("still lists a one-of-a-kind piece with no active variation", () => {
+    const issues = buildCatalogIssues({
+      products: [product({ id: "prod-unique", stockPolicy: "UNIQUE", variants: [{ active: false, stock: 1, reservedStock: 0 }] })],
+      categories: [category()],
+    });
+
+    expect(issues).toContainEqual(expect.objectContaining({ type: "active-product-no-purchasable-variant", tone: "danger" }));
+  });
+
   it("lists active product without primary media as a catalog issue", () => {
     const issues = buildCatalogIssues({
       products: [product({ id: "prod-no-media", images: [] })],
