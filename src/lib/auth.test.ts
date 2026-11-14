@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getAdminPermissions } from "@/lib/admin-permissions";
 
 const mocks = vi.hoisted(() => ({
   cookieGet: vi.fn(),
@@ -56,7 +57,7 @@ describe("admin authorization", () => {
     // Real Prisma returns null when the account is deactivated or loses its role.
     mocks.findFirst.mockResolvedValue(null);
     await expect(requireAdmin()).rejects.toThrow("NEXT_REDIRECT:/admin/login");
-    expect(mocks.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "disabled-admin", active: true, role: "ADMIN" } }));
+    expect(mocks.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "disabled-admin", active: true, role: { in: ["ADMIN", "SYSTEM_ADMIN", "SELLER_ADMIN"] } } }));
   });
 
   it("keeps the password-change requirement in newly issued sessions", async () => {
@@ -137,6 +138,7 @@ describe("admin authorization", () => {
       sessionVersion: 0,
       mfaEnabled: false,
       mfaVerifiedAt: null,
+      permissions: getAdminPermissions("ADMIN"),
     });
   });
 
@@ -273,5 +275,78 @@ describe("admin authorization", () => {
     expect(mocks.cookieDelete).toHaveBeenCalledWith("rare_admin_session");
     expect(consoleError).toHaveBeenCalledWith("[auth] could not revoke admin sessions on logout", "Error");
     consoleError.mockRestore();
+  });
+});
+
+describe("admin role permissions", () => {
+  async function signInAs(role: "ADMIN" | "SYSTEM_ADMIN" | "SELLER_ADMIN") {
+    const { signAdminSession } = await import("@/lib/auth");
+    const token = await signAdminSession({
+      id: `${role}-1`,
+      email: `${role.toLowerCase()}@example.com`,
+      role,
+      mustChangePassword: false,
+      passwordHash: "existing-password-hash",
+      sessionVersion: 0,
+    });
+    mocks.cookieGet.mockReturnValue({ value: token });
+    mocks.findFirst.mockResolvedValue({
+      id: `${role}-1`,
+      name: role,
+      email: `${role.toLowerCase()}@example.com`,
+      username: null,
+      role,
+      mustChangePassword: false,
+      passwordHash: "existing-password-hash",
+      sessionVersion: 0,
+    });
+  }
+
+  it.each([
+    ["SELLER_ADMIN", "system.security"],
+    ["SELLER_ADMIN", "system.readiness"],
+    ["SELLER_ADMIN", "system.users"],
+    ["SELLER_ADMIN", "system.settings"],
+    ["SYSTEM_ADMIN", "commerce.orders"],
+    ["SYSTEM_ADMIN", "commerce.products"],
+    ["SYSTEM_ADMIN", "analytics.sales"],
+  ] as const)("sends %s away from %s on the server", async (role, permission) => {
+    const { requireAdmin } = await import("@/lib/auth");
+    await signInAs(role);
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    await expect(requireAdmin(permission)).rejects.toThrow("NEXT_REDIRECT:/admin/sem-acesso");
+    expect(consoleWarn).toHaveBeenCalledWith("[rbac] denied", JSON.stringify({ role, permission }));
+    consoleWarn.mockRestore();
+  });
+
+  it.each([
+    ["SELLER_ADMIN", "commerce.orders"],
+    ["SELLER_ADMIN", "analytics.site"],
+    ["SYSTEM_ADMIN", "system.security"],
+    ["SYSTEM_ADMIN", "analytics.site"],
+    ["ADMIN", "system.users"],
+    ["ADMIN", "commerce.orders"],
+  ] as const)("lets %s through %s", async (role, permission) => {
+    const { requireAdmin } = await import("@/lib/auth");
+    await signInAs(role);
+    await expect(requireAdmin(permission)).resolves.toMatchObject({ role, permissions: getAdminPermissions(role) });
+  });
+
+  it("reads the role from the database row, not from the signed token", async () => {
+    const { requireAdmin } = await import("@/lib/auth");
+    await signInAs("SYSTEM_ADMIN");
+    mocks.findFirst.mockResolvedValue({
+      id: "SYSTEM_ADMIN-1",
+      name: "demoted",
+      email: "system_admin@example.com",
+      username: null,
+      role: "SELLER_ADMIN",
+      mustChangePassword: false,
+      passwordHash: "existing-password-hash",
+      sessionVersion: 0,
+    });
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    await expect(requireAdmin("system.users")).rejects.toThrow("NEXT_REDIRECT:/admin/sem-acesso");
+    consoleWarn.mockRestore();
   });
 });

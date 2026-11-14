@@ -82,7 +82,7 @@ beforeEach(() => {
     freeShippingThresholdInCents: null,
   });
   healthMocks.prisma.product.count.mockResolvedValue(0);
-  healthMocks.getCurrentAdmin.mockResolvedValue({ id: "admin_1" });
+  healthMocks.getCurrentAdmin.mockResolvedValue({ id: "admin_1", role: "SYSTEM_ADMIN" });
 });
 
 afterEach(() => {

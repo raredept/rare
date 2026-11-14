@@ -56,7 +56,7 @@ describe("admin login action", () => {
     await expect(loginAction({}, loginForm())).rejects.toThrow("NEXT_REDIRECT:/admin/produtos");
     expect(mocks.findFirst).toHaveBeenCalledWith({
       where: {
-        role: "ADMIN",
+        role: { in: ["ADMIN", "SYSTEM_ADMIN", "SELLER_ADMIN"] },
         active: true,
         OR: [
           { email: { equals: "admin@example.com", mode: "insensitive" } },
@@ -83,7 +83,7 @@ describe("admin login action", () => {
       .rejects.toThrow("NEXT_REDIRECT:/admin/change-password");
     expect(mocks.findFirst).toHaveBeenCalledWith({
       where: {
-        role: "ADMIN",
+        role: { in: ["ADMIN", "SYSTEM_ADMIN", "SELLER_ADMIN"] },
         active: true,
         OR: [
           { email: { equals: "admin 2", mode: "insensitive" } },
@@ -109,7 +109,7 @@ describe("admin login action", () => {
     await expect(loginAction({}, loginForm())).resolves.toEqual({ error: "Credenciais inválidas." });
     expect(mocks.findFirst).toHaveBeenCalledWith({
       where: {
-        role: "ADMIN",
+        role: { in: ["ADMIN", "SYSTEM_ADMIN", "SELLER_ADMIN"] },
         active: true,
         OR: [
           { email: { equals: "admin@example.com", mode: "insensitive" } },

@@ -39,7 +39,7 @@ function request(method: "POST" | "DELETE", body: unknown) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.getCurrentAdmin.mockResolvedValue({ id: "admin-1", mustChangePassword: false });
+  mocks.getCurrentAdmin.mockResolvedValue({ id: "admin-1", role: "SELLER_ADMIN", mustChangePassword: false });
   mocks.upsert.mockResolvedValue({ id: "push-1" });
   mocks.updateMany.mockResolvedValue({ count: 1 });
   mocks.rateLimit.mockResolvedValue({ ok: true });
@@ -81,13 +81,26 @@ describe("admin push subscriptions route", () => {
   });
 
   it("blocks every mutation until the temporary password is replaced", async () => {
-    mocks.getCurrentAdmin.mockResolvedValue({ id: "admin-1", mustChangePassword: true });
+    mocks.getCurrentAdmin.mockResolvedValue({ id: "admin-1", role: "SELLER_ADMIN", mustChangePassword: true });
 
     const postResponse = await POST(request("POST", subscription) as never);
     const deleteResponse = await DELETE(request("DELETE", { endpoint: subscription.endpoint }) as never);
 
     expect(postResponse.status).toBe(403);
     expect(await postResponse.json()).toMatchObject({ code: "ADMIN_PASSWORD_CHANGE_REQUIRED" });
+    expect(deleteResponse.status).toBe(403);
+    expect(mocks.upsert).not.toHaveBeenCalled();
+    expect(mocks.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("refuses a SYSTEM_ADMIN, whose role has no commercial notification inbox", async () => {
+    mocks.getCurrentAdmin.mockResolvedValue({ id: "admin-1", role: "SYSTEM_ADMIN", mustChangePassword: false });
+
+    const postResponse = await POST(request("POST", subscription) as never);
+    const deleteResponse = await DELETE(request("DELETE", { endpoint: subscription.endpoint }) as never);
+
+    expect(postResponse.status).toBe(403);
+    expect(await postResponse.json()).toMatchObject({ code: "ADMIN_PERMISSION_DENIED" });
     expect(deleteResponse.status).toBe(403);
     expect(mocks.upsert).not.toHaveBeenCalled();
     expect(mocks.updateMany).not.toHaveBeenCalled();
