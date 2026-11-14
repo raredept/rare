@@ -6,8 +6,8 @@ import { getDatabaseUrl, isProductionEnv } from "../src/lib/env";
 
 const email = process.env.ADMIN_EMAIL ?? "";
 const password = process.env.ADMIN_PASSWORD ?? "";
-// Only applied when the account is created; existing accounts change role through admin:roles,
-// which keeps at least one active SYSTEM_ADMIN.
+// Only applied when the account is created; existing accounts change role in /admin/users (a user
+// manager, audited), which never leaves the store without an active user manager.
 const role = process.env.ADMIN_ROLE?.trim() || "SYSTEM_ADMIN";
 
 const blockedPasswords = new Set(["change-me-before-production", "change-me", "password", "admin123", "12345678"]);
