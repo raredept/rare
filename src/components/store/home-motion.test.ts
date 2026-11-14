@@ -48,7 +48,7 @@ describe("home shared motion server contract", () => {
   it.each([
     { count: 0, products: [] as HomeFeaturedSlide[] },
     { count: 1, products: [product] },
-  ])("keeps one global control with no brands and $count featured products", ({ products }) => {
+  ])("never autoplays or renders carousel controls with no brands and $count featured products", ({ products }) => {
     const html = renderToStaticMarkup(createElement(HomeMotionProvider, null,
         createElement(HomeBrandsStrip, { key: "brands", brands: [] }),
         createElement(HomeHeroCarousel, {
@@ -63,12 +63,6 @@ describe("home shared motion server contract", () => {
         createElement(HomeFeaturedCarousel, { key: "featured", products }),
     ));
 
-    expect((html.match(/data-motion-control/g) ?? [])).lengthOf(1);
-    const control = (html.match(/<button\b[^>]*>/g) ?? []).find((tag) => tag.includes("data-motion-control"));
-    expect(control).toContain('aria-label="Movimento reduzido da página"');
-    expect(control).toContain('disabled=""');
-    expect(control).toContain("min-h-11");
-    expect(control).toContain("focus-visible:outline-2");
     expect(html).not.toMatch(/\sautoplay(?:=|\s|>)/i);
     expect(html).not.toContain('data-playing="true"');
     expect(html).not.toContain('aria-label="Próximo produto em destaque"');

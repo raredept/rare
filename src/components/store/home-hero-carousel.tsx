@@ -25,10 +25,10 @@ function HomeHeroPlaceholder({ label = "Banner RARE" }: { label?: string }) {
       role="img"
       aria-label={label}
     >
-      <div className="text-center opacity-25">
-        <p className="text-[clamp(5rem,20vw,22rem)] font-semibold leading-none tracking-[-0.08em]">RARE</p>
+      <div className="hidden text-center md:block">
+        <p className="text-4xl font-black tracking-[0.24em] sm:text-6xl">RARE</p>
         <div className="mx-auto mt-5 h-px w-20 bg-white/25" />
-        <p className="mt-5 text-[10px] font-medium uppercase tracking-[0.2em] text-white sm:text-xs">
+        <p className="mt-5 text-[10px] font-black uppercase tracking-[0.28em] text-white/55 sm:text-xs">
           Editorial streetwear
         </p>
       </div>
@@ -138,7 +138,7 @@ export function HomeHeroCarousel({ slides }: HomeHeroCarouselProps) {
 
   if (!activeSlides.length) {
     return (
-      <section className="store-home-hero relative h-[60svh] min-h-[420px] overflow-hidden bg-black text-white" aria-label="Destaque RARE">
+      <section className="store-home-hero relative overflow-hidden rounded-lg bg-black text-white" aria-label="Destaque RARE">
         <HomeHeroPlaceholder label="Destaque RARE indisponível" />
       </section>
     );
@@ -156,7 +156,7 @@ export function HomeHeroCarousel({ slides }: HomeHeroCarouselProps) {
 
   return (
     <section
-      className="store-home-hero group relative overflow-hidden bg-black text-white"
+      className="store-home-hero group relative overflow-hidden rounded-lg bg-black text-white shadow-[0_28px_80px_rgba(0,0,0,0.28)]"
       aria-label="Destaques da home RARE"
       aria-roledescription="carousel"
       ref={carouselRef}
@@ -165,7 +165,7 @@ export function HomeHeroCarousel({ slides }: HomeHeroCarouselProps) {
     >
       <div
         key={activeSlide.id}
-        className="store-home-hero-slide relative min-h-[520px] overflow-hidden md:min-h-[580px] xl:min-h-[640px]"
+        className="store-home-hero-slide relative min-h-[360px] overflow-hidden md:min-h-[460px] xl:min-h-[540px]"
         role="group"
         aria-roledescription="slide"
         aria-label={slideLabel}
@@ -184,25 +184,25 @@ export function HomeHeroCarousel({ slides }: HomeHeroCarouselProps) {
           />
         </div>
 
-        {/* 60% black keeps small white text readable even over a white banner. */}
-        <div className="absolute inset-0 bg-black/60" />
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.86)_0%,rgba(0,0,0,0.58)_42%,rgba(0,0,0,0.18)_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.18)_0%,rgba(0,0,0,0.08)_45%,rgba(0,0,0,0.68)_100%)]" />
 
-        <div className="store-shell relative z-20 flex min-h-[520px] flex-col justify-end pb-20 pt-12 md:min-h-[580px] md:pb-24 xl:min-h-[640px]">
+        <div className="relative z-20 flex min-h-[360px] max-w-3xl flex-col justify-end px-5 pb-16 pt-7 sm:px-8 md:min-h-[460px] md:px-10 md:py-10 xl:min-h-[540px] xl:px-12">
           {activeSlide.eyebrow ? (
-            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/90">{activeSlide.eyebrow}</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/58 sm:text-xs">{activeSlide.eyebrow}</p>
           ) : null}
           {activeSlide.title ? (
-            <h2 className="mt-5 max-w-[900px] text-[clamp(2.75rem,6.5vw,6.5rem)] font-medium leading-[0.98] tracking-[-0.055em] text-white">
+            <h2 className="mt-3 max-w-2xl text-3xl font-black leading-[0.98] tracking-tight text-white sm:text-5xl lg:text-6xl">
               {activeSlide.title}
             </h2>
           ) : null}
           {activeSlide.description ? (
-            <p className="mt-5 max-w-lg text-sm font-normal leading-6 text-white/90 sm:text-base">{activeSlide.description}</p>
+            <p className="mt-4 max-w-xl text-sm font-semibold leading-6 text-white/68 sm:text-base">{activeSlide.description}</p>
           ) : null}
           {activeSlide.href && activeSlide.ctaLabel ? (
             <Link
               href={activeSlide.href}
-              className="mt-8 inline-flex min-h-12 w-fit items-center justify-center border border-white bg-white px-7 text-xs font-semibold uppercase tracking-[0.12em] text-black transition-colors duration-150 hover:bg-black hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+              className="mt-6 inline-flex min-h-12 w-fit items-center justify-center rounded-full border border-white/55 bg-white px-5 text-xs font-black uppercase tracking-[0.18em] text-black transition-[background-color,border-color,color,transform] duration-150 hover:-translate-y-px hover:bg-transparent hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 active:translate-y-0"
             >
               {activeSlide.ctaLabel}
             </Link>
@@ -211,8 +211,25 @@ export function HomeHeroCarousel({ slides }: HomeHeroCarouselProps) {
       </div>
 
       {controlsEnabled ? (
-        <div className="store-shell absolute inset-x-0 bottom-5 z-30 flex items-center gap-4">
-          <div className="scrollbar-none flex min-w-0 flex-1 touch-pan-x items-center overflow-x-auto" role="group" aria-label="Selecionar slide">
+        <>
+          <button
+            type="button"
+            className="absolute left-4 top-1/2 z-30 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white opacity-85 backdrop-blur transition-[background-color,border-color,opacity,transform] duration-150 hover:border-white/55 hover:bg-white hover:text-black hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 active:scale-95 lg:flex"
+            aria-label="Slide anterior"
+            onClick={goToPrevious}
+          >
+            <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="absolute right-4 top-1/2 z-30 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white opacity-85 backdrop-blur transition-[background-color,border-color,opacity,transform] duration-150 hover:border-white/55 hover:bg-white hover:text-black hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 active:scale-95 lg:flex"
+            aria-label="Próximo slide"
+            onClick={goToNext}
+          >
+            <ChevronRight className="h-5 w-5" aria-hidden="true" />
+          </button>
+
+          <div className="scrollbar-none absolute bottom-5 left-5 right-5 z-30 flex touch-pan-x items-center overflow-x-auto sm:left-8 sm:right-8 md:left-10 md:right-10 xl:left-12 xl:right-12" role="group" aria-label="Selecionar slide">
             {activeSlides.map((slide, index) => (
               <button
                 key={slide.id}
@@ -233,25 +250,7 @@ export function HomeHeroCarousel({ slides }: HomeHeroCarouselProps) {
               </button>
             ))}
           </div>
-          <div className="flex shrink-0 items-center gap-1">
-            <button
-              type="button"
-              className="flex h-11 w-11 items-center justify-center border border-white/60 bg-black/50 text-white transition-colors hover:bg-white hover:text-black focus-visible:outline-2 focus-visible:outline-white"
-              aria-label="Slide anterior"
-              onClick={goToPrevious}
-            >
-              <ChevronLeft className="h-5 w-5" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              className="flex h-11 w-11 items-center justify-center border border-white/60 bg-black/50 text-white transition-colors hover:bg-white hover:text-black focus-visible:outline-2 focus-visible:outline-white"
-              aria-label="Próximo slide"
-              onClick={goToNext}
-            >
-              <ChevronRight className="h-5 w-5" aria-hidden="true" />
-            </button>
-          </div>
-        </div>
+        </>
       ) : null}
     </section>
   );

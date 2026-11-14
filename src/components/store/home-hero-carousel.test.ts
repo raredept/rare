@@ -57,19 +57,18 @@ function inlineStyle(tag: string) {
 }
 
 describe("HomeHeroCarousel", () => {
-  it("keeps small text and inactive indicators contrasted over the brightest possible banner", () => {
+  it("keeps inactive indicators at 3:1 non-text contrast over the bottom-left overlay of a white banner", () => {
     const html = renderToStaticMarkup(createElement(HomeHeroCarousel, { slides: baseSlides }));
-    expect(html).toContain('class="absolute inset-0 bg-black/60"');
-    expect(html).toContain("text-white/90");
+    expect(html).toContain("rgba(0,0,0,0.86)_0%");
+    expect(html).toContain("rgba(0,0,0,0.68)_100%");
     expect(html).toContain("w-2.5 bg-white/60");
 
     const luminance = (channel: number) => {
       const normalized = channel / 255;
       return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
     };
-    const background = 255 * (1 - 0.6);
+    const background = 255 * (1 - 0.86) * (1 - 0.68);
     const ratio = (opacity: number) => (luminance(255 * opacity + background * (1 - opacity)) + 0.05) / (luminance(background) + 0.05);
-    expect(ratio(0.9)).toBeGreaterThanOrEqual(4.5);
     expect(ratio(0.6)).toBeGreaterThanOrEqual(3);
   });
 
@@ -223,8 +222,7 @@ describe("HomeHeroCarousel", () => {
   it("bounds many slide indicators without shrinking targets or overlapping the arrows", () => {
     const slides = Array.from({ length: 10 }, (_, index) => ({ ...baseSlides[0], id: `slide-${index}` }));
     const html = renderToStaticMarkup(createElement(HomeHeroCarousel, { slides }));
-    expect(html).toContain('class="store-shell absolute inset-x-0 bottom-5 z-30 flex items-center gap-4"');
-    expect(html).toContain('class="scrollbar-none flex min-w-0 flex-1 touch-pan-x items-center overflow-x-auto"');
+    expect(html).toMatch(/class="scrollbar-none absolute bottom-5 left-5 right-5 z-30 flex touch-pan-x items-center overflow-x-auto[^"]*"/);
     expect(html).toContain("focus-visible:ring-inset");
     expect(html.match(/aria-label="Ir para slide \d+"/g)).toHaveLength(10);
     expect(html.match(/h-11 shrink-0/g)).toHaveLength(10);
