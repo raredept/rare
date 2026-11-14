@@ -26,13 +26,21 @@ export async function getProducts(filters: ProductFilters = {}) {
     && (!filters.featuredOnly || product.featured)
     && (!filters.categorySlug || product.category?.slug === filters.categorySlug || product.subcategory?.slug === filters.categorySlug));
   products = products.slice(filters.offset ?? 0);
-  return filters.limit ? products.slice(0, filters.limit) : products;
+  return (filters.limit ? products.slice(0, filters.limit) : products).map(withBasePricing);
 }
+function withBasePricing<T extends { priceInCents: number }>(product: T) {
+  return { ...product, pricing: { basePriceInCents: product.priceInCents, finalPriceInCents: product.priceInCents, discountInCents: 0, percentOff: 0, promotion: null } };
+}
+export async function getHomepageCampaign() { return null; }
+export async function getCampaignProducts() { return []; }
 export function getFeaturedProducts(filters: ProductFilters = {}) { return getProducts({ ...filters, featuredOnly: true }); }
 export function getRecentProducts(filters: ProductFilters = {}) { return getProducts(filters); }
 export async function getAvailableBrandsForStore() { return ["QA Fixture"]; }
 export async function getHomeCategoryTiles() { return fixtureCategoryTiles; }
-export async function getProductBySlug(slug: string) { return fixtureProducts.find((product) => product.slug === slug && product.active) ?? null; }
+export async function getProductBySlug(slug: string) {
+  const product = fixtureProducts.find((item) => item.slug === slug && item.active);
+  return product ? withBasePricing(product) : null;
+}
 export async function getCategoryPageData(slug: string, filters: ProductFilters & { page?: number } = {}) {
   if (slug === "tudo") {
     const products = await getProducts(filters);

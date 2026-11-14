@@ -72,7 +72,7 @@ function Preview() {
     {header}
     <aside className="fixture-qa-label" aria-label="Status da validação local">LOCAL FIXTURE QA — catálogo sintético; sem backend, pagamentos, frete, e-mail ou sessão real.</aside>
     <CartDrawer commerce={commerce} />
-    <main id="store-main" tabIndex={-1} className="flex-1">{readyRoute === routeKey ? failure ? <section className="store-shell py-16"><h1>Preview interrompido</h1><p>Uma operação não permitida foi recusada. Verifique apenas o código do harness; não habilite backend.</p></section> : content : <p className="store-shell py-16" role="status">Carregando fixtures locais…</p>}</main>
+    <main id="store-main" tabIndex={-1} className="flex-1 bg-neutral-50">{readyRoute === routeKey ? failure ? <section className="store-shell py-16"><h1>Preview interrompido</h1><p>Uma operação não permitida foi recusada. Verifique apenas o código do harness; não habilite backend.</p></section> : content : <p className="store-shell py-16" role="status">Carregando fixtures locais…</p>}</main>
     <StoreFooter categories={fixtureCategories} whatsappNumber={fixtureSettings.whatsappNumber} instagramUrl={fixtureSettings.instagramUrl} commerce={commerce} />
   </div></CartProvider>;
 }

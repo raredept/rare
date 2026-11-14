@@ -8,9 +8,9 @@ const repositoryRoot = path.resolve(qaRoot, "../..");
 const mock = (name: string) => path.join(qaRoot, "mocks", name);
 
 // This is a UI fixture preview, never a Next runtime or a database simulator.
-const fixtureBackendModules = ["storefront", "settings", "home-banners", "env", "prisma", "customer-auth", "customer-actions", "shipping"];
+const fixtureBackendModules = ["storefront", "settings", "home-banners", "env", "prisma", "customer-auth", "customer-actions", "shipping", "promotions/store"];
 const blockedPackages = /^(?:node:|@prisma\/|prisma(?:\/|$)|pg(?:\/|$)|stripe(?:\/|$)|redis(?:\/|$)|nodemailer(?:\/|$)|dotenv(?:\/|$)|@aws-sdk\/|web-push(?:\/|$)|server-only(?:\/|$))/;
-const blockedSource = /\/(?:src\/app\/(?:api|admin)\/|prisma\/|scripts\/)|\/src\/lib\/(?:prisma|storefront|settings|home-banners|env|customer-auth|customer-actions|shipping)\.[cm]?[jt]sx?$/;
+const blockedSource = /\/(?:src\/app\/(?:api|admin)\/|prisma\/|scripts\/)|\/src\/lib\/(?:prisma|storefront|settings|home-banners|env|customer-auth|customer-actions|shipping|promotions\/store)\.[cm]?[jt]sx?$/;
 
 function fixtureSafety(): Plugin {
   return {

@@ -100,20 +100,20 @@ for (const width of [1024, 1280]) test(`direct cart component ${width}px: fixtur
   expect(apiRequests).toEqual([]);
 });
 
-test("ten-banner fixture at 360px keeps arrows and final indicator focus unclipped", async ({ page }) => {
+// Production baseline: hero arrows are desktop-only (hidden below lg); indicators are the mobile slide controls.
+test("ten-banner fixture at 360px keeps every indicator a 44px target and the final indicator focus unclipped", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 900 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/?qaBanners=10");
   const group = page.getByRole("group", { name: "Selecionar slide", exact: true });
   const indicators = group.getByRole("button", { name: /^Ir para slide/ });
   await expect(indicators).toHaveCount(10);
-  const previous = page.getByRole("button", { name: "Slide anterior", exact: true });
-  const next = page.getByRole("button", { name: "Próximo slide", exact: true });
-  await essentialControl(previous, 360);
-  await essentialControl(next, 360);
+  await expect(page.getByRole("button", { name: "Slide anterior", exact: true })).toBeHidden();
+  await expect(page.getByRole("button", { name: "Próximo slide", exact: true })).toBeHidden();
   const groupBox = (await group.boundingBox())!;
-  const previousBox = (await previous.boundingBox())!;
-  expect(groupBox.x + groupBox.width).toBeLessThanOrEqual(previousBox.x);
+  expect(groupBox.x).toBeGreaterThanOrEqual(0);
+  expect(groupBox.x + groupBox.width).toBeLessThanOrEqual(361);
+  await essentialControl(indicators.first(), 360);
   await indicators.first().focus();
   for (let index = 1; index < 10; index++) await page.keyboard.press("Tab");
   const last = indicators.last();

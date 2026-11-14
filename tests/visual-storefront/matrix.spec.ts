@@ -30,11 +30,16 @@ for (const width of widths) {
         await expect(page.locator("h1")).toHaveCount(1);
         await expect(page.locator("main")).not.toContainText("Preview interrompido");
         expect(await page.evaluate(() => window.__RARE_FIXTURE_QA__)).toEqual({ backend: "DENIED", catalog: "IN_MEMORY", origin: "LOOPBACK_ONLY" });
+        // Approved production baseline (raredept.com.br, main 4ea73f5): neutral-50 canvas, black header, weight-900 display type.
+        await expect(page.locator("#store-main")).toHaveCSS("background-color", "oklch(0.985 0 0)");
+        await expect(page.locator("header").first()).toHaveCSS("background-color", "rgb(0, 0, 0)");
         if (route.name === "home") {
-          await expect(page.locator("[data-motion-control]").first()).toHaveCSS("font-size", "10px");
-          if (width >= 1024) await expect(page.locator('header nav button').filter({ hasText: "Acessórios" }).first()).toHaveCSS("font-size", "11px");
+          await expect(page.locator(".store-home-hero")).toHaveCSS("border-radius", "8px");
+          await expect(page.getByRole("heading", { name: "Destaques do mês", exact: true })).toHaveCSS("font-weight", "900");
+          await expect(page.locator(".store-product-card :is(h2, h3)").first()).toHaveCSS("font-weight", "900");
+        } else {
+          await expect(page.locator("h1")).toHaveCSS("font-weight", "900");
         }
-        if (route.name === "product") await expect(page.locator("main .store-button-primary").first()).toHaveCSS("font-size", "12px");
         if (route.name === "login") await expect(page.locator('main input[name="email"]')).toHaveCSS("font-size", "16px");
 
         await mkdir(screenshotRoot, { recursive: true });
