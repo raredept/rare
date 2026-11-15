@@ -46,12 +46,15 @@ async function main() {
       passwordHash,
       active: true,
     },
+    // The bootstrap password is a one-time credential: the first login enrols MFA and then replaces
+    // it (/admin/change-password), like accounts created in /admin/users.
     create: {
       name: "Administrador",
       email,
       passwordHash,
       role: role as "SYSTEM_ADMIN" | "SELLER_ADMIN",
       active: true,
+      mustChangePassword: true,
     },
   });
 
