@@ -5,6 +5,7 @@ import {
   buildWebsiteJsonLd,
   stringifyJsonLd,
 } from "@/lib/structured-data";
+import { productOfferContractIssue } from "@/lib/product-offer-contract";
 
 const appUrl = "https://raredept.com.br";
 
@@ -80,6 +81,49 @@ describe("storefront structured data", () => {
       price: "199.90",
       availability: "https://schema.org/OutOfStock",
       url: "https://raredept.com.br/produto/camiseta-rare",
+    });
+  });
+
+  it("claims InStock only for an available item while checkout is enabled", () => {
+    const data = buildProductJsonLd({
+      name: "Camiseta RARE",
+      imageUrls: [],
+      priceInCents: 19990,
+      inStock: true,
+      url: "https://raredept.com.br/produto/camiseta-rare",
+      checkoutEnabled: true,
+    });
+
+    expect(data.offers).toMatchObject({ availability: "https://schema.org/InStock" });
+    expect(productOfferContractIssue(data.offers, true)).toBeNull();
+  });
+
+  describe("offer contract used by the release smoke", () => {
+    const build = (inStock: boolean, checkoutEnabled: boolean) =>
+      buildProductJsonLd({ name: "Peça", imageUrls: [], priceInCents: 90000, inStock, url: "https://raredept.com.br/produto/peca", checkoutEnabled }).offers;
+
+    it("accepts what the storefront publishes in every state", () => {
+      // Paused + available: Offer with price, no availability. Paused/enabled + sold (a UNIQUE piece
+      // after its sale): OutOfStock. Enabled + available: InStock.
+      expect(productOfferContractIssue(build(true, false), false)).toBeNull();
+      expect(build(false, false)).toMatchObject({ availability: "https://schema.org/OutOfStock" });
+      expect(productOfferContractIssue(build(false, false), false)).toBeNull();
+      expect(productOfferContractIssue(build(false, true), true)).toBeNull();
+      expect(productOfferContractIssue(build(true, true), true)).toBeNull();
+      expect(productOfferContractIssue(undefined, false)).toBeNull();
+    });
+
+    it("fails an InStock claim while checkout is paused, in any spelling", () => {
+      for (const availability of ["https://schema.org/InStock", "http://schema.org/InStock", "InStock"]) {
+        expect(productOfferContractIssue({ "@type": "Offer", availability }, false)).toBe("InStock declared while checkout is paused");
+      }
+      expect(productOfferContractIssue(build(true, true), false)).toBe("InStock declared while checkout is paused");
+    });
+
+    it("fails malformed or unexpected offers", () => {
+      expect(productOfferContractIssue([{ "@type": "Offer" }], false)).not.toBeNull();
+      expect(productOfferContractIssue({ "@type": "AggregateOffer" }, false)).not.toBeNull();
+      expect(productOfferContractIssue({ "@type": "Offer", availability: "https://schema.org/PreOrder" }, true)).not.toBeNull();
     });
   });
 

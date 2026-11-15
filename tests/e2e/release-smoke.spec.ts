@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+import { productOfferContractIssue } from "../../src/lib/product-offer-contract";
 import {
   blockExternalRequests,
   captureUnexpectedBrowserIssues, withoutStagingGateNoise,
@@ -20,6 +21,11 @@ const publicRoutes = [
   "/privacidade-e-termos",
 ] as const;
 const privateSitemapPrefixes = ["/admin", "/api", "/finalizar-compra", "/minha-conta", "/pedido", "/pedidos"];
+
+async function productJsonLdEntries(page: Page) {
+  const scripts = await page.locator('script[type="application/ld+json"]').allTextContents();
+  return scripts.map((entry) => JSON.parse(entry) as { "@type"?: string; offers?: unknown }).filter((entry) => entry["@type"] === "Product");
+}
 
 test.beforeEach(async ({ page, baseURL }) => {
   // Production serves its real media from R2 and injects Cloudflare resources.
@@ -70,12 +76,10 @@ test("checkout, carrinho, frete automático e oferta comprável permanecem desat
   await expect(pausedAction).toBeDisabled();
   await expect(page.locator("main")).not.toContainText(/Pix e cartão|parcelamento/i);
 
-  const productJsonLd = await page.locator('script[type="application/ld+json"]').allTextContents();
-  const productEntries = productJsonLd
-    .map((entry) => JSON.parse(entry) as { "@type"?: string; offers?: unknown })
-    .filter((entry) => entry["@type"] === "Product");
+  // Paused checkout may still publish the Offer with its price; it must never claim InStock.
+  const productEntries = await productJsonLdEntries(page);
   expect(productEntries.length).toBeGreaterThan(0);
-  expect(productEntries.every((entry) => entry.offers === undefined)).toBe(true);
+  expect(productEntries.map((entry) => productOfferContractIssue(entry.offers, false))).toEqual(productEntries.map(() => null));
 
   await page.goto("/finalizar-compra", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { level: 1, name: "Compras temporariamente pausadas" })).toBeVisible();
