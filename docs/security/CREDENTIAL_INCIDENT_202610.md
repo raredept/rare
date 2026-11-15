@@ -1,6 +1,13 @@
 # RARE — credential incident / October 2026
 
-## Status atual — 2026-11-13 / RARE-FINAL-RELEASE-01
+## Status atual — 2026-11-15 / RARE-PRE-LAUNCH-06
+
+- **RELEASE-BLOCKING INTERNAL CONTAINMENT (produção): CLOSED.** Sessão e cron trocados e o runtime do web está no conjunto atual (redeploy autorizado pelo dono em 2026-11-15 02:41 UTC, o snapshot anterior REMOVED); `CRON_SECRET_PREVIOUS` ausente; nenhuma variável Stripe em `rare`/`rare-cron`; `PAYMENT_PROVIDER=disabled`, checkout OFF; nenhum chamador HTTP do cron (Vercel sem projeto). Evidência: [evidence/RELEASE_FREEZE_CLOSURE_20261114.md](evidence/RELEASE_FREEZE_CLOSURE_20261114.md).
+- **Exposição nova (2026-11-14):** o painel Activity do Railway exibiu, em uma sessão de agente, os valores do lote de variáveis de 2026-11-13 19:16 (cron, sessão, chave MFA e parte da chave Stripe LIVE antiga). O web ainda rodava esse lote porque o deploy das 23:25 havia falhado; o redeploy acima tirou esses valores do runtime. Recomendado: nova troca de cron/sessão com deploy confirmado antes do go-live.
+- **EXTERNAL STRIPE REVOCATION: MANUAL_PENDING.** Nada aqui declara as chaves/webhooks Stripe revogados, nem a investigação de uso indevido concluída.
+- Freeze: **ACTIVE** — falta o Admin WebKit no staging real (`stagingRealPassed`) e a liberação pelo responsável.
+
+## Status anterior — 2026-11-13 / RARE-FINAL-RELEASE-01
 
 Autorização atual do proprietário: contenção de sessão/cron nos dois ambientes, staging/backup/migrations e, somente após gates, merge e produção segura. As recusas de autorização nas seções antigas são históricas.
 

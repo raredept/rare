@@ -5,8 +5,8 @@
   "activeSince": "2026-10-04",
   "summary": "Production remains frozen until internal session/cron containment in staging and production, removal of Stripe credentials from active consumers, no new Stripe payments or fallback, real staging and Asaas Sandbox validation, and initial production checkout OFF are evidenced. External Stripe credential revocation can remain MANUAL_PENDING without being declared revoked.",
   "lastVerified": {
-    "at": "2026-11-13",
-    "finding": "Internal session rotation verified in both environments; old Admin and customer credentials rejected. Cron rotated and previous removed on web/worker, but external callers remain unresolved and no mutable cron probe was executed. Stripe absent from active consumers; production checkout OFF on unchanged main. Real Sandbox lifecycle and full staging gates still pending. External Stripe revocation MANUAL_PENDING."
+    "at": "2026-11-15",
+    "finding": "Production web redeployed (owner-authorized) after an exposure of the 2026-11-13 19:16 secret set in this session; runtime now on the 23:25 set, checkout OFF, provider disabled, no Stripe variables, CRON_SECRET_PREVIOUS absent. Cron production contained by configuration and code (no mutable probe); Vercel has no project; no HTTP cron caller. Asaas Sandbox real lifecycle PASS. Still pending: Admin WebKit on real staging (stagingRealPassed) and the releasing owner. External Stripe revocation MANUAL_PENDING. Evidence: docs/security/evidence/RELEASE_FREEZE_CLOSURE_20261114.md"
   },
   "closure": {
     "clearedAt": null,
@@ -16,12 +16,12 @@
       "sessionStagingRotatedAndOldRejected": true,
       "sessionProductionRotatedAndOldRejected": true,
       "cronStagingRotatedAndOldRemoved": true,
-      "cronProductionRotatedAndOldRejected": false,
+      "cronProductionRotatedAndOldRejected": true,
       "stripeStagingDisconnected": true,
       "stripeProductionDisconnected": true,
       "newStripePaymentsImpossible": true,
       "noStripeFallback": true,
-      "asaasSandboxRealPassed": false,
+      "asaasSandboxRealPassed": true,
       "stagingRealPassed": false,
       "initialProductionCheckoutOff": true
     },
