@@ -37,6 +37,7 @@ import {
   createAsaasPayment,
   findAsaasCustomerByReference,
   getAsaasConfig,
+  getAsaasPayment,
   getAsaasPixQrCode,
   refundAsaasPayment,
   type AsaasConfig,
@@ -977,13 +978,18 @@ async function createAsaasCharge(
       throw new AsaasError("unknown", "AsaasChargeMismatch");
     }
     if (method === "pix") {
-      const pix = await getAsaasPixQrCode(config, payment.id);
-      await prisma.pixCharge.upsert({
-        where: { orderId: order.id },
-        create: { orderId: order.id, copyPaste: pix.copyPaste, qrCodeBase64: pix.qrCodeBase64, ticketUrl: payment.invoiceUrl },
-        update: { copyPaste: pix.copyPaste, qrCodeBase64: pix.qrCodeBase64, ticketUrl: payment.invoiceUrl },
-      });
-      return { url: `/pedido/pix/${order.id}`, orderId: order.id, orderNumber: order.orderNumber, checkoutDeadlineAt: reservationExpiresAt.toISOString() };
+      const pixPage = { url: `/pedido/pix/${order.id}`, orderId: order.id, orderNumber: order.orderNumber, checkoutDeadlineAt: reservationExpiresAt.toISOString() };
+      try {
+        const pix = await getAsaasPixQrCodeWithRetry(config, payment.id);
+        await storeAsaasPixCharge(order.id, pix, payment.invoiceUrl);
+      } catch (error) {
+        // The charge exists, is bound to this order and matches it; only its QR is not ready yet
+        // (Asaas production can refuse the QR for a moment right after creating the charge). The
+        // Pix page fetches it again while the reservation lasts, and payment is still confirmed
+        // only by the webhook / API state. Failing here would hide a payable charge from the shopper.
+        console.warn("[checkout] asaas pix qr not ready", { code: error instanceof AsaasError ? error.code : "unknown" });
+      }
+      return pixPage;
     }
     if (!payment.invoiceUrl) throw new AsaasError("unknown", "AsaasInvoiceUrlMissing");
     return { url: payment.invoiceUrl, orderId: order.id, orderNumber: order.orderNumber, checkoutDeadlineAt: reservationExpiresAt.toISOString() };
@@ -1000,7 +1006,77 @@ async function createAsaasCharge(
   }
 }
 
-export type AsaasPaymentOutcome = "paid" | "pending" | "processing" | "closed" | "refunded" | "refund_pending" | "chargeback" | "unknown";
+// Asaas production can answer GET /payments/{id}/pixQrCode with a 4xx for a moment right after the
+// charge is created. Bounded, short retries keep the shopper's request well under the route budget.
+export const ASAAS_PIX_QR_RETRY_DELAYS_MS = [600, 1_200, 2_400] as const;
+const ASAAS_PIX_QR_TIMEOUT_MS = 5_000;
+// Authentication or a malformed id will not fix itself; everything else may be a not-ready QR.
+const NON_RETRYABLE_ASAAS_QR_CODES = new Set(["AsaasAuthenticationFailed", "InvalidAsaasPaymentId"]);
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+async function getAsaasPixQrCodeWithRetry(config: AsaasConfig, paymentId: string) {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= ASAAS_PIX_QR_RETRY_DELAYS_MS.length; attempt += 1) {
+    if (attempt > 0) await sleep(ASAAS_PIX_QR_RETRY_DELAYS_MS[attempt - 1]);
+    try {
+      return await getAsaasPixQrCode(config, paymentId, { timeoutMs: ASAAS_PIX_QR_TIMEOUT_MS });
+    } catch (error) {
+      lastError = error;
+      if (!(error instanceof AsaasError) || NON_RETRYABLE_ASAAS_QR_CODES.has(error.code)) throw error;
+    }
+  }
+  throw lastError;
+}
+
+async function storeAsaasPixCharge(orderId: string, pix: { copyPaste: string; qrCodeBase64: string | null }, ticketUrl: string | null) {
+  return prisma.pixCharge.upsert({
+    where: { orderId },
+    create: { orderId, copyPaste: pix.copyPaste, qrCodeBase64: pix.qrCodeBase64, ticketUrl },
+    update: { copyPaste: pix.copyPaste, qrCodeBase64: pix.qrCodeBase64, ticketUrl },
+    select: { copyPaste: true, qrCodeBase64: true, ticketUrl: true },
+  });
+}
+
+/**
+ * The Pix of an Asaas order whose QR was not ready when the charge was created. Read on the Pix
+ * page (already scoped to the signed-in customer). Shows a QR only for the order's own, unpaid,
+ * matching charge while the reservation lasts; any doubt returns null and the page keeps waiting.
+ */
+export async function loadPendingAsaasPixCharge(orderId: string, now = new Date()) {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: {
+      id: true, status: true, paymentProvider: true, paymentMethod: true, asaasPaymentId: true, totalInCents: true,
+      customerId: true, reservationExpiresAt: true, checkoutDeadlineAt: true, pixCharge: { select: { id: true } },
+    },
+  });
+  const deadline = order?.checkoutDeadlineAt ?? order?.reservationExpiresAt;
+  if (
+    !order || order.pixCharge || order.status !== "awaiting_payment" || order.paymentProvider !== "asaas" || order.paymentMethod !== "pix" ||
+    !order.asaasPaymentId || !order.customerId || !order.reservationExpiresAt || !deadline || deadline <= now || getAsaasConfigurationIssue()
+  ) {
+    return null;
+  }
+  try {
+    const config = getAsaasConfig();
+    const customer = await prisma.customer.findUnique({ where: { id: order.customerId }, select: { asaasCustomerId: true } });
+    const payment = await getAsaasPayment(config, order.asaasPaymentId, { timeoutMs: ASAAS_PIX_QR_TIMEOUT_MS });
+    if (
+      payment.deleted || payment.status !== "PENDING" || payment.externalReference !== order.id || payment.amountInCents !== order.totalInCents ||
+      payment.billingType !== "PIX" || !customer?.asaasCustomerId || payment.customerId !== customer.asaasCustomerId
+    ) {
+      return null;
+    }
+    const pix = await getAsaasPixQrCode(config, payment.id, { timeoutMs: ASAAS_PIX_QR_TIMEOUT_MS });
+    return await storeAsaasPixCharge(order.id, pix, payment.invoiceUrl);
+  } catch (error) {
+    console.warn("[pix] asaas qr still not ready", { code: error instanceof AsaasError ? error.code : "unknown" });
+    return null;
+  }
+}
+
+export type AsaasPaymentOutcome ="paid" | "pending" | "processing" | "closed" | "refunded" | "refund_pending" | "chargeback" | "unknown";
 
 /** Maps Asaas payment states to what the store does. Asaas states are never stored as order states. */
 export function classifyAsaasPayment(payment: Pick<AsaasPayment, "status" | "deleted">): AsaasPaymentOutcome {
