@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { randomBytes } from "node:crypto";
-import { acceptDialogs, attachDiagnostics, enrollAdmin, expectNoHorizontalOverflow, labContextOptions, labEnabled, requireEnv, withDatabase } from "./lab-helpers";
+import { acceptDialogs, attachDiagnostics, enrollAdmin, labContextOptions, labEnabled, requireEnv, withDatabase } from "./lab-helpers";
 
 // RARE-PRE-LAUNCH-02: the two scoped roles through the real UI (password + TOTP enrollment), the
 // new Admin screens (users, own account, security, access denied, site analytics) across widths with
@@ -167,46 +167,93 @@ test("a one-of-a-kind piece sold twice is inconsistent: critical for the seller,
   await expect(system.page.getByText(`${uniqueProduct.title} com estoque inconsistente`)).toBeVisible();
 });
 
-test("new Admin screens: no horizontal overflow from 320 to 1920 px and no axe violation", async () => {
-  // 8 screens x 10 widths + axe: WebKit on Windows needs more than the file's 5-minute budget.
-  test.setTimeout(900_000);
-  const screens: Array<[Session, string]> = [
-    [system, "/admin/users"], [system, "/admin/conta"], [system, "/admin/security"], [system, "/admin/sem-acesso"], [system, "/admin/analytics/site"],
-    [seller, "/admin/conta"], [seller, "/admin/sem-acesso"], [seller, "/admin/products?stock=unique"],
-  ];
-  for (const [session, path] of screens) {
-    for (const width of WIDTHS) {
-      await session.page.setViewportSize({ width, height: 900 });
-      await session.page.goto(path);
-      await expect(session.page.getByRole("heading", { level: 1 })).toBeVisible();
-      await expectNoHorizontalOverflow(session.page, `${path} at ${width}px`);
+/** Waits in the page (not in the driver) for a visible h1, then measures horizontal overflow. */
+async function headingAndOverflow(page: Page) {
+  return page.evaluate(async () => {
+    const deadline = Date.now() + 8_000;
+    const visible = () => {
+      const heading = document.querySelector("h1");
+      if (!heading) return false;
+      const box = heading.getBoundingClientRect();
+      const style = getComputedStyle(heading);
+      return box.width > 0 && box.height > 0 && style.visibility !== "hidden" && style.display !== "none";
+    };
+    while (!visible() && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 100));
+    return { headingVisible: visible(), scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth };
+  });
+}
+
+// The 8 new screens x 10 widths + axe, one test per screen: each screen gets its own budget and a
+// failure names the screen, instead of one 80-navigation test that hit 15 minutes on WebKit/Windows.
+// Every width is a fresh navigation (server render + mount at that width), as before.
+const RESPONSIVE_SCREENS: Array<["system" | "seller", string]> = [
+  ["system", "/admin/users"], ["system", "/admin/conta"], ["system", "/admin/security"], ["system", "/admin/sem-acesso"], ["system", "/admin/analytics/site"],
+  ["seller", "/admin/conta"], ["seller", "/admin/sem-acesso"], ["seller", "/admin/products?stock=unique"],
+];
+for (const [role, path] of RESPONSIVE_SCREENS) {
+  test(`new Admin screen ${path} as ${role}: no horizontal overflow from 320 to 1920 px and no axe violation`, async () => {
+    // Measured in WebKit/Windows: the page itself loads in ~1.5 s, but every Playwright call to the
+    // WebKit driver costs ~2.5 s and grows during the run. So each width makes three calls (viewport,
+    // navigation, one in-page check of heading + overflow) instead of four, with the same checks. A
+    // fresh tab per screen keeps one screen from inheriting another one's state.
+    const page = await (role === "system" ? system : seller).context.newPage();
+    try {
+      for (const width of WIDTHS) {
+        await test.step(`${width}px`, async () => {
+          await page.setViewportSize({ width, height: 900 });
+          await page.goto(path);
+          const layout = await headingAndOverflow(page);
+          expect(layout.headingVisible, `${path} at ${width}px: visible h1`).toBe(true);
+          expect(layout.scroll, `${path} at ${width}px: scrollWidth ${layout.scroll} > clientWidth ${layout.client}`).toBeLessThanOrEqual(layout.client + 1);
+        });
+      }
+      await test.step("axe at 1440px", async () => {
+        await page.setViewportSize({ width: 1440, height: 1000 });
+        await page.goto(path);
+        await axe(page, path);
+      });
+    } finally {
+      await page.close();
     }
-    await session.page.setViewportSize({ width: 1440, height: 1000 });
-    await session.page.goto(path);
-    await axe(session.page, path);
+  });
+}
+
+test("keyboard: the users screen is operable without a mouse and focus stays visible", async () => {
+  // Runs in WebKit too: its Tab order skips links (Safari's default) but reaches buttons, inputs and
+  // selects, which is what this screen's controls are. A fresh tab, for the same reason as above.
+  const page = await system.context.newPage();
+  try {
+    await keyboardWalk(page);
+  } finally {
+    await page.close();
   }
 });
 
-test("keyboard: the users screen is operable without a mouse and focus stays visible", async () => {
-  const { page } = system;
+async function keyboardWalk(page: Page) {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/admin/users");
-  const seen: string[] = [];
+  // Each focused element records its label and whether a focus indicator is drawn, in the page; the
+  // log is read every 10 keys instead of once per key (one driver call each, see above).
+  await page.evaluate(() => {
+    const log: string[] = [];
+    (window as unknown as { __focusLog: string[] }).__focusLog = log;
+    document.addEventListener("focusin", (event) => {
+      const element = event.target as HTMLElement;
+      const style = getComputedStyle(element);
+      const visible = style.outlineStyle !== "none" || style.boxShadow !== "none";
+      log.push(`${element.getAttribute("aria-label") ?? element.textContent?.trim().slice(0, 40) ?? element.tagName}|${visible}`);
+    });
+  });
+  let seen: string[] = [];
   // Every account card adds several controls; walk until the create form is reached (bounded).
   for (let index = 0; index < 250 && !seen.some((entry) => entry.startsWith("Criar conta")); index += 1) {
     await page.keyboard.press("Tab");
-    const focused = await page.evaluate(() => {
-      const element = document.activeElement as HTMLElement | null;
-      if (!element || element === document.body) return null;
-      const style = getComputedStyle(element);
-      const visible = style.outlineStyle !== "none" || style.boxShadow !== "none";
-      return { label: element.getAttribute("aria-label") ?? element.textContent?.trim().slice(0, 40) ?? element.tagName, visible };
-    });
-    if (focused) seen.push(`${focused.label}|${focused.visible}`);
+    if (index % 10 === 9) seen = await page.evaluate(() => [...(window as unknown as { __focusLog: string[] }).__focusLog]);
   }
+  seen = await page.evaluate(() => [...(window as unknown as { __focusLog: string[] }).__focusLog]);
   for (const control of ["Salvar papel", "Criar conta"]) {
     const entry = seen.find((value) => value.startsWith(control));
     expect(entry, `${control} reachable by Tab`).toBeDefined();
     expect(entry!.endsWith("|true"), `${control} shows a focus indicator`).toBe(true);
   }
-});
+}
