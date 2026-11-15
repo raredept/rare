@@ -68,8 +68,9 @@ com checkout OFF.
   QR respondia 200. Nenhum pagamento feito.
 - **Failure path (§48):** 22:08 `CHECKOUT_ENABLED=false`, deploy SUCCESS 22:10, `POST /api/checkout` → 503.
   Chaves e webhook Asaas preservados (§49).
-- A reserva fica protegida e a cobrança vinculada: o worker de expiração apaga a cobrança no Asaas
-  antes de liberar o estoque, no fim da janela (22:37).
+- Expiração real (22:37, worker): cobrança apagada no Asaas (`PAYMENT_DELETED` recebido e
+  processado), pedido `canceled`, uma movimentação `release`; Meia Fire de volta a estoque 1,
+  reservado 0. Nenhuma venda, nenhum pagamento.
 
 ## 6. Correção (branch `fix/asaas-pix-qr-retry`)
 
