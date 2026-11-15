@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { classifyAsaasPayment, createCheckoutSession, processAsaasPayment, requestAsaasRefund } from "@/lib/checkout";
+import { ASAAS_PIX_QR_RETRY_DELAYS_MS, classifyAsaasPayment, createCheckoutSession, loadPendingAsaasPixCharge, processAsaasPayment, requestAsaasRefund } from "@/lib/checkout";
 import { AsaasError, type AsaasPayment } from "@/lib/asaas";
 
 const mocks = vi.hoisted(() => {
@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => {
     asaas: {
       createAsaasPayment: vi.fn(),
       getAsaasPixQrCode: vi.fn(),
+      getAsaasPayment: vi.fn(),
       findAsaasCustomerByReference: vi.fn(),
       createAsaasCustomer: vi.fn(),
       refundAsaasPayment: vi.fn(),
@@ -290,6 +291,60 @@ describe("createCheckoutSession through Asaas", () => {
     expect(mocks.prisma.pixCharge.upsert).not.toHaveBeenCalled();
   });
 
+  describe("Pix QR not ready right after the charge is created (Asaas production)", () => {
+    const notReady = () => new AsaasError("rejected", "AsaasRejectedRequest", 400);
+
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["setTimeout"] });
+      seed();
+      mocks.asaas.createAsaasPayment.mockImplementation(async (_config: unknown, input: { totalInCents: number }) => payment({ status: "PENDING", amountInCents: input.totalInCents }));
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    async function checkout() {
+      const pending = createCheckoutSession(pixInput, { customerId: "customer_000001" });
+      await vi.runAllTimersAsync();
+      return pending;
+    }
+
+    it("retries the QR with short, bounded delays and shows it once Asaas has it", async () => {
+      mocks.asaas.getAsaasPixQrCode.mockRejectedValueOnce(notReady()).mockRejectedValueOnce(notReady()).mockResolvedValue({ copyPaste: "000201...", qrCodeBase64: null, expiresAt: null });
+      const result = await checkout();
+      expect(mocks.asaas.getAsaasPixQrCode).toHaveBeenCalledTimes(3);
+      expect(mocks.prisma.pixCharge.upsert).toHaveBeenCalledTimes(1);
+      expect(result.url).toBe("/pedido/pix/order_asaas_1");
+      expect(ASAAS_PIX_QR_RETRY_DELAYS_MS.reduce((total, delay) => total + delay, 0)).toBeLessThanOrEqual(5_000);
+    });
+
+    it("still sends the shopper to the Pix page (no 503) when the QR stays unavailable, keeping the bound charge and the reservation", async () => {
+      mocks.asaas.getAsaasPixQrCode.mockRejectedValue(notReady());
+      const result = await checkout();
+      expect(result.url).toBe("/pedido/pix/order_asaas_1");
+      expect(mocks.asaas.getAsaasPixQrCode).toHaveBeenCalledTimes(ASAAS_PIX_QR_RETRY_DELAYS_MS.length + 1);
+      expect(mocks.prisma.order.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ asaasPaymentId: "pay_080225913252" }) }));
+      expect(mocks.prisma.pixCharge.upsert).not.toHaveBeenCalled();
+      expect(mocks.tx.productVariant.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("does not retry an authentication failure", async () => {
+      mocks.asaas.getAsaasPixQrCode.mockRejectedValue(new AsaasError("rejected", "AsaasAuthenticationFailed", 401));
+      const result = await checkout();
+      expect(mocks.asaas.getAsaasPixQrCode).toHaveBeenCalledTimes(1);
+      expect(result.url).toBe("/pedido/pix/order_asaas_1");
+    });
+
+    it("never retries past a mismatched charge: no QR is requested at all", async () => {
+      mocks.asaas.createAsaasPayment.mockResolvedValue(payment({ status: "PENDING", amountInCents: 100 }));
+      const pending = createCheckoutSession(pixInput, { customerId: "customer_000001" });
+      const assertion = expect(pending).rejects.toMatchObject({ code: "AsaasChargeMismatch" });
+      await vi.runAllTimersAsync();
+      await assertion;
+      expect(mocks.asaas.getAsaasPixQrCode).not.toHaveBeenCalled();
+    });
+  });
+
   it("refuses before reserving stock when Asaas is misconfigured for the environment", async () => {
     seed();
     process.env.APP_ENV = "production";
@@ -332,5 +387,70 @@ describe("requestAsaasRefund", () => {
     mocks.prisma.order.findUnique.mockResolvedValue({ id: "o", orderNumber: "x", status: "paid", paymentProvider: "stripe", asaasPaymentId: null, refundRequestedAt: null });
     await expect(requestAsaasRefund("o", actor)).resolves.toEqual({ status: "not_refundable" });
     expect(mocks.asaas.refundAsaasPayment).not.toHaveBeenCalled();
+  });
+});
+
+describe("loadPendingAsaasPixCharge (Pix page, QR not ready at checkout)", () => {
+  const now = new Date("2026-11-15T22:10:00Z");
+  function pendingOrder(overrides: Record<string, unknown> = {}) {
+    return {
+      id: "order_asaas_1", status: "awaiting_payment", paymentProvider: "asaas", paymentMethod: "pix", asaasPaymentId: "pay_080225913252", totalInCents: 17000,
+      customerId: "customer_000001", reservationExpiresAt: new Date("2026-11-15T22:37:00Z"), checkoutDeadlineAt: null, pixCharge: null, ...overrides,
+    };
+  }
+  const stored = { copyPaste: "000201...", qrCodeBase64: null, ticketUrl: null };
+
+  beforeEach(() => {
+    mocks.prisma.order.findUnique.mockResolvedValue(pendingOrder());
+    mocks.prisma.customer.findUnique.mockResolvedValue({ asaasCustomerId: "cus_000005401844" });
+    mocks.asaas.getAsaasPayment.mockResolvedValue(payment({ status: "PENDING" }));
+    mocks.asaas.getAsaasPixQrCode.mockResolvedValue({ copyPaste: "000201...", qrCodeBase64: null, expiresAt: null });
+    mocks.prisma.pixCharge.upsert.mockResolvedValue(stored);
+  });
+
+  it("fetches and stores the QR of the order's own unpaid, matching charge", async () => {
+    await expect(loadPendingAsaasPixCharge("order_asaas_1", now)).resolves.toEqual(stored);
+    expect(mocks.asaas.getAsaasPayment.mock.calls[0][1]).toBe("pay_080225913252");
+    expect(mocks.prisma.pixCharge.upsert).toHaveBeenCalledWith(expect.objectContaining({ where: { orderId: "order_asaas_1" } }));
+  });
+
+  it.each([
+    ["a stored QR already exists", { pixCharge: { id: "pix_1" } }],
+    ["the order is no longer awaiting payment", { status: "paid" }],
+    ["the order is not an Asaas Pix", { paymentMethod: "card" }],
+    ["no charge is bound", { asaasPaymentId: null }],
+    ["the reservation has expired", { reservationExpiresAt: new Date("2026-11-15T22:00:00Z") }],
+    ["the payment is in processing (no reservation)", { reservationExpiresAt: null }],
+  ])("does nothing when %s", async (_label, overrides) => {
+    mocks.prisma.order.findUnique.mockResolvedValue(pendingOrder(overrides));
+    await expect(loadPendingAsaasPixCharge("order_asaas_1", now)).resolves.toBeNull();
+    expect(mocks.asaas.getAsaasPayment).not.toHaveBeenCalled();
+    expect(mocks.prisma.pixCharge.upsert).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a different amount", { amountInCents: 100 }],
+    ["another order's reference", { externalReference: "order_other" }],
+    ["another customer", { customerId: "cus_000000000999" }],
+    ["a card charge", { billingType: "CREDIT_CARD" }],
+    ["a charge that is no longer pending", { status: "RECEIVED" }],
+    ["a deleted charge", { deleted: true }],
+  ])("never shows a QR for %s", async (_label, overrides) => {
+    mocks.asaas.getAsaasPayment.mockResolvedValue(payment({ status: "PENDING", ...overrides }));
+    await expect(loadPendingAsaasPixCharge("order_asaas_1", now)).resolves.toBeNull();
+    expect(mocks.asaas.getAsaasPixQrCode).not.toHaveBeenCalled();
+    expect(mocks.prisma.pixCharge.upsert).not.toHaveBeenCalled();
+  });
+
+  it("keeps the page waiting (null, no throw) while Asaas still refuses the QR", async () => {
+    mocks.asaas.getAsaasPixQrCode.mockRejectedValue(new AsaasError("rejected", "AsaasRejectedRequest", 400));
+    await expect(loadPendingAsaasPixCharge("order_asaas_1", now)).resolves.toBeNull();
+    expect(mocks.prisma.pixCharge.upsert).not.toHaveBeenCalled();
+  });
+
+  it("does nothing when Asaas is not configured for this environment", async () => {
+    process.env.APP_ENV = "production";
+    await expect(loadPendingAsaasPixCharge("order_asaas_1", now)).resolves.toBeNull();
+    expect(mocks.asaas.getAsaasPayment).not.toHaveBeenCalled();
   });
 });

@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { ClearCartOnSuccess } from "@/components/store/clear-cart-on-success";
 import { OrderStatusRefresh } from "@/components/store/order-status-refresh";
 import { PixPaymentPanel } from "@/components/store/pix-payment-panel";
+import { loadPendingAsaasPixCharge } from "@/lib/checkout";
 import { paidOrderStatuses } from "@/lib/coupons";
 import { getCurrentCustomer } from "@/lib/customer-auth";
 import { formatMoney } from "@/lib/money";
@@ -58,7 +59,11 @@ export default async function PixOrderPage({ params }: PixOrderPageProps) {
   const awaiting = order.status === "awaiting_payment" || order.status === "pending";
   const deadline = order.checkoutDeadlineAt ?? order.reservationExpiresAt;
   const processing = awaiting && !order.reservationExpiresAt;
-  const payable = awaiting && !processing && Boolean(order.pixCharge) && Boolean(deadline && deadline > now);
+  // An Asaas QR that was not ready at checkout is fetched here (the page refreshes while waiting).
+  const pixCharge =
+    order.pixCharge ??
+    (awaiting && !processing && order.paymentProvider === "asaas" && deadline && deadline > now ? await loadPendingAsaasPixCharge(order.id, now) : null);
+  const payable = awaiting && !processing && Boolean(pixCharge) && Boolean(deadline && deadline > now);
 
   const summary = (
     <div className="mx-auto mt-6 max-w-md rounded-lg border border-neutral-200 bg-white p-4 text-sm font-semibold text-neutral-600">
@@ -100,15 +105,15 @@ export default async function PixOrderPage({ params }: PixOrderPageProps) {
   return (
     <PixShell eyebrow="Pagamento por Pix" title={payable ? "Pague com Pix para confirmar o pedido" : "Estamos conferindo o seu Pix"}>
       <OrderStatusRefresh active intervalMs={PIX_REFRESH_INTERVAL_MS} maxAttempts={PIX_REFRESH_MAX_ATTEMPTS} />
-      {payable && order.pixCharge && deadline ? (
+      {payable && pixCharge && deadline ? (
         <>
           <p className="mt-4 text-neutral-600">
             Abra o app do seu banco, escolha pagar com Pix e leia o QR code ou cole o código. Esta página confirma o pagamento sozinha, em alguns segundos.
           </p>
           <PixPaymentPanel
-            copyPaste={order.pixCharge.copyPaste}
-            qrCodeBase64={order.pixCharge.qrCodeBase64}
-            ticketUrl={order.pixCharge.ticketUrl}
+            copyPaste={pixCharge.copyPaste}
+            qrCodeBase64={pixCharge.qrCodeBase64}
+            ticketUrl={pixCharge.ticketUrl}
             deadlineAt={deadline.toISOString()}
             serverNow={now.toISOString()}
             providerName={providerName}
