@@ -365,3 +365,97 @@ STAGING = **PASS** (escopo do RARE-PRE-LAUNCH-04). Provados no staging real:
 Ressalva para o revisor: o Admin responsivo/teclado em Firefox/WebKit tem prova só no lab, não no
 staging real. MERGE READY = NO · PRODUCTION READY = NO · revisão independente obrigatória.
 INDEPENDENT_CLAUDE_REVIEW ainda não deu GO, então o clean slate de produção segue bloqueado.
+
+## 17. RARE-PRE-LAUNCH-06 — NO-GO REMEDIATION (auditoria independente de `a91a05a`)
+
+Escopo: só os achados da auditoria — HIGH-1 (freeze/M-20), MEDIUM-1 (runbook Clean Slate),
+MEDIUM-2 (Admin WebKit), LOW (release-smoke). Nada de merge, Clean Slate real ou abertura de
+checkout. **INDEPENDENT_REAUDIT_REQUIRED = YES. Esta sessão não emite GO.**
+
+### 17.1 Commits (a partir de `a91a05a`)
+
+```
+(este commit) fix(security): clear the release freeze after real staging passed
+0327296 test(admin): run the Admin responsive and keyboard matrix on real staging
+0f4cf6d fix(security): record verified production containment for the release freeze
+a0e3d1a docs(release): add a rehearsed production clean-slate runbook
+985dd30 test(admin): complete the WebKit responsive and keyboard matrix
+5587309 test(seo): align paused-checkout smoke with the availability contract
+```
+
+### 17.2 HIGH-1 — freeze e M-20
+
+- **Vercel (somente leitura, painel/API autenticados do dono):** a conta tem só o time "RARE DEPT",
+  com **0 projetos e 0 deployments**; o projeto `rare` de `.vercel/repo.json` não existe mais.
+  VERCEL_CRON_ACTIVE = NO; nenhuma ação na Vercel.
+- **Callers:** Railway `rare-cron` (worker persistente, sem `cronSchedule`) é o owner primário; nenhum
+  serviço Railway com agenda; GitHub Actions sem `schedule`; `cron:release-expired` só manual.
+  HTTP cron caller = NONE.
+- **Incidente novo e contenção:** no inventário, o detalhe de um lote de variáveis do painel Activity
+  do Railway exibiu valores do lote de 2026-11-13 19:16 (cron, sessão, chave MFA, parte da Stripe LIVE
+  antiga). O web de produção ainda rodava esse lote porque o deploy das 23:25 havia falhado. Com
+  autorização explícita do dono, o web foi redeployado do mesmo `main@4ea73f5` sem mudar variáveis
+  (deployment 02:41 UTC SUCCESS; 19:16 REMOVED). Runtime: health ok, checkout 503, cron sem credencial 401.
+- **Cron de produção sem chamada mutável:** rotação registrada, runtime posterior à última troca,
+  `CRON_SECRET_PREVIOUS` ausente, código de produção só aceita o corrente, nenhum caller.
+- **`RELEASE_SECURITY_FREEZE` em produção:** ausente (`rare` e `rare-cron`).
+- **Registro:** todas as 11 condições `true`; `stagingRealPassed` só depois do Admin WebKit no staging
+  real (§17.4). `state = CLEARED` em 2026-11-15, `clearedBy` = "Pedro Spoto — Responsável técnico pelo
+  projeto RARE" (texto dado pelo responsável). `legacyStripeCredentialStatus = MANUAL_PENDING`.
+- **Gate de produção** (ambiente sanitizado, sem segredo real): CLEARED + `PAYMENT_PROVIDER=disabled` →
+  exit 0; `STRIPE_SECRET_KEY`, `CRON_SECRET_PREVIOUS`, provider `stripe`/ausente ou
+  `RELEASE_SECURITY_FREEZE=ACTIVE` → exit 1. Guard não alterado; testes 47/47.
+- **M-20:** contenção interna RELEASE-BLOCKING = CLOSED; revogação externa Stripe = MANUAL_PENDING.
+- Evidência: [`docs/security/evidence/RELEASE_FREEZE_CLOSURE_20261114.md`](../../security/evidence/RELEASE_FREEZE_CLOSURE_20261114.md);
+  incidente e fechamento atualizados sem apagar histórico.
+- Recomendação ao dono: nova troca controlada de `CRON_SECRET`/`ADMIN_SESSION_SECRET` com deploy
+  confirmado antes do go-live; não abrir detalhes de lotes de variáveis do Railway em sessões de agente.
+
+### 17.3 MEDIUM-1 — Clean Slate
+
+- Runbook executável: [`docs/runbooks/PRODUCTION_CLEAN_SLATE.md`](../../runbooks/PRODUCTION_CLEAN_SLATE.md)
+  (pré-condições, ordem dos Admins, grafo real, reversão de estoque pelo ledger, SQL com guards,
+  verificação, B1/B2, rollback).
+- Ensaio: [`PRODUCTION_CLEAN_SLATE_REHEARSAL.md`](PRODUCTION_CLEAN_SLATE_REHEARSAL.md) sobre o backup
+  real de produção de 2026-09-19 (sha256 conferido; o de 2026-11-13 não está nesta máquina), restore
+  descartável, migrations do candidato sem drift, Admins pela UI real (SYSTEM via `admin:create` →
+  MFA → troca de senha; SELLER criado pelo SYSTEM; legados desativados por último), guards
+  fail-closed, reset, integridade 0, suporte/auditoria preservados, rollback por restore com
+  contagens idênticas.
+- Código: `admin:create` cria a conta de bootstrap com `mustChangePassword=true`.
+
+### 17.4 MEDIUM-2 — Admin WebKit
+
+- Diagnóstico (lab, WebKit/Windows): páginas carregam em ~1,5 s, mas cada chamada do driver custava
+  ~2,5 s e crescia ao longo da execução; o teste único de 80 navegações passava de 15 min. Aba nova por
+  tela não resolveu sozinha (medido). No staging real o mesmo WebKit roda cada tela em ~6–7 s: a
+  lentidão é do ambiente do lab.
+- Harness: um teste por tela, checagem de h1/overflow e log de foco dentro da página; mesmas 8 telas ×
+  10 larguras + axe; nenhum timeout aumentado.
+- Lab WebKit 20/20 (teclado incluído; Tab do WebKit pula links e alcança botões/campos/selects, que são
+  os controles exigidos). Lab Firefox 20/20; lab Chromium 20/20.
+- **Staging real:** WebKit 15/15 e Firefox 15/15 — RBAC dos dois papéis, 10 telas × 10 larguras + axe,
+  teclado nos dois papéis; contas QA novas por browser, desativadas depois; 0 vazamento.
+
+### 17.5 LOW — release smoke
+
+Checkout OFF não exige ausência de Offer: o validador `productOfferContractIssue`
+(`src/lib/product-offer-contract.ts`) reprova `InStock` com checkout pausado (qualquer grafia) e
+aceita Offer com preço; testes cobrem OFF, ON com estoque (InStock permitido) e peça vendida
+(OutOfStock). O guard estático do produtor continua valendo.
+
+### 17.6 Gates, CI e staging
+
+tsc 0 · ESLint 0 · Vitest **188 arquivos / 1981 testes** · `prisma validate` OK · build OK ·
+release guard **7 OK / 1 WARNING** (`vercel.json` ainda descreve o cron legado; o projeto Vercel não
+existe mais) **/ 0 FAIL**, com `secrets:repository` e `secrets:diff` OK · `npm audit --omit=dev` 0 ·
+`qa:support-coupon` 8/8 (PostgreSQL). Lab: WebKit 20/20, Firefox 20/20, Chromium 20/20 (0 vazamento,
+0 anomalia). CI e SHA de web/worker do staging do HEAD final: no relatório final e no PR (um documento
+não registra o CI do próprio commit).
+
+### 17.7 Veredito desta sessão
+
+Todos os achados da auditoria tratados. MERGE READY = NO · PRODUCTION READY = NO · PR DRAFT ·
+INDEPENDENT_REAUDIT_REQUIRED = YES. Próximo: RARE-INDEPENDENT-PREPROD-REAUDIT-02, cobrindo ao menos
+`a91a05a..NEW_SHA`, `scripts/release-freeze.mjs`, `RELEASE_FREEZE.json`, a evidência M-20, o estado
+Vercel, o ensaio do Clean Slate, o Admin WebKit, o release smoke e CI/staging SHA.

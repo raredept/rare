@@ -116,10 +116,16 @@ describe("release security freeze", () => {
     expect(RELEASE_ENVIRONMENT_NAMES.development).toEqual([...DEVELOPMENT_APP_ENVS]);
   });
 
-  it("reads the committed record, which is ACTIVE until the incident is closed", () => {
-    expect(readFreezeRecord()).toMatchObject({ state: "ACTIVE", incident: "docs/security/CREDENTIAL_INCIDENT_202610.md" });
+  it("reads the committed record: CLEARED with existing evidence, external Stripe revocation still pending", () => {
+    const record = readFreezeRecord();
+    expect(record).toMatchObject({ state: "CLEARED", policyVersion: 2, incident: "docs/security/CREDENTIAL_INCIDENT_202610.md", closure: { legacyStripeCredentialStatus: "MANUAL_PENDING" } });
+    // A clean production configuration passes; any retired credential or provider selection still fails.
+    expect(checkReleaseFreeze({ env: { APP_ENV: "production", PAYMENT_PROVIDER: "disabled" } })).toMatchObject({ allowed: true, level: "ok" });
     expect(checkReleaseFreeze({ env: { APP_ENV: "production" } })).toMatchObject({ allowed: false, level: "fail" });
-    expect(checkReleaseFreeze({ env: { APP_ENV: "staging" } })).toMatchObject({ allowed: true, level: "warn" });
+    expect(checkReleaseFreeze({ env: { APP_ENV: "production", PAYMENT_PROVIDER: "disabled", STRIPE_SECRET_KEY: "synthetic" } })).toMatchObject({ allowed: false, level: "fail" });
+    expect(checkReleaseFreeze({ env: { APP_ENV: "production", PAYMENT_PROVIDER: "disabled", CRON_SECRET_PREVIOUS: "synthetic" } })).toMatchObject({ allowed: false, level: "fail" });
+    expect(checkReleaseFreeze({ env: { APP_ENV: "production", PAYMENT_PROVIDER: "disabled", RELEASE_SECURITY_FREEZE: "ACTIVE" } })).toMatchObject({ allowed: false, level: "fail" });
+    expect(checkReleaseFreeze({ env: { APP_ENV: "staging" } })).toMatchObject({ allowed: true, level: "ok" });
   });
 
   it("exits non-zero from the CLI for a production release and zero for staging", () => {

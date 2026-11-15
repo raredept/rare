@@ -4,9 +4,10 @@ Escopo: as condições de `docs/security/RELEASE_FREEZE.json` (policy 2) ainda a
 auditoria independente de `a91a05a` (NO-GO, HIGH-1). Sem valores de segredo, prefixos, hashes de
 segredo, URLs de banco ou PII. Horários em UTC.
 
-**Resultado: freeze continua `ACTIVE`.** Contenção interna de produção fechada (cron, sessão, Stripe
-desconectada, checkout OFF). Falta `stagingRealPassed` (Admin WebKit no staging real) e a assinatura
-de quem libera (`clearedBy`). Revogação externa da Stripe: `MANUAL_PENDING`.
+**Resultado: `CLEARED` em 2026-11-15**, `clearedBy` = "Pedro Spoto — Responsável técnico pelo projeto
+RARE" (texto indicado pelo próprio responsável no chat). Todas as 11 condições de contenção interna
+comprovadas (§2). **Revogação externa da Stripe: `MANUAL_PENDING`** — não declarada feita. Isto não
+autoriza merge nem deploy de produção: a reauditoria independente continua obrigatória.
 
 ## 1. Incidente novo durante este ciclo
 
@@ -48,7 +49,7 @@ de quem libera (`clearedBy`). Revogação externa da Stripe: `MANUAL_PENDING`.
 | Novos pagamentos Stripe impossíveis | `PAYMENT_PROVIDER=disabled`, `CHECKOUT_ENABLED=false` em `rare` e `rare-cron`; `POST /api/checkout` 503; candidato recusa provider ausente/stripe/desconhecido | true |
 | Sem fallback Stripe | candidato: só Asaas inicia pagamento (testes e `release-freeze` recusam `STRIPE_*`) | true |
 | Asaas Sandbox real | ver §5 | true |
-| Staging real | ver §6 | **false** |
+| Staging real | ver §6 | true |
 | Checkout inicial OFF | `CHECKOUT_ENABLED=false`, `PAYMENT_PROVIDER=disabled` em produção; runbook do Clean Slate mantém OFF | true |
 | Stripe externa | revogação/expiração das chaves e webhooks antigos no painel Stripe não comprovada | MANUAL_PENDING |
 
@@ -101,15 +102,34 @@ Staging real, conta Sandbox aprovada, webhook real:
 
 Já provado no staging real: RBAC SYSTEM_ADMIN e SELLER_ADMIN (UI, URL, API, Server Action), Resend
 real, suporte, Asaas (§5), vitrine em Chromium/Firefox/WebKit, cookies/analytics, estoque, CI e
-web = worker = SHA (`CLAUDE_PREPROD_REVIEW.md` §11 e §16). **Pendente:** Admin responsivo/teclado em
-WebKit no staging real (MEDIUM-2). No lab o Admin WebKit fechou 20/20 (`985dd30`), mas a condição
-exige o staging real.
+web = worker = SHA (`CLAUDE_PREPROD_REVIEW.md` §11 e §16).
+
+**Admin no staging real, 2026-11-15** (`tests/e2e/staging-rbac.spec.ts`, `0327296`), com duas contas
+novas e sintéticas por browser, criadas pelo SYSTEM_ADMIN QA em `/admin/users` (primeiro acesso: MFA
+pela UI e troca da senha temporária), trace desligado:
+- **WebKit: 15/15 PASS (1,5 min)** — RBAC dos dois papéis por menu, URL direta, API e Server Action
+  reenviada; 10 telas (5 SYSTEM_ADMIN, 5 SELLER_ADMIN) × 10 larguras (320–1920) sem overflow, axe sem
+  violação; teclado nos dois papéis.
+- **Firefox: 15/15 PASS (1,2 min)**, mesma matriz.
+- 52 valores sensíveis (senhas e segredos do teste) procurados nos logs e artefatos: 0 encontrados;
+  credenciais locais apagadas; as 4 contas QA desativadas pela UI depois (auditado).
 
 ## 7. Flag de ambiente
 
 `RELEASE_SECURITY_FREEZE` está **ausente** em `rare` e `rare-cron` de produção (lida só por nome).
 Não ativa o freeze; nada a remover no release.
 
-## 8. Teste do guard
+## 8. Teste do guard (registro CLEARED, ambiente sanitizado, sem segredo real)
 
-Ver `CLAUDE_PREPROD_REVIEW.md` §17 (registro ACTIVE: produção bloqueada; casos fail-closed).
+| Ambiente simulado (`--target=production`) | Resultado |
+|---|---|
+| `APP_ENV=production PAYMENT_PROVIDER=disabled` | OK, freeze=CLEARED, exit 0 |
+| `PAYMENT_PROVIDER=asaas` | OK, exit 0 |
+| `+ STRIPE_SECRET_KEY` | FAIL, exit 1 |
+| `+ CRON_SECRET_PREVIOUS` | FAIL, exit 1 |
+| `PAYMENT_PROVIDER=stripe` / ausente | FAIL, exit 1 |
+| `RELEASE_SECURITY_FREEZE=ACTIVE` | FAIL, exit 1 |
+
+Testes unitários do guard (registro malformado, evidência ausente, condição false, estados inválidos,
+variável de ambiente que só ativa): 47/47. `scripts/release-freeze.mjs` não foi alterado; o
+`preDeployCommand` continua chamando o guard.
