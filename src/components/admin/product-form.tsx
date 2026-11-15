@@ -4,6 +4,7 @@ import { ProductImageManager } from "@/components/admin/product-image-manager";
 import { sortProductFormCategoryOptions } from "@/lib/admin-category-options";
 import { formatMoney } from "@/lib/money";
 import type { ReactNode } from "react";
+import { STOCK_POLICY_LABELS, type StockPolicy } from "@/lib/stock-policy";
 import { PRODUCT_SHIPPING_LIMITS, type ProductShippingField } from "@/lib/product-shipping-readiness";
 
 type ProductFormProps = {
@@ -28,6 +29,7 @@ type ProductFormProps = {
     sortOrder: number;
     images: { id?: string; url: string }[];
     variants: { size: string; stock: number; sku: string | null }[];
+    stockPolicy?: StockPolicy;
   };
   categories: { id: string; name: string; parentId: string | null; active?: boolean }[];
   error?: string;
@@ -157,6 +159,15 @@ export function ProductForm({ product, categories, error, shippingDraft }: Produ
         </section>
 
         <section className="space-y-4 rounded-lg border border-neutral-800 bg-neutral-950/70 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
+          <Field
+            label="Política de estoque"
+            help="Padrão: item de reposição, com alerta de estoque baixo, crítico e esgotado. Única: peça única — 1 unidade é o normal, 0 após a venda significa vendida e nunca gera alerta; aceita no máximo 1 unidade no total."
+          >
+            <select name="stockPolicy" defaultValue={product?.stockPolicy ?? "STANDARD"} className="admin-input">
+              <option value="STANDARD">{STOCK_POLICY_LABELS.STANDARD} (reposição)</option>
+              <option value="UNIQUE">{STOCK_POLICY_LABELS.UNIQUE} (peça única)</option>
+            </select>
+          </Field>
           <Field label="Variações / estoque">
             <textarea
               name="variants"

@@ -8,6 +8,8 @@ const mocks = vi.hoisted(() => ({
   rateLimit: vi.fn(),
   signAdminSession: vi.fn(),
   setAdminSessionCookie: vi.fn(),
+  signAdminMfaPendingToken: vi.fn(),
+  setAdminMfaPendingCookie: vi.fn(),
   findFirst: vi.fn(),
 }));
 
@@ -17,6 +19,8 @@ vi.mock("@/lib/rate-limit", () => ({ rateLimit: mocks.rateLimit }));
 vi.mock("@/lib/auth", () => ({
   signAdminSession: mocks.signAdminSession,
   setAdminSessionCookie: mocks.setAdminSessionCookie,
+  signAdminMfaPendingToken: mocks.signAdminMfaPendingToken,
+  setAdminMfaPendingCookie: mocks.setAdminMfaPendingCookie,
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: { user: { findFirst: mocks.findFirst } } }));
 
@@ -52,7 +56,7 @@ describe("admin login action", () => {
     await expect(loginAction({}, loginForm())).rejects.toThrow("NEXT_REDIRECT:/admin/produtos");
     expect(mocks.findFirst).toHaveBeenCalledWith({
       where: {
-        role: "ADMIN",
+        role: { in: ["ADMIN", "SYSTEM_ADMIN", "SELLER_ADMIN"] },
         active: true,
         OR: [
           { email: { equals: "admin@example.com", mode: "insensitive" } },
@@ -79,7 +83,7 @@ describe("admin login action", () => {
       .rejects.toThrow("NEXT_REDIRECT:/admin/change-password");
     expect(mocks.findFirst).toHaveBeenCalledWith({
       where: {
-        role: "ADMIN",
+        role: { in: ["ADMIN", "SYSTEM_ADMIN", "SELLER_ADMIN"] },
         active: true,
         OR: [
           { email: { equals: "admin 2", mode: "insensitive" } },
@@ -105,7 +109,7 @@ describe("admin login action", () => {
     await expect(loginAction({}, loginForm())).resolves.toEqual({ error: "Credenciais inválidas." });
     expect(mocks.findFirst).toHaveBeenCalledWith({
       where: {
-        role: "ADMIN",
+        role: { in: ["ADMIN", "SYSTEM_ADMIN", "SELLER_ADMIN"] },
         active: true,
         OR: [
           { email: { equals: "admin@example.com", mode: "insensitive" } },
@@ -155,5 +159,73 @@ describe("admin login action", () => {
       .resolves.toEqual({ error: "Informe login e senha validos." });
     expect(mocks.rateLimit).not.toHaveBeenCalled();
     expect(mocks.findFirst).not.toHaveBeenCalled();
+  });
+});
+
+describe("admin login with a required second factor", () => {
+  const originalRequired = process.env.ADMIN_MFA_REQUIRED;
+  const originalKey = process.env.ADMIN_MFA_ENCRYPTION_KEY;
+  const restore = () => {
+    if (originalRequired === undefined) delete process.env.ADMIN_MFA_REQUIRED;
+    else process.env.ADMIN_MFA_REQUIRED = originalRequired;
+    if (originalKey === undefined) delete process.env.ADMIN_MFA_ENCRYPTION_KEY;
+    else process.env.ADMIN_MFA_ENCRYPTION_KEY = originalKey;
+  };
+
+  it("never issues an Admin session for a correct password alone; it starts the enrollment", async () => {
+    process.env.ADMIN_MFA_REQUIRED = "true";
+    process.env.ADMIN_MFA_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
+    mocks.signAdminMfaPendingToken.mockResolvedValueOnce("pending-token");
+    try {
+      const { loginAction } = await import("@/app/admin/login/actions");
+      await expect(loginAction({}, loginForm())).rejects.toThrow("NEXT_REDIRECT:/admin/mfa/setup");
+      expect(mocks.setAdminSessionCookie).not.toHaveBeenCalled();
+      expect(mocks.signAdminSession).not.toHaveBeenCalled();
+      expect(mocks.signAdminMfaPendingToken).toHaveBeenCalledWith(expect.objectContaining({ id: "admin_1" }), "/admin/produtos");
+      expect(mocks.setAdminMfaPendingCookie).toHaveBeenCalledWith("pending-token");
+    } finally {
+      restore();
+    }
+  });
+
+  it("sends an enrolled account to the challenge even where MFA is optional", async () => {
+    process.env.ADMIN_MFA_REQUIRED = "false";
+    process.env.ADMIN_MFA_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
+    mocks.findFirst.mockResolvedValueOnce({ id: "admin_1", email: "admin@example.com", username: null, passwordHash: "h", role: "ADMIN", active: true, mustChangePassword: true, mfaEnabledAt: new Date() });
+    try {
+      const { loginAction } = await import("@/app/admin/login/actions");
+      await expect(loginAction({}, loginForm())).rejects.toThrow("NEXT_REDIRECT:/admin/mfa");
+      expect(mocks.setAdminSessionCookie).not.toHaveBeenCalled();
+    } finally {
+      restore();
+    }
+  });
+
+  it("refuses to fall back to password-only when the MFA key is missing", async () => {
+    process.env.ADMIN_MFA_REQUIRED = "true";
+    delete process.env.ADMIN_MFA_ENCRYPTION_KEY;
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const { loginAction } = await import("@/app/admin/login/actions");
+      await expect(loginAction({}, loginForm())).resolves.toEqual({ error: expect.stringContaining("duas etapas indisponível") });
+      expect(mocks.setAdminSessionCookie).not.toHaveBeenCalled();
+      expect(mocks.setAdminMfaPendingCookie).not.toHaveBeenCalled();
+    } finally {
+      error.mockRestore();
+      restore();
+    }
+  });
+
+  it("does not start the MFA step for a wrong password", async () => {
+    process.env.ADMIN_MFA_REQUIRED = "true";
+    process.env.ADMIN_MFA_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
+    mocks.compare.mockResolvedValueOnce(false);
+    try {
+      const { loginAction } = await import("@/app/admin/login/actions");
+      await expect(loginAction({}, loginForm())).resolves.toEqual({ error: "Credenciais inválidas." });
+      expect(mocks.setAdminMfaPendingCookie).not.toHaveBeenCalled();
+    } finally {
+      restore();
+    }
   });
 });

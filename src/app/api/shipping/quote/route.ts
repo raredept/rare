@@ -1,3 +1,5 @@
+import { loadApplicablePromotionRules } from "@/lib/promotions/store";
+import { priceProduct } from "@/lib/promotions/engine";
 import { NextResponse, type NextRequest } from "next/server";
 import { ZodError, z } from "zod";
 import { getClientIp } from "@/lib/client-ip";
@@ -113,6 +115,10 @@ export async function POST(request: NextRequest) {
       },
     });
     const variantsById = new Map(variants.map((variant) => [variant.id, variant]));
+    // Same server-side promotion pricing as the checkout, so a free-shipping threshold or the
+    // declared value never disagrees with what will be charged.
+    const pricingNow = new Date();
+    const promotionRules = await loadApplicablePromotionRules(prisma, pricingNow);
     let subtotalInCents = 0;
     const packageItems = items.map((item) => {
       const variant = variantsById.get(item.variantId);
@@ -124,7 +130,8 @@ export async function POST(request: NextRequest) {
         throw new Error("Produto indisponível.");
       }
 
-      subtotalInCents += variant.product.priceInCents * item.quantity;
+      const unitPriceInCents = priceProduct(promotionRules, variant.product, pricingNow).finalPriceInCents;
+      subtotalInCents += unitPriceInCents * item.quantity;
 
       return {
         productId: variant.productId,
@@ -134,7 +141,7 @@ export async function POST(request: NextRequest) {
         lengthCm: variant.product.lengthCm,
         widthCm: variant.product.widthCm,
         heightCm: variant.product.heightCm,
-        priceInCents: variant.product.priceInCents,
+        priceInCents: unitPriceInCents,
       };
     });
 

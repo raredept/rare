@@ -22,6 +22,6 @@ for (const route of publicAuditRoutes) {
     // old wait did.
     await page.waitForTimeout(1_000);
 
-    expect(withoutStagingGateNoise(issues)).toEqual([]);
+    expect(withoutStagingGateNoise(issues, new URL(route.path, "https://rare.invalid").pathname)).toEqual([]);
   });
 }

@@ -8,6 +8,7 @@ import { useCart, useCartDrawer } from "@/components/store/cart-context";
 import { ProductMedia } from "@/components/store/product-media";
 import { ProductMediaPlaceholder } from "@/components/store/product-media-placeholder";
 import { formatMoney } from "@/lib/money";
+import { trackAnalyticsEvent } from "@/lib/site-analytics-client";
 import {
   getPreferredProductCardMedia,
   getProductMediaLabel,
@@ -19,6 +20,8 @@ import {
 import { getAvailableStock } from "@/lib/stock";
 import { buildStorefrontCommerceState, type StorefrontCommerceState } from "@/lib/storefront-commerce";
 import { InstallmentTerms } from "@/components/store/installment-terms";
+import { PriceTag } from "@/components/store/price-tag";
+import type { ProductPrice } from "@/lib/promotions/engine";
 
 type ProductDetailClientProps = {
   product: {
@@ -30,6 +33,10 @@ type ProductDetailClientProps = {
     priceInCents: number;
     images: Array<ProductMediaAsset & { alt: string }>;
     variants: { id: string; size: string; stock: number; reservedStock: number; active: boolean }[];
+    /** Server-computed price (automatic promotion applied). Defaults to the catalog price. */
+    pricing?: ProductPrice;
+    /** UNIQUE: one-of-a-kind piece; sold out means sold, and it is not restocked. */
+    stockPolicy?: "STANDARD" | "UNIQUE";
   };
   productUrl: string;
   whatsappNumber?: string | null;
@@ -134,6 +141,7 @@ export function ProductImageZoomDialog({
             </button>
           ) : null}
           <ProductMedia
+            key={zoomedImage.url}
             media={zoomedImage}
             alt={zoomedImage.alt || productTitle}
             context="zoom"
@@ -174,6 +182,7 @@ function formatProductShippingError(message: string) {
 }
 
 export function ProductDetailClient({ product, productUrl, whatsappNumber, whatsappMessage, commerce }: ProductDetailClientProps) {
+  const pricing: ProductPrice = product.pricing ?? { basePriceInCents: product.priceInCents, finalPriceInCents: product.priceInCents, discountInCents: 0, percentOff: 0, promotion: null };
   const commerceState = commerce ?? buildStorefrontCommerceState(true);
   const { addItem } = useCart();
   const { openCart } = useCartDrawer();
@@ -212,6 +221,7 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
   const hasZoomNavigation = zoomableImageIndexes.length > 1;
   const cartImage = getPreferredProductCardMedia(product.images);
   const soldOut = purchasableVariants.every((variant) => getAvailableStock(variant.stock, variant.reservedStock) <= 0);
+  const uniqueSold = soldOut && product.stockPolicy === "UNIQUE";
   const fullDescription = product.description.trim();
   const shortDescription = product.shortDescription.trim();
   const mainDescription = shortDescription || fullDescription;
@@ -236,6 +246,11 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
     setZoomImageIndex(null);
     window.setTimeout(() => zoomTriggerRef.current?.focus(), 0);
   }, []);
+
+  // No-op without analytics consent.
+  useEffect(() => {
+    trackAnalyticsEvent("product_view", { productId: product.id });
+  }, [product.id]);
 
   useEffect(() => {
     if (zoomImageIndex === null) return;
@@ -312,7 +327,8 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
       slug: product.slug,
       size: selectedVariant.size,
       image: cartImage?.url,
-      priceInCents: product.priceInCents,
+      // Display only: the cart re-reads prices from the server and the checkout recomputes them.
+      priceInCents: pricing.finalPriceInCents,
       quantity: safeQuantity,
       maxQuantity: availableStock,
     });
@@ -389,6 +405,7 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
         >
           {image ? (
             <ProductMedia
+              key={image.url}
               media={image}
               alt={image.alt}
               context="detail"
@@ -412,7 +429,7 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
               ref={zoomTriggerRef}
               type="button"
               onClick={() => setZoomImageIndex(imageIndex)}
-              className="absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/70 text-white shadow-[0_10px_30px_rgba(15,23,42,0.22)] backdrop-blur-sm transition hover:bg-black/80 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 focus-visible:ring-offset-white md:cursor-zoom-in"
+              className="absolute right-3 top-3 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-black/70 text-white shadow-[0_10px_30px_rgba(15,23,42,0.22)] backdrop-blur-sm transition hover:bg-black/80 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 focus-visible:ring-offset-white md:cursor-zoom-in"
               aria-label="Ampliar imagem do produto"
             >
               <Maximize2 className="h-4 w-4" aria-hidden="true" />
@@ -517,12 +534,15 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
       <aside className="lg:sticky lg:top-36 lg:self-start">
         <p className="text-xs font-black uppercase tracking-[0.24em] text-neutral-500">Seleção RARE</p>
         <h1 className="mt-3 text-3xl font-black tracking-tight text-neutral-950 lg:text-4xl">{product.title}</h1>
-        {soldOut ? <p className="mt-3 inline-flex rounded-full bg-black px-3 py-1 text-xs font-black uppercase tracking-wide text-white">Esgotado</p> : null}
+        {soldOut ? <p className="mt-3 inline-flex rounded-full bg-black px-3 py-1 text-xs font-black uppercase tracking-wide text-white">{uniqueSold ? "Vendida" : "Esgotado"}</p> : null}
         {mainDescription ? (
           <p className="mt-4 max-w-xl whitespace-pre-line text-sm font-semibold leading-6 text-neutral-600">{mainDescription}</p>
         ) : null}
-        <p className="mt-4 whitespace-nowrap text-3xl font-black text-neutral-950 lg:text-3xl">{formatMoney(product.priceInCents)}</p>
-        <InstallmentTerms amountInCents={product.priceInCents} checkoutEnabled={commerceState.checkoutEnabled} className="mt-2 text-sm font-semibold leading-6 text-neutral-600" />
+        <PriceTag pricing={pricing} size="detail" className="mt-4" />
+        {pricing.promotion && !soldOut ? (
+          <p className="mt-1 text-xs font-black uppercase tracking-[0.16em] text-neutral-600">{pricing.promotion.badgeText ?? pricing.promotion.name}</p>
+        ) : null}
+        <InstallmentTerms amountInCents={pricing.finalPriceInCents} checkoutEnabled={commerceState.checkoutEnabled} className="mt-2 text-sm font-semibold leading-6 text-neutral-600" />
 
         <div className="mt-6 space-y-5 rounded-lg border border-neutral-200 bg-white p-5">
           <fieldset>
@@ -568,8 +588,19 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
             disabled={!commerceState.checkoutEnabled || soldOut || !selectedVariant || availableStock <= 0}
             className="h-12 w-full rounded-lg bg-black px-6 text-sm font-black uppercase tracking-[0.14em] text-white transition-[background-color,box-shadow,transform] duration-150 hover:bg-neutral-800 hover:shadow-[0_10px_30px_rgba(15,23,42,0.16)] active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-neutral-500 disabled:shadow-none"
           >
-            {soldOut || availableStock <= 0 ? "ESGOTADO" : !commerceState.checkoutEnabled ? commerceState.checkoutActionLabel : "ADICIONAR AO CARRINHO"}
+            {soldOut || availableStock <= 0 ? (uniqueSold ? "PEÇA VENDIDA" : "ESGOTADO") : !commerceState.checkoutEnabled ? commerceState.checkoutActionLabel : "ADICIONAR AO CARRINHO"}
           </button>
+
+          {uniqueSold ? (
+            // A one-of-a-kind piece is not restocked: no "notify me", an invitation to talk instead.
+            <div className="rounded-md border border-neutral-200 bg-white px-4 py-4 text-sm font-semibold leading-6 text-neutral-700">
+              <p className="font-black text-neutral-950">Esta peça já foi vendida.</p>
+              <p className="mt-1">Gostou dela? Fale com a RARE para conhecer peças semelhantes.</p>
+              <Link href={`/suporte?produto=${encodeURIComponent(product.slug)}&categoria=SOLD_OUT_PRODUCT`} className="mt-3 inline-flex min-h-11 items-center text-xs font-black uppercase tracking-[0.16em] text-neutral-950 underline underline-offset-4">
+                Falar sobre esta peça
+              </Link>
+            </div>
+          ) : null}
 
           {!commerceState.checkoutEnabled ? <p className="rounded-md bg-neutral-100 px-4 py-3 text-sm font-semibold leading-6 text-neutral-600">O catálogo continua disponível. Fale com a RARE para consultar esta peça; nenhum pagamento será solicitado pela loja agora.</p> : null}
 

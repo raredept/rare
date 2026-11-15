@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildAdminReadiness, type BuildAdminReadinessInput } from "@/lib/admin-readiness";
 import { expectedOperationalEvidence, type StoredOperationalEvidence } from "@/lib/admin-operational-evidence";
 import type { CatalogIssueCategory, CatalogIssueProduct } from "@/lib/admin-catalog-issues";
+import { buildInventoryIntegrityReport, type ProductStockSnapshot } from "@/lib/inventory-integrity";
 
 const readyEnv = {
   NODE_ENV: "production",
@@ -10,7 +11,12 @@ const readyEnv = {
   NEXT_PUBLIC_APP_URL: "https://rare.example",
   DATABASE_URL: "postgresql://user:password@db.example/rare",
   ADMIN_SESSION_SECRET: "admin-session-secret-with-more-than-32-characters",
+  ADMIN_MFA_ENCRYPTION_KEY: "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
   CHECKOUT_ENABLED: "true",
+  PAYMENT_PROVIDER: "asaas",
+  ASAAS_ENV: "production",
+  ASAAS_API_KEY: ["$aact", "prod", "fixture" + "0".repeat(40)].join("_"),
+  ASAAS_WEBHOOK_TOKEN: "fixture-token-" + "x".repeat(40),
   STRIPE_SECRET_KEY: "sk_live_value_that_must_not_leak",
   STRIPE_WEBHOOK_SECRET: "whsec_value_that_must_not_leak",
   RATE_LIMIT_DRIVER: "redis",
@@ -116,10 +122,10 @@ describe("admin readiness", () => {
     const report = build({
       env: {
         ...readyEnv,
-        STRIPE_WEBHOOK_SECRET: "",
+        ASAAS_WEBHOOK_TOKEN: "",
       },
     });
-    const item = report.items.find((current) => current.id === "webhook-stripe-secret");
+    const item = report.items.find((current) => current.id === "payments-asaas-config");
 
     expect(item).toEqual(expect.objectContaining({ severity: "blocked", blocksOpenSales: true, blocksStaging: true }));
   });
@@ -130,7 +136,7 @@ describe("admin readiness", () => {
         ...readyEnv,
         CHECKOUT_ENABLED: "false",
         STRIPE_SECRET_KEY: "",
-        STRIPE_WEBHOOK_SECRET: "",
+        ASAAS_WEBHOOK_TOKEN: "",
       },
     });
     const item = report.items.find((current) => current.id === "checkout-enabled");
@@ -147,6 +153,58 @@ describe("admin readiness", () => {
     const item = report.items.find((current) => current.id === "catalog:product-missing-shipping-data:prod-no-dimensions");
 
     expect(item).toEqual(expect.objectContaining({ severity: "blocked", blocksOpenSales: true }));
+  });
+
+  describe("inventory: integrity, not quantity", () => {
+    const snapshot = (overrides: Partial<ProductStockSnapshot> = {}): ProductStockSnapshot => ({
+      productId: "prod-unique", title: "Jaqueta Única", active: true, policy: "UNIQUE",
+      variants: [{ active: true, stock: 1, reservedStock: 0 }], soldUnits: 0, openReservedUnits: 0, openReservationOrders: 0,
+      ...overrides,
+    });
+    const uniqueProduct = (variants: CatalogIssueProduct["variants"]) => product({ id: "prod-unique", title: "Jaqueta Única", stockPolicy: "UNIQUE", variants });
+
+    it.each([
+      ["with its single unit", [{ active: true, stock: 1, reservedStock: 0 }], snapshot()],
+      ["sold (zero units after the sale)", [{ active: true, stock: 0, reservedStock: 0 }], snapshot({ variants: [{ active: true, stock: 0, reservedStock: 0 }], soldUnits: 1 })],
+      ["reserved by an open checkout", [{ active: true, stock: 1, reservedStock: 1 }], snapshot({ variants: [{ active: true, stock: 1, reservedStock: 1 }], openReservedUnits: 1, openReservationOrders: 1 })],
+    ])("a one-of-a-kind piece %s is never a blocker or a warning", (_name, variants, stock) => {
+      const report = build({ products: [uniqueProduct(variants)], inventoryIntegrity: buildInventoryIntegrityReport([stock]) });
+      const related = report.items.filter((item) => item.id.includes("prod-unique"));
+
+      expect(related).toEqual([]);
+      expect(report.items.find((item) => item.id === "inventory-integrity")).toEqual(expect.objectContaining({ severity: "ok", blocksOpenSales: false }));
+      expect(report.finalStatus).not.toBe("blocked_for_open_sales");
+    });
+
+    it("blocks open sales when a one-of-a-kind piece was sold twice", () => {
+      const stock = snapshot({ variants: [{ active: true, stock: 0, reservedStock: 0 }], soldUnits: 2 });
+      const report = build({ products: [uniqueProduct([{ active: true, stock: 0, reservedStock: 0 }])], inventoryIntegrity: buildInventoryIntegrityReport([stock]) });
+      const item = report.items.find((current) => current.id === "inventory:prod-unique");
+
+      expect(item).toEqual(expect.objectContaining({ severity: "blocked", blocksOpenSales: true, adminHref: "/admin/products/prod-unique/edit" }));
+      expect(item?.description).toContain("Peça única vendida mais de uma vez");
+      expect(report.items.some((current) => current.id === "inventory-integrity")).toBe(false);
+      expect(report.finalStatus).toBe("blocked_for_open_sales");
+    });
+
+    it("blocks when a reservation does not match the open orders, also for replenishable items", () => {
+      const stock = snapshot({ productId: "prod-valid", title: "Camiseta RARE", policy: "STANDARD", variants: [{ active: true, stock: 4, reservedStock: 1 }], openReservedUnits: 0 });
+      const report = build({ inventoryIntegrity: buildInventoryIntegrityReport([stock]) });
+
+      expect(report.items.find((current) => current.id === "inventory:prod-valid")).toEqual(expect.objectContaining({ severity: "blocked", blocksOpenSales: true }));
+    });
+
+    it("a replenishable item out of stock is a warning that does not block open sales", () => {
+      const report = build({ products: [product({ id: "prod-out", variants: [{ active: true, stock: 0, reservedStock: 0 }] })] });
+      const item = report.items.find((current) => current.id === "catalog:active-product-no-stock:prod-out");
+
+      expect(item).toEqual(expect.objectContaining({ severity: "warning", blocksOpenSales: false }));
+    });
+
+    it("reports the audit as not verified when it could not be read, and skips it for pure callers", () => {
+      expect(build({ inventoryIntegrity: null }).items.find((item) => item.id === "inventory-integrity-unavailable")).toEqual(expect.objectContaining({ severity: "warning", blocksOpenSales: false }));
+      expect(build().items.some((item) => item.id.startsWith("inventory"))).toBe(false);
+    });
   });
 
   it("keeps an empty active category as warning only", () => {

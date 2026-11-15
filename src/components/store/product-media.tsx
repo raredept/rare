@@ -21,6 +21,7 @@ type ProductMediaProps = {
   preload?: "none" | "metadata" | "auto";
   priority?: boolean;
   imageRef?: RefObject<HTMLImageElement | null>;
+  sizes?: string;
 };
 
 export function ProductMedia({
@@ -34,6 +35,7 @@ export function ProductMedia({
   preload,
   priority,
   imageRef,
+  sizes,
 }: ProductMediaProps) {
   const [failed, setFailed] = useState(false);
   const renderPlan = getProductMediaRenderPlan(media, context, { priority });
@@ -68,7 +70,7 @@ export function ProductMedia({
         alt={alt}
         width={renderPlan.width}
         height={renderPlan.height}
-        sizes={renderPlan.sizes}
+        sizes={sizes ?? renderPlan.sizes}
         quality={75}
         loading={eager ? "eager" : renderPlan.loading}
         decoding={renderPlan.decoding}
@@ -87,7 +89,7 @@ export function ProductMedia({
       alt={alt}
       width={renderPlan.width}
       height={renderPlan.height}
-      sizes={renderPlan.sizes}
+      sizes={sizes ?? renderPlan.sizes}
       loading={renderPlan.loading}
       decoding={renderPlan.decoding}
       fetchPriority={renderPlan.fetchPriority}

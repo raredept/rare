@@ -290,4 +290,22 @@ describe("ProductDetailClient", () => {
     expect(zoomHtml).toContain('src="/uploads/products/2026/06/id-camiseta-rare-v1-original.png"');
     expect(zoomHtml).not.toContain("srcSet=");
   });
+
+  it("a sold one-of-a-kind piece says it was sold and links to support with the product, never a restock alert", () => {
+    const render = (stockPolicy: "STANDARD" | "UNIQUE") => renderToStaticMarkup(
+      createElement(ProductDetailClient, {
+        product: { ...product, stockPolicy, variants: [{ id: "var-u", size: "Único", stock: 0, reservedStock: 0, active: true }] },
+        productUrl: "https://raredept.com.br/produto/camiseta-rare",
+        whatsappMessage: "Tenho interesse.",
+      }) as ReactElement,
+    );
+    const unique = render("UNIQUE");
+    expect(unique).toContain("Esta peça já foi vendida.");
+    expect(unique).toContain('href="/suporte?produto=camiseta-rare&amp;categoria=SOLD_OUT_PRODUCT"');
+    expect(unique).toContain("Falar sobre esta peça");
+    expect(unique).not.toMatch(/Avise-me/i);
+    const standard = render("STANDARD");
+    expect(standard).not.toContain("Esta peça já foi vendida.");
+    expect(standard).not.toContain("Falar sobre esta peça");
+  });
 });

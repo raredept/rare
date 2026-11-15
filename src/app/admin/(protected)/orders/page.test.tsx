@@ -38,12 +38,12 @@ describe("admin orders page", () => {
         status: "awaiting_payment",
         paymentMethod: null,
         totalInCents: 21990,
+        createdAt: new Date("2030-01-01T12:00:00.000Z"),
         customerName: null,
         customerEmail: null,
         customerEmailSnapshot: null,
         customerNameSnapshot: "Cliente Teste",
         customerCpfSnapshot: null,
-        items: [],
         customer: {
           name: "Cliente Teste",
           email: "cliente@example.com",
@@ -93,7 +93,7 @@ describe("admin orders page", () => {
     const html = renderToStaticMarkup(element);
 
     expect(ordersPageMocks.prisma.order.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ skip: 100, take: 50 }),
+      expect.objectContaining({ skip: 100, take: 50, orderBy: [{ createdAt: "desc" }, { id: "asc" }] }),
     );
     expect(html).toContain("Página 3 de 7");
   });

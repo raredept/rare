@@ -8,7 +8,15 @@ import { useEffect } from "react";
 export const ORDER_STATUS_REFRESH_INTERVAL_MS = 3_000;
 export const ORDER_STATUS_REFRESH_MAX_ATTEMPTS = 20;
 
-export function OrderStatusRefresh({ active }: { active: boolean }) {
+export function OrderStatusRefresh({
+  active,
+  intervalMs = ORDER_STATUS_REFRESH_INTERVAL_MS,
+  maxAttempts = ORDER_STATUS_REFRESH_MAX_ATTEMPTS,
+}: {
+  active: boolean;
+  intervalMs?: number;
+  maxAttempts?: number;
+}) {
   const router = useRouter();
 
   useEffect(() => {
@@ -17,10 +25,10 @@ export function OrderStatusRefresh({ active }: { active: boolean }) {
     const timer = window.setInterval(() => {
       attempts += 1;
       router.refresh();
-      if (attempts >= ORDER_STATUS_REFRESH_MAX_ATTEMPTS) window.clearInterval(timer);
-    }, ORDER_STATUS_REFRESH_INTERVAL_MS);
+      if (attempts >= maxAttempts) window.clearInterval(timer);
+    }, intervalMs);
     return () => window.clearInterval(timer);
-  }, [active, router]);
+  }, [active, intervalMs, maxAttempts, router]);
 
   return null;
 }

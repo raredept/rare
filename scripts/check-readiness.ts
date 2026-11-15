@@ -3,6 +3,8 @@ import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import packageJson from "../package.json";
 import { validateEnvironment } from "../src/lib/env";
+import { getPaymentProvider } from "../src/lib/payment-provider-config";
+import { getAsaasConfigurationIssue } from "../src/lib/asaas-config";
 import {
   DEFAULT_PRODUCT_PACKAGE,
   DEFAULT_PRODUCT_PACKAGE_WEIGHT_GRAMS,
@@ -155,20 +157,12 @@ async function main() {
   }
 
   if (env.checkoutEnabled) {
-    const envIssues = [...env.errors, ...env.warnings];
-    const stripeIssue = envIssues.find((issue) => issue.variable === "STRIPE_SECRET_KEY");
-    const webhookIssue = envIssues.find((issue) => issue.variable === "STRIPE_WEBHOOK_SECRET");
+    const provider = getPaymentProvider();
+    const issue = provider === "asaas" ? getAsaasConfigurationIssue() : "PaymentProviderDisabled";
     add(
-      "stripe",
-      !stripeIssue || stripeIssue.level === "warning",
-      stripeIssue ? stripeIssue.message : "Stripe secret configurado.",
-      stripeIssue?.level === "warning",
-    );
-    add(
-      "stripe webhook",
-      !webhookIssue || webhookIssue.level === "warning",
-      webhookIssue ? webhookIssue.message : "Webhook secret configurado.",
-      webhookIssue?.level === "warning",
+      "payments",
+      !issue,
+      issue ? `Pagamentos indisponiveis: ${issue}.` : "Configuracao Asaas valida; homologacao real ainda exige evidencia operacional.",
     );
   } else {
     add("checkout", true, "Checkout desabilitado por CHECKOUT_ENABLED=false.", true);

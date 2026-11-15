@@ -17,6 +17,10 @@ const baseTerms = [
     text: "A área do cliente existe para acompanhar dados cadastrados, endereços e histórico de pedidos vinculados à conta.",
   },
   {
+    title: "Cookies e análise de uso",
+    text: "A loja usa cookies essenciais para funcionar. A análise de uso é própria, opcional e só começa com o seu consentimento, com identificadores aleatórios e sem dados pessoais. Detalhes e escolha na Política de cookies e em “Preferências de Cookies”, no rodapé.",
+  },
+  {
     title: "Atendimento",
     text: "Solicitações de suporte devem ser enviadas com informações objetivas para facilitar conferência e resposta.",
   },

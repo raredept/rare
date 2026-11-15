@@ -72,6 +72,7 @@ const product = {
   subcategory: null,
   images: [{ url: "https://raredept.com.br/uploads/camiseta-rare.webp", alt: "Camiseta RARE" }],
   variants: [{ id: "var-p", size: "P", stock: 2, reservedStock: 0, active: true }],
+  pricing: { basePriceInCents: 19990, finalPriceInCents: 19990, discountInCents: 0, percentOff: 0, promotion: null },
 };
 
 function getJsonLdScripts(html: string) {

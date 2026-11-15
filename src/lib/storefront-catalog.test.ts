@@ -20,6 +20,12 @@ vi.mock("@/lib/prisma", () => ({
   prisma: mocks.prisma,
 }));
 
+vi.mock("@/lib/promotions/store", () => ({
+  loadApplicablePromotionRules: async () => [],
+}));
+
+const noPromotion = (priceInCents = 10000) => ({ basePriceInCents: priceInCents, finalPriceInCents: priceInCents, discountInCents: 0, percentOff: 0, promotion: null });
+
 function availableWhere(where: Record<string, unknown>) {
   return expect.objectContaining({ AND: expect.arrayContaining([expect.objectContaining(where)]) });
 }
@@ -56,7 +62,7 @@ describe("storefront catalog helpers", () => {
     const { getFeaturedProducts } = await import("@/lib/storefront");
     const products = await getFeaturedProducts();
 
-    expect(products).toEqual([featuredProduct]);
+    expect(products).toEqual([{ ...featuredProduct, pricing: noPromotion() }]);
     expect(mocks.prisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: availableWhere({ active: true, featured: true }),
@@ -101,7 +107,7 @@ describe("storefront catalog helpers", () => {
     const { getRecentProducts } = await import("@/lib/storefront");
     const products = await getRecentProducts({ limit: 4 });
 
-    expect(products).toEqual([recentProduct]);
+    expect(products).toEqual([{ ...recentProduct, pricing: noPromotion() }]);
     expect(mocks.prisma.product.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: availableWhere({ active: true }),

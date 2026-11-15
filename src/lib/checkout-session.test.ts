@@ -35,6 +35,9 @@ const mocks = vi.hoisted(() => {
     emailOutbox: {
       createMany: vi.fn(),
     },
+    promotion: {
+      findMany: vi.fn(),
+    },
   };
 
   const stripeSessionsCreate = vi.fn();
@@ -53,6 +56,7 @@ const mocks = vi.hoisted(() => {
       order: {
         update: vi.fn(),
         findMany: vi.fn(),
+        count: vi.fn(),
       },
     },
     reconcileCheckoutExpiry: vi.fn(),
@@ -80,6 +84,14 @@ vi.mock("@/lib/stripe", () => ({
 }));
 
 const originalEnv = process.env;
+
+// Retain regression coverage of legacy pricing/reservation and historical transport logic.
+// This test-only selector makes that retired branch reachable; production selection never does.
+// The real selector + HTTP/domain refusal are covered by payment-retirement.test.ts.
+vi.mock("@/lib/payment-provider-config", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/payment-provider-config")>()),
+  getPaymentProvider: () => "stripe",
+}));
 
 const validCheckoutInput = {
   items: [{ productId: "prod_1", variantId: "var_1", quantity: 2 }],
@@ -230,6 +242,8 @@ beforeEach(() => {
     },
   });
   mocks.normalizePaymentMethodTypes.mockReturnValue(undefined);
+  mocks.tx.promotion.findMany.mockResolvedValue([]);
+  mocks.prisma.order.count.mockResolvedValue(0);
   seedCheckoutCreationMocks();
 });
 
@@ -878,5 +892,89 @@ describe("one unpaid checkout per customer", () => {
 
     await expect(createCheckoutSession(validCheckoutInput, checkoutOptions)).rejects.toThrow(checkoutInProgressMessage);
     expect(mocks.reconcileCheckoutExpiry).not.toHaveBeenCalled();
+  });
+});
+
+describe("createCheckoutSession with automatic promotions", () => {
+  function blackFriday(overrides: Record<string, unknown> = {}) {
+    return {
+      id: "promo_bf", name: "SALE BLACK FRIDAY", slug: "black-friday-2026", status: "ACTIVE", type: "PERCENTAGE", value: 25, scope: "SELECTED_PRODUCTS",
+      startsAt: null, endsAt: null, priority: 0, createdAt: new Date("2026-11-01T00:00:00Z"), badgeText: "BF",
+      products: [{ productId: "prod_1" }], categories: [], ...overrides,
+    };
+  }
+
+  function priceAt(priceInCents: number) {
+    mocks.tx.productVariant.findMany.mockResolvedValueOnce([{
+      id: "var_1", productId: "prod_1", size: "M", active: true,
+      product: { id: "prod_1", title: "Jaqueta RARE", active: true, priceInCents, categoryId: null, subcategoryId: null, weightGrams: 400, lengthCm: 30, widthCm: 24, heightCm: 4, images: [] },
+    }]);
+  }
+
+  it("prices R$ 200 at 25% off as R$ 150 server-side and ignores any price sent by the browser", async () => {
+    priceAt(20000);
+    mocks.tx.promotion.findMany.mockResolvedValueOnce([blackFriday()]);
+    await createCheckoutSession({
+      ...validCheckoutInput,
+      items: [{ productId: "prod_1", variantId: "var_1", quantity: 1, priceInCents: 100, salePrice: 1, discount: 99 }],
+      totalInCents: 100, amount: 1, discountInCents: 99999, shippingInCents: 0, finalTotal: 1,
+    }, checkoutOptions);
+    const created = mocks.tx.order.create.mock.calls[0][0].data;
+    expect(created.items.create).toEqual([expect.objectContaining({
+      unitPriceInCents: 15000, totalInCents: 15000, basePriceInCents: 20000,
+      promotionId: "promo_bf", promotionName: "SALE BLACK FRIDAY", promotionCode: "black-friday-2026", promotionDiscountInCents: 5000,
+    })]);
+    expect(created.subtotalInCents).toBe(15000);
+    expect(created.promotionDiscountInCents).toBe(5000);
+    expect(created.totalInCents).toBe(15000 + created.shippingInCents);
+    expect(created.shippingInCents).toBeGreaterThan(0);
+  });
+
+  it("uses the catalog price when the promotion is not active at checkout time", async () => {
+    priceAt(20000);
+    mocks.tx.promotion.findMany.mockResolvedValueOnce([blackFriday({ endsAt: new Date("2020-01-01T00:00:00Z") })]);
+    await createCheckoutSession({ ...validCheckoutInput, items: [{ productId: "prod_1", variantId: "var_1", quantity: 1 }] }, checkoutOptions);
+    const created = mocks.tx.order.create.mock.calls[0][0].data;
+    expect(created.items.create[0]).toMatchObject({ unitPriceInCents: 20000, promotionId: null, promotionDiscountInCents: 0 });
+    expect(created.promotionDiscountInCents).toBe(0);
+  });
+
+  it("does not stack the first-order coupon on promotional items", async () => {
+    priceAt(20000);
+    mocks.tx.promotion.findMany.mockResolvedValueOnce([blackFriday()]);
+    await createCheckoutSession({ ...validCheckoutInput, couponCode: "RARE10", items: [{ productId: "prod_1", variantId: "var_1", quantity: 1 }] }, checkoutOptions);
+    const created = mocks.tx.order.create.mock.calls[0][0].data;
+    expect(created).toMatchObject({ couponCode: null, discountInCents: 0, subtotalInCents: 15000 });
+  });
+
+  it("applies the coupon only to items without a promotion in a mixed cart", async () => {
+    mocks.tx.productVariant.findMany.mockResolvedValueOnce([
+      { id: "var_1", productId: "prod_1", size: "M", active: true, product: { id: "prod_1", title: "Jaqueta", active: true, priceInCents: 20000, categoryId: null, subcategoryId: null, weightGrams: 400, lengthCm: 30, widthCm: 24, heightCm: 4, images: [] } },
+      { id: "var_2", productId: "prod_2", size: "G", active: true, product: { id: "prod_2", title: "Boné", active: true, priceInCents: 10000, categoryId: null, subcategoryId: null, weightGrams: 200, lengthCm: 20, widthCm: 20, heightCm: 10, images: [] } },
+    ]);
+    mocks.tx.promotion.findMany.mockResolvedValueOnce([blackFriday()]);
+    await createCheckoutSession({
+      ...validCheckoutInput,
+      couponCode: "RARE10",
+      items: [{ productId: "prod_1", variantId: "var_1", quantity: 1 }, { productId: "prod_2", variantId: "var_2", quantity: 1 }],
+    }, checkoutOptions);
+    const created = mocks.tx.order.create.mock.calls[0][0].data;
+    expect(created.subtotalInCents).toBe(25000);
+    expect(created).toMatchObject({ couponCode: "RARE10", discountInCents: 1000 });
+  });
+
+  it("still rejects an invalid coupon code even when the cart is all promotional", async () => {
+    priceAt(20000);
+    mocks.tx.promotion.findMany.mockResolvedValueOnce([blackFriday()]);
+    await expect(createCheckoutSession({ ...validCheckoutInput, couponCode: "HACK90", items: [{ productId: "prod_1", variantId: "var_1", quantity: 1 }] }, checkoutOptions))
+      .rejects.toThrow("Cupom inválido");
+  });
+
+  it("keeps a sold-out item unbuyable even inside a promotion (no stock resurrection)", async () => {
+    priceAt(20000);
+    mocks.tx.promotion.findMany.mockResolvedValueOnce([blackFriday()]);
+    mocks.tx.$executeRaw.mockResolvedValueOnce(0);
+    await expect(createCheckoutSession({ ...validCheckoutInput, items: [{ productId: "prod_1", variantId: "var_1", quantity: 1 }] }, checkoutOptions))
+      .rejects.toThrow("Estoque insuficiente");
   });
 });

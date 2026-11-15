@@ -10,11 +10,13 @@ import {
   type StoredOperationalEvidence,
 } from "@/lib/admin-operational-evidence";
 import { isCheckoutEnabled, validateEnvironment } from "@/lib/env";
+import type { InventoryIntegrityReport } from "@/lib/inventory-integrity";
 import { buildMediaVariantAuditReport, type MediaVariantAuditEntry } from "@/lib/media-variant-audit";
 import { getRateLimitStatus } from "@/lib/rate-limit-config";
 import { getSecurityHeaders } from "@/lib/security-headers";
 import { normalizeShippingMode, normalizeShippingProvider } from "@/lib/shipping";
-import { getStripeSecretKeyMode } from "@/lib/stripe-smoke-guard";
+import { getPaymentProvider } from "@/lib/payment-provider-config";
+import { getAsaasConfigurationIssue } from "@/lib/asaas-config";
 
 export type ReadinessSeverity = "ok" | "warning" | "blocked" | "info";
 
@@ -93,6 +95,8 @@ export type BuildAdminReadinessInput = {
   mediaAuditEntries?: MediaVariantAuditEntry[];
   operationalEvidenceStorageAvailable?: boolean;
   operationalEvidenceRows?: StoredOperationalEvidence[];
+  /** Omit to skip the audit (pure callers); null when it could not be read. */
+  inventoryIntegrity?: InventoryIntegrityReport | null;
 };
 
 export const readinessAreaLabels: Record<ReadinessArea, string> = {
@@ -154,15 +158,6 @@ function isConfigured(value: string | undefined) {
 
 function isProductionRuntime(env: Record<string, string | undefined>) {
   return clean(env.NODE_ENV)?.toLowerCase() === "production";
-}
-
-function getAppEnvironment(env: Record<string, string | undefined>) {
-  return clean(env.APP_ENV ?? env.RAILWAY_ENVIRONMENT_NAME)?.toLowerCase() ?? "not-set";
-}
-
-function isProductionSalesEnvironment(env: Record<string, string | undefined>) {
-  const appEnv = getAppEnvironment(env);
-  return ["production", "prod", "live"].includes(appEnv) || (isProductionRuntime(env) && !["preview", "staging", "stage", "homologacao", "homologation"].includes(appEnv));
 }
 
 function isDisabled(value: string | undefined) {
@@ -229,11 +224,6 @@ function createSummary(items: ReadinessItem[]) {
     summaryLabel: labels[finalStatus].label,
     summaryDescription: labels[finalStatus].description,
   };
-}
-
-function getStripeModeLabel(secretKey: string | undefined) {
-  if (!isConfigured(secretKey)) return "missing";
-  return getStripeSecretKeyMode(secretKey);
 }
 
 function addEnvironmentItems(items: ReadinessItem[], env: Record<string, string | undefined>) {
@@ -323,88 +313,26 @@ function addRateLimitItems(items: ReadinessItem[], env: Record<string, string | 
 
 function addCheckoutItems(items: ReadinessItem[], env: Record<string, string | undefined>) {
   const checkoutEnabled = isCheckoutEnabled(env);
-  const stripeMode = getStripeModeLabel(env.STRIPE_SECRET_KEY);
-  const webhookConfigured = isConfigured(env.STRIPE_WEBHOOK_SECRET);
-  const productionSales = isProductionSalesEnvironment(env);
-
+  const provider = getPaymentProvider(env);
+  const issue = provider === "asaas" ? getAsaasConfigurationIssue(env) : "AsaasNotSelected";
   addItem(items, {
-    id: "checkout-enabled",
-    area: "checkout",
-    title: "Checkout habilitado",
+    id: "checkout-enabled", area: "checkout", title: "Checkout habilitado",
     severity: checkoutEnabled ? "ok" : "blocked",
-    description: checkoutEnabled ? "Checkout esta habilitado neste ambiente." : "CHECKOUT_ENABLED esta desabilitado neste ambiente.",
-    impact: checkoutEnabled ? "O fluxo pode ser homologado conforme os demais checks." : "Venda aberta nao pode iniciar com checkout desabilitado.",
-    recommendedAction: checkoutEnabled
-      ? "Executar o smoke de checkout em modo seguro antes de venda aberta."
-      : "Habilitar checkout somente no ambiente correto, depois de configurar Stripe e webhook.",
-    docsPath: "docs/checkout-smoke-test.md",
-    blocksOpenSales: !checkoutEnabled,
-    blocksStaging: false,
-    dependsOnClient: !checkoutEnabled,
+    description: checkoutEnabled ? "Checkout habilitado; a configuração e a homologação ainda precisam passar." : "CHECKOUT_ENABLED está desabilitado neste ambiente.",
+    impact: "Venda aberta exige Asaas homologado e checkout habilitado.",
+    recommendedAction: "Manter pagamentos desligados até a homologação Asaas e a aprovação do piloto.",
+    docsPath: "docs/cycles/rare-bf-mfa-asaas/12_STAGING.md",
+    blocksOpenSales: !checkoutEnabled, blocksStaging: false, dependsOnClient: !checkoutEnabled,
   });
-
-  if (!checkoutEnabled) {
-    addItem(items, {
-      id: "payments-stripe-mode",
-      area: "payments",
-      title: "Modo da Stripe",
-      severity: "info",
-      description: "Checkout desabilitado; a chave Stripe sera exigida antes da homologacao do pagamento.",
-      impact: "Nao ha chamada de pagamento enquanto checkout estiver desabilitado.",
-      recommendedAction: "Configurar Stripe test mode em staging antes de rodar o smoke de checkout.",
-      docsPath: "docs/checkout-smoke-test.md",
-      blocksOpenSales: false,
-      blocksStaging: false,
-      dependsOnClient: true,
-    });
-    return;
-  }
-
-  const stripeSeverity: ReadinessSeverity =
-    stripeMode === "missing" || stripeMode === "unknown" || (stripeMode === "live" && !productionSales) || (stripeMode === "test" && productionSales)
-      ? "blocked"
-      : "ok";
-  const stripeDescription =
-    stripeMode === "test"
-      ? "Chave Stripe detectada como test mode."
-      : stripeMode === "live"
-        ? "Chave Stripe detectada como live mode."
-        : "Chave Stripe ausente ou com formato nao reconhecido.";
-
+  const blocked = Boolean(issue);
   addItem(items, {
-    id: "payments-stripe-mode",
-    area: "payments",
-    title: "Modo da Stripe",
-    severity: stripeSeverity,
-    description: stripeDescription,
-    impact:
-      stripeSeverity === "ok"
-        ? "O modo da chave esta coerente com o ambiente avaliado."
-        : "Homologacao ou venda aberta ficam inseguras sem uma chave do modo correto.",
-    recommendedAction:
-      stripeMode === "test"
-        ? "Usar test mode apenas em staging/homologacao; Production de venda aberta exige live mode aprovado."
-        : stripeMode === "live"
-          ? "Usar live mode apenas em Production depois do smoke test mode aprovado."
-          : "Configurar a chave secreta Stripe no ambiente correto sem expor o valor.",
-    docsPath: "docs/railway-env-checklist.md",
-    blocksOpenSales: stripeSeverity === "blocked",
-    blocksStaging: stripeSeverity === "blocked" && stripeMode !== "test",
-    dependsOnClient: stripeSeverity === "blocked",
-  });
-
-  addItem(items, {
-    id: "webhook-stripe-secret",
-    area: "webhook",
-    title: "Webhook Stripe assinado",
-    severity: webhookConfigured ? "ok" : "blocked",
-    description: webhookConfigured ? "Secret do webhook esta presente no ambiente." : "Secret do webhook Stripe esta ausente ou placeholder.",
-    impact: webhookConfigured ? "Pagamentos podem ser confirmados por webhook assinado." : "Pedidos pagos nao podem ser confirmados com seguranca.",
-    recommendedAction: "Criar webhook no Stripe Dashboard para /api/stripe/webhook e configurar o signing secret no ambiente correto.",
-    docsPath: "docs/checkout-smoke-test.md",
-    blocksOpenSales: !webhookConfigured,
-    blocksStaging: !webhookConfigured,
-    dependsOnClient: !webhookConfigured,
+    id: "payments-asaas-config", area: "payments", title: "Asaas e ambiente",
+    severity: !checkoutEnabled ? "info" : blocked ? "blocked" : "ok",
+    description: issue ? `Pagamentos indisponíveis (${issue}). Stripe não é alternativa.` : "Configuração Asaas compatível com o ambiente; isso não prova pagamento ou webhook real.",
+    impact: "Apenas Asaas pode criar novos pagamentos. Configuração ausente ou inválida fecha o checkout.",
+    recommendedAction: "Configurar Sandbox em staging; produção usa credencial própria somente após os gates.",
+    docsPath: "docs/cycles/rare-bf-mfa-asaas/05_ASAAS.md",
+    blocksOpenSales: checkoutEnabled && blocked, blocksStaging: checkoutEnabled && blocked, dependsOnClient: blocked,
   });
 }
 
@@ -531,7 +459,7 @@ function addOperationalEvidenceItems(
       title: "Homologacao operacional pendente",
       severity: "blocked",
       description: `${report.openSalesBlockedCount} evidencia(s) critica(s) ainda nao foram marcadas como aprovadas ou nao aplicaveis.`,
-      impact: "Configuracao presente nao comprova que Stripe, webhook, estoque, upload, cron e autorizacoes foram validados na operacao real.",
+      impact: "Configuracao presente nao comprova que Asaas, webhook, estoque, upload, cron e autorizacoes foram validados na operacao real.",
       recommendedAction: "Registrar evidencias manuais e sanitizadas em /admin/readiness antes de liberar venda aberta.",
       docsPath: "docs/full-project-readiness-audit.md",
       blocksOpenSales: true,
@@ -642,9 +570,10 @@ function addShippingItems(items: ReadinessItem[], env: Record<string, string | u
   });
 }
 
+// Readiness measures integrity, not quantity: an item out of stock is a reminder, and a sold
+// one-of-a-kind piece is not an issue at all. Contradictory stock numbers block (addInventoryItems).
 function catalogSeverity(issue: CatalogIssue): ReadinessSeverity {
   if (
-    issue.type === "active-product-no-stock" ||
     issue.type === "active-product-no-purchasable-variant" ||
     (issue.type === "product-missing-shipping-data" && issue.tone === "danger")
   ) {
@@ -657,7 +586,6 @@ function catalogSeverity(issue: CatalogIssue): ReadinessSeverity {
 
 function catalogBlocksOpenSales(issue: CatalogIssue) {
   return (
-    issue.type === "active-product-no-stock" ||
     issue.type === "active-product-no-purchasable-variant" ||
     (issue.type === "product-missing-shipping-data" && issue.tone === "danger")
   );
@@ -720,6 +648,58 @@ function addCatalogItems(items: ReadinessItem[], products: CatalogIssueProduct[]
   }
 }
 
+function addInventoryItems(items: ReadinessItem[], report: InventoryIntegrityReport | null | undefined) {
+  if (report === undefined) return;
+  if (report === null) {
+    addItem(items, {
+      id: "inventory-integrity-unavailable",
+      area: "catalog",
+      title: "Integridade do estoque nao verificada",
+      severity: "warning",
+      description: "A auditoria de integridade do estoque nao pode ser lida nesta consulta.",
+      impact: "Sem a auditoria nao ha prova de que reservas, vendas e estoque conferem.",
+      recommendedAction: "Recarregar a pagina; se persistir, verificar o banco de dados.",
+      adminHref: "/admin/readiness",
+      blocksOpenSales: false,
+      blocksStaging: false,
+      dependsOnClient: false,
+    });
+    return;
+  }
+
+  for (const product of report.inconsistent) {
+    addItem(items, {
+      id: `inventory:${product.productId}`,
+      area: "catalog",
+      title: `${product.title} com estoque inconsistente`,
+      severity: "blocked",
+      description: `${product.inconsistencyLabels.join("; ")}.`,
+      impact: "Os numeros de estoque, reserva e venda deste item se contradizem; vender assim pode gerar venda dupla ou pedido sem peca.",
+      recommendedAction: "Conferir a peca fisica e os pedidos do item e corrigir o estoque no cadastro do produto.",
+      adminHref: `/admin/products/${product.productId}/edit`,
+      blocksOpenSales: true,
+      blocksStaging: false,
+      dependsOnClient: true,
+    });
+  }
+
+  if (!report.inconsistent.length) {
+    addItem(items, {
+      id: "inventory-integrity",
+      area: "catalog",
+      title: "Estoque integro",
+      severity: "ok",
+      description: `${report.products.length} produto(s) auditado(s): reservas conferem com os pedidos em aberto e nenhuma peca unica foi vendida ou reservada em duplicidade.`,
+      impact: "Quantidade baixa ou peca unica vendida nao sao pendencias: a prontidao mede integridade, nao quantidade.",
+      recommendedAction: "Nenhuma acao necessaria.",
+      adminHref: "/admin/products",
+      blocksOpenSales: false,
+      blocksStaging: false,
+      dependsOnClient: false,
+    });
+  }
+}
+
 function addSeoAndSecurityItems(items: ReadinessItem[]) {
   const headers = getSecurityHeaders();
   const hasCspReportOnly = headers.some((header) => header.key === "Content-Security-Policy-Report-Only");
@@ -769,7 +749,7 @@ function addDocumentationItems(items: ReadinessItem[], documentation: ReadinessD
     title: "Documentacao operacional",
     severity: missingDocs.length ? "warning" : "ok",
     description: missingDocs.length ? `Documentos ausentes: ${missingDocs.map(([name]) => name).join(", ")}.` : "Checklist Railway, handoff e checkout smoke estao presentes.",
-    impact: "Cliente precisa dos guias para configurar Railway, Redis, Stripe, R2 e Melhor Envio.",
+    impact: "Cliente precisa dos guias para configurar Railway, Redis, Asaas, R2 e Melhor Envio.",
     recommendedAction: "Usar os documentos locais como referencia de configuracao e go-live.",
     docsPath: "docs/client-handoff.md",
     blocksOpenSales: false,
@@ -784,7 +764,7 @@ function addDocumentationItems(items: ReadinessItem[], documentation: ReadinessD
     severity: missingScripts.length ? "warning" : "ok",
     description: missingScripts.length ? `Scripts ausentes: ${missingScripts.map(([name]) => name).join(", ")}.` : "Scripts npm run smoke e npm run checkout:smoke estao disponiveis.",
     impact: "Validacoes finais dependem desses comandos, mas eles nao alteram dados por si so.",
-    recommendedAction: "Rodar smoke publico apos deploy e guard de checkout antes de qualquer homologacao Stripe.",
+    recommendedAction: "Rodar smoke publico apos deploy e guard de checkout antes da homologação Asaas Sandbox.",
     docsPath: "docs/checkout-smoke-test.md",
     blocksOpenSales: false,
     blocksStaging: false,
@@ -809,6 +789,7 @@ export function buildAdminReadiness(input: BuildAdminReadinessInput): ReadinessR
   );
   addShippingItems(items, env, input.settings);
   addCatalogItems(items, input.products, input.categories);
+  addInventoryItems(items, input.inventoryIntegrity);
   addSeoAndSecurityItems(items);
   addDocumentationItems(items, documentation);
 

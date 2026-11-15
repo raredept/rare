@@ -42,7 +42,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
     imageUrls: product.images
       .filter((image) => !isProductVideoUrl(image.url))
       .map((image) => (image.url.startsWith("http") ? image.url : `${appUrl}${image.url}`)),
-    priceInCents: product.priceInCents,
+    // The price the shopper is charged now (automatic promotion included), as shown on the page.
+    priceInCents: product.pricing.finalPriceInCents,
     inStock: product.variants.some((variant) => variant.stock - variant.reservedStock > 0),
     url: productUrl,
     brand: product.brand,

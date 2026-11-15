@@ -16,6 +16,10 @@ vi.mock("@/lib/prisma", () => ({
   prisma: quoteMocks.prisma,
 }));
 
+vi.mock("@/lib/promotions/store", () => ({
+  loadApplicablePromotionRules: async () => [],
+}));
+
 vi.mock("@/lib/settings", () => ({
   getStoreSettings: quoteMocks.getStoreSettings,
 }));

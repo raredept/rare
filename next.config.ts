@@ -17,6 +17,9 @@ const nextConfig: NextConfig = {
   // Protected previews serve images directly; production keeps optimization.
   ...(restrictedEnvironment ? { images: { unoptimized: true } } : {}),
   experimental: {
+    // A disposable browser run must compile current sources, not reuse a
+    // previous branch's persisted development CSS/Server Action artifacts.
+    ...(process.env.QA_DATABASE_URL ? { turbopackFileSystemCacheForDev: false } : {}),
     serverActions: {
       bodySizeLimit: "6mb",
     },

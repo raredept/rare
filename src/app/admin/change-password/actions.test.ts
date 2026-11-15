@@ -53,7 +53,7 @@ describe("forced admin password change", () => {
     const update = mocks.updateMany.mock.calls[0][0];
     expect(update.where).toEqual({
       id: "admin-2",
-      role: "ADMIN",
+      role: { in: ["ADMIN", "SYSTEM_ADMIN", "SELLER_ADMIN"] },
       active: true,
       mustChangePassword: true,
     });

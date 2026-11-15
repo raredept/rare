@@ -21,6 +21,7 @@ export function AccountShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const isCurrent = (href: string) => pathname === href || (href !== "/minha-conta" && pathname.startsWith(`${href}/`));
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 lg:px-8 lg:py-12">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -35,8 +36,8 @@ export function AccountShell({
           <Link
             key={link.href}
             href={link.href}
-            aria-current={pathname === link.href ? "page" : undefined}
-            className={`whitespace-nowrap rounded-full border px-4 py-2 text-xs font-black uppercase tracking-wide transition ${pathname === link.href ? "border-black bg-black text-white" : "border-neutral-300 text-neutral-800 hover:border-black"}`}
+            aria-current={isCurrent(link.href) ? "page" : undefined}
+            className={`whitespace-nowrap rounded-full border px-4 py-2 text-xs font-black uppercase tracking-wide transition ${isCurrent(link.href) ? "border-black bg-black text-white" : "border-neutral-300 text-neutral-800 hover:border-black"}`}
           >
             {link.label}
           </Link>

@@ -5,6 +5,8 @@ import { getPreferredCategoryOrder } from "@/lib/catalog-shortcuts";
 import { prisma } from "@/lib/prisma";
 import { isVariantPurchasable } from "@/lib/stock";
 import { buildCatalogPageHref, CATALOG_PAGE_SIZE, normalizeCatalogPage } from "@/lib/catalog-pagination";
+import { loadApplicablePromotionRules } from "@/lib/promotions/store";
+import { priceProduct, type ProductPrice } from "@/lib/promotions/engine";
 
 export const productInclude = {
   category: true,
@@ -13,7 +15,29 @@ export const productInclude = {
   variants: { orderBy: { size: "asc" } },
 } satisfies Prisma.ProductInclude;
 
-export type StorefrontProduct = Prisma.ProductGetPayload<{ include: typeof productInclude }>;
+type StorefrontProductRow = Prisma.ProductGetPayload<{ include: typeof productInclude }>;
+/** A catalog product with its server-computed price (automatic promotion applied, if any). */
+export type StorefrontProduct = StorefrontProductRow & { pricing: ProductPrice };
+
+// One read of the applicable promotions per request render; prices are always computed on the
+// server from the catalog price and these rules. Dates are evaluated at the request instant.
+const getRequestPromotionRules = cache(async () => {
+  const now = new Date();
+  try {
+    return { now, rules: await loadApplicablePromotionRules(prisma, now) };
+  } catch (error) {
+    // Fail toward the catalog price: the checkout reads the rules again on its own and never
+    // charges more than the catalog price, so a display failure cannot overcharge anyone.
+    console.error("[promotions] could not load promotion rules for the storefront", error instanceof Error ? error.name : "unknown");
+    return { now, rules: [] };
+  }
+});
+
+async function attachPricing(rows: StorefrontProductRow[]): Promise<StorefrontProduct[]> {
+  if (!rows.length) return [];
+  const { now, rules } = await getRequestPromotionRules();
+  return rows.map((row) => ({ ...row, pricing: priceProduct(rules, row, now) }));
+}
 
 export type GroupedCatalogSection = {
   name: string;
@@ -217,7 +241,7 @@ export async function getProducts(params?: {
 
   // Grouping happens in PostgreSQL BEFORE skip/take. One snapshot prevents a
   // stock mutation between the two groups from duplicating/skipping a product.
-  return prisma.$transaction(async (tx) => {
+  const rows = await prisma.$transaction(async (tx) => {
     const availableCount = offset ? await tx.product.count({ where: availableWhere }) : 0;
     const available = await tx.product.findMany({
       where: availableWhere, include: productInclude, orderBy, skip: offset, take: limit,
@@ -229,6 +253,7 @@ export async function getProducts(params?: {
     });
     return [...available, ...soldOut];
   }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+  return attachPricing(rows);
 }
 
 export async function getAvailableBrandsForStore(): Promise<string[]> {
@@ -510,10 +535,44 @@ export async function isProductPageSlugAvailable(slug: string) {
 }
 
 export async function getProductBySlug(slug: string) {
-  return prisma.product.findFirst({
+  const product = await prisma.product.findFirst({
     where: { slug, active: true },
     include: productInclude,
   });
+  if (!product) return null;
+  const [priced] = await attachPricing([product]);
+  return priced;
+}
+
+/**
+ * Products shown in a homepage campaign: the ones whose winning promotion right now IS this
+ * campaign (another, higher-priority promotion may own some of its targets). Available first,
+ * sold-out last, like the rest of the catalog.
+ */
+export async function getCampaignProducts(campaignId: string, limit = 8) {
+  const promotion = await prisma.promotion.findUnique({
+    where: { id: campaignId },
+    select: { scope: true, products: { select: { productId: true } }, categories: { select: { categoryId: true } } },
+  });
+  if (!promotion) return [];
+  const targetWhere: Prisma.ProductWhereInput =
+    promotion.scope === "ALL_PRODUCTS"
+      ? {}
+      : promotion.scope === "SELECTED_PRODUCTS"
+        ? { id: { in: promotion.products.map((item) => item.productId) } }
+        : { OR: [
+            { categoryId: { in: promotion.categories.map((item) => item.categoryId) } },
+            { subcategoryId: { in: promotion.categories.map((item) => item.categoryId) } },
+          ] };
+  const rows = await prisma.product.findMany({
+    where: { AND: [{ active: true }, targetWhere] },
+    include: productInclude,
+    orderBy: productOrderBy,
+    take: 60,
+  });
+  const priced = (await attachPricing(rows)).filter((product) => product.pricing.promotion?.id === campaignId);
+  const isAvailable = (product: StorefrontProduct) => product.variants.some((variant) => isVariantPurchasable(variant));
+  return [...priced.filter(isAvailable), ...priced.filter((product) => !isAvailable(product))].slice(0, limit);
 }
 
 export async function getPublicSitemapCatalogData() {

@@ -85,7 +85,13 @@ test.describe("Admin accessibility", () => {
     await page.getByLabel("Senha").fill(password!);
     await page.getByRole("button", { name: "Entrar" }).click();
     await page.waitForURL(/\/admin(?!\/login)/, { timeout: 15_000 });
+    await page.close();
   });
+
+  // Reuse the authenticated cookies, not the previous document. In long WebKit
+  // runs repeated Axe injections/navigation accumulated work across pages.
+  test.beforeEach(async () => { page = await context.newPage(); });
+  test.afterEach(async () => { await page?.close(); });
 
   test.afterAll(async () => {
     await context?.close();

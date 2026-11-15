@@ -14,7 +14,7 @@ type NewProductPageProps = {
 export default async function NewProductPage({ searchParams }: NewProductPageProps) {
   // Checked here, not only in the layout: layouts do not re-render on client
   // navigation, so every page verifies the session next to its data.
-  await requireAdmin();
+  await requireAdmin("commerce.products");
   const params = await searchParams;
   const { error, refresh, success } = params;
   const categories = await prisma.category.findMany({

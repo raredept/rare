@@ -25,7 +25,7 @@ function redirectWithEvidenceMessage(params: { success?: string; error?: string 
 }
 
 export async function saveOperationalEvidenceAction(formData: FormData) {
-  await requireAdmin();
+  await requireAdmin("system.readiness");
 
   const parsed = parseOperationalEvidenceInput({
     key: text(formData, "key"),

@@ -13,7 +13,7 @@ type EditCategoryPageProps = {
 export default async function EditCategoryPage({ params }: EditCategoryPageProps) {
   // Checked here, not only in the layout: layouts do not re-render on client
   // navigation, so every page verifies the session next to its data.
-  await requireAdmin();
+  await requireAdmin("commerce.catalog");
   const { id } = await params;
   const [category, categories] = await Promise.all([
     prisma.category.findUnique({ where: { id } }),

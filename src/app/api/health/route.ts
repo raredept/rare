@@ -140,17 +140,19 @@ function response(body: unknown, status: number) {
 }
 
 // Deployment topology, commit and configuration gaps are reconnaissance data.
-// Anonymous callers (uptime probes, smoke checks) only receive the verdict.
+// Anonymous callers (uptime probes, smoke checks) only receive the verdict, and among Admins only
+// those who see the readiness area get the configuration detail.
 async function hasAdminDetailAccess() {
   try {
-    const { getCurrentAdmin } = await import("@/lib/auth");
-    return Boolean(await getCurrentAdmin());
+    const [{ getCurrentAdmin }, { hasAdminPermission }] = await Promise.all([import("@/lib/auth"), import("@/lib/admin-permissions")]);
+    const admin = await getCurrentAdmin();
+    return Boolean(admin && hasAdminPermission(admin.role, "system.readiness"));
   } catch {
     return false;
   }
 }
 
-export async function GET(request?: Request) {
+export async function GET(request: Request) {
   const env = validateEnvironment();
   const rateLimit = getRateLimitStatus();
   const runtimeMetadata = getServerRuntimeMetadata(process.env, packageJson.version);

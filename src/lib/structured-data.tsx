@@ -23,6 +23,9 @@ type ProductJsonLdInput = {
   checkoutEnabled: boolean;
 };
 
+// Brand as registered in the web manifest and the domain; lets Google match "rare dept" queries to the site name.
+const RARE_ALTERNATE_NAMES = ["RARE Dept", "raredept"];
+
 function absoluteUrl(appUrl: string, path: string) {
   if (path.startsWith("http://") || path.startsWith("https://")) return path;
   return `${appUrl}${path.startsWith("/") ? "" : "/"}${path}`;
@@ -41,6 +44,7 @@ export function buildOrganizationJsonLd(appUrl: string, instagramUrl?: string | 
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "RARE",
+    alternateName: RARE_ALTERNATE_NAMES,
     url: appUrl,
     logo: `${appUrl}/brand/rare-logo.png`,
     sameAs: [getInstagramUrl(instagramUrl)],
@@ -52,6 +56,7 @@ export function buildWebsiteJsonLd(appUrl: string): JsonLdObject {
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: "RARE",
+    alternateName: RARE_ALTERNATE_NAMES,
     url: appUrl,
     potentialAction: {
       "@type": "SearchAction",
@@ -84,14 +89,17 @@ export function buildProductJsonLd(input: ProductJsonLdInput): JsonLdObject {
     url: input.url,
     sku: input.sku ?? undefined,
     brand: input.brand ? { "@type": "Brand", name: input.brand } : undefined,
-    offers: input.checkoutEnabled
-      ? {
-          "@type": "Offer",
-          priceCurrency: "BRL",
-          price: (input.priceInCents / 100).toFixed(2),
-          availability: input.inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
-          url: input.url,
-        }
-      : undefined,
+    // The price is the one rendered on the page; InStock is only claimed while online checkout can take the order.
+    offers: {
+      "@type": "Offer",
+      priceCurrency: "BRL",
+      price: (input.priceInCents / 100).toFixed(2),
+      availability: !input.inStock
+        ? "https://schema.org/OutOfStock"
+        : input.checkoutEnabled
+          ? "https://schema.org/InStock"
+          : undefined,
+      url: input.url,
+    },
   };
 }

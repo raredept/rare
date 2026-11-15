@@ -1,0 +1,31 @@
+{
+  "state": "CLEARED",
+  "scope": "production-release",
+  "incident": "docs/security/CREDENTIAL_INCIDENT_202610.md",
+  "activeSince": "2026-10-04",
+  "summary": "Production remains frozen until internal session/cron containment in staging and production, removal of Stripe credentials from active consumers, no new Stripe payments or fallback, real staging and Asaas Sandbox validation, and initial production checkout OFF are evidenced. External Stripe credential revocation can remain MANUAL_PENDING without being declared revoked.",
+  "lastVerified": {
+    "at": "2026-11-15",
+    "finding": "Internal containment proved in both environments: production web redeployed (owner-authorized) onto the current secret set after an exposure of the previous set, CRON_SECRET_PREVIOUS absent, no Stripe variables, checkout OFF, no HTTP cron caller (Vercel project gone). Asaas Sandbox real lifecycle PASS. Real staging PASS, including Admin WebKit and Firefox for SYSTEM_ADMIN and SELLER_ADMIN. External Stripe revocation MANUAL_PENDING (not declared revoked). Evidence: docs/security/evidence/RELEASE_FREEZE_CLOSURE_20261114.md"
+  },
+  "closure": {
+    "clearedAt": "2026-11-15",
+    "clearedBy": "Pedro Spoto — Responsável técnico pelo projeto RARE",
+    "evidence": "docs/security/evidence/RELEASE_FREEZE_CLOSURE_20261114.md",
+    "conditions": {
+      "sessionStagingRotatedAndOldRejected": true,
+      "sessionProductionRotatedAndOldRejected": true,
+      "cronStagingRotatedAndOldRemoved": true,
+      "cronProductionRotatedAndOldRejected": true,
+      "stripeStagingDisconnected": true,
+      "stripeProductionDisconnected": true,
+      "newStripePaymentsImpossible": true,
+      "noStripeFallback": true,
+      "asaasSandboxRealPassed": true,
+      "stagingRealPassed": true,
+      "initialProductionCheckoutOff": true
+    },
+    "legacyStripeCredentialStatus": "MANUAL_PENDING"
+  },
+  "policyVersion": 2
+}

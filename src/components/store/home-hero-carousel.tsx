@@ -2,7 +2,7 @@
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   getActiveHomeHeroSlides,
   shouldRenderHomeHeroControls,
@@ -69,6 +69,12 @@ function HomeHeroImage({
       ? getProductMediaRenderPlan({ url: slide.mobileImageUrl }, "banner", { priority: index === 0 })
       : null;
   const videoPoster = mobileRenderPlan?.renderAs === "img" ? mobileRenderPlan.src : undefined;
+  const mediaStyle = {
+    objectFit: slide.imageFit ?? "cover",
+    "--hero-position-desktop": `${slide.imagePositionX ?? 50}% ${slide.imagePositionY ?? 50}%`,
+    "--hero-position-mobile": `${slide.mobileImagePositionX ?? 50}% ${slide.mobileImagePositionY ?? 50}%`,
+  } as CSSProperties;
+  const mediaClass = "h-full w-full object-[var(--hero-position-mobile)] md:object-[var(--hero-position-desktop)]";
 
   if (mediaType === "video") {
     return (
@@ -78,7 +84,8 @@ function HomeHeroImage({
           ref={videoRef}
           src={slide.imageUrl}
           aria-label={slide.alt}
-          className="absolute inset-0 h-full w-full object-cover"
+          className={`absolute inset-0 ${mediaClass}`}
+          style={mediaStyle}
           autoPlay={mediaPlaying}
           muted
           loop
@@ -110,7 +117,8 @@ function HomeHeroImage({
         loading={desktopRenderPlan.loading}
         fetchPriority={desktopRenderPlan.fetchPriority}
         decoding={desktopRenderPlan.decoding}
-        className="h-full w-full object-cover"
+        className={mediaClass}
+        style={mediaStyle}
         onError={onError}
       />
     </picture>
@@ -221,12 +229,12 @@ export function HomeHeroCarousel({ slides }: HomeHeroCarouselProps) {
             <ChevronRight className="h-5 w-5" aria-hidden="true" />
           </button>
 
-          <div className="absolute bottom-5 left-5 z-30 flex items-center sm:left-8 md:left-10 xl:left-12">
+          <div className="scrollbar-none absolute bottom-5 left-5 right-5 z-30 flex touch-pan-x items-center overflow-x-auto sm:left-8 sm:right-8 md:left-10 md:right-10 xl:left-12 xl:right-12" role="group" aria-label="Selecionar slide">
             {activeSlides.map((slide, index) => (
               <button
                 key={slide.id}
                 type="button"
-                className={`group/indicator flex h-11 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 ${
+                className={`group/indicator flex h-11 shrink-0 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/80 ${
                   index === normalizedActiveIndex ? "w-12" : "w-11"
                 }`}
                 aria-label={`Ir para slide ${index + 1}`}
@@ -236,7 +244,7 @@ export function HomeHeroCarousel({ slides }: HomeHeroCarouselProps) {
                 <span
                   aria-hidden="true"
                   className={`block h-2.5 rounded-full transition-[background-color,width] duration-150 ${
-                    index === normalizedActiveIndex ? "w-8 bg-white" : "w-2.5 bg-white/35 group-hover/indicator:bg-white/65"
+                    index === normalizedActiveIndex ? "w-8 bg-white" : "w-2.5 bg-white/60 group-hover/indicator:bg-white/80"
                   }`}
                 />
               </button>

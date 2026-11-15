@@ -9,6 +9,11 @@ import pg from "pg";
 
 const { Client } = pg;
 const integratedSuite = process.argv.includes("--all");
+const grepIndex = process.argv.indexOf("--grep");
+const grep = grepIndex < 0 ? undefined : process.argv[grepIndex + 1];
+if (grepIndex >= 0 && (!integratedSuite || !grep || grep.startsWith("--"))) {
+  throw new Error("--grep requer --all e um filtro explicito.");
+}
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -105,9 +110,13 @@ async function main() {
       PLAYWRIGHT_PRODUCT_SLUG: "",
       ...(integratedSuite ? {
         PLAYWRIGHT_JSON_OUTPUT_FILE: process.env.PLAYWRIGHT_JSON_OUTPUT_FILE || path.resolve("output/playwright/integrated-results.json"),
+        PLAYWRIGHT_HTML_OUTPUT_DIR: path.resolve("output/playwright/report"),
       } : {}),
       QA_CURRENT_ADMIN_LOGIN: currentLogin,
       QA_CURRENT_ADMIN_PASSWORD: currentPassword,
+      // Never inherit credentials for an external Admin when using this runner.
+      QA_ADMIN_LOGIN: currentLogin,
+      QA_ADMIN_PASSWORD: currentPassword,
       QA_DATABASE_URL: databaseUrl,
       QA_PENDING_ADMIN_LOGIN: pendingLogin,
       QA_PENDING_ADMIN_PASSWORD: pendingPassword,
@@ -184,11 +193,13 @@ async function main() {
       await database.end();
     }
 
+    await runNode([path.join(process.cwd(), "node_modules", "tsx", "dist", "cli.mjs"), "scripts/qa-admin-data-contract.ts"], qaEnvironment);
     const playwrightCli = path.join(process.cwd(), "node_modules", "@playwright", "test", "cli.js");
     const startedAt = Date.now();
     if (integratedSuite) {
       try {
-        await runNode([playwrightCli, "test", "--reporter=list,json,html"], qaEnvironment);
+        console.log(`QA_SUITE_SCOPE=${grep ? "filtered" : "full"}`);
+        await runNode([playwrightCli, "test", ...(grep ? ["--grep", grep] : []), "--reporter=list,json,html"], qaEnvironment);
       } finally {
         await sanitizeBrowserReport(qaEnvironment.PLAYWRIGHT_JSON_OUTPUT_FILE);
       }

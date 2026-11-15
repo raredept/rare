@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
  * the Admin continues to use the validated server-routed upload endpoint.
  */
 export async function POST() {
-  await requireAdmin();
+  await requireAdmin("commerce.media");
 
   return NextResponse.json(
     {

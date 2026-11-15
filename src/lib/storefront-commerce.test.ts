@@ -24,8 +24,8 @@ describe("storefront commerce communication", () => {
     expect(buildStorefrontCommerceState(true, ["card"]).paymentText).not.toMatch(/Pix/);
     expect(buildStorefrontCommerceState(true, ["pix"]).paymentTitle).toBe("Pix");
     expect(buildStorefrontCommerceState(true, ["card", "pix"]).paymentTitle).toBe("Pix e cartão");
-    expect(getStorefrontCommerceState({ CHECKOUT_ENABLED: "true", STRIPE_PAYMENT_METHOD_TYPES: "card" }).paymentTitle).toBe("Cartão");
-    expect(getStorefrontCommerceState({ CHECKOUT_ENABLED: "true", STRIPE_PAYMENT_METHOD_TYPES: "card,pix" }).paymentTitle).toBe("Pix e cartão");
+    expect(getStorefrontCommerceState({ CHECKOUT_ENABLED: "true", PAYMENT_PROVIDER: "stripe", STRIPE_PAYMENT_METHOD_TYPES: "card" }).paymentTitle).toBe("Pagamento seguro");
+    expect(getStorefrontCommerceState({ CHECKOUT_ENABLED: "true", STRIPE_PAYMENT_METHOD_TYPES: "card,pix" }).paymentTitle).toBe("Pagamento seguro");
     expect(getStorefrontCommerceState({ CHECKOUT_ENABLED: "true" }).paymentText).not.toMatch(/Pix/);
   });
 });

@@ -66,6 +66,13 @@ export default async function CustomerOrderDetailPage({ params }: CustomerOrderD
                 <span>Status</span>
                 <span>{formatOrderStatus(order.status)}</span>
               </div>
+              {order.status === "awaiting_payment" ? (
+                // Coming back from the payment page proves nothing: only the provider's confirmation
+                // (webhook or reconciliation) moves the order to paid.
+                <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+                  Se você acabou de pagar, a confirmação do pagamento pode levar alguns instantes. Atualize esta página em seguida.
+                </p>
+              ) : null}
               <div className="flex justify-between">
                 <span>Pagamento</span>
                 <span>{formatPaymentMethod(order.paymentMethod)}</span>

@@ -3,6 +3,7 @@
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { getCurrentAdmin, setAdminSessionCookie, signAdminSession } from "@/lib/auth";
+import { ADMIN_ROLES } from "@/lib/admin-permissions";
 import { prisma } from "@/lib/prisma";
 
 export type ChangePasswordState = {
@@ -47,7 +48,7 @@ export async function changePasswordAction(
   const result = await prisma.user.updateMany({
     where: {
       id: admin.id,
-      role: "ADMIN",
+      role: { in: [...ADMIN_ROLES] },
       active: true,
       mustChangePassword: true,
     },
@@ -61,7 +62,8 @@ export async function changePasswordAction(
     return { error: "Nao foi possivel atualizar a senha. Entre novamente e tente outra vez." };
   }
 
-  const token = await signAdminSession({ ...admin, mustChangePassword: false, passwordHash });
+  // Keep the second factor verified at login: the password change is not a new MFA check.
+  const token = await signAdminSession({ ...admin, mustChangePassword: false, passwordHash }, { mfaVerifiedAt: admin.mfaVerifiedAt });
   await setAdminSessionCookie(token);
   redirect("/admin?success=password-updated");
 }

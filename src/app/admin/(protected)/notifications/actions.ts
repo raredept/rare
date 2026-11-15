@@ -5,9 +5,10 @@ import { withAdminActionRefresh } from "@/lib/admin-action-refresh";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
+import { parseAdminEntityId } from "@/lib/admin-action-input";
 
 export async function markAllAdminNotificationsReadAction() {
-  await requireAdmin();
+  await requireAdmin("commerce.notifications");
 
   await prisma.adminNotification.updateMany({
     where: { readAt: null },
@@ -20,8 +21,8 @@ export async function markAllAdminNotificationsReadAction() {
 }
 
 export async function markAdminNotificationReadAction(formData: FormData) {
-  await requireAdmin();
-  const id = String(formData.get("id") ?? "");
+  await requireAdmin("commerce.notifications");
+  const id = parseAdminEntityId(formData.get("id"));
 
   if (!id) {
     throw new Error("Notificacao invalida.");

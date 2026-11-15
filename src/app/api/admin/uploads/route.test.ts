@@ -48,6 +48,29 @@ afterEach(() => {
 });
 
 describe("admin uploads route", () => {
+  it.each([undefined, "1"])("cancels an oversized multipart stream with declared length %s", async (length) => {
+    const cancel = vi.fn();
+    const chunk = new Uint8Array(1024 * 1024);
+    const headers = new Headers({ host: "localhost", origin: "http://localhost", "content-type": "multipart/form-data; boundary=qa" });
+    if (length !== undefined) headers.set("content-length", length);
+    const oversized = new Request("http://localhost/api/admin/uploads", {
+      method: "POST", headers,
+      body: new ReadableStream({ pull(controller) { controller.enqueue(chunk); }, cancel }),
+      duplex: "half",
+    } as RequestInit);
+    expect((await POST(oversized as never)).status).toBe(413);
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(routeMocks.saveUploadedImage).not.toHaveBeenCalled();
+  });
+
+  it("rejects unsupported content types before storage", async () => {
+    const invalid = new Request("http://localhost/api/admin/uploads", {
+      method: "POST", headers: { host: "localhost", origin: "http://localhost", "content-type": "text/plain" }, body: "not multipart",
+    });
+    expect((await POST(invalid as never)).status).toBe(415);
+    expect(routeMocks.saveUploadedImage).not.toHaveBeenCalled();
+  });
+
   it("requires an admin session before saving uploaded files", async () => {
     const formData = new FormData();
     formData.append("files", new File([new Uint8Array([1])], "produto.png", { type: "image/png" }));

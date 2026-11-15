@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { formatMoney } from "@/lib/money";
 import { getProductCardMediaPair, type ProductMediaAsset } from "@/lib/product-media";
 import { getAvailableStock } from "@/lib/stock";
 import { ProductCardHoverImage } from "@/components/store/product-card-hover-image";
@@ -8,6 +7,8 @@ import { ProductMediaPlaceholder } from "@/components/store/product-media-placeh
 import { buildStorefrontCommerceState, type StorefrontCommerceState } from "@/lib/storefront-commerce";
 import styles from "./product-card.module.css";
 import { InstallmentTerms } from "@/components/store/installment-terms";
+import { PriceTag, PromotionBadge } from "@/components/store/price-tag";
+import type { ProductPrice } from "@/lib/promotions/engine";
 
 type ProductCardProps = {
   product: {
@@ -19,14 +20,17 @@ type ProductCardProps = {
     subcategory: { name: string } | null;
     images: Array<ProductMediaAsset & { alt: string }>;
     variants: { stock: number; reservedStock: number; active: boolean }[];
+    /** Server-computed price. Absent only for legacy callers: then the catalog price is shown. */
+    pricing?: ProductPrice;
   };
   commerce?: StorefrontCommerceState;
   priority?: boolean;
   /** 3 when the grid sits under a section h2, so the outline nests products under it. */
   headingLevel?: 2 | 3;
+  mediaSizes?: string;
 };
 
-export function ProductCard({ product, commerce, priority = false, headingLevel = 2 }: ProductCardProps) {
+export function ProductCard({ product, commerce, priority = false, headingLevel = 2, mediaSizes }: ProductCardProps) {
   const Title = headingLevel === 3 ? "h3" : "h2";
   const commerceState = commerce ?? buildStorefrontCommerceState(true);
   const { primary: image, hover: hoverImage } = getProductCardMediaPair(product.images);
@@ -35,11 +39,19 @@ export function ProductCard({ product, commerce, priority = false, headingLevel 
     .reduce((sum, variant) => sum + getAvailableStock(variant.stock, variant.reservedStock), 0);
   const soldOut = availableStock <= 0;
   const categoryName = product.subcategory?.name ?? product.category?.name ?? "Produto";
+  const pricing: ProductPrice = product.pricing ?? {
+    basePriceInCents: product.priceInCents,
+    finalPriceInCents: product.priceInCents,
+    discountInCents: 0,
+    percentOff: 0,
+    promotion: null,
+  };
 
   return (
     <article className="group h-full min-w-0">
       <Link
         href={`/produto/${product.slug}`}
+        data-analytics-product={product.id}
         className={`store-product-card flex h-full cursor-pointer flex-col border-b border-neutral-200 bg-transparent pb-4 hover:border-neutral-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 ${styles.card}`}
       >
         <div className="relative aspect-[4/5] overflow-hidden rounded-lg bg-neutral-100">
@@ -49,17 +61,20 @@ export function ProductCard({ product, commerce, priority = false, headingLevel 
               alt={image.alt}
               context="card"
               priority={priority}
+              sizes={mediaSizes}
               placeholderLabel="Mídia indisponível"
               className={`store-product-image h-full w-full object-cover ${styles.image}`}
             />
           ) : (
             <ProductMediaPlaceholder />
           )}
-          {hoverImage ? <ProductCardHoverImage media={hoverImage} /> : null}
+          {hoverImage ? <ProductCardHoverImage media={hoverImage} sizes={mediaSizes} /> : null}
           {soldOut ? (
             <span className="absolute left-3 top-3 rounded-full bg-black px-3 py-1 text-xs font-black uppercase tracking-wide text-white">
               Esgotado
             </span>
+          ) : pricing.promotion ? (
+            <span className="absolute left-3 top-3"><PromotionBadge pricing={pricing} /></span>
           ) : null}
         </div>
         <div className="flex flex-1 flex-col px-0.5 pt-3 sm:pt-4">
@@ -70,13 +85,11 @@ export function ProductCard({ product, commerce, priority = false, headingLevel 
             {product.title}
           </Title>
           <div className="mt-auto flex min-w-0 flex-col gap-1 pt-3">
-            <p className="whitespace-nowrap text-[1rem] font-black leading-tight text-neutral-950 sm:text-lg sm:leading-none">
-              {formatMoney(product.priceInCents)}
-            </p>
+            <PriceTag pricing={pricing} />
             <p className="whitespace-nowrap text-[10px] font-bold uppercase leading-4 tracking-wide text-neutral-500 sm:text-xs">
               {soldOut ? "Esgotado" : commerceState.checkoutEnabled ? "Disponível" : "Consulte disponibilidade"}
             </p>
-            <InstallmentTerms amountInCents={product.priceInCents} checkoutEnabled={commerceState.checkoutEnabled} className="text-xs font-semibold leading-4 text-neutral-600" />
+            <InstallmentTerms amountInCents={pricing.finalPriceInCents} checkoutEnabled={commerceState.checkoutEnabled} className="text-xs font-semibold leading-4 text-neutral-600" />
           </div>
         </div>
       </Link>

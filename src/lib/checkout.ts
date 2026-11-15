@@ -25,9 +25,26 @@ import { checkoutRequestSchema } from "@/lib/validators";
 import { makeOrderNumber } from "@/lib/slug";
 import { canTransitionManually, invalidOrderTransitionMessage, releasableReservationStatuses, shouldReleaseReservationOnStatusChange } from "@/lib/order-status";
 import { notifyAdminsOfPaidOrder } from "@/lib/admin-notifications";
-import { getFirstOrderCouponDiscount, paidOrderStatuses } from "@/lib/coupons";
+import { firstOrderCouponConsumedWhere, getFirstOrderCouponDiscount, paidOrderStatuses } from "@/lib/coupons";
+import { priceProduct } from "@/lib/promotions/engine";
+import { loadApplicablePromotionRules } from "@/lib/promotions/store";
 import { enqueueOrderShippedEmail, enqueuePaidOrderEmail } from "@/lib/email-outbox";
-import { CHECKOUT_RESERVATION_MINUTES, STRIPE_SESSION_FALLBACK_SECONDS } from "@/lib/checkout-policy";
+import { ASAAS_RESERVATION_MINUTES, CHECKOUT_RESERVATION_MINUTES, PIX_PROVIDER_EXPIRY_GRACE_SECONDS, PIX_RESERVATION_MINUTES, STRIPE_SESSION_FALLBACK_SECONDS } from "@/lib/checkout-policy";
+import { createPixPayment, getMercadoPagoConfig, isPixCheckoutAvailable, MercadoPagoError, type MercadoPagoConfig, type MercadoPagoPayment } from "@/lib/mercadopago";
+import {
+  AsaasError,
+  createAsaasCustomer,
+  createAsaasPayment,
+  findAsaasCustomerByReference,
+  getAsaasConfig,
+  getAsaasPixQrCode,
+  refundAsaasPayment,
+  type AsaasConfig,
+  type AsaasPayment,
+} from "@/lib/asaas";
+import { getAsaasConfigurationIssue, getAsaasPaymentMethods, isAsaasSuccessRedirectEnabled } from "@/lib/asaas-config";
+import { getPaymentProvider, type CheckoutMethod } from "@/lib/payment-provider-config";
+import { recordAdminAudit, type AdminAuditActor } from "@/lib/admin-audit";
 
 type CheckoutSessionCreateParams = NonNullable<Parameters<Stripe["checkout"]["sessions"]["create"]>[0]>;
 type CheckoutLineItem = NonNullable<CheckoutSessionCreateParams["line_items"]>[number];
@@ -47,6 +64,9 @@ export const checkoutRequiresLoginMessage = "Para finalizar sua compra, entre ou
 export const checkoutRequiresCpfMessage = "Precisamos de um CPF válido para finalizar sua compra.";
 export const checkoutInProgressMessage = "Você já tem um checkout em andamento. Aguarde alguns instantes e tente novamente.";
 export const paymentInProgressMessage = "Você já tem um pagamento em andamento. Aguarde a confirmação antes de iniciar outra compra.";
+export const pixUnavailableMessage = "O Pix está indisponível no momento. Escolha cartão ou tente novamente em instantes.";
+export const cardUnavailableMessage = "O pagamento com cartão está indisponível no momento. Escolha Pix ou tente novamente em instantes.";
+export const paymentUnavailableMessage = "Pagamentos temporariamente indisponíveis. Tente novamente em alguns minutos.";
 
 type CustomerAddressForCheckout = CheckoutAddressSource & {
   id: string;
@@ -82,6 +102,7 @@ type PaidOrderSource = {
   paymentIntentId?: string | null;
   paymentMethod?: string | null;
   movementReason: string;
+  provider?: "Stripe" | "Mercado Pago" | "Asaas";
 };
 
 function toAbsoluteUrl(url?: string | null) {
@@ -228,7 +249,7 @@ async function finalizePaidOrder(
   source: PaidOrderSource,
 ) {
   if (source.currency !== "brl" || source.amountInCents !== order.totalInCents) {
-    throw new Error(`Stripe payment total does not match order ${order.orderNumber}.`);
+    throw new Error(`${source.provider ?? "Stripe"} payment total does not match order ${order.orderNumber}.`);
   }
   if (order.stripePaymentIntentId && source.paymentIntentId !== order.stripePaymentIntentId) {
     throw new Error(`Stripe PaymentIntent does not match order ${order.orderNumber}.`);
@@ -426,15 +447,15 @@ async function releaseOrderReservation(
 export async function supersedeOpenCheckouts(customerId: string, now = new Date()) {
   const open = await prisma.order.findMany({
     where: { customerId, status: "awaiting_payment", reservationExpiresAt: { not: null } },
-    select: { id: true, createdAt: true, stripeCheckoutSessionId: true },
+    select: { id: true, createdAt: true, stripeCheckoutSessionId: true, mercadoPagoPaymentId: true, asaasPaymentId: true },
     take: 10,
   });
   if (!open.length) return;
 
   const { reconcileCheckoutExpiry } = await import("@/lib/checkout-expiry");
   for (const order of open) {
-    // Session creation may still be in flight (the Stripe call happens after the order is stored).
-    if (!order.stripeCheckoutSessionId && now.getTime() - order.createdAt.getTime() < 120_000) {
+    // Creation may still be in flight (the provider call happens after the order is stored).
+    if (!order.stripeCheckoutSessionId && !order.mercadoPagoPaymentId && !order.asaasPaymentId && now.getTime() - order.createdAt.getTime() < 120_000) {
       throw new Error(checkoutInProgressMessage);
     }
     let outcome: string;
@@ -453,14 +474,20 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
   }
 
   const parsed = checkoutRequestSchema.parse(input);
-  // Validate configuration before reserving stock.
-  const paymentMethodTypes = normalizePaymentMethodTypes();
+  // Validate configuration before reserving stock. The gateway for NEW payments comes from
+  // PAYMENT_PROVIDER; nothing in the request chooses it.
+  const provider = getPaymentProvider();
+  if (provider === "disabled") throw new Error(paymentUnavailableMessage);
+  const method: CheckoutMethod = parsed.paymentMethod === "pix" ? "pix" : "card";
+  const asaasConfig = provider === "asaas" ? requireAsaasCheckout(method) : null;
+  const pixConfig = !asaasConfig && method === "pix" ? requirePixCheckout() : null;
+  const paymentMethodTypes = asaasConfig || pixConfig ? null : normalizePaymentMethodTypes();
   const appUrl = getAppUrl();
   const items = consolidateItems(parsed.items);
   let stripeShippingOption: ShippingOption | null = null;
 
   const settings = await getStoreSettings();
-  const reservationMinutes = CHECKOUT_RESERVATION_MINUTES;
+  const reservationMinutes = asaasConfig ? ASAAS_RESERVATION_MINUTES : pixConfig ? PIX_RESERVATION_MINUTES : CHECKOUT_RESERVATION_MINUTES;
   const reservationExpiresAt = new Date(Date.now() + reservationMinutes * 60 * 1000);
   const checkoutCustomer = await prisma.customer.findFirst({
     where: {
@@ -485,14 +512,14 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
   }
 
   await supersedeOpenCheckouts(checkoutCustomer.id);
+  // Network call BEFORE any stock is reserved: a provider failure here holds nothing.
+  const asaasCustomerId = asaasConfig
+    ? await ensureAsaasCustomer(asaasConfig, { ...checkoutCustomer, cpf: checkoutCustomer.cpf as string })
+    : null;
 
+  // Any order whose payment was ever confirmed consumes the first-order coupon, refunded or not.
   const paidOrderCount = parsed.couponCode
-    ? await prisma.order.count({
-        where: {
-          customerId: checkoutCustomer.id,
-          status: { in: [...paidOrderStatuses] },
-        },
-      })
+    ? await prisma.order.count({ where: firstOrderCouponConsumedWhere(checkoutCustomer.id) })
     : 0;
 
   const customerAddresses: CustomerAddressForCheckout[] = await prisma.customerAddress.findMany({
@@ -543,6 +570,10 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
     });
 
     const variantsById = new Map(variants.map((variant) => [variant.id, variant]));
+    // Prices come only from the catalog and the promotions active at this instant, read inside
+    // the same transaction. Nothing price-related in the request body is used.
+    const pricingNow = new Date();
+    const promotionRules = await loadApplicablePromotionRules(tx, pricingNow);
     const orderItems = items.map((item) => {
       const variant = variantsById.get(item.variantId);
       if (!variant) {
@@ -553,24 +584,37 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
         throw new Error("Produto indisponível.");
       }
 
-      const totalInCents = variant.product.priceInCents * item.quantity;
+      const price = priceProduct(promotionRules, variant.product, pricingNow);
+      const totalInCents = price.finalPriceInCents * item.quantity;
       return {
         productId: variant.productId,
         productTitleSnapshot: variant.product.title,
         variantId: variant.id,
         sizeSnapshot: variant.size,
         quantity: item.quantity,
-        unitPriceInCents: variant.product.priceInCents,
+        unitPriceInCents: price.finalPriceInCents,
         totalInCents,
+        // Self-contained audit trail: the order stays readable if the promotion changes later.
+        basePriceInCents: price.basePriceInCents,
+        promotionId: price.promotion?.id ?? null,
+        promotionName: price.promotion?.name ?? null,
+        promotionCode: price.promotion?.slug ?? null,
+        promotionDiscountInCents: price.discountInCents,
       };
     });
 
     const subtotalInCents = orderItems.reduce((sum, item) => sum + item.totalInCents, 0);
-    const coupon = getFirstOrderCouponDiscount({
+    const promotionDiscountInCents = orderItems.reduce((sum, item) => sum + item.promotionDiscountInCents * item.quantity, 0);
+    // Stacking policy: the first-order coupon applies only to items WITHOUT an automatic
+    // promotion. With nothing eligible, the coupon is simply not applied (not an error).
+    const couponEligibleSubtotalInCents = orderItems.filter((item) => !item.promotionId).reduce((sum, item) => sum + item.totalInCents, 0);
+    // The code is still validated (invalid / not first purchase -> error) even when nothing is eligible.
+    const requestedCoupon = getFirstOrderCouponDiscount({
       code: parsed.couponCode,
-      subtotalInCents,
+      subtotalInCents: couponEligibleSubtotalInCents,
       paidOrderCount,
     });
+    const coupon = couponEligibleSubtotalInCents > 0 ? requestedCoupon : { code: null, discountInCents: 0 };
     const quoteEnabled = isShippingEnabled(settings);
     const shipping = quoteEnabled
       ? await (async () => {
@@ -593,7 +637,7 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
                 lengthCm: variant.product.lengthCm,
                 widthCm: variant.product.widthCm,
                 heightCm: variant.product.heightCm,
-                priceInCents: variant.product.priceInCents,
+                priceInCents: orderItems.find((orderItem) => orderItem.variantId === variant.id)?.unitPriceInCents ?? variant.product.priceInCents,
               };
             }),
           );
@@ -652,12 +696,16 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
         subtotalInCents,
         couponCode: coupon.code,
         discountInCents: coupon.discountInCents,
+        promotionDiscountInCents,
         shippingInCents: shipping.shippingInCents,
         shippingMethodSnapshot: shipping.shippingMethod,
         shippingCepSnapshot: shipping.shippingCep,
         shippingQuoteSnapshot: shipping.shippingQuoteSnapshot as Prisma.InputJsonObject | undefined,
         totalInCents: subtotalInCents - coupon.discountInCents + shipping.shippingInCents,
         status: "awaiting_payment",
+        ...(asaasConfig
+          ? { paymentProvider: "asaas" as const, paymentMethod: method }
+          : pixConfig ? { paymentProvider: "mercadopago" as const, paymentMethod: "pix" } : {}),
         reservationExpiresAt,
         checkoutDeadlineAt: reservationExpiresAt,
         checkoutExpiryJob: { create: { deadlineAt: reservationExpiresAt, nextAttemptAt: reservationExpiresAt } },
@@ -709,6 +757,13 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
       },
     });
   }, { timeout: 45_000 });
+
+  if (asaasConfig && asaasCustomerId) {
+    return createAsaasCharge(asaasConfig, order, asaasCustomerId, method, reservationExpiresAt, appUrl);
+  }
+  if (pixConfig) {
+    return createPixCharge(pixConfig, order, { ...checkoutCustomer, cpf: checkoutCustomer.cpf as string }, reservationExpiresAt, appUrl);
+  }
 
   const orderDiscountInCents = order.discountInCents ?? 0;
   const lineItems: CheckoutLineItem[] =
@@ -861,6 +916,390 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
 
     throw error;
   }
+}
+
+function requireAsaasCheckout(method: CheckoutMethod): AsaasConfig {
+  if (getAsaasConfigurationIssue()) throw new Error(paymentUnavailableMessage);
+  if (!getAsaasPaymentMethods().includes(method)) throw new Error(method === "pix" ? pixUnavailableMessage : cardUnavailableMessage);
+  return getAsaasConfig();
+}
+
+/**
+ * The Asaas customer of this shopper: the stored id, else one found by our customer id (a previous
+ * creation whose response was lost), else a new one. Never an id sent by the browser, and never a
+ * second customer per checkout attempt.
+ */
+async function ensureAsaasCustomer(config: AsaasConfig, customer: { id: string; name: string; email: string; cpf: string }) {
+  const stored = await prisma.customer.findUnique({ where: { id: customer.id }, select: { asaasCustomerId: true } });
+  if (stored?.asaasCustomerId) return stored.asaasCustomerId;
+  const asaasCustomerId = (await findAsaasCustomerByReference(config, customer.id))
+    ?? (await createAsaasCustomer(config, { reference: customer.id, name: customer.name, cpf: customer.cpf, email: customer.email }));
+  await prisma.customer.updateMany({ where: { id: customer.id, asaasCustomerId: null }, data: { asaasCustomerId } });
+  return asaasCustomerId;
+}
+
+/**
+ * Second half of an Asaas checkout: the order and its reservation exist, priced by the server.
+ * Creates the charge for exactly that total. Pix is paid on the store's own page (QR + copy and
+ * paste); card on Asaas's hosted invoice, so no card number ever reaches the store.
+ */
+async function createAsaasCharge(
+  config: AsaasConfig,
+  order: { id: string; orderNumber: string; totalInCents: number },
+  customerId: string,
+  method: CheckoutMethod,
+  reservationExpiresAt: Date,
+  appUrl: string,
+) {
+  let paymentId: string | null = null;
+  try {
+    const payment = await createAsaasPayment(config, {
+      customerId,
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      totalInCents: order.totalInCents,
+      method,
+      dueDate: reservationExpiresAt,
+      // /pedido/sucesso only understands Stripe sessions; the shopper's own order page (signed-in,
+      // scoped to the customer) shows this order and its live status.
+      successUrl: isAsaasSuccessRedirectEnabled() ? `${appUrl}/minha-conta/pedidos/${encodeURIComponent(order.id)}` : undefined,
+    });
+    paymentId = payment.id;
+    // Store the id before anything else can fail, so the worker can always find and close it.
+    await prisma.order.update({ where: { id: order.id }, data: { asaasPaymentId: payment.id, paymentUrl: method === "card" ? payment.invoiceUrl : null } });
+    // Never show a charge for anything other than this order's total and method.
+    if (
+      payment.externalReference !== order.id ||
+      payment.amountInCents !== order.totalInCents ||
+      payment.customerId !== customerId ||
+      payment.billingType !== (method === "pix" ? "PIX" : "CREDIT_CARD")
+    ) {
+      throw new AsaasError("unknown", "AsaasChargeMismatch");
+    }
+    if (method === "pix") {
+      const pix = await getAsaasPixQrCode(config, payment.id);
+      await prisma.pixCharge.upsert({
+        where: { orderId: order.id },
+        create: { orderId: order.id, copyPaste: pix.copyPaste, qrCodeBase64: pix.qrCodeBase64, ticketUrl: payment.invoiceUrl },
+        update: { copyPaste: pix.copyPaste, qrCodeBase64: pix.qrCodeBase64, ticketUrl: payment.invoiceUrl },
+      });
+      return { url: `/pedido/pix/${order.id}`, orderId: order.id, orderNumber: order.orderNumber, checkoutDeadlineAt: reservationExpiresAt.toISOString() };
+    }
+    if (!payment.invoiceUrl) throw new AsaasError("unknown", "AsaasInvoiceUrlMissing");
+    return { url: payment.invoiceUrl, orderId: order.id, orderNumber: order.orderNumber, checkoutDeadlineAt: reservationExpiresAt.toISOString() };
+  } catch (error) {
+    // Only a refusal before any charge exists frees the stock now. Anything else may have left a
+    // payable charge behind: the reservation stays and the worker closes the charge at Asaas first.
+    if (!paymentId && error instanceof AsaasError && error.outcome === "rejected") {
+      await prisma.$transaction(async (tx) => {
+        const freshOrder = await tx.order.findUnique({ where: { id: order.id }, include: { items: true } });
+        if (freshOrder) await releaseOrderReservation(tx, freshOrder.id, freshOrder.items, "failed", "Falha ao criar a cobrança no Asaas");
+      });
+    }
+    throw error;
+  }
+}
+
+export type AsaasPaymentOutcome = "paid" | "pending" | "processing" | "closed" | "refunded" | "refund_pending" | "chargeback" | "unknown";
+
+/** Maps Asaas payment states to what the store does. Asaas states are never stored as order states. */
+export function classifyAsaasPayment(payment: Pick<AsaasPayment, "status" | "deleted">): AsaasPaymentOutcome {
+  if (payment.deleted) return "closed";
+  switch (payment.status) {
+    case "CONFIRMED": // card authorized / Pix confirmed (may still be RECEIVED or REFUNDED later)
+    case "RECEIVED":
+    case "RECEIVED_IN_CASH":
+      return "paid";
+    case "PENDING":
+    case "OVERDUE":
+    case "DUNNING_REQUESTED":
+    case "DUNNING_RECEIVED":
+      return "pending";
+    case "AWAITING_RISK_ANALYSIS":
+    case "AUTHORIZED":
+      return "processing";
+    case "REFUNDED":
+      return "refunded";
+    case "REFUND_REQUESTED":
+    case "REFUND_IN_PROGRESS":
+      return "refund_pending";
+    case "CHARGEBACK_REQUESTED":
+    case "CHARGEBACK_DISPUTE":
+    case "AWAITING_CHARGEBACK_REVERSAL":
+      return "chargeback";
+    default:
+      return "unknown";
+  }
+}
+
+async function flagOrderIncident(tx: Prisma.TransactionClient, order: { id: string; orderNumber: string }, kind: string, title: string, body: string) {
+  await tx.adminNotification.createMany({
+    data: [{ type: `payment_${kind}`, title, body, href: `/admin/orders/${order.id}`, orderId: order.id, dedupeKey: `asaas:${kind}:${order.id}` }],
+    skipDuplicates: true,
+  });
+}
+
+/**
+ * Applies the AUTHORITATIVE state of an Asaas charge (always read from the API, never taken from a
+ * webhook body) to its order. Idempotent and order-independent: the order row lock serializes
+ * concurrent deliveries, a paid order is never paid twice, and a state never moves backwards
+ * (paid -> pending, refunded -> paid are impossible).
+ */
+export async function processAsaasPayment(payment: AsaasPayment) {
+  const result = await prisma.$transaction(async (tx) => {
+    const candidate = await tx.order.findFirst({
+      where: { OR: [{ asaasPaymentId: payment.id }, ...(payment.externalReference ? [{ id: payment.externalReference }] : [])] },
+      select: { id: true },
+    });
+    if (!candidate) return { status: "order_not_found" as const };
+
+    const order = await lockOrder(tx, candidate.id);
+    if (order.paymentProvider !== "asaas" || payment.externalReference !== order.id || (order.asaasPaymentId && order.asaasPaymentId !== payment.id)) {
+      await flagOrderIncident(tx, order, "mismatch", `Cobrança Asaas não confere: ${order.orderNumber}`, "Uma cobrança Asaas apontou para este pedido mas não corresponde ao pedido. Nada foi alterado. Verifique no painel do Asaas.");
+      return { status: "payment_mismatch" as const };
+    }
+    // A charge can carry our reference but belong to another customer. Verify the stored
+    // customer mapping before binding an id or applying ANY payment/stock state.
+    const customer = order.customerId
+      ? await tx.customer.findUnique({ where: { id: order.customerId }, select: { asaasCustomerId: true } })
+      : null;
+    if (!customer?.asaasCustomerId || payment.customerId !== customer.asaasCustomerId) {
+      await flagOrderIncident(tx, order, "mismatch", `Cliente Asaas não confere: ${order.orderNumber}`, "A cobrança Asaas não corresponde ao cliente vinculado ao pedido. Nada foi alterado. Verifique no painel do Asaas.");
+      return { status: "payment_mismatch" as const };
+    }
+    if (!order.asaasPaymentId) await tx.order.update({ where: { id: order.id }, data: { asaasPaymentId: payment.id } });
+
+    const outcome = classifyAsaasPayment(payment);
+    if (outcome === "paid") {
+      const expectedBillingType = order.paymentMethod === "pix" ? "PIX" : "CREDIT_CARD";
+      if (payment.amountInCents !== order.totalInCents || (payment.billingType && payment.billingType !== expectedBillingType && payment.status !== "RECEIVED_IN_CASH")) {
+        // Never mark paid on a divergent value: record the incident and keep the order as it is.
+        await flagOrderIncident(tx, order, "mismatch", `Pagamento divergente: ${order.orderNumber}`, "O Asaas confirmou um pagamento com valor ou forma diferente do pedido. O pedido NÃO foi marcado como pago.");
+        return { status: "payment_mismatch" as const };
+      }
+      const paid = await finalizePaidOrder(tx, order, {
+        amountInCents: payment.amountInCents,
+        currency: "brl",
+        paymentMethod: order.paymentMethod,
+        movementReason: "Pagamento confirmado pelo Asaas",
+        provider: "Asaas",
+      });
+      // Asaas: a Pix in CONFIRMED (not RECEIVED) is under a precautionary hold of up to 72h and
+      // may still end REFUNDED. The stock stays committed, but nobody should ship it yet.
+      if (payment.billingType === "PIX" && payment.status === "CONFIRMED") {
+        await flagOrderIncident(tx, order, "pix_held", `Pix em análise: ${order.orderNumber}`, "O Asaas confirmou o Pix, mas o valor ainda está em bloqueio cautelar (até 72h). Não envie o pedido até o status mudar para recebido.");
+      }
+      return paid;
+    }
+
+    if (outcome === "closed") {
+      const released = await releaseOrderReservation(tx, order.id, order.items, "canceled", "Cobrança Asaas encerrada sem pagamento");
+      if (released) await tx.order.update({ where: { id: order.id }, data: { checkoutExpiredAt: new Date() } });
+      return { status: released ? "released" as const : "ignored" as const };
+    }
+
+    if (outcome === "refunded") {
+      if ((paidOrderStatuses as readonly string[]).includes(order.status)) {
+        // Stock is not put back automatically: a refunded item may not have returned. The Admin
+        // adjusts stock when (and if) the piece comes back.
+        await tx.order.update({ where: { id: order.id }, data: { status: "refunded" } });
+        await flagOrderIncident(tx, order, "refunded", `Pedido estornado: ${order.orderNumber}`, "O Asaas confirmou o estorno. Se a peça voltar ao estoque, ajuste o estoque manualmente.");
+        return { status: "refunded" as const };
+      }
+      const released = await releaseOrderReservation(tx, order.id, order.items, "canceled", "Pagamento Asaas estornado antes da confirmação");
+      return { status: released ? "released" as const : "ignored" as const };
+    }
+
+    if (outcome === "chargeback") {
+      await flagOrderIncident(tx, order, "chargeback", `Chargeback aberto: ${order.orderNumber}`, "O comprador contestou o pagamento no cartão. Acompanhe a disputa no painel do Asaas antes de enviar.");
+      return { status: "chargeback" as const };
+    }
+
+    if (outcome === "processing" && releasableReservationStatuses.includes(order.status)) {
+      // Risk analysis / authorization in progress: keep the stock until a final state arrives.
+      await tx.order.update({ where: { id: order.id }, data: { reservationExpiresAt: null } });
+      return { status: "processing" as const };
+    }
+
+    return { status: "ignored" as const };
+  });
+
+  await notifyPaidOrderIfNeeded(result);
+  return result;
+}
+
+/** Frees the stock of an Asaas order for which no charge exists at Asaas. */
+export async function releaseAsaasOrderWithoutPayment(orderId: string) {
+  return prisma.$transaction(async (tx) => {
+    const order = await lockOrder(tx, orderId);
+    if (order.paymentProvider !== "asaas" || order.asaasPaymentId) return false;
+    const released = await releaseOrderReservation(tx, order.id, order.items, "canceled", "Cobrança não chegou a ser criada no Asaas");
+    if (released) await tx.order.update({ where: { id: order.id }, data: { checkoutExpiredAt: new Date() } });
+    return released;
+  });
+}
+
+export const refundableOrderStatuses: OrderStatus[] = ["paid", "processing", "shipped", "delivered"];
+
+/**
+ * Full refund of a paid Asaas order, requested by an Admin. Claimed once (refundRequestedAt), so a
+ * double click or two Admins cannot refund twice. The order becomes "refunded" only when Asaas
+ * confirms it (webhook / reconciliation), never just because it was requested.
+ */
+export async function requestAsaasRefund(orderId: string, actor: AdminAuditActor) {
+  const order = await prisma.order.findUnique({ where: { id: orderId }, select: { id: true, orderNumber: true, status: true, paymentProvider: true, asaasPaymentId: true, refundRequestedAt: true } });
+  if (!order || order.paymentProvider !== "asaas" || !order.asaasPaymentId) return { status: "not_refundable" as const };
+  if (!refundableOrderStatuses.includes(order.status)) return { status: "not_refundable" as const };
+  const claimed = await prisma.order.updateMany({
+    where: { id: order.id, refundRequestedAt: null, status: { in: refundableOrderStatuses } },
+    data: { refundRequestedAt: new Date() },
+  });
+  if (claimed.count !== 1) return { status: "already_requested" as const };
+  try {
+    await refundAsaasPayment(getAsaasConfig(), order.asaasPaymentId, `Estorno do pedido ${order.orderNumber}`);
+  } catch (error) {
+    if (error instanceof AsaasError && error.outcome === "rejected") {
+      await prisma.order.updateMany({ where: { id: order.id }, data: { refundRequestedAt: null } });
+      return { status: "rejected" as const, code: error.code };
+    }
+    // Unknown outcome: keep the claim (the refund may exist) and let a person check at Asaas.
+    await recordAdminAudit(prisma, { actor, action: "order.refund_unconfirmed", entityType: "Order", entityId: order.id, after: { orderNumber: order.orderNumber } });
+    return { status: "unknown" as const };
+  }
+  await recordAdminAudit(prisma, { actor, action: "order.refund_requested", entityType: "Order", entityId: order.id, after: { orderNumber: order.orderNumber, provider: "asaas" } });
+  return { status: "requested" as const };
+}
+
+function requirePixCheckout(): MercadoPagoConfig {
+  if (!isPixCheckoutAvailable()) throw new Error(pixUnavailableMessage);
+  return getMercadoPagoConfig();
+}
+
+/**
+ * Second half of a Pix checkout: the order and its stock reservation already exist, priced by
+ * the server. Creates the Pix at Mercado Pago for exactly that total and stores what the
+ * shopper needs to pay it.
+ */
+async function createPixCharge(
+  config: MercadoPagoConfig,
+  order: { id: string; orderNumber: string; totalInCents: number; customerEmailSnapshot: string | null; customerNameSnapshot: string | null },
+  customer: { email: string; name: string; cpf: string },
+  reservationExpiresAt: Date,
+  appUrl: string,
+) {
+  try {
+    const payment = await createPixPayment(config, {
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      totalInCents: order.totalInCents,
+      providerExpiresAt: new Date(reservationExpiresAt.getTime() + PIX_PROVIDER_EXPIRY_GRACE_SECONDS * 1000),
+      payer: { email: order.customerEmailSnapshot ?? customer.email, name: order.customerNameSnapshot ?? customer.name, cpf: customer.cpf },
+      notificationUrl: `${appUrl}/api/mercadopago/webhook`,
+    });
+    // Never show a code that charges anything other than this order's total. The reservation
+    // stays in place and the worker closes the stray payment at Mercado Pago before releasing it.
+    if (payment.amountInCents !== order.totalInCents || payment.currency !== "brl" || payment.externalReference !== order.id || payment.paymentMethodId !== "pix") {
+      throw new MercadoPagoError("unknown", "MercadoPagoPixMismatch");
+    }
+    await prisma.$transaction([
+      prisma.order.update({ where: { id: order.id }, data: { mercadoPagoPaymentId: payment.id } }),
+      prisma.pixCharge.upsert({
+        where: { orderId: order.id },
+        create: { orderId: order.id, copyPaste: payment.pix.copyPaste, qrCodeBase64: payment.pix.qrCodeBase64, ticketUrl: payment.pix.ticketUrl },
+        update: { copyPaste: payment.pix.copyPaste, qrCodeBase64: payment.pix.qrCodeBase64, ticketUrl: payment.pix.ticketUrl },
+      }),
+    ]);
+
+    return {
+      url: `/pedido/pix/${order.id}`,
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      checkoutDeadlineAt: reservationExpiresAt.toISOString(),
+    };
+  } catch (error) {
+    // "rejected" means Mercado Pago created nothing, so the stock goes back now. Any other
+    // failure may have left a payable Pix behind: keep the reservation for the worker.
+    if (error instanceof MercadoPagoError && error.outcome === "rejected") {
+      await prisma.$transaction(async (tx) => {
+        const freshOrder = await tx.order.findUnique({ where: { id: order.id }, include: { items: true } });
+        if (freshOrder) {
+          await releaseOrderReservation(tx, freshOrder.id, freshOrder.items, "failed", "Falha ao criar o Pix no Mercado Pago");
+        }
+      });
+    }
+    throw error;
+  }
+}
+
+/**
+ * Applies the authoritative state of a Mercado Pago payment (always read from the API, never
+ * taken from a notification body) to its order. Idempotent: the order row lock serializes
+ * concurrent notifications and a paid order is never paid twice.
+ */
+export async function processMercadoPagoPayment(payment: MercadoPagoPayment) {
+  const result = await prisma.$transaction(async (tx) => {
+    const candidate = await tx.order.findFirst({
+      where: {
+        OR: [
+          { mercadoPagoPaymentId: payment.id },
+          ...(payment.externalReference ? [{ id: payment.externalReference }] : []),
+        ],
+      },
+      select: { id: true },
+    });
+    if (!candidate) return { status: "order_not_found" as const };
+
+    const order = await lockOrder(tx, candidate.id);
+    if (
+      order.paymentProvider !== "mercadopago" ||
+      payment.externalReference !== order.id ||
+      (order.mercadoPagoPaymentId && order.mercadoPagoPaymentId !== payment.id)
+    ) {
+      throw new Error(`Mercado Pago payment does not match order ${order.orderNumber}.`);
+    }
+    if (!order.mercadoPagoPaymentId) {
+      await tx.order.update({ where: { id: order.id }, data: { mercadoPagoPaymentId: payment.id } });
+    }
+
+    if (payment.status === "approved") {
+      if (payment.paymentMethodId !== "pix") {
+        throw new Error(`Mercado Pago payment method does not match order ${order.orderNumber}.`);
+      }
+      return finalizePaidOrder(tx, order, {
+        amountInCents: payment.amountInCents,
+        currency: payment.currency,
+        paymentMethod: "pix",
+        movementReason: "Pagamento Pix confirmado pelo Mercado Pago",
+        provider: "Mercado Pago",
+      });
+    }
+
+    if (payment.status === "cancelled" || payment.status === "rejected") {
+      const released = await releaseOrderReservation(
+        tx, order.id, order.items, "canceled",
+        payment.status === "cancelled" ? "Pix encerrado sem pagamento" : "Pix recusado pelo Mercado Pago",
+      );
+      if (released) await tx.order.update({ where: { id: order.id }, data: { checkoutExpiredAt: new Date() } });
+      return { status: released ? "released" as const : "ignored" as const };
+    }
+
+    // pending, in_process, refunded, charged_back...: nothing to apply here.
+    return { status: "ignored" as const };
+  });
+
+  await notifyPaidOrderIfNeeded(result);
+  return result;
+}
+
+/** Frees the stock of a Pix order for which Mercado Pago has no payment at all. */
+export async function releasePixOrderWithoutPayment(orderId: string) {
+  return prisma.$transaction(async (tx) => {
+    const order = await lockOrder(tx, orderId);
+    if (order.paymentProvider !== "mercadopago" || order.mercadoPagoPaymentId) return false;
+    const released = await releaseOrderReservation(tx, order.id, order.items, "canceled", "Pix não chegou a ser criado no Mercado Pago");
+    if (released) await tx.order.update({ where: { id: order.id }, data: { checkoutExpiredAt: new Date() } });
+    return released;
+  });
 }
 
 export async function processStripeCheckoutEvent(eventId: string, eventType: string, session: Stripe.Checkout.Session) {

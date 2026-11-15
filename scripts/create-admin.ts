@@ -6,11 +6,15 @@ import { getDatabaseUrl, isProductionEnv } from "../src/lib/env";
 
 const email = process.env.ADMIN_EMAIL ?? "";
 const password = process.env.ADMIN_PASSWORD ?? "";
+// Only applied when the account is created; existing accounts change role in /admin/users (a user
+// manager, audited), which never leaves the store without an active user manager.
+const role = process.env.ADMIN_ROLE?.trim() || "SYSTEM_ADMIN";
 
 const blockedPasswords = new Set(["change-me-before-production", "change-me", "password", "admin123", "12345678"]);
 
 function validateAdminInput() {
   if (!email || !password) throw new Error("ADMIN_EMAIL and ADMIN_PASSWORD are required.");
+  if (role !== "SYSTEM_ADMIN" && role !== "SELLER_ADMIN") throw new Error("ADMIN_ROLE must be SYSTEM_ADMIN or SELLER_ADMIN.");
   if (password.length < 8) throw new Error("ADMIN_PASSWORD must have at least 8 characters.");
 
   if (blockedPasswords.has(password.toLowerCase())) {
@@ -41,14 +45,16 @@ async function main() {
     update: {
       passwordHash,
       active: true,
-      role: "ADMIN",
     },
+    // The bootstrap password is a one-time credential: the first login enrols MFA and then replaces
+    // it (/admin/change-password), like accounts created in /admin/users.
     create: {
       name: "Administrador",
       email,
       passwordHash,
-      role: "ADMIN",
+      role: role as "SYSTEM_ADMIN" | "SELLER_ADMIN",
       active: true,
+      mustChangePassword: true,
     },
   });
 

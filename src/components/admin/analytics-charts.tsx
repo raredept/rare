@@ -159,6 +159,11 @@ export function OrdersTrendChart({ points }: { points: SeriesPoint[] }) {
   );
 }
 
+/** Any daily count (page views, sessions): integer axis, the orders hue. */
+export function CountTrendChart({ points, ariaLabel }: { points: SeriesPoint[]; ariaLabel: string }) {
+  return <TrendChart points={points} hue={ORDERS_HUE} formatValue={(value) => formatInteger(Math.round(value))} ariaLabel={ariaLabel} />;
+}
+
 export type MagnitudeRow = {
   id: string;
   label: string;

@@ -155,4 +155,64 @@ describe("proxy public catalog 404 handling", () => {
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toContain("/admin/login");
   });
+
+  describe("Admin MFA enforcement at the edge", () => {
+    const originalRequired = process.env.ADMIN_MFA_REQUIRED;
+    afterEach(() => {
+      if (originalRequired === undefined) delete process.env.ADMIN_MFA_REQUIRED;
+      else process.env.ADMIN_MFA_REQUIRED = originalRequired;
+    });
+
+    async function adminToken(claims: Record<string, unknown>) {
+      return new SignJWT({ role: "ADMIN", credentialVersion: "c", sessionVersion: 0, email: "a@rare.test", ...claims })
+        .setProtectedHeader({ alg: "HS256" })
+        .setSubject("admin_1")
+        .setExpirationTime("1h")
+        .sign(new TextEncoder().encode(process.env.ADMIN_SESSION_SECRET));
+    }
+
+    it("redirects a password-only Admin session when MFA is required", async () => {
+      process.env.ADMIN_MFA_REQUIRED = "true";
+      const token = await adminToken({ mfa: false });
+      const response = await proxy(request("/admin/orders", { headers: { cookie: `rare_admin_session=${token}` } }));
+      expect(response.status).toBe(307);
+      expect(response.headers.get("location")).toContain("/admin/login");
+    });
+
+    it("answers 401 to an Admin API call carrying a password-only session", async () => {
+      process.env.ADMIN_MFA_REQUIRED = "true";
+      const token = await adminToken({});
+      const response = await proxy(request("/api/admin/uploads", { method: "POST", headers: { cookie: `rare_admin_session=${token}` } }));
+      expect(response.status).toBe(401);
+    });
+
+    it("lets an MFA-verified session through", async () => {
+      process.env.ADMIN_MFA_REQUIRED = "true";
+      const token = await adminToken({ typ: "admin", mfa: true, mfaAt: 1 });
+      const response = await proxy(request("/admin/orders", { headers: { cookie: `rare_admin_session=${token}` } }));
+      expect(response.status).toBe(200);
+    });
+
+    it("never treats the pending MFA credential as an Admin session", async () => {
+      process.env.ADMIN_MFA_REQUIRED = "true";
+      const token = await new SignJWT({ typ: "admin_mfa_pending", credentialVersion: "c", sessionVersion: 0 })
+        .setProtectedHeader({ alg: "HS256" }).setSubject("admin_1").setExpirationTime("10m")
+        .sign(new TextEncoder().encode(process.env.ADMIN_SESSION_SECRET));
+      const response = await proxy(request("/admin", { headers: { cookie: `rare_admin_session=${token}` } }));
+      expect(response.status).toBe(307);
+    });
+
+    it("keeps the MFA pages reachable for the page-level pending check, and nothing else", async () => {
+      process.env.ADMIN_MFA_REQUIRED = "true";
+      for (const path of ["/admin/mfa", "/admin/mfa/setup", "/admin/login"]) {
+        const response = await proxy(request(path));
+        expect(response.status).toBe(200);
+      }
+      for (const path of ["/admin/mfa/../orders", "/admin/mfa/extra", "/admin/mfax", "/admin/security"]) {
+        const response = await proxy(request(path));
+        expect(response.status).toBe(307);
+      }
+    });
+  });
 });
+
