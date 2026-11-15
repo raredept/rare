@@ -1,12 +1,14 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import { randomBytes } from "node:crypto";
-import { acceptDialogs, attachDiagnostics, cookieHeader, enrollAdmin, labBaseUrl, labContextOptions, rawFetch, requireEnv } from "./lab-helpers";
+import { acceptDialogs, attachDiagnostics, completeFirstAccess, cookieHeader, enrollAdmin, expectKeyboardReaches, headingAndOverflow, labBaseUrl, labContextOptions, rawFetch, requireEnv } from "./lab-helpers";
 
 // RARE-PRE-LAUNCH-04: the two scoped roles on the REAL staging (no database access from the test).
 // Needs two brand-new QA accounts created in /admin/users (SYSTEM_ADMIN and SELLER_ADMIN, never
 // used): the spec enrolls their MFA through the UI, so it runs once per pair of accounts. Then it
 // proves, per role: navigation, direct URL, Admin API and a replayed Server Action of the other
-// role, and that the replayed mutation changed nothing. Opt-in: STAGING_RBAC=1.
+// role, and that the replayed mutation changed nothing. Then the Admin screens of both roles across
+// 10 widths with axe, and the keyboard, in any project (WebKit: --project=webkit). Opt-in: STAGING_RBAC=1.
 //   STAGING_RBAC=1 PLAYWRIGHT_BASE_URL=<staging> QA_MFA_E_LOGIN/QA_MFA_E_PASSWORD (SYSTEM_ADMIN)
 //   QA_MFA_F_LOGIN/QA_MFA_F_PASSWORD (SELLER_ADMIN) + the staging gate (railway run).
 
@@ -28,6 +30,8 @@ async function signIn(browser: Browser, key: "E" | "F"): Promise<Session> {
   await acceptDialogs(page);
   await enrollAdmin(page, requireEnv(`QA_MFA_${key}_LOGIN`), requireEnv(`QA_MFA_${key}_PASSWORD`), new Set());
   await page.getByRole("link", { name: "Já guardei, continuar" }).click();
+  // Accounts created in /admin/users must replace their temporary password after enrolling MFA.
+  await completeFirstAccess(page);
   return { context, page };
 }
 
@@ -126,4 +130,53 @@ test("Server Action: SYSTEM_ADMIN cannot create a category, SELLER_ADMIN cannot 
   expect(refusedTo(asSeller), `revoke action as SELLER answered ${asSeller.status} ${asSeller.headers.location ?? asSeller.headers["x-action-redirect"] ?? ""}`).toBe(true);
   await seller.page.goto("/admin/support");
   await expect(seller.page, "the seller session survived: the replayed revoke did not run").toHaveURL(/\/admin\/support$/);
+});
+
+const WIDTHS = [320, 360, 375, 390, 430, 768, 1024, 1280, 1440, 1920];
+const RESPONSIVE_SCREENS: Array<["system" | "seller", string]> = [
+  ["system", "/admin/users"], ["system", "/admin/conta"], ["system", "/admin/security"], ["system", "/admin/sem-acesso"], ["system", "/admin/analytics/site"],
+  ["seller", "/admin"], ["seller", "/admin/orders"], ["seller", "/admin/products"], ["seller", "/admin/support"], ["seller", "/admin/conta"],
+];
+
+for (const [role, path] of RESPONSIVE_SCREENS) {
+  test(`responsive ${path} as ${role}: no horizontal overflow from 320 to 1920 px and no axe violation`, async () => {
+    // A fresh tab in the signed-in context; heading and overflow are checked inside the page (one
+    // driver call: each one costs seconds in WebKit on Windows).
+    const page = await (role === "system" ? system : seller).context.newPage();
+    try {
+      for (const width of WIDTHS) {
+        await test.step(`${width}px`, async () => {
+          await page.setViewportSize({ width, height: 900 });
+          await page.goto(path);
+          const layout = await headingAndOverflow(page);
+          expect(layout.headingVisible, `${path} at ${width}px: visible h1`).toBe(true);
+          expect(layout.scroll, `${path} at ${width}px: scrollWidth ${layout.scroll} > clientWidth ${layout.client}`).toBeLessThanOrEqual(layout.client + 1);
+        });
+      }
+      await test.step("axe at 1440px", async () => {
+        await page.setViewportSize({ width: 1440, height: 1000 });
+        await page.goto(path);
+        await page.waitForTimeout(400);
+        const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+        expect(results.violations.map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(", ")}`), path).toEqual([]);
+      });
+    } finally {
+      await page.close();
+    }
+  });
+}
+
+test("keyboard: SYSTEM_ADMIN users screen and SELLER_ADMIN products filters without a mouse", async () => {
+  const walks: Array<[Session, string, string[]]> = [
+    [system, "/admin/users", ["Salvar papel", "Criar conta"]],
+    [seller, "/admin/products", ["Filtrar por categoria", "Filtrar por status", "Filtrar"]],
+  ];
+  for (const [session, path, controls] of walks) {
+    const page = await session.context.newPage();
+    try {
+      await expectKeyboardReaches(page, path, controls);
+    } finally {
+      await page.close();
+    }
+  }
 });

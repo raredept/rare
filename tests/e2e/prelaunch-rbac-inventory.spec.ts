@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { randomBytes } from "node:crypto";
-import { acceptDialogs, attachDiagnostics, enrollAdmin, labContextOptions, labEnabled, requireEnv, withDatabase } from "./lab-helpers";
+import { acceptDialogs, attachDiagnostics, enrollAdmin, expectKeyboardReaches, headingAndOverflow, labContextOptions, labEnabled, requireEnv, withDatabase } from "./lab-helpers";
 
 // RARE-PRE-LAUNCH-02: the two scoped roles through the real UI (password + TOTP enrollment), the
 // new Admin screens (users, own account, security, access denied, site analytics) across widths with
@@ -167,22 +167,6 @@ test("a one-of-a-kind piece sold twice is inconsistent: critical for the seller,
   await expect(system.page.getByText(`${uniqueProduct.title} com estoque inconsistente`)).toBeVisible();
 });
 
-/** Waits in the page (not in the driver) for a visible h1, then measures horizontal overflow. */
-async function headingAndOverflow(page: Page) {
-  return page.evaluate(async () => {
-    const deadline = Date.now() + 8_000;
-    const visible = () => {
-      const heading = document.querySelector("h1");
-      if (!heading) return false;
-      const box = heading.getBoundingClientRect();
-      const style = getComputedStyle(heading);
-      return box.width > 0 && box.height > 0 && style.visibility !== "hidden" && style.display !== "none";
-    };
-    while (!visible() && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 100));
-    return { headingVisible: visible(), scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth };
-  });
-}
-
 // The 8 new screens x 10 widths + axe, one test per screen: each screen gets its own budget and a
 // failure names the screen, instead of one 80-navigation test that hit 15 minutes on WebKit/Windows.
 // Every width is a fresh navigation (server render + mount at that width), as before.
@@ -223,37 +207,8 @@ test("keyboard: the users screen is operable without a mouse and focus stays vis
   // selects, which is what this screen's controls are. A fresh tab, for the same reason as above.
   const page = await system.context.newPage();
   try {
-    await keyboardWalk(page);
+    await expectKeyboardReaches(page, "/admin/users", ["Salvar papel", "Criar conta"]);
   } finally {
     await page.close();
   }
 });
-
-async function keyboardWalk(page: Page) {
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto("/admin/users");
-  // Each focused element records its label and whether a focus indicator is drawn, in the page; the
-  // log is read every 10 keys instead of once per key (one driver call each, see above).
-  await page.evaluate(() => {
-    const log: string[] = [];
-    (window as unknown as { __focusLog: string[] }).__focusLog = log;
-    document.addEventListener("focusin", (event) => {
-      const element = event.target as HTMLElement;
-      const style = getComputedStyle(element);
-      const visible = style.outlineStyle !== "none" || style.boxShadow !== "none";
-      log.push(`${element.getAttribute("aria-label") ?? element.textContent?.trim().slice(0, 40) ?? element.tagName}|${visible}`);
-    });
-  });
-  let seen: string[] = [];
-  // Every account card adds several controls; walk until the create form is reached (bounded).
-  for (let index = 0; index < 250 && !seen.some((entry) => entry.startsWith("Criar conta")); index += 1) {
-    await page.keyboard.press("Tab");
-    if (index % 10 === 9) seen = await page.evaluate(() => [...(window as unknown as { __focusLog: string[] }).__focusLog]);
-  }
-  seen = await page.evaluate(() => [...(window as unknown as { __focusLog: string[] }).__focusLog]);
-  for (const control of ["Salvar papel", "Criar conta"]) {
-    const entry = seen.find((value) => value.startsWith(control));
-    expect(entry, `${control} reachable by Tab`).toBeDefined();
-    expect(entry!.endsWith("|true"), `${control} shows a focus indicator`).toBe(true);
-  }
-}

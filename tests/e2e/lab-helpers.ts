@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { appendFileSync } from "node:fs";
 import { expect, type APIRequestContext, type BrowserContext, type Page } from "@playwright/test";
 import pg from "pg";
@@ -188,4 +189,67 @@ export async function acceptDialogs(page: Page) {
 export async function expectNoHorizontalOverflow(page: Page, label: string) {
   const overflow = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
   expect(overflow.scroll, `${label}: scrollWidth ${overflow.scroll} > clientWidth ${overflow.client}`).toBeLessThanOrEqual(overflow.client + 1);
+}
+
+/** Waits in the page (not in the driver) for a visible h1, then measures horizontal overflow. */
+export async function headingAndOverflow(page: Page) {
+  return page.evaluate(async () => {
+    const deadline = Date.now() + 8_000;
+    const visible = () => {
+      const heading = document.querySelector("h1");
+      if (!heading) return false;
+      const box = heading.getBoundingClientRect();
+      const style = getComputedStyle(heading);
+      return box.width > 0 && box.height > 0 && style.visibility !== "hidden" && style.display !== "none";
+    };
+    while (!visible() && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 100));
+    return { headingVisible: visible(), scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth };
+  });
+}
+
+/**
+ * Tabs through a page until every control in `controls` was focused (bounded), and checks each one
+ * shows a focus indicator. Focus is logged in the page and read every 10 keys: each driver call costs
+ * seconds in WebKit on Windows. WebKit skips links in the Tab order (Safari default), so only list
+ * buttons, inputs or selects here.
+ */
+export async function expectKeyboardReaches(page: Page, path: string, controls: string[]) {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(path);
+  // Each focused element records its label and whether a focus indicator is drawn, in the page; the
+  // log is read every 10 keys instead of once per key (one driver call each, see above).
+  await page.evaluate(() => {
+    const log: string[] = [];
+    (window as unknown as { __focusLog: string[] }).__focusLog = log;
+    document.addEventListener("focusin", (event) => {
+      const element = event.target as HTMLElement;
+      const style = getComputedStyle(element);
+      const visible = style.outlineStyle !== "none" || style.boxShadow !== "none";
+      log.push(`${element.getAttribute("aria-label") ?? element.textContent?.trim().slice(0, 40) ?? element.tagName}|${visible}`);
+    });
+  });
+  let seen: string[] = [];
+  // Walk until every control was reached (bounded).
+  for (let index = 0; index < 250 && !controls.every((control) => seen.some((entry) => entry.startsWith(control))); index += 1) {
+    await page.keyboard.press("Tab");
+    if (index % 10 === 9) seen = await page.evaluate(() => [...(window as unknown as { __focusLog: string[] }).__focusLog]);
+  }
+  seen = await page.evaluate(() => [...(window as unknown as { __focusLog: string[] }).__focusLog]);
+  for (const control of controls) {
+    const entry = seen.find((value) => value.startsWith(control));
+    expect(entry, `${control} reachable by Tab`).toBeDefined();
+    expect(entry!.endsWith("|true"), `${control} shows a focus indicator`).toBe(true);
+  }
+}
+
+/** First access of an account created in /admin/users: replaces the temporary password when asked. */
+export async function completeFirstAccess(page: Page) {
+  await page.waitForURL((url) => !url.pathname.startsWith("/admin/mfa"));
+  if (!/\/admin\/change-password$/.test(new URL(page.url()).pathname)) return;
+  const password = `Qa${randomBytes(12).toString("base64url")}9z`;
+  recordSensitive(password);
+  await page.locator('input[name="password"]').fill(password);
+  await page.locator('input[name="passwordConfirmation"]').fill(password);
+  await page.locator("form").filter({ has: page.locator('input[name="passwordConfirmation"]') }).locator('button[type="submit"]').click();
+  await page.waitForURL((url) => !url.pathname.includes("change-password"));
 }
