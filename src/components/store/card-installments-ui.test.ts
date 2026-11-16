@@ -64,7 +64,8 @@ describe("checkout (cart page) installment options", () => {
   it("blocks a total below the Asaas minimum with a clear message before any request", () => {
     const html = renderCart({ priceInCents: 500, shippingInCents: 300, cardInstallmentRules: rules });
     expect(html).toContain("O valor mínimo para pagamento é de R$ 10,00. Adicione mais itens ao carrinho para continuar.");
-    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>(?:(?!<\/button>).)*Finalizar compra/s);
+    const submit = html.slice(html.lastIndexOf("<button", html.indexOf("Finalizar compra</button>")), html.indexOf("Finalizar compra</button>"));
+    expect(submit).toContain('disabled=""');
   });
 });
 
