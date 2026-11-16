@@ -82,6 +82,44 @@ com checkout OFF.
   página já se atualiza sozinha a cada 5 s.
 - Pagamento continua confirmado só por webhook/estado da API; nada no navegador marca pedido pago.
 
-## 7. Estado
+## 7. Deploy da correção e segunda tentativa
 
-`FINAL STATUS = BLOCKED` até a correção passar por CI, merge e deploy aprovados; checkout OFF.
+- PR #3 (`fix/asaas-pix-qr-retry`) com CI verde; merge `44db0f3` em `main`; web e worker em `44db0f3`.
+- 22:55 pedido `RARE-20261115-5V5E5W` (Pix, R$ 73,69): QR gravado 1 s depois da cobrança — correção
+  provada em produção. Não foi pago; expirou 23:25 (cobrança apagada, `PAYMENT_DELETED` processado,
+  estoque liberado, pedido `canceled`). Checkout fechado em seguida para preparar o produto de teste.
+
+## 8. Mínimo de cobrança do Asaas
+
+- 2026-11-16 00:04–00:05 (R$ 0,45, quatro pedidos) e 13:50 (R$ 5,40, `RARE-20261116-JZTDIN`): pedidos
+  `failed`, nenhuma cobrança criada, reserva devolvida. Log de requisições do painel Asaas:
+  `POST /v3/payments` → 400 `invalid_object`, "não pode ser menor que R$ 10,00".
+- **A conta Asaas recusa cobranças abaixo de R$ 10,00.** Em cada caso o checkout foi fechado (§48)
+  antes de investigar.
+
+## 9. Compra real controlada (PASS)
+
+- 2026-11-16 15:30 `CHECKOUT_ENABLED=true` (web e worker, deploy SUCCESS; health 200 sem erros de
+  configuração; `POST /api/checkout` sem sessão → 401).
+- 15:31:47 pedido `RARE-20261116-SPVPKE`: Camiseta Corteiz G ×1, subtotal R$ 12,00, RARE10 −R$ 1,20,
+  frete R$ 0,00, **total R$ 10,80**, Pix, Asaas. Criado uma vez; QR Pix gravado.
+- 15:31:50 `PAYMENT_CREATED` processado; 15:32:37 `PAYMENT_RECEIVED` processado; 15:32:38 pedido `paid`
+  (`paidAt` gravado pelo webhook, não pelo navegador).
+- Cobrança no Asaas: `RECEIVED`, PIX, R$ 10,80, referência = id do pedido; só uma cobrança na conta.
+- Estoque: `reserve` (reservado +1) e um único `sale` (estoque −1, reservado −1); variante foi de 2
+  para 1, reservado 0. Reservas totais na loja: 0.
+- E-mail `payment_approved`: outbox `accepted` pelo Resend na 1ª tentativa, sem erro.
+- Analytics: eventos de navegação gravados no servidor (page_view, product_view, product_click,
+  add_to_cart); a compra conta pelo `paidAt` do pedido (fonte de servidor).
+- Job de expiração do pedido pago: o worker trata pedido `paid` como terminal (não libera estoque).
+- Stripe ausente; nenhum reembolso executado; Admins, roles, SEO e catálogo não alterados por este ciclo.
+
+## 10. Estado
+
+`FINAL STATUS = LIVE` — checkout aberto em produção (web = worker = `44db0f3`).
+
+Pendências do operador: devolver o preço do produto de teste e o mínimo de frete grátis aos valores
+reais; apagar `output/final-release/private/asaas-webhook-token-production.txt`.
+
+Follow-ups de código: bloquear no carrinho totais abaixo de R$ 10,00 com mensagem clara; trocar a
+mensagem genérica "checkout temporariamente pausado" quando o Asaas recusa a cobrança.
