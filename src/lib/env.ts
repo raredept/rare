@@ -93,6 +93,14 @@ export function isCheckoutEnabled(env: Record<string, string | undefined> = proc
   return env.CHECKOUT_ENABLED === CHECKOUT_ENABLED_VALUE;
 }
 
+/**
+ * Card installments (2x–6x) on Asaas. Deploy-level kill switch: anything but exactly "true" keeps the
+ * previous card experience (1x only), whatever the Admin settings say.
+ */
+export function isCardInstallmentsEnabled(env: Record<string, string | undefined> = process.env) {
+  return env.CARD_INSTALLMENTS_ENABLED === "true";
+}
+
 export function getAppUrl() {
   const configured = clean(process.env.APP_URL) ?? clean(process.env.NEXT_PUBLIC_APP_URL);
 
