@@ -6,11 +6,25 @@ CPF, e-mail completo ou dado de cartão neste documento.
 
 ## 1. Política implementada
 
-| Parcelas | Regra |
+Política aprovada pelo proprietário em 16/11/2026 (V2): cartão em até **12x**.
+
+| Parcelas | Acréscimo total |
 |---|---|
-| 1x, 2x, 3x | sempre sem juros (fixo no código: a RARE absorve a taxa do cartão) |
-| 4x, 5x, 6x | acréscimo **total** em % definido no Admin (0–30%); em branco = não oferecida |
-| 7x ou mais | nunca oferecido (rejeitado no schema, no domínio e no transporte da loja) |
+| 1x, 2x, 3x | 0% — sempre sem juros, fixo no código, sem campo no Admin |
+| 4x | 9% |
+| 5x | 10% |
+| 6x | 11% |
+| 7x | 13% |
+| 8x | 14% |
+| 9x | 15% |
+| 10x | 16% |
+| 11x | 17% |
+| 12x | 18% |
+| 13x ou mais | nunca oferecido (rejeitado no schema, no domínio e no transporte da loja) |
+
+A tabela 4x–12x é uma coluna JSON (`StoreSettings.cardInstallmentSurchargesBps`) cujo default na
+migration é exatamente a tabela aprovada; o Admin pode alterá-la depois (auditado). O teste
+`card-installments.test.ts` fixa os valores: mudar uma taxa sem atualizar o teste quebra a suíte.
 
 Ordem do cálculo: produtos → promoções → cupom → frete → **base** → acréscimo → total final.
 Frete grátis e cupom são decididos antes do acréscimo (os juros nunca destravam frete grátis).
@@ -27,6 +41,7 @@ não dependem dessa flag.
 |---|---|
 | Cartão 1x | 2,99% (promocional **1,99%** até 06/02/2027) + R$ 0,49 |
 | Cartão 2x–6x | 3,49% (promocional **2,49%** até 06/02/2027) + R$ 0,49 |
+| Cartão 7x–12x | 3,99% (promocional **2,99%** até 06/02/2027) + R$ 0,49 |
 | Recebimento cartão | 32 dias por parcela (cada parcela no seu mês) |
 | Antecipação de parcelado | 1,70% ao mês por parcela antecipada (painel informa também 1,2501% em "cardSale") |
 
@@ -36,7 +51,9 @@ campo oficial para repassar juros de parcelamento ao pagador (os campos `interes
 parcela. Por isso: **estratégia B — cálculo RARE no servidor**; o Asaas recebe o total financiado
 em `totalValue` com `installmentCount`.
 
-### Decisão humana pendente: acréscimo de 4x, 5x e 6x (exemplo: base R$ 600,00)
+### Histórico (V1): estimativa de custo de 4x a 6x (base R$ 600,00)
+
+Decisão tomada depois desta análise: tabela 1x–12x da seção 1 (aprovada pelo proprietário).
 
 Custo da RARE = taxa do cartão (+ antecipação, se a loja antecipar). Média de meses antecipados =
 (n+1)/2.
@@ -50,8 +67,7 @@ Custo da RARE = taxa do cartão (+ antecipação, se a loja antecipar). Média d
 | Taxa sem promoção (3,49%) — após 06/02/2027 | R$ 21,43 | R$ 21,43 | R$ 21,43 |
 | **Acréscimo sugerido** (cobre antecipação + taxa cheia) | **6%** | **7%** | **8%** |
 
-A sugestão não foi gravada em lugar nenhum: o Admin começa com 4x/5x/6x **em branco** (o checkout
-oferece só até 3x até alguém definir as taxas).
+Na V1 a sugestão não foi gravada; na V2 a tabela aprovada é o estado inicial (migration).
 
 ## 3. Mínimos
 
