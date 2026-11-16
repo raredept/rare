@@ -5,7 +5,7 @@ import { formatCep } from "@/lib/cep";
 import { formatAddressSnapshotLines } from "@/lib/customer-order";
 import { requireCustomer } from "@/lib/customer-auth";
 import { formatMoney } from "@/lib/money";
-import { formatOrderStatus, formatPaymentMethod } from "@/lib/order-display";
+import { describeOrderInstallments, formatOrderStatus, formatPaymentMethod } from "@/lib/order-display";
 import { prisma } from "@/lib/prisma";
 import { getStoreSettings } from "@/lib/settings";
 
@@ -34,6 +34,8 @@ export default async function CustomerOrderDetailPage({ params }: CustomerOrderD
   if (!order) notFound();
 
   const addressLines = formatAddressSnapshotLines(order.shippingAddressSnapshot);
+  // The plan chosen at checkout, from this order's snapshot (never recalculated).
+  const installments = describeOrderInstallments(order);
   const whatsappHref = settings.whatsappNumber
     ? `https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent(`Olá, preciso de suporte no pedido ${order.orderNumber}.`)}`
     : null;
@@ -75,8 +77,14 @@ export default async function CustomerOrderDetailPage({ params }: CustomerOrderD
               ) : null}
               <div className="flex justify-between">
                 <span>Pagamento</span>
-                <span>{formatPaymentMethod(order.paymentMethod)}</span>
+                <span>{installments ? "Cartão de crédito" : formatPaymentMethod(order.paymentMethod)}</span>
               </div>
+              {installments ? (
+                <div className="flex justify-between gap-4">
+                  <span>Parcelamento</span>
+                  <span className="text-right">{installments.label}</span>
+                </div>
+              ) : null}
               <div className="flex justify-between">
                 <span>Subtotal</span>
                 <span className="whitespace-nowrap">{formatMoney(order.subtotalInCents)}</span>
@@ -99,6 +107,12 @@ export default async function CustomerOrderDetailPage({ params }: CustomerOrderD
                 <span>CEP entrega</span>
                 <span>{formatCep(order.shippingCepSnapshot ?? order.cep) || "-"}</span>
               </div>
+              {installments && installments.feeInCents > 0 ? (
+                <div className="flex justify-between gap-4">
+                  <span>Acréscimo do parcelamento</span>
+                  <span className="whitespace-nowrap">+ {formatMoney(installments.feeInCents)}</span>
+                </div>
+              ) : null}
               <div className="flex justify-between border-t border-neutral-200 pt-3 text-lg font-black text-neutral-950">
                 <span>Total</span>
                 <span className="whitespace-nowrap">{formatMoney(order.totalInCents)}</span>
