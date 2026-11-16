@@ -73,6 +73,16 @@ describe("order item display", () => {
     expect(display).toEqual({ imageUrl: `${R2}/at-purchase.webp`, sku: "CRTZ-TSH-BLK-G", skuSource: "order" });
   });
 
+  it("never turns a stored value outside the allowed media shapes into an image source", () => {
+    for (const value of ["javascript:alert(1)", "//evil.example/x.png", "data:image/svg+xml,<svg/>", "https://user:pass@evil.example/x.png"]) {
+      expect(resolveOrderItemDisplay(item({ imageUrlSnapshot: value, catalogSnapshotAt: capturedAt })).imageUrl).toBeNull();
+    }
+  });
+
+  it("renders a SKU as plain text data (no markup is interpreted by the resolver)", () => {
+    expect(resolveOrderItemDisplay(item({ skuSnapshot: "<b>X</b>", catalogSnapshotAt: capturedAt })).sku).toBe("<b>X</b>");
+  });
+
   it("hides the SKU and uses the placeholder when the snapshot says there was none", () => {
     expect(resolveOrderItemDisplay(item({ catalogSnapshotAt: capturedAt }))).toEqual({ imageUrl: null, sku: null, skuSource: null });
   });

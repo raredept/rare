@@ -208,6 +208,12 @@ test("product search finds by SKU; order search finds by the SKU recorded on the
   await page.goto(`/admin/products?q=${encodeURIComponent(`qa${run.toLowerCase()}-crtz-blk-m`)}`);
   await expect(page.getByText(product.title, { exact: true })).toBeVisible();
   await expect(page.getByTestId("product-row-skus").first()).toContainText(`M: QA${run}-CRTZ-BLK-M`);
+  // Full SKU as stored, and the existing search by product name, still work.
+  await page.goto(`/admin/products?q=${encodeURIComponent(SKU_G_NEW)}`);
+  await expect(page.getByText(product.title, { exact: true })).toBeVisible();
+  await page.goto(`/admin/products?q=${encodeURIComponent(`Corteiz Branca ${run}`)}`);
+  await expect(page.getByText(other.title, { exact: true })).toBeVisible();
+  await expect(page.getByText(product.title, { exact: true })).toHaveCount(0);
   await page.goto(`/admin/orders?q=${encodeURIComponent(SKU_G)}`);
   await expect(page.getByText(orders.snapshot.number)).toBeVisible();
   await expect(page.getByText(orders.broken.number)).toBeVisible();

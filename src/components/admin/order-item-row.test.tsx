@@ -72,6 +72,12 @@ describe("Admin order item row", () => {
     expect(html).not.toContain("SKU");
   });
 
+  it("escapes a SKU: it is text, never HTML", () => {
+    const html = render(item({ skuSnapshot: '<img src=x onerror="alert(1)">' }));
+    expect(html).not.toContain("<img src=x");
+    expect(html).toContain("&lt;img src=x");
+  });
+
   it("shows the unit price when more than one unit was bought", () => {
     const html = render(item({ quantity: 2, totalInCents: 2400 }));
     expect(html).toContain("Qtd 2");

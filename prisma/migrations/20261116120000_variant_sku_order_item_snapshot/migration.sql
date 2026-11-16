@@ -25,10 +25,12 @@ WHERE "variant"."id" = "ranked"."id" AND "ranked"."position" > 1;
 
 -- 3. Database-level guarantee: concurrent saves cannot create a duplicate. PostgreSQL unique
 --    indexes treat NULLs as distinct, so any number of variants may have no SKU.
-CREATE UNIQUE INDEX "ProductVariant_sku_key" ON "ProductVariant"("sku");
+--    Prisma does not wrap a migration in a transaction: every statement here is safe to run again
+--    after a partial failure (steps 1-2 are no-ops the second time; 3-4 use IF NOT EXISTS).
+CREATE UNIQUE INDEX IF NOT EXISTS "ProductVariant_sku_key" ON "ProductVariant"("sku");
 
 -- 4. Order item snapshot. Nullable and additive.
 ALTER TABLE "OrderItem"
-  ADD COLUMN "skuSnapshot" TEXT,
-  ADD COLUMN "imageUrlSnapshot" TEXT,
-  ADD COLUMN "catalogSnapshotAt" TIMESTAMP(3);
+  ADD COLUMN IF NOT EXISTS "skuSnapshot" TEXT,
+  ADD COLUMN IF NOT EXISTS "imageUrlSnapshot" TEXT,
+  ADD COLUMN IF NOT EXISTS "catalogSnapshotAt" TIMESTAMP(3);

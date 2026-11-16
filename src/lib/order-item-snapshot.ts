@@ -68,15 +68,21 @@ export type OrderItemDisplay = {
   skuSource: "order" | "current-catalog" | null;
 };
 
+/** A stored snapshot URL is re-checked before it becomes an image source (defence in depth). */
+function safeSnapshotImageUrl(value: string | null | undefined) {
+  const url = value?.trim();
+  return url && isAllowedProductMediaUrl(url) ? url : null;
+}
+
 export function resolveOrderItemDisplay(item: OrderItemForDisplay): OrderItemDisplay {
   if (item.catalogSnapshotAt) {
     // The snapshot is the truth, including "there was no SKU / no image".
     const sku = item.skuSnapshot?.trim() || null;
-    return { imageUrl: item.imageUrlSnapshot?.trim() || null, sku, skuSource: sku ? "order" : null };
+    return { imageUrl: safeSnapshotImageUrl(item.imageUrlSnapshot), sku, skuSource: sku ? "order" : null };
   }
 
   // Order created before the snapshot: snapshot (none) -> variant image -> product image -> placeholder.
-  const imageUrl = item.imageUrlSnapshot?.trim() || resolveOrderItemImageUrl({ productMedia: item.product?.images });
+  const imageUrl = safeSnapshotImageUrl(item.imageUrlSnapshot) ?? resolveOrderItemImageUrl({ productMedia: item.product?.images });
 
   // SKU only when the association is still unambiguous: the item still points at a variant that
   // belongs to the same product and has the same size the order recorded.

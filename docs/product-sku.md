@@ -82,12 +82,20 @@ eles o Admin mostra:
 Migration `20261116120000_variant_sku_order_item_snapshot` (aplicada pelo `prisma migrate deploy`
 do deploy normal; nunca rodar manualmente em produção):
 
-1. normaliza os SKUs já cadastrados (trim + maiúsculas; vazio vira NULL);
-2. se dois itens tiverem o mesmo SKU, o ativo mais antigo fica com ele e os outros ficam sem SKU
-   (estoque, tamanhos e pedidos não mudam);
-3. cria o índice único;
-4. adiciona `skuSnapshot`, `imageUrlSnapshot` e `catalogSnapshotAt` (todos opcionais) em
-   `OrderItem`, sem preencher pedidos antigos.
+1. normaliza os SKUs já cadastrados (remove espaço, tab e quebra de linha nas pontas, passa para
+   maiúsculas; vazio ou só espaços vira NULL);
+2. se dois itens tiverem o mesmo SKU normalizado, fica com ele a variação com `active = true`
+   (a variação, não o produto), depois a de `createdAt` mais antigo, depois o menor `id`; as
+   outras ficam sem SKU. A ordem é total (o `id` é único), então o resultado não depende da
+   ordem física das linhas. Estoque, tamanhos, preços e pedidos não mudam;
+3. cria o índice único (`IF NOT EXISTS`);
+4. adiciona `skuSnapshot`, `imageUrlSnapshot` e `catalogSnapshotAt` (todos opcionais,
+   `IF NOT EXISTS`) em `OrderItem`, sem preencher pedidos antigos.
+
+O Prisma não executa a migration dentro de uma transação. Por isso todos os passos podem ser
+repetidos: se ela falhar no meio, `prisma migrate resolve --rolled-back
+20261116120000_variant_sku_order_item_snapshot` e um novo `migrate deploy` terminam o trabalho.
+Plano de produção e rollback: `docs/releases/order-item-image-sku-rollout.md`.
 
 Antes do deploy, dá para conferir (somente leitura) se o passo 2 vai mexer em algo:
 
