@@ -13,7 +13,11 @@ describe("bounded Admin product queries", () => {
       skip: 50, take: 26,
       where: {
         active: true,
-        AND: [{ OR: [{ title: { contains: "camiseta", mode: "insensitive" } }, { brand: { contains: "camiseta", mode: "insensitive" } }] }],
+        AND: [{ OR: [
+          { title: { contains: "camiseta", mode: "insensitive" } },
+          { brand: { contains: "camiseta", mode: "insensitive" } },
+          { variants: { some: { sku: { contains: "CAMISETA" } } } },
+        ] }],
         OR: [{ categoryId: "cat-1" }, { subcategoryId: "cat-1" }],
       },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }, { id: "asc" }],
@@ -38,5 +42,22 @@ describe("bounded Admin product queries", () => {
     expect(sql.values).toContain("%' OR TRUE --%");
     expect(sql.values).toContain(25);
     expect(result.products.map(p => p.id)).toEqual(["p2", "p1"]);
+  });
+});
+
+describe("Admin product search by SKU", () => {
+  it("matches the normalized SKU of any variant", async () => {
+    await getAdminProductRows({ page: 1, query: " crtz-tsh-blk " });
+    const where = mocks.findMany.mock.calls[0][0].where;
+    expect(where.AND[0].OR).toContainEqual({ variants: { some: { sku: { contains: "CRTZ-TSH-BLK" } } } });
+  });
+
+  it("parameterizes the SKU term in the stock-filtered SQL path too", async () => {
+    mocks.queryRaw.mockResolvedValue([]);
+    await getAdminProductRows({ page: 1, stock: "low", query: "crtz-g" });
+    const sql = mocks.queryRaw.mock.calls[0][0];
+    expect(sql.text).toContain('sku_variant."sku" LIKE');
+    expect(sql.text).not.toContain("CRTZ-G");
+    expect(sql.values).toContain("%CRTZ-G%");
   });
 });

@@ -14,6 +14,7 @@ import { PRODUCT_SLUG_TAKEN_MESSAGE, UNIQUE_STOCK_LIMIT_MESSAGE } from "@/lib/fe
 import { isUniqueViolationOn } from "@/lib/prisma-errors";
 import { PRODUCT_SHIPPING_LIMITS, type ProductShippingField } from "@/lib/product-shipping-readiness";
 import { parseAdminEntityId } from "@/lib/admin-action-input";
+import { SKU_TAKEN_MESSAGE, findRepeatedSku, parseSkuInput } from "@/lib/sku";
 
 function productFormPath(productId: string | null) {
   return productId ? `/admin/products/${productId}/edit` : "/admin/products/new";
@@ -134,22 +135,56 @@ function revalidateProductPaths(product: ProductRevalidationData, previousProduc
 type ParsedVariant = {
   size: string;
   stock: number;
+  /** As typed. Normalized and validated by resolveVariantSkus once the current values are known. */
+  rawSku: string;
   sku: string | null;
 };
 
-function parseVariants(formData: FormData): ParsedVariant[] {
-  const lines = getString(formData, "variants")
+type RawVariantRow = { size: string; stock: string; sku: string };
+
+/**
+ * The form sends one row per variant (variantSize / variantStock / variantSku). The older
+ * "Tamanho:Estoque:SKU" textarea ("variants") is still read when no row field is present.
+ */
+function readVariantRows(formData: FormData): { rows: RawVariantRow[]; legacy: boolean } {
+  if (formData.has("variantSize")) {
+    const sizes = formData.getAll("variantSize");
+    const stocks = formData.getAll("variantStock");
+    const skus = formData.getAll("variantSku");
+    const rows = sizes.map((size, index) => ({
+      size: typeof size === "string" ? size : "",
+      stock: typeof stocks[index] === "string" ? (stocks[index] as string) : "",
+      sku: typeof skus[index] === "string" ? (skus[index] as string) : "",
+    }));
+    // A row left completely blank (e.g. the empty row of a new product) is not a variant.
+    return { rows: rows.filter((row) => row.size.trim() || row.stock.trim() || row.sku.trim()), legacy: false };
+  }
+
+  const rows = getString(formData, "variants")
     .split(/\r?\n/)
     .map((line) => line.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .map((line) => {
+      const [size = "", stock = "", sku = ""] = line.split(":");
+      return { size, stock: stock || "0", sku };
+    });
+  return { rows, legacy: true };
+}
+
+function parseVariants(formData: FormData): ParsedVariant[] {
+  const { rows, legacy } = readVariantRows(formData);
   const seenSizes = new Set<string>();
 
-  return lines.map((line) => {
-    const [sizePart, stockPart, skuPart] = line.split(":");
-    const size = sizePart?.trim();
-    const stock = Number(stockPart ?? 0);
-    if (!size || !Number.isInteger(stock) || stock < 0) {
-      throw new Error("Use uma variação por linha no formato Tamanho:Estoque ou Tamanho:Estoque:SKU.");
+  return rows.map((row) => {
+    const size = row.size.trim();
+    const stockText = row.stock.trim();
+    const stock = Number(stockText);
+    if (!size || !/^\d+$/.test(stockText) || !Number.isSafeInteger(stock)) {
+      throw new Error(
+        legacy
+          ? "Use uma variação por linha no formato Tamanho:Estoque ou Tamanho:Estoque:SKU."
+          : "Informe tamanho e estoque (número inteiro, 0 ou mais) em cada variação.",
+      );
     }
     const normalizedSize = size.toLowerCase();
     if (seenSizes.has(normalizedSize)) {
@@ -159,9 +194,38 @@ function parseVariants(formData: FormData): ParsedVariant[] {
     return {
       size,
       stock,
-      sku: skuPart?.trim() || null,
+      rawSku: row.sku,
+      sku: null,
     };
   });
+}
+
+/**
+ * Normalizes every submitted SKU and checks it is free. The database unique index still decides
+ * a race between two simultaneous saves (handled where the transaction fails).
+ */
+async function resolveVariantSkus(productId: string | null, variants: ParsedVariant[]): Promise<string | null> {
+  const currentVariants = productId
+    ? await prisma.productVariant.findMany({ where: { productId }, select: { size: true, sku: true } })
+    : [];
+  const currentSkuBySize = new Map(currentVariants.map((variant) => [variant.size, variant.sku]));
+
+  for (const variant of variants) {
+    const parsed = parseSkuInput(variant.rawSku, currentSkuBySize.get(variant.size));
+    if (!parsed.ok) return parsed.error;
+    variant.sku = parsed.sku;
+  }
+
+  if (findRepeatedSku(variants.map((variant) => variant.sku))) return SKU_TAKEN_MESSAGE;
+
+  const skus = variants.map((variant) => variant.sku).filter((sku): sku is string => Boolean(sku));
+  if (!skus.length) return null;
+  // Variants of this same product are rewritten in the save itself, so only other products count.
+  const owner = await prisma.productVariant.findFirst({
+    where: { sku: { in: skus }, ...(productId ? { productId: { not: productId } } : {}) },
+    select: { id: true },
+  });
+  return owner ? SKU_TAKEN_MESSAGE : null;
 }
 
 async function collectUploadedUrls(formData: FormData) {
@@ -263,6 +327,8 @@ export async function saveProductAction(productId: string | null, formData: Form
   if (slugOwner && slugOwner.id !== productId) {
     redirectWithProductFormError(productId, PRODUCT_SLUG_TAKEN_MESSAGE, shippingDraft);
   }
+  const skuError = await resolveVariantSkus(productId, variants);
+  if (skuError) redirectWithProductFormError(productId, skuError, shippingDraft);
   const previousProduct = productId
     ? await prisma.product.findUnique({
         where: { id: productId },
@@ -364,6 +430,16 @@ export async function saveProductAction(productId: string | null, formData: Form
     const existingVariants = await tx.productVariant.findMany({ where: { productId: product.id } });
     const existingBySize = new Map(existingVariants.map((variant) => [variant.size, variant]));
     const submittedSizes = new Set(variants.map((variant) => variant.size));
+    const submittedSkuBySize = new Map(variants.map((variant) => [variant.size, variant.sku]));
+
+    // Release first the SKUs this save takes away (changed, cleared or variant removed), so a SKU
+    // can move between sizes of the same product and a removed variant no longer holds one.
+    const releasedSkuVariantIds = existingVariants
+      .filter((variant) => variant.sku && variant.sku !== submittedSkuBySize.get(variant.size))
+      .map((variant) => variant.id);
+    if (releasedSkuVariantIds.length) {
+      await tx.productVariant.updateMany({ where: { id: { in: releasedSkuVariantIds } }, data: { sku: null } });
+    }
 
     for (const variant of variants) {
       const existing = existingBySize.get(variant.size);
@@ -400,8 +476,9 @@ export async function saveProductAction(productId: string | null, formData: Form
     return product;
   });
   } catch (error) {
-    // Another save claimed the slug between the check above and this write.
+    // Another save claimed the slug or a SKU between the checks above and this write.
     if (isUniqueViolationOn(error, "slug")) redirectWithProductFormError(productId, PRODUCT_SLUG_TAKEN_MESSAGE, shippingDraft);
+    if (isUniqueViolationOn(error, "sku")) redirectWithProductFormError(productId, SKU_TAKEN_MESSAGE, shippingDraft);
     throw error;
   }
 

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requestOrderRefundAction, updateOrderStatusAction } from "@/app/admin/(protected)/orders/actions";
 import { AdminSubmitButton } from "@/components/admin/admin-submit-button";
+import { AdminOrderItemRow } from "@/components/admin/order-item-row";
+import { PRODUCT_MEDIA_LIMIT } from "@/lib/product-media";
 import { formatCep } from "@/lib/cep";
 import { formatAddressSnapshotLines } from "@/lib/customer-order";
 import { formatMoney } from "@/lib/money";
@@ -33,7 +35,13 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
   const order = await prisma.order.findUnique({
     where: { id },
     include: {
-      items: true,
+      items: {
+        include: {
+          // Current catalog, read only to display orders created before the item snapshot.
+          product: { select: { images: { orderBy: { sortOrder: "asc" }, take: PRODUCT_MEDIA_LIMIT, select: { url: true } } } },
+          variant: { select: { productId: true, size: true, sku: true } },
+        },
+      },
       inventoryMovements: { orderBy: { createdAt: "desc" } },
       customer: { select: { id: true, name: true, email: true } },
     },
@@ -49,24 +57,11 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_360px]">
         <section className="rounded-lg border border-neutral-200 bg-white p-5">
           <h2 className="text-lg font-black text-neutral-950">Itens</h2>
-          <div className="mt-4 divide-y divide-neutral-200">
+          <ul className="mt-2 divide-y divide-neutral-200">
             {order.items.map((item) => (
-              <div key={item.id} className="flex items-center justify-between gap-4 py-3 text-sm">
-                <div>
-                  <p className="font-black text-neutral-950">{item.productTitleSnapshot}</p>
-                  <p className="font-semibold text-neutral-500">
-                    Tamanho {item.sizeSnapshot} · Qtd {item.quantity}
-                  </p>
-                  {item.promotionId ? (
-                    <p className="mt-1 text-xs font-semibold text-emerald-700">
-                      {item.promotionName ?? "Promoção"}{item.promotionCode ? ` (${item.promotionCode})` : ""}: {formatMoney(item.basePriceInCents ?? item.unitPriceInCents)} → {formatMoney(item.unitPriceInCents)} (- {formatMoney(item.promotionDiscountInCents)}/un.)
-                    </p>
-                  ) : null}
-                </div>
-                <p className="whitespace-nowrap font-black text-neutral-950">{formatMoney(item.totalInCents)}</p>
-              </div>
+              <AdminOrderItemRow key={item.id} item={item} />
             ))}
-          </div>
+          </ul>
         </section>
 
         <aside className="space-y-5">

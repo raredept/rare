@@ -267,6 +267,45 @@ describe("createCheckoutSession through Asaas", () => {
     expect(mocks.asaas.createAsaasPayment.mock.calls[0][1].successUrl).toBe("https://staging.rare.example/minha-conta/pedidos/order_asaas_1");
   });
 
+  it("snapshots name, size, SKU, unit price and the catalog image on each order item, without changing the charge", async () => {
+    seed();
+    process.env.SHIPPING_ENABLED = "false";
+    const media = "https://media.raredept.com.br/products/corteiz-front.webp";
+    mocks.tx.productVariant.findMany.mockResolvedValue([{
+      id: "var_1", productId: "prod_1", size: "G", sku: "CRTZ-TSH-BLK-G", active: true,
+      product: { id: "prod_1", title: "Camiseta Corteiz", active: true, priceInCents: 20000, categoryId: null, subcategoryId: null, weightGrams: 400, lengthCm: 30, widthCm: 24, heightCm: 4,
+        images: [{ url: "https://media.raredept.com.br/products/corteiz-clip.mp4" }, { url: media }] },
+    }]);
+    mocks.asaas.createAsaasPayment.mockImplementation(async (_config: unknown, input: { totalInCents: number }) => payment({ status: "PENDING", amountInCents: input.totalInCents, externalReference: "order_asaas_1" }));
+    mocks.asaas.getAsaasPixQrCode.mockResolvedValue({ copyPaste: "000201...", qrCodeBase64: null, expiresAt: null });
+
+    // The browser cannot choose the image: anything it sends is ignored.
+    await createCheckoutSession({ ...pixInput, imageUrl: "https://evil.example/x.png", sku: "FAKE" } as typeof pixInput, { customerId: "customer_000001" });
+
+    const data = mocks.tx.order.create.mock.calls[0][0].data;
+    expect(data.items.create).toEqual([expect.objectContaining({
+      productTitleSnapshot: "Camiseta Corteiz",
+      sizeSnapshot: "G",
+      skuSnapshot: "CRTZ-TSH-BLK-G",
+      imageUrlSnapshot: media,
+      catalogSnapshotAt: expect.any(Date),
+      unitPriceInCents: 20000,
+      totalInCents: 20000,
+      quantity: 1,
+    })]);
+    // R$ 200 + R$ 20 fixed freight, as before the snapshot existed.
+    expect(data).toMatchObject({ subtotalInCents: 20000, totalInCents: 22000 });
+    expect(mocks.asaas.createAsaasPayment.mock.calls[0][1]).toMatchObject({ totalInCents: 22000 });
+  });
+
+  it("snapshots NULL SKU and image when the catalog has neither", async () => {
+    seed();
+    mocks.asaas.createAsaasPayment.mockImplementation(async (_config: unknown, input: { totalInCents: number }) => payment({ status: "PENDING", amountInCents: input.totalInCents, externalReference: "order_asaas_1" }));
+    mocks.asaas.getAsaasPixQrCode.mockResolvedValue({ copyPaste: "000201...", qrCodeBase64: null, expiresAt: null });
+    await createCheckoutSession(pixInput, { customerId: "customer_000001" });
+    expect(mocks.tx.order.create.mock.calls[0][0].data.items.create[0]).toMatchObject({ skuSnapshot: null, imageUrlSnapshot: null, catalogSnapshotAt: expect.any(Date) });
+  });
+
   it("releases the stock at once when Asaas refuses the charge (nothing was created)", async () => {
     seed();
     mocks.tx.order.findUnique.mockResolvedValue({ id: "order_asaas_1", items: [{ id: "item_1", productId: "prod_1", variantId: "var_1", quantity: 1 }] });

@@ -67,7 +67,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
       </div>
 
       <form className="grid gap-3 rounded-lg border border-neutral-800 bg-neutral-950/80 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.2)] xl:grid-cols-[minmax(0,1fr)_210px_150px_150px_190px]">
-        <input name="q" defaultValue={query ?? ""} maxLength={100} aria-label="Buscar produto ou marca" placeholder="Buscar produto ou marca" className="admin-input" />
+        <input name="q" defaultValue={query ?? ""} maxLength={100} aria-label="Buscar produto, marca ou SKU" placeholder="Buscar produto, marca ou SKU" className="admin-input" />
         <select aria-label="Filtrar por categoria" name="category" defaultValue={category ?? ""} className="admin-input">
           <option value="">Todas categorias</option>
           {categoryFilterOptions.map((category) => (
@@ -132,6 +132,14 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                   <div className="min-w-0 [overflow-wrap:anywhere]">
                     <p className="font-black text-neutral-950">{product.title}</p>
                     <p className="mt-1 text-xs font-semibold text-neutral-500">{product.brand ?? "Marca não informada"}</p>
+                    {product.variants.some((variant) => variant.sku) ? (
+                      <p className="mt-1 font-mono text-[11px] font-semibold text-neutral-500" data-testid="product-row-skus">
+                        {product.variants
+                          .filter((variant) => variant.sku)
+                          .map((variant) => (product.variants.length > 1 ? `${variant.size}: ${variant.sku}` : `SKU ${variant.sku}`))
+                          .join(" · ")}
+                      </p>
+                    ) : null}
                     <div className="mt-2 flex flex-wrap gap-1">
                       <Badge tone={product.active ? "neutral" : "muted"}>{product.active ? "Ativo" : "Oculto"}</Badge>
                       {product.featured ? (
