@@ -1,25 +1,32 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  APPROVED_CARD_INSTALLMENT_SURCHARGES_BPS,
   ASAAS_MIN_CARD_INSTALLMENT_IN_CENTS,
   calculateCardInstallmentPlan,
   calculateSurchargeInCents,
+  CARD_INSTALLMENTS_INTEREST_FREE,
+  CARD_INSTALLMENTS_MAX,
   CardInstallmentError,
   describeCardInstallmentPlan,
   DISABLED_CARD_INSTALLMENT_RULES,
+  EMPTY_SURCHARGE_TABLE,
   formatBpsAsPercent,
   listCardInstallmentPlans,
   maxInterestFreeInstallments,
   maxOfferedInstallments,
   parsePercentToBps,
+  parseSurchargeTable,
   resolveCardInstallmentRules,
   type CardInstallmentRules,
 } from "@/lib/card-installments";
 
 const rules: CardInstallmentRules = {
   enabled: true,
-  maxInstallments: 6,
+  maxInstallments: 12,
   minInstallmentInCents: 1_000,
-  surchargeBps: { 4: 600, 5: 750, 6: 900 },
+  surchargeBps: APPROVED_CARD_INSTALLMENT_SURCHARGES_BPS,
 };
 
 const code = (fn: () => unknown) => {
@@ -31,87 +38,102 @@ const code = (fn: () => unknown) => {
   return "NO_ERROR";
 };
 
-describe("calculateCardInstallmentPlan — interest-free 1x to 3x", () => {
-  it.each([
-    [1, 60_000, 60_000],
-    [2, 60_000, 30_000],
-    [3, 60_000, 20_000],
-  ])("%ix of R$ 600,00 has no surcharge", (count, base, each) => {
-    const plan = calculateCardInstallmentPlan(base, count, rules);
-    expect(plan).toMatchObject({ installmentCount: count, rateBps: 0, feeInCents: 0, financedTotalInCents: base, installmentValueInCents: each, interestFree: true });
+// The owner-approved policy (2026-11-16). If any rate here changes without an explicit decision,
+// this test must fail.
+const APPROVED_PERCENT: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 9, 5: 10, 6: 11, 7: 13, 8: 14, 9: 15, 10: 16, 11: 17, 12: 18 };
+
+describe("approved policy (regression lock)", () => {
+  it("is 1x-12x, interest-free up to 3x", () => {
+    expect(CARD_INSTALLMENTS_MAX).toBe(12);
+    expect(CARD_INSTALLMENTS_INTEREST_FREE).toBe(3);
+  });
+
+  it("pins every surcharge of the approved table", () => {
+    expect(APPROVED_CARD_INSTALLMENT_SURCHARGES_BPS).toEqual({ 4: 900, 5: 1_000, 6: 1_100, 7: 1_300, 8: 1_400, 9: 1_500, 10: 1_600, 11: 1_700, 12: 1_800 });
+  });
+
+  it("the migration seeds exactly the approved table, off by default, maximum 12x", () => {
+    const sql = readFileSync(path.join(process.cwd(), "prisma/migrations/20261116180000_card_installments/migration.sql"), "utf8");
+    expect(sql).toContain(`DEFAULT '${JSON.stringify(Object.fromEntries(Object.entries(APPROVED_CARD_INSTALLMENT_SURCHARGES_BPS)))}'`);
+    expect(sql).toMatch(/"cardInstallmentsEnabled" BOOLEAN NOT NULL DEFAULT false/);
+    expect(sql).toMatch(/"cardInstallmentsMax" INTEGER NOT NULL DEFAULT 12/);
+  });
+});
+
+describe("calculateCardInstallmentPlan — every count of the approved table on R$ 600,00", () => {
+  it.each(Object.entries(APPROVED_PERCENT).map(([count, percent]) => [Number(count), percent]))("%ix = %i%%", (count, percent) => {
+    const plan = calculateCardInstallmentPlan(60_000, count, rules);
+    const fee = (60_000 * percent) / 100; // exact for R$ 600
+    expect(plan).toMatchObject({ installmentCount: count, rateBps: percent * 100, baseTotalInCents: 60_000, feeInCents: fee, financedTotalInCents: 60_000 + fee, interestFree: percent === 0 });
+    expect(plan.installmentValueInCents * (count - 1) + plan.lastInstallmentValueInCents).toBe(plan.financedTotalInCents);
   });
 
   it("1x is today's card flow even with installments disabled", () => {
     expect(calculateCardInstallmentPlan(1_234, 1, DISABLED_CARD_INSTALLMENT_RULES)).toMatchObject({ installmentCount: 1, feeInCents: 0, financedTotalInCents: 1_234 });
   });
-
-  it("keeps interest-free even if a rate were stored for low counts (rates exist only for 4x-6x)", () => {
-    expect(calculateCardInstallmentPlan(59_990, 3, rules)).toMatchObject({ feeInCents: 0, financedTotalInCents: 59_990, installmentValueInCents: 19_996, lastInstallmentValueInCents: 19_998 });
-  });
 });
 
-describe("calculateCardInstallmentPlan — surcharge on 4x to 6x", () => {
+describe("rounding in integer cents (7x, 9x, 11x, 12x with totals that do not divide)", () => {
   it.each([
-    [4, 600, 3_600, 63_600, 15_900],
-    [5, 750, 4_500, 64_500, 12_900],
-    [6, 900, 5_400, 65_400, 10_900],
-  ])("%ix: total surcharge %i bps over the base", (count, bps, fee, total, each) => {
-    const plan = calculateCardInstallmentPlan(60_000, count, rules);
-    expect(plan).toMatchObject({ installmentCount: count, rateBps: bps, baseTotalInCents: 60_000, feeInCents: fee, financedTotalInCents: total, installmentValueInCents: each, interestFree: false });
+    // base, count, fee (half up), financed, each, last
+    [59_990, 7, 7_799, 67_789, 9_684, 9_685],
+    [59_990, 9, 8_999, 68_989, 7_665, 7_669],
+    [59_990, 11, 10_198, 70_188, 6_380, 6_388],
+    [59_990, 12, 10_798, 70_788, 5_899, 5_899],
+    [12_345, 12, 2_222, 14_567, 1_213, 1_224],
+    [33_333, 11, 5_667, 39_000, 3_545, 3_550],
+  ])("base %i in %ix: fee %i, total %i, %i x n-1 + %i", (base, count, fee, total, each, last) => {
+    const plan = calculateCardInstallmentPlan(base, count, rules);
+    expect(plan).toMatchObject({ feeInCents: fee, financedTotalInCents: total, installmentValueInCents: each, lastInstallmentValueInCents: last });
+    // No cent lost or created: the sum of the installments is exactly the total sent to Asaas.
+    expect(each * (count - 1) + last).toBe(total);
+    expect(total).toBe(base + fee);
   });
 
-  it("rounds the surcharge half up in integer cents (no 199.90 * 1.07 float drift)", () => {
-    expect(calculateSurchargeInCents(19_990, 700)).toBe(1_399); // 1399.3
-    expect(calculateSurchargeInCents(19_995, 700)).toBe(1_400); // 1399.65
-    expect(calculateSurchargeInCents(1_250, 4)).toBe(1); // 0.5 -> 1
-    expect(calculateSurchargeInCents(1_249, 4)).toBe(0); // 0.4996 -> 0
-  });
-
-  it("splits like Asaas: the rounding remainder goes to the last installment, and the sum is exact", () => {
-    const plan = calculateCardInstallmentPlan(10_001, 4, { ...rules, surchargeBps: { 4: 0, 5: null, 6: null } });
-    expect(plan).toMatchObject({ financedTotalInCents: 10_001, installmentValueInCents: 2_500, lastInstallmentValueInCents: 2_501 });
-    expect(plan.installmentValueInCents * 3 + plan.lastInstallmentValueInCents).toBe(plan.financedTotalInCents);
+  it("rounds the surcharge half up (no 199.90 * 1.07 float drift)", () => {
+    expect(calculateSurchargeInCents(19_990, 700)).toBe(1_399);
+    expect(calculateSurchargeInCents(19_995, 700)).toBe(1_400);
+    expect(calculateSurchargeInCents(1_250, 4)).toBe(1);
+    expect(calculateSurchargeInCents(1_249, 4)).toBe(0);
   });
 
   it("follows the business order: products - coupon + shipping = base, then the surcharge", () => {
-    // Produto R$ 500, RARE10 -R$ 50, frete R$ 30 -> base R$ 480; 6x at 9% -> +R$ 43,20.
-    const base = 50_000 - 5_000 + 3_000;
-    const plan = calculateCardInstallmentPlan(base, 6, rules);
-    expect(plan).toMatchObject({ baseTotalInCents: 48_000, feeInCents: 4_320, financedTotalInCents: 52_320, installmentValueInCents: 8_720 });
+    const base = 50_000 - 5_000 + 3_000; // R$ 500 - RARE10 + R$ 30 frete = R$ 480
+    expect(calculateCardInstallmentPlan(base, 12, rules)).toMatchObject({ baseTotalInCents: 48_000, feeInCents: 8_640, financedTotalInCents: 56_640, installmentValueInCents: 4_720 });
   });
 });
 
-describe("calculateCardInstallmentPlan — what is never offered", () => {
-  it.each([0, -1, 7, 999, 1.5, Number.NaN])("rejects installmentCount=%s", (count) => {
-    expect(code(() => calculateCardInstallmentPlan(60_000, count, rules))).toBe("INVALID_COUNT");
+describe("what is never offered", () => {
+  it.each([13, 0, -1, 999, 1.5, Number.NaN])("rejects installmentCount=%s", (count) => {
+    expect(code(() => calculateCardInstallmentPlan(600_000, count, rules))).toBe("INVALID_COUNT");
   });
 
-  it("never offers 7x or more, whatever the stored maximum", () => {
-    expect(code(() => calculateCardInstallmentPlan(600_000, 7, { ...rules, maxInstallments: 21 }))).toBe("INVALID_COUNT");
-    expect(listCardInstallmentPlans(600_000, { ...rules, maxInstallments: 21 }).map((plan) => plan.installmentCount)).toEqual([1, 2, 3, 4, 5, 6]);
+  it("never offers 13x or more, whatever the stored maximum", () => {
+    expect(listCardInstallmentPlans(6_000_000, { ...rules, maxInstallments: 21 }).map((plan) => plan.installmentCount)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
   });
 
   it("rejects 2x+ when installments are disabled", () => {
     expect(code(() => calculateCardInstallmentPlan(60_000, 2, DISABLED_CARD_INSTALLMENT_RULES))).toBe("DISABLED");
   });
 
-  it("rejects counts above the Admin maximum and counts without a rate", () => {
-    expect(code(() => calculateCardInstallmentPlan(60_000, 4, { ...rules, maxInstallments: 3 }))).toBe("COUNT_NOT_OFFERED");
-    expect(code(() => calculateCardInstallmentPlan(60_000, 5, { ...rules, surchargeBps: { 4: 600, 5: null, 6: 900 } }))).toBe("COUNT_NOT_OFFERED");
-    // No "hole": without 5x, 6x is not offered either.
-    expect(code(() => calculateCardInstallmentPlan(60_000, 6, { ...rules, surchargeBps: { 4: 600, 5: null, 6: 900 } }))).toBe("COUNT_NOT_OFFERED");
+  it("rejects counts above the Admin maximum, without a rate, or after a hole", () => {
+    expect(code(() => calculateCardInstallmentPlan(60_000, 7, { ...rules, maxInstallments: 6 }))).toBe("COUNT_NOT_OFFERED");
+    const hole = { ...rules, surchargeBps: { ...APPROVED_CARD_INSTALLMENT_SURCHARGES_BPS, 9: null } };
+    expect(code(() => calculateCardInstallmentPlan(600_000, 9, hole))).toBe("COUNT_NOT_OFFERED");
+    expect(code(() => calculateCardInstallmentPlan(600_000, 12, hole))).toBe("COUNT_NOT_OFFERED");
+    expect(calculateCardInstallmentPlan(600_000, 8, hole).installmentCount).toBe(8);
   });
 
   it("rejects an installment below the store minimum or below the Asaas minimum", () => {
-    expect(code(() => calculateCardInstallmentPlan(2_000, 3, rules))).toBe("BELOW_MINIMUM_INSTALLMENT"); // 6,66 < 10,00
+    expect(code(() => calculateCardInstallmentPlan(2_000, 3, rules))).toBe("BELOW_MINIMUM_INSTALLMENT");
     const loose = { ...rules, minInstallmentInCents: 1 };
-    expect(code(() => calculateCardInstallmentPlan(1_400, 3, loose))).toBe("BELOW_MINIMUM_INSTALLMENT"); // 4,66 < Asaas 5,00
+    expect(code(() => calculateCardInstallmentPlan(1_400, 3, loose))).toBe("BELOW_MINIMUM_INSTALLMENT");
     expect(calculateCardInstallmentPlan(1_500, 3, loose).installmentValueInCents).toBe(ASAAS_MIN_CARD_INSTALLMENT_IN_CENTS);
   });
 
-  it("lists only valid counts for the total (R$ 20 at R$ 5 minimum -> up to 4x)", () => {
-    const loose = { ...rules, minInstallmentInCents: 500, surchargeBps: { 4: 0, 5: 0, 6: 0 } };
-    expect(listCardInstallmentPlans(2_000, loose).map((plan) => plan.installmentCount)).toEqual([1, 2, 3, 4]);
+  it("lists only the counts the total allows: R$ 50,00 with a R$ 10 minimum -> up to 5x", () => {
+    // 5x of R$ 55,00 = R$ 11,00 >= R$ 10; 6x of R$ 55,50 = R$ 9,25 < R$ 10.
+    expect(listCardInstallmentPlans(5_000, rules).map((plan) => plan.installmentCount)).toEqual([1, 2, 3, 4, 5]);
   });
 
   it("rejects a non-positive base", () => {
@@ -120,7 +142,7 @@ describe("calculateCardInstallmentPlan — what is never offered", () => {
 });
 
 describe("rules from the flag and the Admin settings", () => {
-  const stored = { cardInstallmentsEnabled: true, cardInstallmentsMax: 6, cardInstallmentsMinInCents: 1_000, cardInstallment4xBps: 600, cardInstallment5xBps: 750, cardInstallment6xBps: 900 };
+  const stored = { cardInstallmentsEnabled: true, cardInstallmentsMax: 12, cardInstallmentsMinInCents: 1_000, cardInstallmentSurchargesBps: { 4: 900, 5: 1_000, 6: 1_100, 7: 1_300, 8: 1_400, 9: 1_500, 10: 1_600, 11: 1_700, 12: 1_800 } };
 
   it("needs BOTH the deploy flag and the Admin toggle", () => {
     expect(resolveCardInstallmentRules(false, stored).enabled).toBe(false);
@@ -129,34 +151,37 @@ describe("rules from the flag and the Admin settings", () => {
   });
 
   it("treats invalid stored values as not offered instead of trusting them", () => {
-    const resolved = resolveCardInstallmentRules(true, { ...stored, cardInstallmentsMax: 12, cardInstallmentsMinInCents: 100, cardInstallment5xBps: 9_999 });
+    const resolved = resolveCardInstallmentRules(true, { ...stored, cardInstallmentsMax: 13, cardInstallmentsMinInCents: 100, cardInstallmentSurchargesBps: { 4: 900, 5: 9_999, 6: "11", 7: -1, 8: 1.5, 13: 100 } });
     expect(resolved.maxInstallments).toBe(1);
     expect(resolved.minInstallmentInCents).toBe(1_000);
-    expect(resolved.surchargeBps[5]).toBeNull();
+    expect(resolved.surchargeBps).toEqual({ ...EMPTY_SURCHARGE_TABLE, 4: 900 });
+    expect(parseSurchargeTable(null)).toEqual(EMPTY_SURCHARGE_TABLE);
+    expect(parseSurchargeTable([900])).toEqual(EMPTY_SURCHARGE_TABLE);
   });
 
   it("short copy: interest-free and overall maximum", () => {
-    expect(maxOfferedInstallments(rules)).toBe(6);
+    expect(maxOfferedInstallments(rules)).toBe(12);
     expect(maxInterestFreeInstallments(rules)).toBe(3);
-    expect(maxOfferedInstallments({ ...rules, surchargeBps: { 4: null, 5: null, 6: null } })).toBe(3);
+    expect(maxOfferedInstallments({ ...rules, surchargeBps: EMPTY_SURCHARGE_TABLE })).toBe(3);
     expect(maxOfferedInstallments(DISABLED_CARD_INSTALLMENT_RULES)).toBe(1);
   });
 });
 
 describe("display and Admin parsing", () => {
-  it("states interest-free plainly and always shows the total of surcharged plans", () => {
-    expect(describeCardInstallmentPlan(calculateCardInstallmentPlan(60_000, 3, rules)).replace(/ /g, " ")).toBe("3x de R$ 200,00 sem juros");
-    expect(describeCardInstallmentPlan(calculateCardInstallmentPlan(60_000, 6, rules)).replace(/ /g, " ")).toBe("6x de R$ 109,00 com acréscimo · Total R$ 654,00");
+  const nb = (value: string) => value.replace(/ /g, " ");
+  it("states interest-free plainly and always shows the final card total of surcharged plans", () => {
+    expect(nb(describeCardInstallmentPlan(calculateCardInstallmentPlan(60_000, 3, rules)))).toBe("3x de R$ 200,00 sem juros");
+    expect(nb(describeCardInstallmentPlan(calculateCardInstallmentPlan(60_000, 12, rules)))).toBe("12x de R$ 59,00 com acréscimo · Total no cartão R$ 708,00");
   });
 
   it("parses percentages to basis points and back", () => {
-    expect(parsePercentToBps("8")).toBe(800);
+    expect(parsePercentToBps("9")).toBe(900);
     expect(parsePercentToBps("8,5")).toBe(850);
     expect(parsePercentToBps("8.25%")).toBe(825);
     expect(parsePercentToBps("")).toBeNull();
     expect(parsePercentToBps("abc")).toBeNaN();
     expect(parsePercentToBps("-1")).toBeNaN();
     expect(formatBpsAsPercent(850)).toBe("8,5%");
-    expect(formatBpsAsPercent(800)).toBe("8%");
+    expect(formatBpsAsPercent(1_800)).toBe("18%");
   });
 });

@@ -4,11 +4,10 @@ import {
   maxOfferedInstallments,
   type CardInstallmentRules,
 } from "@/lib/card-installments";
-import { formatMoney } from "@/lib/money";
 
 /**
  * Short card installment copy for the product page and the cart. It never shows a surcharged
- * amount: the final 4x-6x value depends on coupon, promotions and shipping and is calculated (by
+ * amount: the final 4x-12x value depends on coupon, promotions and shipping and is calculated (by
  * the server) only at checkout.
  */
 export function buildCardInstallmentHint({ amountInCents, rules, context }: {
@@ -24,9 +23,10 @@ export function buildCardInstallmentHint({ amountInCents, rules, context }: {
     const free = maxInterestFreeInstallments(rules);
     return [free >= 2 ? `Até ${free}x sem juros` : null, upToCard].filter(Boolean).join(" · ") || null;
   }
-  // Product: the largest interest-free plan this price allows (minimum installment respected).
+  // Product: the largest interest-free count this price allows (minimum installment respected). No
+  // amounts: coupon, promotions, shipping and the cart can still change the final total.
   const interestFree = listCardInstallmentPlans(amountInCents, rules).filter((plan) => plan.interestFree && plan.installmentCount >= 2).at(-1);
-  const freeText = interestFree ? `ou em até ${interestFree.installmentCount}x de ${formatMoney(interestFree.installmentValueInCents)} sem juros` : null;
+  const freeText = interestFree ? `ou em até ${interestFree.installmentCount}x sem juros` : null;
   return [freeText, upToCard].filter(Boolean).join(" · ") || null;
 }
 

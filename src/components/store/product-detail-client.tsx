@@ -545,7 +545,7 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
         {pricing.promotion && !soldOut ? (
           <p className="mt-1 text-xs font-black uppercase tracking-[0.16em] text-neutral-600">{pricing.promotion.badgeText ?? pricing.promotion.name}</p>
         ) : null}
-        {/* Interest-free value only; 4x-6x totals depend on coupon and shipping and appear at checkout. */}
+        {/* Interest-free count only; 4x-12x totals depend on coupon and shipping and appear at checkout. */}
         <CardInstallmentHint amountInCents={pricing.finalPriceInCents} rules={commerceState.checkoutEnabled ? cardInstallmentRules : null} context="product" className="mt-2 text-sm font-semibold leading-6 text-neutral-600" />
 
         <div className="mt-6 space-y-5 rounded-lg border border-neutral-200 bg-white p-5">

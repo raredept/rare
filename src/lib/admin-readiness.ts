@@ -9,7 +9,7 @@ import {
   operationalEvidenceStorageUnavailableMessage,
   type StoredOperationalEvidence,
 } from "@/lib/admin-operational-evidence";
-import { isCheckoutEnabled, validateEnvironment } from "@/lib/env";
+import { isCardInstallmentsEnabled, isCheckoutEnabled, validateEnvironment } from "@/lib/env";
 import type { InventoryIntegrityReport } from "@/lib/inventory-integrity";
 import { buildMediaVariantAuditReport, type MediaVariantAuditEntry } from "@/lib/media-variant-audit";
 import { getRateLimitStatus } from "@/lib/rate-limit-config";
@@ -333,6 +333,18 @@ function addCheckoutItems(items: ReadinessItem[], env: Record<string, string | u
     recommendedAction: "Configurar Sandbox em staging; produção usa credencial própria somente após os gates.",
     docsPath: "docs/cycles/rare-bf-mfa-asaas/05_ASAAS.md",
     blocksOpenSales: checkoutEnabled && blocked, blocksStaging: checkoutEnabled && blocked, dependsOnClient: blocked,
+  });
+  const installments = isCardInstallmentsEnabled(env);
+  addItem(items, {
+    id: "payments-card-installments", area: "payments", title: "Parcelamento no cartão",
+    severity: installments ? "ok" : "info",
+    description: installments
+      ? "CARD_INSTALLMENTS_ENABLED=true: o parcelamento (até 12x) depende ainda do botão no Admin."
+      : "CARD_INSTALLMENTS_ENABLED desligado: cartão só à vista. Pix e cartão 1x não dependem desta flag.",
+    impact: "Desligar a flag devolve na hora o cartão à vista, sem afetar pedidos já criados.",
+    recommendedAction: "Ligar somente após a prova Sandbox ponta a ponta e autorização do proprietário.",
+    docsPath: "docs/cycles/rare-card-installments/CARD_INSTALLMENTS_01.md",
+    blocksOpenSales: false, blocksStaging: false, dependsOnClient: false,
   });
 }
 

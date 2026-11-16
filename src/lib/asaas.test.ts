@@ -181,6 +181,13 @@ describe("Asaas card installment contract (RARE-CARD-INSTALLMENTS-01)", () => {
     expect(buildAsaasPaymentRequest({ ...base, totalInCents: 23980, installmentCount: 6 })).toMatchObject({ billingType: "CREDIT_CARD", installmentCount: 6, totalValue: 239.8, externalReference: "order_bf_000001" });
   });
 
+  it.each([[7, 24860], [8, 25080], [9, 25300], [10, 25520], [11, 25740], [12, 25960]])("%ix: CREDIT_CARD plan with the financed totalValue (cents %i), no value field", (count, total) => {
+    const body = buildAsaasPaymentRequest({ ...base, totalInCents: total, installmentCount: count });
+    expect(body).toMatchObject({ billingType: "CREDIT_CARD", installmentCount: count, totalValue: total / 100, externalReference: "order_bf_000001" });
+    expect(body).not.toHaveProperty("value");
+    expect(body).not.toHaveProperty("installmentValue");
+  });
+
   it("never sends late-payment interest or fine fields to price an installment plan", () => {
     const body = buildAsaasPaymentRequest({ ...base, totalInCents: 23980, installmentCount: 6 });
     expect(body).not.toHaveProperty("interest");

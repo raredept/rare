@@ -11,7 +11,7 @@ import { formatMoney } from "@/lib/money";
 // Money is integer cents; rates are integer basis points (1% = 100 bps). No floats touch money.
 
 /** Absolute ceiling of the store policy, whatever the card brand or the Asaas account allows. */
-export const CARD_INSTALLMENTS_MAX = 6;
+export const CARD_INSTALLMENTS_MAX = 12;
 /** 1x, 2x and 3x are always interest-free: the store absorbs the card cost (business rule). */
 export const CARD_INSTALLMENTS_INTEREST_FREE = 3;
 /** Admin guard rail against a typo (e.g. 80 instead of 8,0): at most 30% total surcharge. */
@@ -21,8 +21,31 @@ export const ASAAS_MIN_CARD_INSTALLMENT_IN_CENTS = 500;
 /** Store default for the smallest installment; the Admin may only make it stricter. */
 export const DEFAULT_MIN_INSTALLMENT_IN_CENTS = 1_000;
 
-export const SURCHARGED_INSTALLMENT_COUNTS = [4, 5, 6] as const;
+export const SURCHARGED_INSTALLMENT_COUNTS = [4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
 export type SurchargedInstallmentCount = (typeof SURCHARGED_INSTALLMENT_COUNTS)[number];
+export type SurchargeTable = Readonly<Record<SurchargedInstallmentCount, number | null>>;
+
+/**
+ * Commercial table approved by the owner (2026-11-16): TOTAL surcharge per count, in basis points.
+ * It is the initial Admin configuration (migration default); the Admin may change it later (audited).
+ * card-installments.test.ts pins these values: changing one must be an explicit decision.
+ */
+export const APPROVED_CARD_INSTALLMENT_SURCHARGES_BPS: SurchargeTable = Object.freeze({
+  4: 900, 5: 1_000, 6: 1_100, 7: 1_300, 8: 1_400, 9: 1_500, 10: 1_600, 11: 1_700, 12: 1_800,
+});
+
+export const EMPTY_SURCHARGE_TABLE: SurchargeTable = Object.freeze({ 4: null, 5: null, 6: null, 7: null, 8: null, 9: null, 10: null, 11: null, 12: null });
+
+/** Reads a stored table defensively: anything outside 0..30% (or not an integer) means "not offered". */
+export function parseSurchargeTable(raw: unknown): SurchargeTable {
+  const source = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+  const table = { ...EMPTY_SURCHARGE_TABLE } as Record<SurchargedInstallmentCount, number | null>;
+  for (const count of SURCHARGED_INSTALLMENT_COUNTS) {
+    const value = source[String(count)];
+    table[count] = isValidSurchargeBps(value) ? value : null;
+  }
+  return Object.freeze(table);
+}
 
 export type CardInstallmentRules = {
   /** Effective switch: CARD_INSTALLMENTS_ENABLED (deploy) AND the Admin toggle. */
@@ -30,7 +53,7 @@ export type CardInstallmentRules = {
   maxInstallments: number;
   minInstallmentInCents: number;
   /** Total surcharge for each count, in basis points. null = that count is not offered. */
-  surchargeBps: Record<SurchargedInstallmentCount, number | null>;
+  surchargeBps: SurchargeTable;
 };
 
 export type CardInstallmentPlan = {
@@ -56,7 +79,7 @@ export const DISABLED_CARD_INSTALLMENT_RULES: CardInstallmentRules = {
   enabled: false,
   maxInstallments: 1,
   minInstallmentInCents: DEFAULT_MIN_INSTALLMENT_IN_CENTS,
-  surchargeBps: { 4: null, 5: null, 6: null },
+  surchargeBps: EMPTY_SURCHARGE_TABLE,
 };
 
 export function isValidSurchargeBps(value: unknown): value is number {
@@ -121,19 +144,17 @@ export function resolveCardInstallmentRules(flagEnabled: boolean, settings: {
   cardInstallmentsEnabled?: boolean | null;
   cardInstallmentsMax?: number | null;
   cardInstallmentsMinInCents?: number | null;
-  cardInstallment4xBps?: number | null;
-  cardInstallment5xBps?: number | null;
-  cardInstallment6xBps?: number | null;
+  /** Stored JSON { "4": bps, ..., "12": bps }. */
+  cardInstallmentSurchargesBps?: unknown;
 } | null | undefined): CardInstallmentRules {
   if (!flagEnabled || !settings?.cardInstallmentsEnabled) return DISABLED_CARD_INSTALLMENT_RULES;
   const max = settings.cardInstallmentsMax;
   const min = settings.cardInstallmentsMinInCents;
-  const rate = (value: number | null | undefined) => (isValidSurchargeBps(value) ? value : null);
   return {
     enabled: true,
     maxInstallments: Number.isSafeInteger(max) && (max as number) >= 1 && (max as number) <= CARD_INSTALLMENTS_MAX ? (max as number) : 1,
     minInstallmentInCents: Number.isSafeInteger(min) && (min as number) >= ASAAS_MIN_CARD_INSTALLMENT_IN_CENTS ? (min as number) : DEFAULT_MIN_INSTALLMENT_IN_CENTS,
-    surchargeBps: { 4: rate(settings.cardInstallment4xBps), 5: rate(settings.cardInstallment5xBps), 6: rate(settings.cardInstallment6xBps) },
+    surchargeBps: parseSurchargeTable(settings.cardInstallmentSurchargesBps),
   };
 }
 
@@ -143,7 +164,7 @@ export function maxOfferedInstallments(rules: CardInstallmentRules) {
   let best = 1;
   for (let count = 2; count <= Math.min(CARD_INSTALLMENTS_MAX, rules.maxInstallments); count += 1) {
     if (rateFor(count, rules) !== null) best = count;
-    else break; // Never advertise "até 6x" with a hole in the middle.
+    else break; // Never advertise "até 12x" with a hole in the middle.
   }
   return best;
 }
@@ -162,7 +183,7 @@ export function formatInstallmentValue(plan: Pick<CardInstallmentPlan, "installm
 export function describeCardInstallmentPlan(plan: CardInstallmentPlan) {
   if (plan.installmentCount === 1) return `1x de ${formatMoney(plan.financedTotalInCents)} sem juros`;
   if (plan.interestFree) return `${formatInstallmentValue(plan)} sem juros`;
-  return `${formatInstallmentValue(plan)} com acréscimo · Total ${formatMoney(plan.financedTotalInCents)}`;
+  return `${formatInstallmentValue(plan)} com acréscimo · Total no cartão ${formatMoney(plan.financedTotalInCents)}`;
 }
 
 /** Percentage text for bps (850 -> "8,5%"), used by Admin and order displays. */

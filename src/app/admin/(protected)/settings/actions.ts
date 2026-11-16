@@ -63,7 +63,7 @@ export async function saveCardInstallmentSettingsAction(formData: FormData) {
   await prisma.$transaction(async (tx) => {
     const before = await tx.storeSettings.findUnique({
       where: { id: "store" },
-      select: { cardInstallmentsEnabled: true, cardInstallmentsMax: true, cardInstallmentsMinInCents: true, cardInstallment4xBps: true, cardInstallment5xBps: true, cardInstallment6xBps: true },
+      select: { cardInstallmentsEnabled: true, cardInstallmentsMax: true, cardInstallmentsMinInCents: true, cardInstallmentSurchargesBps: true },
     });
     await tx.storeSettings.upsert({ where: { id: "store" }, update: value, create: { id: "store", ...value } });
     await recordAdminAudit(tx, {

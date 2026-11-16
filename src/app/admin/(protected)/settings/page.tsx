@@ -7,14 +7,16 @@ import { getInstagramUrl } from "@/lib/store-social";
 import { getEffectiveFixedShippingInCents, getEffectiveFreeShippingThresholdInCents } from "@/lib/shipping";
 import { requireAdmin } from "@/lib/auth";
 import { isCardInstallmentsEnabled } from "@/lib/env";
-import { CARD_INSTALLMENTS_INTEREST_FREE, describeCardInstallmentPlan, formatBpsAsPercent, listCardInstallmentPlans, resolveCardInstallmentRules } from "@/lib/card-installments";
-import { cardInstallmentSettingsErrorMessage } from "@/lib/card-installment-settings";
+import { CARD_INSTALLMENTS_INTEREST_FREE, CARD_INSTALLMENTS_MAX, describeCardInstallmentPlan, formatBpsAsPercent, listCardInstallmentPlans, parseSurchargeTable, resolveCardInstallmentRules, SURCHARGED_INSTALLMENT_COUNTS } from "@/lib/card-installments";
+import { cardInstallmentSettingsErrorMessage, surchargeFieldName } from "@/lib/card-installment-settings";
 
 export const dynamic = "force-dynamic";
 
 type SettingsSearchParams = { success?: string | string[]; error?: string | string[]; code?: string | string[] };
 const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
 const PREVIEW_BASE_IN_CENTS = 60_000;
+const INTEREST_FREE_COUNTS = Array.from({ length: CARD_INSTALLMENTS_INTEREST_FREE }, (_, index) => index + 1);
+const MAX_OPTIONS = Array.from({ length: CARD_INSTALLMENTS_MAX }, (_, index) => index + 1);
 
 export default async function SettingsPage({ searchParams }: { searchParams?: Promise<SettingsSearchParams> }) {
   // Checked here, not only in the layout: layouts do not re-render on client
@@ -29,6 +31,7 @@ export default async function SettingsPage({ searchParams }: { searchParams?: Pr
   const installmentsSaved = first(params.success) === "installments-saved";
   // Preview of what a R$ 600,00 order would offer with the SAVED rules (as if the flag were on).
   const previewPlans = listCardInstallmentPlans(PREVIEW_BASE_IN_CENTS, resolveCardInstallmentRules(true, { ...settings, cardInstallmentsEnabled: true }));
+  const surcharges = parseSurchargeTable(settings.cardInstallmentSurchargesBps);
   const rateValue = (bps: number | null) => (bps === null ? "" : formatBpsAsPercent(bps).replace("%", ""));
 
   return (
@@ -128,7 +131,7 @@ export default async function SettingsPage({ searchParams }: { searchParams?: Pr
         <p className="text-xs font-black uppercase tracking-wide text-neutral-500">Pagamentos · Cartão de crédito</p>
         <h2 className="mt-1 text-xl font-black text-neutral-950">Parcelamento no cartão</h2>
         <p className="mt-2 text-sm font-semibold text-neutral-600">
-          1x a {CARD_INSTALLMENTS_INTEREST_FREE}x são sempre sem juros (a RARE absorve a taxa do cartão). De 4x a 6x, o acréscimo é o percentual total somado ao valor do pedido, depois de cupom e frete. Vale só para pedidos novos.
+          1x a {CARD_INSTALLMENTS_INTEREST_FREE}x são sempre sem juros (a RARE absorve a taxa do cartão). De 4x a {CARD_INSTALLMENTS_MAX}x, o acréscimo é o percentual total somado ao valor do pedido, depois de cupom e frete. Vale só para pedidos novos.
         </p>
         {!installmentsFlag ? (
           <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800">
@@ -146,7 +149,7 @@ export default async function SettingsPage({ searchParams }: { searchParams?: Pr
             <label className="block">
               <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Máximo de parcelas</span>
               <select name="cardInstallmentsMax" defaultValue={String(settings.cardInstallmentsMax)} className="admin-input">
-                {[1, 2, 3, 4, 5, 6].map((count) => <option key={count} value={count}>{count}x</option>)}
+                {MAX_OPTIONS.map((count) => <option key={count} value={count}>{count}x</option>)}
               </select>
             </label>
             <div className="block">
@@ -160,15 +163,21 @@ export default async function SettingsPage({ searchParams }: { searchParams?: Pr
           </div>
           <fieldset>
             <legend className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Acréscimo total (%)</legend>
-            <div className="grid gap-4 sm:grid-cols-3">
-              {([[4, "rate4x", settings.cardInstallment4xBps], [5, "rate5x", settings.cardInstallment5xBps], [6, "rate6x", settings.cardInstallment6xBps]] as const).map(([count, name, bps]) => (
-                <label key={name} className="block">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {INTEREST_FREE_COUNTS.map((count) => (
+                <div key={count} className="block">
                   <span className="mb-1 block text-sm font-black text-neutral-800">{count}x</span>
-                  <input name={name} inputMode="decimal" placeholder="Ex.: 8,5" defaultValue={rateValue(bps)} className="admin-input" aria-describedby="parcelamento-ajuda" />
+                  <p className="admin-input flex items-center bg-neutral-50 text-neutral-500" aria-label={`${count}x sem juros`}>0% · sem juros</p>
+                </div>
+              ))}
+              {SURCHARGED_INSTALLMENT_COUNTS.map((count) => (
+                <label key={count} className="block">
+                  <span className="mb-1 block text-sm font-black text-neutral-800">{count}x</span>
+                  <input name={surchargeFieldName(count)} inputMode="decimal" placeholder="Ex.: 9" defaultValue={rateValue(surcharges[count])} className="admin-input" aria-describedby="parcelamento-ajuda" />
                 </label>
               ))}
             </div>
-            <p id="parcelamento-ajuda" className="mt-2 text-xs text-neutral-500">Entre 0% e 30%. Deixe em branco para não oferecer aquela parcela (o máximo precisa ser menor).</p>
+            <p id="parcelamento-ajuda" className="mt-2 text-xs text-neutral-500">1x a 3x não têm acréscimo. De 4x a 12x: entre 0% e 30%; em branco não oferece aquela parcela (o máximo precisa ser menor).</p>
           </fieldset>
           <div className="rounded-lg bg-neutral-50 p-4">
             <p className="text-xs font-black uppercase tracking-wide text-neutral-500">Exemplo: pedido de {formatMoney(PREVIEW_BASE_IN_CENTS)}</p>

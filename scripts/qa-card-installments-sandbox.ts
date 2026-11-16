@@ -1,7 +1,7 @@
 /**
  * RARE-CARD-INSTALLMENTS-01 — real Asaas SANDBOX proofs (never production).
  *
- *   tsx scripts/qa-card-installments-sandbox.ts create <env.json>   creates 1x, 3x, 4x and 6x charges
+ *   tsx scripts/qa-card-installments-sandbox.ts create <env.json>   creates 1x, 3x, 4x, 6x, 7x and 12x charges
  *   tsx scripts/qa-card-installments-sandbox.ts verify <env.json>   re-reads them and applies the store's matching rules
  *   tsx scripts/qa-card-installments-sandbox.ts cleanup <env.json>  removes the still-unpaid ones
  *
@@ -22,16 +22,18 @@ if (secrets.ASAAS_ENV !== "sandbox" || !secrets.ASAAS_API_KEY?.trim().startsWith
 Object.assign(process.env, { APP_ENV: "staging", ASAAS_ENV: "sandbox", ASAAS_API_KEY: secrets.ASAAS_API_KEY, ASAAS_WEBHOOK_TOKEN: secrets.ASAAS_WEBHOOK_TOKEN });
 
 const STATE = path.join(process.env.QA_STATE_DIR ?? ".", "qa-card-installments-sandbox.json");
-// Same commercial rules as the Admin example: 1x-3x 0%, 4x 6%, 5x 7,5%, 6x 9%, minimum R$ 10.
-const RULES = { enabled: true, maxInstallments: 6, minInstallmentInCents: 1_000, surchargeBps: { 4: 600, 5: 750, 6: 900 } } as const;
+// The owner-approved table (1x-3x 0%, 4x 9% ... 12x 18%), minimum R$ 10 per installment.
+const RULES_MAX = 12;
+const RULES_MIN_INSTALLMENT_IN_CENTS = 1_000;
 const BASE_IN_CENTS = 22_000; // R$ 200,00 + R$ 20,00 frete (example base)
-const COUNTS = [1, 3, 4, 6];
+const COUNTS = [1, 3, 4, 6, 7, 12];
 
 type Proof = { count: number; reference: string; paymentId: string; installmentId: string | null; financedTotalInCents: number; feeInCents: number };
 
 async function main() {
   const asaas = await import("../src/lib/asaas");
-  const { calculateCardInstallmentPlan } = await import("../src/lib/card-installments");
+  const { APPROVED_CARD_INSTALLMENT_SURCHARGES_BPS, calculateCardInstallmentPlan } = await import("../src/lib/card-installments");
+  const RULES = { enabled: true, maxInstallments: RULES_MAX, minInstallmentInCents: RULES_MIN_INSTALLMENT_IN_CENTS, surchargeBps: APPROVED_CARD_INSTALLMENT_SURCHARGES_BPS };
   const { classifyAsaasPayment, isAsaasPlanForOrder } = await import("../src/lib/checkout");
   const config = asaas.getAsaasConfig();
   if (config.environment !== "sandbox") throw new Error("Refusing: not sandbox.");

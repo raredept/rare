@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { buildCardInstallmentHint } from "@/components/store/card-installment-hint";
 import { CartPageClient } from "@/components/store/cart-page-client";
-import { DISABLED_CARD_INSTALLMENT_RULES, type CardInstallmentRules } from "@/lib/card-installments";
+import { APPROVED_CARD_INSTALLMENT_SURCHARGES_BPS, DISABLED_CARD_INSTALLMENT_RULES, type CardInstallmentRules } from "@/lib/card-installments";
 
 const cart = vi.hoisted(() => ({ items: [] as Array<Record<string, unknown>>, subtotalInCents: 0 }));
 
@@ -14,7 +14,7 @@ vi.mock("@/components/store/cart-context", () => ({
   useCart: () => ({ items: cart.items, subtotalInCents: cart.subtotalInCents, updateQuantity: vi.fn(), removeItem: vi.fn(), syncPrices: vi.fn() }),
 }));
 
-const rules: CardInstallmentRules = { enabled: true, maxInstallments: 6, minInstallmentInCents: 1_000, surchargeBps: { 4: 600, 5: 750, 6: 900 } };
+const rules: CardInstallmentRules = { enabled: true, maxInstallments: 12, minInstallmentInCents: 1_000, surchargeBps: APPROVED_CARD_INSTALLMENT_SURCHARGES_BPS };
 const text = (html: string) => html.replace(/ /g, " ").replace(/&#x27;/g, "'");
 
 function renderCart({ priceInCents, shippingInCents, cardInstallmentRules }: { priceInCents: number; shippingInCents: number; cardInstallmentRules?: CardInstallmentRules }) {
@@ -34,16 +34,22 @@ function renderCart({ priceInCents, shippingInCents, cardInstallmentRules }: { p
 }
 
 describe("checkout (cart page) installment options", () => {
-  it("lists 1x-3x without interest and 4x-6x with the surcharge AND the final total", () => {
+  it("lists 1x-3x without interest and 4x-12x with the surcharge AND the final card total", () => {
     const html = renderCart({ priceInCents: 58_000, shippingInCents: 2_000, cardInstallmentRules: rules });
     expect(html).toContain("Parcelamento no cartão");
     expect(html).toContain("1x de R$ 600,00 sem juros");
     expect(html).toContain("2x de R$ 300,00 sem juros");
     expect(html).toContain("3x de R$ 200,00 sem juros");
-    expect(html).toContain("4x de R$ 159,00 com acréscimo · Total R$ 636,00");
-    expect(html).toContain("5x de R$ 129,00 com acréscimo · Total R$ 645,00");
-    expect(html).toContain("6x de R$ 109,00 com acréscimo · Total R$ 654,00");
-    expect(html).not.toContain("7x de");
+    expect(html).toContain("4x de R$ 163,50 com acréscimo · Total no cartão R$ 654,00");
+    expect(html).toContain("5x de R$ 132,00 com acréscimo · Total no cartão R$ 660,00");
+    expect(html).toContain("6x de R$ 111,00 com acréscimo · Total no cartão R$ 666,00");
+    expect(html).toContain("7x de R$ 96,85 (última R$ 96,90) com acréscimo · Total no cartão R$ 678,00");
+    expect(html).toContain("8x de R$ 85,50 com acréscimo · Total no cartão R$ 684,00");
+    expect(html).toContain("9x de R$ 76,66 (última R$ 76,72) com acréscimo · Total no cartão R$ 690,00");
+    expect(html).toContain("10x de R$ 69,60 com acréscimo · Total no cartão R$ 696,00");
+    expect(html).toContain("11x de R$ 63,81 (última R$ 63,90) com acréscimo · Total no cartão R$ 702,00");
+    expect(html).toContain("12x de R$ 59,00 com acréscimo · Total no cartão R$ 708,00");
+    expect(html).not.toContain("13x de");
     // Nothing is added until the shopper picks a surcharged plan (1x selected by default).
     expect(html).not.toContain("Acréscimo do parcelamento");
   });
@@ -52,6 +58,12 @@ describe("checkout (cart page) installment options", () => {
     const html = renderCart({ priceInCents: 2_000, shippingInCents: 1_000, cardInstallmentRules: rules });
     expect(html).toContain("3x de R$ 10,00 sem juros");
     expect(html).not.toContain("4x de");
+    // R$ 120,00 still allows 12x (R$ 141,60 -> R$ 11,80 >= R$ 10); R$ 50,00 stops at 5x (6x would be R$ 9,25).
+    const mid = renderCart({ priceInCents: 11_000, shippingInCents: 1_000, cardInstallmentRules: rules });
+    expect(mid).toContain("12x de R$ 11,80");
+    const low = renderCart({ priceInCents: 4_000, shippingInCents: 1_000, cardInstallmentRules: rules });
+    expect(low).toContain("5x de R$ 11,00");
+    expect(low).not.toContain("6x de");
   });
 
   it("with installments OFF (flag or Admin): no options, no installment copy — the previous card flow", () => {
@@ -70,16 +82,16 @@ describe("checkout (cart page) installment options", () => {
 });
 
 describe("short installment copy (product page and cart)", () => {
-  it("product: interest-free value of the price, and 'até 6x' without any surcharged amount", () => {
-    expect(text(buildCardInstallmentHint({ amountInCents: 59_990, rules, context: "product" }) ?? "")).toBe("ou em até 3x de R$ 199,96 sem juros · ou até 6x no cartão");
+  it("product: short copy, no amounts (coupon, promotions and shipping may still change the total)", () => {
+    expect(buildCardInstallmentHint({ amountInCents: 59_990, rules, context: "product" })).toBe("ou em até 3x sem juros · ou até 12x no cartão");
   });
 
-  it("product: a cheap item shows only the interest-free plans its price allows", () => {
-    expect(text(buildCardInstallmentHint({ amountInCents: 2_500, rules, context: "product" }) ?? "")).toBe("ou em até 2x de R$ 12,50 sem juros · ou até 6x no cartão");
+  it("product: a cheap item shows only the interest-free count its price allows", () => {
+    expect(buildCardInstallmentHint({ amountInCents: 2_500, rules, context: "product" })).toBe("ou em até 2x sem juros · ou até 12x no cartão");
   });
 
   it("cart: no amounts, just the policy", () => {
-    expect(buildCardInstallmentHint({ amountInCents: 10_000, rules, context: "cart" })).toBe("Até 3x sem juros · ou até 6x no cartão");
+    expect(buildCardInstallmentHint({ amountInCents: 10_000, rules, context: "cart" })).toBe("Até 3x sem juros · ou até 12x no cartão");
     expect(buildCardInstallmentHint({ amountInCents: 10_000, rules: { ...rules, maxInstallments: 3 }, context: "cart" })).toBe("Até 3x sem juros");
   });
 

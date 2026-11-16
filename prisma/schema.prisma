@@ -508,12 +508,11 @@ model StoreSettings {
   checkoutReservationMinutes   Int      @default(15)
   /// Card installments (Admin → Configurações → Pagamentos). Also gated by CARD_INSTALLMENTS_ENABLED.
   cardInstallmentsEnabled      Boolean  @default(false)
-  cardInstallmentsMax          Int      @default(6)
+  cardInstallmentsMax          Int      @default(12)
   cardInstallmentsMinInCents   Int      @default(1000)
-  /// Total surcharge in basis points (850 = 8,5%). null = that count is not offered.
-  cardInstallment4xBps         Int?
-  cardInstallment5xBps         Int?
-  cardInstallment6xBps         Int?
+  /// TOTAL surcharge per count in basis points, { "4": 900, ..., "12": 1800 } (900 = 9%). A missing
+  /// or invalid entry means that count is not offered. Default = table approved on 2026-11-16.
+  cardInstallmentSurchargesBps Json     @default("{\"4\":900,\"5\":1000,\"6\":1100,\"7\":1300,\"8\":1400,\"9\":1500,\"10\":1600,\"11\":1700,\"12\":1800}")
   createdAt                    DateTime @default(now())
   updatedAt                    DateTime @updatedAt
 }

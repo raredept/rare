@@ -59,12 +59,15 @@ const INVOICE = "https://sandbox.asaas.com/i/080225913252";
 const BASE = 22_000;
 const installmentSettings = {
   cardInstallmentsEnabled: true,
-  cardInstallmentsMax: 6,
+  cardInstallmentsMax: 12,
   cardInstallmentsMinInCents: 1_000,
-  cardInstallment4xBps: 600,
-  cardInstallment5xBps: 750,
-  cardInstallment6xBps: 900,
+  // The owner-approved table (also the migration default).
+  cardInstallmentSurchargesBps: { 4: 900, 5: 1_000, 6: 1_100, 7: 1_300, 8: 1_400, 9: 1_500, 10: 1_600, 11: 1_700, 12: 1_800 },
 };
+// R$ 220,00 + 18% = R$ 259,60 in 12x: 11 x R$ 21,63 + R$ 21,67.
+const TOTAL_12X = 25_960;
+const EACH_12X = 2_163;
+const LAST_12X = 2_167;
 
 function seed({ priceInCents = 20_000, shippingInCents = 2_000, settings = installmentSettings }: { priceInCents?: number; shippingInCents?: number; settings?: Record<string, unknown> } = {}) {
   mocks.prisma.order.findMany.mockResolvedValue([]);
@@ -92,11 +95,11 @@ function seed({ priceInCents = 20_000, shippingInCents = 2_000, settings = insta
 }
 
 function payment(overrides: Partial<AsaasPayment> = {}): AsaasPayment {
-  return { id: "pay_080225913252", status: "CONFIRMED", billingType: "CREDIT_CARD", amountInCents: 3_996, customerId: CUSTOMER, externalReference: "order_asaas_1", invoiceUrl: null, deleted: false, installmentId: PLAN_ID, installmentNumber: 1, ...overrides };
+  return { id: "pay_080225913252", status: "CONFIRMED", billingType: "CREDIT_CARD", amountInCents: EACH_12X, customerId: CUSTOMER, externalReference: "order_asaas_1", invoiceUrl: null, deleted: false, installmentId: PLAN_ID, installmentNumber: 1, ...overrides };
 }
 
 function plan(overrides: Partial<AsaasInstallment> = {}): AsaasInstallment {
-  return { id: PLAN_ID, totalInCents: 23_980, installmentCount: 6, billingType: "CREDIT_CARD", customerId: CUSTOMER, deleted: false, ...overrides };
+  return { id: PLAN_ID, totalInCents: TOTAL_12X, installmentCount: 12, billingType: "CREDIT_CARD", customerId: CUSTOMER, deleted: false, ...overrides };
 }
 
 const cardInput = (extra: Record<string, unknown> = {}) => ({ items: [{ productId: "prod_1", variantId: "var_1", quantity: 1 }], customerAddressId: "addr_1", shippingOptionId: "fixed", paymentMethod: "card", ...extra });
@@ -119,18 +122,27 @@ afterEach(() => {
 });
 
 describe("checkout: the server prices the plan (Asaas contract)", () => {
-  it("6x: charges the FINANCED total as one Asaas plan (CREDIT_CARD, 6 installments, totalValue, reference)", async () => {
+  it("12x: charges the FINANCED total as one Asaas plan (CREDIT_CARD, 12 installments, totalValue, reference)", async () => {
     seed();
-    const result = await createCheckoutSession(cardInput({ installmentCount: 6 }), { customerId: "customer_000001" });
-    // R$ 220,00 + 9% = R$ 239,80.
+    const result = await createCheckoutSession(cardInput({ installmentCount: 12 }), { customerId: "customer_000001" });
     expect(createdOrder()).toMatchObject({
-      totalInCents: 23_980, paymentInstallmentCount: 6, paymentInstallmentRateBps: 900, paymentInstallmentFeeInCents: 1_980,
-      paymentBaseTotalInCents: BASE, paymentInstallmentValueInCents: 3_996, paymentLastInstallmentValueInCents: 4_000,
+      totalInCents: TOTAL_12X, paymentInstallmentCount: 12, paymentInstallmentRateBps: 1_800, paymentInstallmentFeeInCents: 3_960,
+      paymentBaseTotalInCents: BASE, paymentInstallmentValueInCents: EACH_12X, paymentLastInstallmentValueInCents: LAST_12X,
     });
-    expect(mocks.asaas.createAsaasPayment.mock.calls[0][1]).toMatchObject({ method: "card", installmentCount: 6, totalInCents: 23_980, orderId: "order_asaas_1", customerId: CUSTOMER });
+    expect(mocks.asaas.createAsaasPayment.mock.calls[0][1]).toMatchObject({ method: "card", installmentCount: 12, totalInCents: TOTAL_12X, orderId: "order_asaas_1", customerId: CUSTOMER });
     expect(mocks.asaas.getAsaasInstallment).toHaveBeenCalledWith(expect.anything(), PLAN_ID);
     expect(mocks.prisma.order.update).toHaveBeenCalledWith({ where: { id: "order_asaas_1" }, data: { asaasPaymentId: "pay_080225913252", asaasInstallmentId: PLAN_ID, paymentUrl: INVOICE } });
     expect(result.url).toBe(INVOICE);
+  });
+
+  it.each([
+    [4, 900], [5, 1_000], [6, 1_100], [7, 1_300], [8, 1_400], [9, 1_500], [10, 1_600], [11, 1_700], [12, 1_800],
+  ])("%ix: snapshot and Asaas plan carry the approved %i bps over the base", async (count, bps) => {
+    seed();
+    await createCheckoutSession(cardInput({ installmentCount: count }), { customerId: "customer_000001" });
+    const fee = (BASE * bps) / 10_000;
+    expect(createdOrder()).toMatchObject({ totalInCents: BASE + fee, paymentInstallmentCount: count, paymentInstallmentRateBps: bps, paymentInstallmentFeeInCents: fee, paymentBaseTotalInCents: BASE });
+    expect(mocks.asaas.createAsaasPayment.mock.calls[0][1]).toMatchObject({ installmentCount: count, totalInCents: BASE + fee });
   });
 
   it("3x: interest-free plan for exactly the base total", async () => {
@@ -151,12 +163,12 @@ describe("checkout: the server prices the plan (Asaas contract)", () => {
 
   it("ignores every financial value sent by the browser (rate, fee, totals, installment value)", async () => {
     seed();
-    await createCheckoutSession(cardInput({ installmentCount: 6, rate: 0, rateBps: 0, fee: 0, feeInCents: 0, totalInCents: 100, total: 1, financedTotal: 1, installmentValue: 1, paymentInstallmentFeeInCents: 0 }), { customerId: "customer_000001" });
-    expect(createdOrder()).toMatchObject({ totalInCents: 23_980, paymentInstallmentFeeInCents: 1_980 });
-    expect(mocks.asaas.createAsaasPayment.mock.calls[0][1]).toMatchObject({ totalInCents: 23_980 });
+    await createCheckoutSession(cardInput({ installmentCount: 12, rate: 0, rateBps: 0, fee: 0, feeInCents: 0, totalInCents: 100, total: 1, financedTotal: 1, installmentValue: 1, paymentInstallmentFeeInCents: 0 }), { customerId: "customer_000001" });
+    expect(createdOrder()).toMatchObject({ totalInCents: TOTAL_12X, paymentInstallmentFeeInCents: 3_960 });
+    expect(mocks.asaas.createAsaasPayment.mock.calls[0][1]).toMatchObject({ totalInCents: TOTAL_12X });
   });
 
-  it.each([0, -1, 7, 999, 2.5, "6"])("rejects installmentCount=%s before reserving anything", async (count) => {
+  it.each([0, -1, 13, 999, 2.5, "12"])("rejects installmentCount=%s before reserving anything", async (count) => {
     seed();
     await expect(createCheckoutSession(cardInput({ installmentCount: count }), { customerId: "customer_000001" })).rejects.toBeInstanceOf(ZodError);
     expect(mocks.tx.order.create).not.toHaveBeenCalled();
@@ -179,14 +191,14 @@ describe("checkout: the server prices the plan (Asaas contract)", () => {
   });
 
   it("refuses a count without a configured surcharge", async () => {
-    seed({ settings: { ...installmentSettings, cardInstallment6xBps: null } });
-    await expect(createCheckoutSession(cardInput({ installmentCount: 6 }), { customerId: "customer_000001" })).rejects.toThrow(installmentUnavailableMessage);
+    seed({ settings: { ...installmentSettings, cardInstallmentSurchargesBps: { ...installmentSettings.cardInstallmentSurchargesBps, 12: null } } });
+    await expect(createCheckoutSession(cardInput({ installmentCount: 12 }), { customerId: "customer_000001" })).rejects.toThrow(installmentUnavailableMessage);
     expect(mocks.tx.order.create).not.toHaveBeenCalled();
   });
 
   it("refuses an installment below the minimum (no order, no charge)", async () => {
-    seed({ priceInCents: 2_000, shippingInCents: 2_000 }); // R$ 40 + 9% = R$ 43,60 -> 6x R$ 7,26 < R$ 10
-    await expect(createCheckoutSession(cardInput({ installmentCount: 6 }), { customerId: "customer_000001" })).rejects.toThrow(installmentUnavailableMessage);
+    seed({ priceInCents: 2_000, shippingInCents: 2_000 }); // R$ 40 + 18% = R$ 47,20 -> 12x R$ 3,93 < R$ 10
+    await expect(createCheckoutSession(cardInput({ installmentCount: 12 }), { customerId: "customer_000001" })).rejects.toThrow(installmentUnavailableMessage);
     expect(mocks.tx.order.create).not.toHaveBeenCalled();
     expect(mocks.asaas.createAsaasPayment).not.toHaveBeenCalled();
   });
@@ -199,9 +211,9 @@ describe("checkout: the server prices the plan (Asaas contract)", () => {
 
   it("keeps the reservation and shows no invoice when the plan at Asaas does not match the order", async () => {
     seed();
-    // A plan for the base total (without the 6x surcharge) is not this order's plan.
+    // A plan for the base total (without the 12x surcharge) is not this order's plan.
     mocks.asaas.getAsaasInstallment.mockResolvedValue(plan({ totalInCents: BASE }));
-    await expect(createCheckoutSession(cardInput({ installmentCount: 6 }), { customerId: "customer_000001" })).rejects.toMatchObject({ code: "AsaasChargeMismatch" });
+    await expect(createCheckoutSession(cardInput({ installmentCount: 12 }), { customerId: "customer_000001" })).rejects.toMatchObject({ code: "AsaasChargeMismatch" });
     expect(mocks.tx.productVariant.updateMany).not.toHaveBeenCalled();
   });
 });
@@ -224,8 +236,8 @@ describe("checkout: Asaas minimum charge (R$ 10,00) is enforced before anything 
 describe("webhook / reconciliation: a plan is matched as a whole", () => {
   const planOrder = (overrides: Record<string, unknown> = {}) => ({
     id: "order_asaas_1", orderNumber: "RARE-ASAAS", status: "awaiting_payment", paymentProvider: "asaas", paymentMethod: "card",
-    asaasPaymentId: "pay_080225913252", asaasInstallmentId: PLAN_ID, paymentInstallmentCount: 6, paymentInstallmentValueInCents: 3_996,
-    stripePaymentIntentId: null, totalInCents: 23_980, reservationExpiresAt: new Date("2026-11-27T15:30:00Z"),
+    asaasPaymentId: "pay_080225913252", asaasInstallmentId: PLAN_ID, paymentInstallmentCount: 12, paymentInstallmentValueInCents: EACH_12X,
+    stripePaymentIntentId: null, totalInCents: TOTAL_12X, reservationExpiresAt: new Date("2026-11-27T15:30:00Z"),
     customerId: "customer_000001", customerName: "Ana", customerEmail: "ana@example.com", customerPhone: null, customerNameSnapshot: "Ana", customerEmailSnapshot: "ana@example.com",
     customerPhoneSnapshot: null, shippingAddressSnapshot: { city: "São Paulo" }, billingAddressSnapshot: null,
     items: [{ id: "item_1", productId: "prod_1", variantId: "var_1", quantity: 1 }],
@@ -240,7 +252,7 @@ describe("webhook / reconciliation: a plan is matched as a whole", () => {
     await expect(processAsaasPayment(payment({ id: "pay_000000000002", installmentNumber: 2 }), plan())).resolves.toEqual({ status: "paid", orderId: "order_asaas_1" });
     expect(mocks.tx.inventoryMovement.create).toHaveBeenCalledTimes(1);
     expect(mocks.tx.inventoryMovement.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ type: "sale", stockDelta: -1, reservedDelta: -1 }) }));
-    expect(mocks.tx.emailOutbox.createMany.mock.calls[0][0].data[0]).toMatchObject({ totalInCents: 23_980, installmentCount: 6, installmentValueInCents: 3_996 });
+    expect(mocks.tx.emailOutbox.createMany.mock.calls[0][0].data[0]).toMatchObject({ totalInCents: TOTAL_12X, installmentCount: 12, installmentValueInCents: EACH_12X });
   });
 
   it("is idempotent: the other installments' events (duplicates) change nothing", async () => {
@@ -251,7 +263,7 @@ describe("webhook / reconciliation: a plan is matched as a whole", () => {
 
   it.each([
     ["plan for the base total, without the surcharge", plan({ totalInCents: BASE })],
-    ["plan with another installment count", plan({ installmentCount: 5 })],
+    ["plan with another installment count", plan({ installmentCount: 11 })],
     ["plan of another customer", plan({ customerId: "cus_000000099999" })],
     ["plan that is not card", plan({ billingType: "BOLETO" })],
     ["plan not read from the API", null],
@@ -270,8 +282,8 @@ describe("webhook / reconciliation: a plan is matched as a whole", () => {
   });
 
   it("a single-charge order never accepts an installment payment", async () => {
-    mocks.tx.order.findUniqueOrThrow.mockResolvedValue(planOrder({ asaasInstallmentId: null, paymentInstallmentCount: 1, totalInCents: 3_996 }));
-    await expect(processAsaasPayment(payment({ amountInCents: 3_996 }), plan())).resolves.toEqual({ status: "payment_mismatch" });
+    mocks.tx.order.findUniqueOrThrow.mockResolvedValue(planOrder({ asaasInstallmentId: null, paymentInstallmentCount: 1, totalInCents: EACH_12X }));
+    await expect(processAsaasPayment(payment({ amountInCents: EACH_12X }), plan())).resolves.toEqual({ status: "payment_mismatch" });
   });
 
   it("one removed installment does not release a plan that still exists", async () => {
@@ -306,5 +318,50 @@ describe("refund of a plan", () => {
     mocks.prisma.order.updateMany.mockResolvedValue({ count: 1 });
     mocks.asaas.refundAsaasInstallment.mockRejectedValue(new AsaasError("unknown", "AsaasDeadlineExceeded"));
     await expect(requestAsaasRefund("order_asaas_1", { id: "admin_1", label: "ops" })).resolves.toEqual({ status: "unknown" });
+  });
+});
+
+describe("webhook: 7x-12x plans settle as ONE sale", () => {
+  const APPROVED: Record<number, number> = { 7: 1_300, 8: 1_400, 9: 1_500, 10: 1_600, 11: 1_700, 12: 1_800 };
+
+  it.each([7, 8, 9, 10, 11, 12])("%ix: every installment event is processed, but stock, payment and e-mail happen exactly once", async (count) => {
+    const total = BASE + (BASE * APPROVED[count]) / 10_000;
+    const each = Math.floor(total / count);
+    let status = "awaiting_payment";
+    mocks.tx.order.findUniqueOrThrow.mockImplementation(async () => ({
+      id: "order_asaas_1", orderNumber: "RARE-ASAAS", status, paymentProvider: "asaas", paymentMethod: "card",
+      asaasPaymentId: "pay_080225913252", asaasInstallmentId: PLAN_ID, paymentInstallmentCount: count, paymentInstallmentValueInCents: each,
+      stripePaymentIntentId: null, totalInCents: total, reservationExpiresAt: new Date("2026-11-27T15:30:00Z"),
+      customerId: "customer_000001", customerName: "Ana", customerEmail: "ana@example.com", customerPhone: null, customerNameSnapshot: "Ana", customerEmailSnapshot: "ana@example.com",
+      customerPhoneSnapshot: null, shippingAddressSnapshot: null, billingAddressSnapshot: null,
+      items: [{ id: "item_1", productId: "prod_1", variantId: "var_1", quantity: 1 }],
+    }));
+    mocks.tx.order.update.mockImplementation(async ({ data }: { data: { status?: string } }) => {
+      if (data.status) status = data.status;
+      return {};
+    });
+    const read = plan({ totalInCents: total, installmentCount: count });
+    const outcomes = [];
+    // Asaas sends CONFIRMED for each installment (any order); each one re-reads the same plan.
+    for (let number = count; number >= 1; number -= 1) {
+      outcomes.push((await processAsaasPayment(payment({ id: `pay_00000000000${number}`, installmentNumber: number, amountInCents: each }), read)).status);
+    }
+    expect(outcomes.filter((outcome) => outcome === "paid")).toHaveLength(1);
+    expect(outcomes.filter((outcome) => outcome === "already_paid")).toHaveLength(count - 1);
+    expect(mocks.tx.inventoryMovement.create).toHaveBeenCalledTimes(1);
+    expect(mocks.tx.emailOutbox.createMany).toHaveBeenCalledTimes(1);
+    expect(mocks.tx.emailOutbox.createMany.mock.calls[0][0].data[0]).toMatchObject({ totalInCents: total, installmentCount: count, installmentValueInCents: each });
+    expect(mocks.notifyAdminsOfPaidOrder).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([7, 8, 9, 10, 11, 12])("%ix: a plan priced WITHOUT the surcharge is never accepted", async (count) => {
+    const total = BASE + (BASE * APPROVED[count]) / 10_000;
+    mocks.tx.order.findUniqueOrThrow.mockResolvedValue({
+      id: "order_asaas_1", orderNumber: "RARE-ASAAS", status: "awaiting_payment", paymentProvider: "asaas", paymentMethod: "card",
+      asaasPaymentId: "pay_080225913252", asaasInstallmentId: PLAN_ID, paymentInstallmentCount: count, totalInCents: total, customerId: "customer_000001",
+      items: [{ id: "item_1", productId: "prod_1", variantId: "var_1", quantity: 1 }],
+    });
+    await expect(processAsaasPayment(payment(), plan({ totalInCents: BASE, installmentCount: count }))).resolves.toEqual({ status: "payment_mismatch" });
+    expect(mocks.tx.inventoryMovement.create).not.toHaveBeenCalled();
   });
 });

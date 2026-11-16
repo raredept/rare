@@ -28,65 +28,76 @@ function form(values: Record<string, string | boolean>) {
   return data;
 }
 
-const valid = { cardInstallmentsEnabled: true, cardInstallmentsMax: "6", cardInstallmentsMin: "R$ 10,00", rate4x: "6", rate5x: "7,5", rate6x: "9" };
+// The approved table as typed in the Admin.
+const valid = {
+  cardInstallmentsEnabled: true, cardInstallmentsMax: "12", cardInstallmentsMin: "R$ 10,00",
+  rate4x: "9", rate5x: "10", rate6x: "11", rate7x: "13", rate8x: "14", rate9x: "15", rate10x: "16", rate11x: "17", rate12x: "18",
+};
+const approvedBps = { 4: 900, 5: 1000, 6: 1100, 7: 1300, 8: 1400, 9: 1500, 10: 1600, 11: 1700, 12: 1800 };
 
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.requireAdmin.mockResolvedValue({ id: "admin_1", username: "ops", email: "ops@example.com", role: "SYSTEM_ADMIN" });
   mocks.prisma.$transaction.mockImplementation(async (work: (tx: typeof mocks.tx) => unknown) => work(mocks.tx));
-  mocks.tx.storeSettings.findUnique.mockResolvedValue({ cardInstallmentsEnabled: false, cardInstallmentsMax: 6, cardInstallmentsMinInCents: 1000, cardInstallment4xBps: 800, cardInstallment5xBps: null, cardInstallment6xBps: null });
+  mocks.tx.storeSettings.findUnique.mockResolvedValue({ cardInstallmentsEnabled: false, cardInstallmentsMax: 12, cardInstallmentsMinInCents: 1000, cardInstallmentSurchargesBps: approvedBps });
 });
 
-describe("installment settings validation", () => {
-  it("accepts the approved policy and stores rates in basis points", () => {
+describe("installment settings validation (1x-12x)", () => {
+  it("accepts the approved table and stores it in basis points", () => {
     expect(parseCardInstallmentSettings(form(valid))).toEqual({
       ok: true,
-      value: { cardInstallmentsEnabled: true, cardInstallmentsMax: 6, cardInstallmentsMinInCents: 1000, cardInstallment4xBps: 600, cardInstallment5xBps: 750, cardInstallment6xBps: 900 },
+      value: { cardInstallmentsEnabled: true, cardInstallmentsMax: 12, cardInstallmentsMinInCents: 1000, cardInstallmentSurchargesBps: Object.fromEntries(Object.entries(approvedBps)) },
     });
   });
 
+  it("ignores any 1x-3x surcharge field: interest-free is fixed", () => {
+    const parsed = parseCardInstallmentSettings(form({ ...valid, rate1x: "5", rate2x: "5", rate3x: "5" }));
+    expect(parsed.ok && Object.keys(parsed.value.cardInstallmentSurchargesBps)).toEqual(["4", "5", "6", "7", "8", "9", "10", "11", "12"]);
+  });
+
   it.each([
-    [{ cardInstallmentsMax: "7" }, "max"],
+    [{ cardInstallmentsMax: "13" }, "max"],
     [{ cardInstallmentsMax: "0" }, "max"],
     [{ cardInstallmentsMax: "abc" }, "max"],
     [{ cardInstallmentsMin: "R$ 4,99" }, "min"],
     [{ cardInstallmentsMin: "" }, "min"],
     [{ rate4x: "-1" }, "range-4"],
-    [{ rate5x: "31" }, "range-5"],
-    [{ rate6x: "abc" }, "range-6"],
-    [{ rate5x: "" }, "missing-5"],
+    [{ rate12x: "31" }, "range-12"],
+    [{ rate7x: "abc" }, "range-7"],
+    [{ rate11x: "" }, "missing-11"],
   ])("rejects %o (%s)", (override, code) => {
     expect(parseCardInstallmentSettings(form({ ...valid, ...override }))).toEqual({ ok: false, code });
     expect(cardInstallmentSettingsErrorMessage(code)).toBeTruthy();
   });
 
   it("allows a lower maximum without the higher rates (kept, not offered)", () => {
-    expect(parseCardInstallmentSettings(form({ ...valid, cardInstallmentsMax: "3", rate4x: "", rate5x: "", rate6x: "" }))).toMatchObject({ ok: true, value: { cardInstallmentsMax: 3, cardInstallment4xBps: null } });
-    expect(parseCardInstallmentSettings(form({ ...valid, cardInstallmentsMax: "4", rate5x: "", rate6x: "" }))).toMatchObject({ ok: true, value: { cardInstallmentsMax: 4, cardInstallment4xBps: 600 } });
+    expect(parseCardInstallmentSettings(form({ ...valid, cardInstallmentsMax: "6", rate7x: "", rate8x: "", rate9x: "", rate10x: "", rate11x: "", rate12x: "" }))).toMatchObject({ ok: true, value: { cardInstallmentsMax: 6, cardInstallmentSurchargesBps: { 6: 1100, 7: null } } });
   });
 
   it("shows only fixed messages for codes from the URL", () => {
     expect(cardInstallmentSettingsErrorMessage("<script>")).toBeNull();
+    expect(cardInstallmentSettingsErrorMessage("range-13")).toBeNull();
+    expect(cardInstallmentSettingsErrorMessage("missing-3")).toBeNull();
     expect(cardInstallmentSettingsErrorMessage(undefined)).toBeNull();
   });
 });
 
 describe("saveCardInstallmentSettingsAction", () => {
-  it("requires system.settings before anything else and audits before/after (no card-named keys dropped)", async () => {
+  it("requires system.settings before anything else and audits before/after", async () => {
     const { saveCardInstallmentSettingsAction } = await import("@/app/admin/(protected)/settings/actions");
-    await expect(saveCardInstallmentSettingsAction(form(valid))).rejects.toThrow("NEXT_REDIRECT:");
+    await expect(saveCardInstallmentSettingsAction(form({ ...valid, rate12x: "20" }))).rejects.toThrow("NEXT_REDIRECT:");
     expect(mocks.requireAdmin).toHaveBeenCalledWith("system.settings");
-    expect(mocks.tx.storeSettings.upsert).toHaveBeenCalledWith(expect.objectContaining({ update: expect.objectContaining({ cardInstallmentsEnabled: true, cardInstallment6xBps: 900 }) }));
+    expect(mocks.tx.storeSettings.upsert).toHaveBeenCalledWith(expect.objectContaining({ update: expect.objectContaining({ cardInstallmentsEnabled: true, cardInstallmentSurchargesBps: expect.objectContaining({ 12: 2000 }) }) }));
     const audit = mocks.tx.adminAuditLog.create.mock.calls[0][0].data;
     expect(audit).toMatchObject({ actorUserId: "admin_1", actorLabel: "ops", action: "settings.installments_updated", entityType: "StoreSettings", entityId: "store" });
-    expect(audit.before).toMatchObject({ enabled: false, surcharge4xBps: 800, surcharge6xBps: null });
-    expect(audit.after).toMatchObject({ enabled: true, maxInstallments: 6, interestFreeInstallments: 3, minInstallmentInCents: 1000, surcharge4xBps: 600, surcharge5xBps: 750, surcharge6xBps: 900 });
+    expect(audit.before).toMatchObject({ enabled: false, maxInstallments: 12, surchargesBps: { "4x": 900, "12x": 1800 } });
+    expect(audit.after).toMatchObject({ enabled: true, maxInstallments: 12, interestFreeInstallments: 3, minInstallmentInCents: 1000, surchargesBps: { "4x": 900, "11x": 1700, "12x": 2000 } });
     expect(mocks.redirect.mock.calls.at(-1)?.[0]).toContain("success=installments-saved");
   });
 
   it("saves nothing and writes no audit on invalid input", async () => {
     const { saveCardInstallmentSettingsAction } = await import("@/app/admin/(protected)/settings/actions");
-    await expect(saveCardInstallmentSettingsAction(form({ ...valid, rate6x: "80" }))).rejects.toThrow("error=installments&code=range-6");
+    await expect(saveCardInstallmentSettingsAction(form({ ...valid, rate9x: "80" }))).rejects.toThrow("error=installments&code=range-9");
     expect(mocks.tx.storeSettings.upsert).not.toHaveBeenCalled();
     expect(mocks.tx.adminAuditLog.create).not.toHaveBeenCalled();
   });
