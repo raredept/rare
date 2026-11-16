@@ -74,4 +74,21 @@ describe("email worker and readiness", () => {
     expect(provider.send).not.toHaveBeenCalled();
     expect(db.finish).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ code: "InvalidEmailSnapshot" }), expect.any(Date));
   });
+
+  it("shows the card installments in the payment e-mail (never card data), and nothing extra for Pix / 1x", async () => {
+    const db = repository();
+    (db.claim as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({ ...row("payment_approved"), totalInCents: 23980, installmentCount: 6, installmentValueInCents: 3996 })
+      .mockResolvedValueOnce({ ...row("payment_approved"), id: "e2", installmentCount: null, installmentValueInCents: null })
+      .mockResolvedValueOnce(null);
+    (db.finish as ReturnType<typeof vi.fn>).mockResolvedValue("accepted");
+    const provider = { name: "smtp", send: vi.fn().mockResolvedValue({ id: "smtp-1" }) };
+    await processEmailOutbox({ repository: db, provider, env: testEnv });
+    const plan = provider.send.mock.calls[0][0];
+    expect(plan.text.replace(/ /g, " ")).toContain("Pagamento: Cartão de crédito. Parcelamento: 6x de R$ 39,96.");
+    expect(plan.text.replace(/ /g, " ")).toContain("total R$ 239,80");
+    expect(plan.html.replace(/ /g, " ")).toContain("Parcelamento: 6x de R$ 39,96.");
+    const single = provider.send.mock.calls[1][0];
+    expect(single.text).not.toContain("Parcelamento");
+  });
 });
