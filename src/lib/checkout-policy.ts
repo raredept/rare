@@ -21,3 +21,4 @@ export const ASAAS_SEARCH_SETTLE_MS = 180_000;
 // The production Asaas account refuses any charge below R$ 10,00 (400 invalid_object, observed on
 // 2026-11-16). Orders below it are refused BEFORE any order, reservation or charge exists.
 export const ASAAS_MIN_CHARGE_IN_CENTS = 1_000;
+export const ASAAS_MINIMUM_PAYMENT_MESSAGE = `O valor mínimo para pagamento é de R$ ${(ASAAS_MIN_CHARGE_IN_CENTS / 100).toFixed(2).replace(".", ",")}. Adicione mais itens ao carrinho para continuar.`;

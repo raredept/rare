@@ -7,6 +7,7 @@ import { getStoreSettings } from "@/lib/settings";
 import { buildBreadcrumbListJsonLd, buildProductJsonLd, JsonLdScript } from "@/lib/structured-data";
 import { getProductBySlug } from "@/lib/storefront";
 import { getStorefrontCommerceState } from "@/lib/storefront-commerce";
+import { getStorefrontCardInstallmentRules } from "@/lib/storefront-installments";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -78,6 +79,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         whatsappNumber={settings.whatsappNumber}
         whatsappMessage={settings.whatsappDefaultMessage}
         commerce={commerce}
+        cardInstallmentRules={getStorefrontCardInstallmentRules(settings)}
       />
     </div>
   );

@@ -30,7 +30,7 @@ import { firstOrderCouponConsumedWhere, getFirstOrderCouponDiscount, paidOrderSt
 import { priceProduct } from "@/lib/promotions/engine";
 import { loadApplicablePromotionRules } from "@/lib/promotions/store";
 import { enqueueOrderShippedEmail, enqueuePaidOrderEmail } from "@/lib/email-outbox";
-import { ASAAS_MIN_CHARGE_IN_CENTS, ASAAS_RESERVATION_MINUTES, CHECKOUT_RESERVATION_MINUTES, PIX_PROVIDER_EXPIRY_GRACE_SECONDS, PIX_RESERVATION_MINUTES, STRIPE_SESSION_FALLBACK_SECONDS } from "@/lib/checkout-policy";
+import { ASAAS_MIN_CHARGE_IN_CENTS, ASAAS_MINIMUM_PAYMENT_MESSAGE, ASAAS_RESERVATION_MINUTES, CHECKOUT_RESERVATION_MINUTES, PIX_PROVIDER_EXPIRY_GRACE_SECONDS, PIX_RESERVATION_MINUTES, STRIPE_SESSION_FALLBACK_SECONDS } from "@/lib/checkout-policy";
 import { createPixPayment, getMercadoPagoConfig, isPixCheckoutAvailable, MercadoPagoError, type MercadoPagoConfig, type MercadoPagoPayment } from "@/lib/mercadopago";
 import {
   AsaasError,
@@ -73,7 +73,7 @@ export const pixUnavailableMessage = "O Pix está indisponível no momento. Esco
 export const cardUnavailableMessage = "O pagamento com cartão está indisponível no momento. Escolha Pix ou tente novamente em instantes.";
 export const paymentUnavailableMessage = "Pagamentos temporariamente indisponíveis. Tente novamente em alguns minutos.";
 export const installmentUnavailableMessage = "O parcelamento escolhido não está disponível para este pedido. Escolha outra opção de parcelamento.";
-export const minimumPaymentMessage = `O valor mínimo para pagamento é de R$ ${(ASAAS_MIN_CHARGE_IN_CENTS / 100).toFixed(2).replace(".", ",")}. Adicione mais itens ao carrinho para continuar.`;
+export const minimumPaymentMessage = ASAAS_MINIMUM_PAYMENT_MESSAGE;
 
 type CustomerAddressForCheckout = CheckoutAddressSource & {
   id: string;
