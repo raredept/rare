@@ -3,7 +3,8 @@ import { Prisma, type OrderStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { buildCheckoutCustomerData, type CheckoutAddressSource } from "@/lib/customer-order";
 import { isValidCpf } from "@/lib/cpf";
-import { getAppUrl } from "@/lib/env";
+import { getAppUrl, isCardInstallmentsEnabled } from "@/lib/env";
+import { calculateCardInstallmentPlan, CardInstallmentError, DISABLED_CARD_INSTALLMENT_RULES, resolveCardInstallmentRules } from "@/lib/card-installments";
 import {
   buildPackageFromCart,
   buildShippingQuoteSnapshot,
@@ -29,7 +30,7 @@ import { firstOrderCouponConsumedWhere, getFirstOrderCouponDiscount, paidOrderSt
 import { priceProduct } from "@/lib/promotions/engine";
 import { loadApplicablePromotionRules } from "@/lib/promotions/store";
 import { enqueueOrderShippedEmail, enqueuePaidOrderEmail } from "@/lib/email-outbox";
-import { ASAAS_RESERVATION_MINUTES, CHECKOUT_RESERVATION_MINUTES, PIX_PROVIDER_EXPIRY_GRACE_SECONDS, PIX_RESERVATION_MINUTES, STRIPE_SESSION_FALLBACK_SECONDS } from "@/lib/checkout-policy";
+import { ASAAS_MIN_CHARGE_IN_CENTS, ASAAS_RESERVATION_MINUTES, CHECKOUT_RESERVATION_MINUTES, PIX_PROVIDER_EXPIRY_GRACE_SECONDS, PIX_RESERVATION_MINUTES, STRIPE_SESSION_FALLBACK_SECONDS } from "@/lib/checkout-policy";
 import { createPixPayment, getMercadoPagoConfig, isPixCheckoutAvailable, MercadoPagoError, type MercadoPagoConfig, type MercadoPagoPayment } from "@/lib/mercadopago";
 import {
   AsaasError,
@@ -37,10 +38,13 @@ import {
   createAsaasPayment,
   findAsaasCustomerByReference,
   getAsaasConfig,
+  getAsaasInstallment,
   getAsaasPayment,
   getAsaasPixQrCode,
+  refundAsaasInstallment,
   refundAsaasPayment,
   type AsaasConfig,
+  type AsaasInstallment,
   type AsaasPayment,
 } from "@/lib/asaas";
 import { getAsaasConfigurationIssue, getAsaasPaymentMethods, isAsaasSuccessRedirectEnabled } from "@/lib/asaas-config";
@@ -68,6 +72,8 @@ export const paymentInProgressMessage = "Você já tem um pagamento em andamento
 export const pixUnavailableMessage = "O Pix está indisponível no momento. Escolha cartão ou tente novamente em instantes.";
 export const cardUnavailableMessage = "O pagamento com cartão está indisponível no momento. Escolha Pix ou tente novamente em instantes.";
 export const paymentUnavailableMessage = "Pagamentos temporariamente indisponíveis. Tente novamente em alguns minutos.";
+export const installmentUnavailableMessage = "O parcelamento escolhido não está disponível para este pedido. Escolha outra opção de parcelamento.";
+export const minimumPaymentMessage = `O valor mínimo para pagamento é de R$ ${(ASAAS_MIN_CHARGE_IN_CENTS / 100).toFixed(2).replace(".", ",")}. Adicione mais itens ao carrinho para continuar.`;
 
 type CustomerAddressForCheckout = CheckoutAddressSource & {
   id: string;
@@ -326,6 +332,8 @@ async function finalizePaidOrder(
     totalInCents: order.totalInCents,
     customerEmailSnapshot: order.customerEmailSnapshot ?? source.customerDetails?.email ?? order.customerEmail,
     customerNameSnapshot: order.customerNameSnapshot ?? source.customerDetails?.name ?? order.customerName,
+    installmentCount: order.paymentInstallmentCount,
+    installmentValueInCents: order.paymentInstallmentValueInCents,
   });
 
   return { status: "paid" as const, orderId: order.id };
@@ -488,6 +496,14 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
   let stripeShippingOption: ShippingOption | null = null;
 
   const settings = await getStoreSettings();
+  // Installments: the shopper chooses only the count. Anything above 1x needs Asaas card AND the
+  // deploy flag AND the Admin toggle; otherwise refuse before anything is reserved or created.
+  const requestedInstallments = method === "card" ? parsed.installmentCount ?? 1 : 1;
+  if (method !== "card" && parsed.installmentCount !== undefined && parsed.installmentCount !== 1) throw new Error(installmentUnavailableMessage);
+  const installmentRules = asaasConfig && method === "card"
+    ? resolveCardInstallmentRules(isCardInstallmentsEnabled(), settings)
+    : DISABLED_CARD_INSTALLMENT_RULES;
+  if (requestedInstallments > 1 && !installmentRules.enabled) throw new Error(installmentUnavailableMessage);
   const reservationMinutes = asaasConfig ? ASAAS_RESERVATION_MINUTES : pixConfig ? PIX_RESERVATION_MINUTES : CHECKOUT_RESERVATION_MINUTES;
   const reservationExpiresAt = new Date(Date.now() + reservationMinutes * 60 * 1000);
   const checkoutCustomer = await prisma.customer.findFirst({
@@ -690,6 +706,22 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
           shippingQuoteSnapshot: undefined,
         };
 
+    // Base = products (with promotions) - coupon + shipping. Free shipping and the coupon were
+    // decided above, before any installment surcharge exists.
+    const baseTotalInCents = subtotalInCents - coupon.discountInCents + shipping.shippingInCents;
+    // Never create a charge we already know Asaas refuses (production minimum).
+    if (asaasConfig && baseTotalInCents < ASAAS_MIN_CHARGE_IN_CENTS) throw new Error(minimumPaymentMessage);
+    const cardPlan = asaasConfig && method === "card"
+      ? (() => {
+          try {
+            return calculateCardInstallmentPlan(baseTotalInCents, requestedInstallments, installmentRules);
+          } catch (error) {
+            if (error instanceof CardInstallmentError) throw new Error(installmentUnavailableMessage);
+            throw error;
+          }
+        })()
+      : null;
+
     const createdOrder = await tx.order.create({
       data: {
         orderNumber: makeOrderNumber(),
@@ -702,7 +734,18 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
         shippingMethodSnapshot: shipping.shippingMethod,
         shippingCepSnapshot: shipping.shippingCep,
         shippingQuoteSnapshot: shipping.shippingQuoteSnapshot as Prisma.InputJsonObject | undefined,
-        totalInCents: subtotalInCents - coupon.discountInCents + shipping.shippingInCents,
+        // Card: the FINAL financed total (base + surcharge); 1x and Pix: the base, as before.
+        totalInCents: cardPlan?.financedTotalInCents ?? baseTotalInCents,
+        ...(cardPlan
+          ? {
+              paymentInstallmentCount: cardPlan.installmentCount,
+              paymentInstallmentRateBps: cardPlan.rateBps,
+              paymentInstallmentFeeInCents: cardPlan.feeInCents,
+              paymentBaseTotalInCents: cardPlan.baseTotalInCents,
+              paymentInstallmentValueInCents: cardPlan.installmentValueInCents,
+              paymentLastInstallmentValueInCents: cardPlan.lastInstallmentValueInCents,
+            }
+          : {}),
         status: "awaiting_payment",
         ...(asaasConfig
           ? { paymentProvider: "asaas" as const, paymentMethod: method }
@@ -946,13 +989,15 @@ async function ensureAsaasCustomer(config: AsaasConfig, customer: { id: string; 
  */
 async function createAsaasCharge(
   config: AsaasConfig,
-  order: { id: string; orderNumber: string; totalInCents: number },
+  order: { id: string; orderNumber: string; totalInCents: number; paymentInstallmentCount?: number | null },
   customerId: string,
   method: CheckoutMethod,
   reservationExpiresAt: Date,
   appUrl: string,
 ) {
   let paymentId: string | null = null;
+  // The plan was priced and stored with the order; the charge is created for exactly that plan.
+  const installmentCount = method === "card" ? order.paymentInstallmentCount ?? 1 : 1;
   try {
     const payment = await createAsaasPayment(config, {
       customerId,
@@ -960,6 +1005,7 @@ async function createAsaasCharge(
       orderNumber: order.orderNumber,
       totalInCents: order.totalInCents,
       method,
+      installmentCount,
       dueDate: reservationExpiresAt,
       // /pedido/sucesso only understands Stripe sessions; the shopper's own order page (signed-in,
       // scoped to the customer) shows this order and its live status.
@@ -967,7 +1013,27 @@ async function createAsaasCharge(
     });
     paymentId = payment.id;
     // Store the id before anything else can fail, so the worker can always find and close it.
-    await prisma.order.update({ where: { id: order.id }, data: { asaasPaymentId: payment.id, paymentUrl: method === "card" ? payment.invoiceUrl : null } });
+    await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        asaasPaymentId: payment.id,
+        ...(installmentCount > 1 && payment.installmentId ? { asaasInstallmentId: payment.installmentId } : {}),
+        paymentUrl: method === "card" ? payment.invoiceUrl : null,
+      },
+    });
+    if (installmentCount > 1) {
+      // An installment plan answers with its FIRST installment, whose value is one installment.
+      // Verify the whole PLAN against the order instead: total, count, method and customer.
+      if (payment.externalReference !== order.id || payment.customerId !== customerId || payment.billingType !== "CREDIT_CARD" || !payment.installmentId) {
+        throw new AsaasError("unknown", "AsaasChargeMismatch");
+      }
+      const plan = await getAsaasInstallment(config, payment.installmentId);
+      if (plan.id !== payment.installmentId || !isAsaasPlanForOrder(plan, { totalInCents: order.totalInCents, installmentCount, asaasCustomerId: customerId })) {
+        throw new AsaasError("unknown", "AsaasChargeMismatch");
+      }
+      if (!payment.invoiceUrl) throw new AsaasError("unknown", "AsaasInvoiceUrlMissing");
+      return { url: payment.invoiceUrl, orderId: order.id, orderNumber: order.orderNumber, checkoutDeadlineAt: reservationExpiresAt.toISOString() };
+    }
     // Never show a charge for anything other than this order's total and method.
     if (
       payment.externalReference !== order.id ||
@@ -1076,6 +1142,20 @@ export async function loadPendingAsaasPixCharge(orderId: string, now = new Date(
   }
 }
 
+/** An Asaas card installment plan is this order's only when total, count, method and customer all match. */
+export function isAsaasPlanForOrder(
+  plan: AsaasInstallment | null | undefined,
+  expected: { totalInCents: number; installmentCount: number | null | undefined; asaasCustomerId: string | null | undefined },
+) {
+  return Boolean(
+    plan && !plan.deleted && expected.asaasCustomerId &&
+    plan.totalInCents === expected.totalInCents &&
+    plan.installmentCount === expected.installmentCount &&
+    plan.billingType === "CREDIT_CARD" &&
+    plan.customerId === expected.asaasCustomerId,
+  );
+}
+
 export type AsaasPaymentOutcome ="paid" | "pending" | "processing" | "closed" | "refunded" | "refund_pending" | "chargeback" | "unknown";
 
 /** Maps Asaas payment states to what the store does. Asaas states are never stored as order states. */
@@ -1121,7 +1201,7 @@ async function flagOrderIncident(tx: Prisma.TransactionClient, order: { id: stri
  * concurrent deliveries, a paid order is never paid twice, and a state never moves backwards
  * (paid -> pending, refunded -> paid are impossible).
  */
-export async function processAsaasPayment(payment: AsaasPayment) {
+export async function processAsaasPayment(payment: AsaasPayment, installment?: AsaasInstallment | null) {
   const result = await prisma.$transaction(async (tx) => {
     const candidate = await tx.order.findFirst({
       where: { OR: [{ asaasPaymentId: payment.id }, ...(payment.externalReference ? [{ id: payment.externalReference }] : [])] },
@@ -1130,7 +1210,13 @@ export async function processAsaasPayment(payment: AsaasPayment) {
     if (!candidate) return { status: "order_not_found" as const };
 
     const order = await lockOrder(tx, candidate.id);
-    if (order.paymentProvider !== "asaas" || payment.externalReference !== order.id || (order.asaasPaymentId && order.asaasPaymentId !== payment.id)) {
+    // Card installments: every installment is its own Asaas payment under one plan id. A plan order
+    // accepts only payments of ITS plan; a single-charge order never accepts an installment.
+    const isPlanOrder = Boolean(order.asaasInstallmentId) || (order.paymentInstallmentCount ?? 1) > 1;
+    const belongsToOrder = isPlanOrder
+      ? Boolean(payment.installmentId) && (!order.asaasInstallmentId || order.asaasInstallmentId === payment.installmentId)
+      : !payment.installmentId && (!order.asaasPaymentId || order.asaasPaymentId === payment.id);
+    if (order.paymentProvider !== "asaas" || payment.externalReference !== order.id || !belongsToOrder) {
       await flagOrderIncident(tx, order, "mismatch", `Cobrança Asaas não confere: ${order.orderNumber}`, "Uma cobrança Asaas apontou para este pedido mas não corresponde ao pedido. Nada foi alterado. Verifique no painel do Asaas.");
       return { status: "payment_mismatch" as const };
     }
@@ -1143,18 +1229,33 @@ export async function processAsaasPayment(payment: AsaasPayment) {
       await flagOrderIncident(tx, order, "mismatch", `Cliente Asaas não confere: ${order.orderNumber}`, "A cobrança Asaas não corresponde ao cliente vinculado ao pedido. Nada foi alterado. Verifique no painel do Asaas.");
       return { status: "payment_mismatch" as const };
     }
-    if (!order.asaasPaymentId) await tx.order.update({ where: { id: order.id }, data: { asaasPaymentId: payment.id } });
+    if (isPlanOrder) {
+      const bind = {
+        ...(!order.asaasInstallmentId && payment.installmentId ? { asaasInstallmentId: payment.installmentId } : {}),
+        ...(!order.asaasPaymentId && payment.installmentNumber === 1 ? { asaasPaymentId: payment.id } : {}),
+      };
+      if (Object.keys(bind).length) await tx.order.update({ where: { id: order.id }, data: bind });
+    } else if (!order.asaasPaymentId) {
+      await tx.order.update({ where: { id: order.id }, data: { asaasPaymentId: payment.id } });
+    }
+    // A plan (read from the API by the caller, never from a webhook body) must match the order
+    // before any paid state. One installment's value is never compared with the order total.
+    const planMatches = !isPlanOrder || (
+      installment?.id === payment.installmentId &&
+      isAsaasPlanForOrder(installment, { totalInCents: order.totalInCents, installmentCount: order.paymentInstallmentCount, asaasCustomerId: customer.asaasCustomerId })
+    );
 
     const outcome = classifyAsaasPayment(payment);
     if (outcome === "paid") {
       const expectedBillingType = order.paymentMethod === "pix" ? "PIX" : "CREDIT_CARD";
-      if (payment.amountInCents !== order.totalInCents || (payment.billingType && payment.billingType !== expectedBillingType && payment.status !== "RECEIVED_IN_CASH")) {
+      const amountMatches = isPlanOrder ? planMatches && payment.billingType === "CREDIT_CARD" : payment.amountInCents === order.totalInCents;
+      if (!amountMatches || (payment.billingType && payment.billingType !== expectedBillingType && payment.status !== "RECEIVED_IN_CASH")) {
         // Never mark paid on a divergent value: record the incident and keep the order as it is.
         await flagOrderIncident(tx, order, "mismatch", `Pagamento divergente: ${order.orderNumber}`, "O Asaas confirmou um pagamento com valor ou forma diferente do pedido. O pedido NÃO foi marcado como pago.");
         return { status: "payment_mismatch" as const };
       }
       const paid = await finalizePaidOrder(tx, order, {
-        amountInCents: payment.amountInCents,
+        amountInCents: isPlanOrder ? installment?.totalInCents ?? null : payment.amountInCents,
         currency: "brl",
         paymentMethod: order.paymentMethod,
         movementReason: "Pagamento confirmado pelo Asaas",
@@ -1169,6 +1270,12 @@ export async function processAsaasPayment(payment: AsaasPayment) {
     }
 
     if (outcome === "closed") {
+      // One removed installment does not close a plan whose other installments may still be payable:
+      // release only when the whole plan is gone at Asaas.
+      if (isPlanOrder && !(installment && installment.id === payment.installmentId && installment.deleted)) {
+        await flagOrderIncident(tx, order, "plan_partial", `Parcelamento parcialmente removido: ${order.orderNumber}`, "Uma parcela foi removida no Asaas, mas o parcelamento ainda existe. A reserva foi mantida. Verifique no painel do Asaas.");
+        return { status: "ignored" as const };
+      }
       const released = await releaseOrderReservation(tx, order.id, order.items, "canceled", "Cobrança Asaas encerrada sem pagamento");
       if (released) await tx.order.update({ where: { id: order.id }, data: { checkoutExpiredAt: new Date() } });
       return { status: released ? "released" as const : "ignored" as const };
@@ -1223,8 +1330,8 @@ export const refundableOrderStatuses: OrderStatus[] = ["paid", "processing", "sh
  * confirms it (webhook / reconciliation), never just because it was requested.
  */
 export async function requestAsaasRefund(orderId: string, actor: AdminAuditActor) {
-  const order = await prisma.order.findUnique({ where: { id: orderId }, select: { id: true, orderNumber: true, status: true, paymentProvider: true, asaasPaymentId: true, refundRequestedAt: true } });
-  if (!order || order.paymentProvider !== "asaas" || !order.asaasPaymentId) return { status: "not_refundable" as const };
+  const order = await prisma.order.findUnique({ where: { id: orderId }, select: { id: true, orderNumber: true, status: true, paymentProvider: true, asaasPaymentId: true, asaasInstallmentId: true, refundRequestedAt: true } });
+  if (!order || order.paymentProvider !== "asaas" || (!order.asaasPaymentId && !order.asaasInstallmentId)) return { status: "not_refundable" as const };
   if (!refundableOrderStatuses.includes(order.status)) return { status: "not_refundable" as const };
   const claimed = await prisma.order.updateMany({
     where: { id: order.id, refundRequestedAt: null, status: { in: refundableOrderStatuses } },
@@ -1232,7 +1339,9 @@ export async function requestAsaasRefund(orderId: string, actor: AdminAuditActor
   });
   if (claimed.count !== 1) return { status: "already_requested" as const };
   try {
-    await refundAsaasPayment(getAsaasConfig(), order.asaasPaymentId, `Estorno do pedido ${order.orderNumber}`);
+    // A card installment plan is refunded as a whole (every installment); a single charge as before.
+    if (order.asaasInstallmentId) await refundAsaasInstallment(getAsaasConfig(), order.asaasInstallmentId);
+    else await refundAsaasPayment(getAsaasConfig(), order.asaasPaymentId as string, `Estorno do pedido ${order.orderNumber}`);
   } catch (error) {
     if (error instanceof AsaasError && error.outcome === "rejected") {
       await prisma.order.updateMany({ where: { id: order.id }, data: { refundRequestedAt: null } });

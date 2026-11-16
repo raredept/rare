@@ -50,7 +50,7 @@ describe("Asaas checkout expiry", () => {
     const { reconcileCheckoutExpiry } = await import("@/lib/checkout-expiry");
     await expect(reconcileCheckoutExpiry("order_asaas_1")).resolves.toMatchObject({ outcome: "released" });
     expect(mocks.deleteAsaasPayment.mock.invocationCallOrder[0]).toBeLessThan(mocks.processAsaasPayment.mock.invocationCallOrder[0]);
-    expect(mocks.processAsaasPayment).toHaveBeenCalledWith(expect.objectContaining({ deleted: true }));
+    expect(mocks.processAsaasPayment).toHaveBeenCalledWith(expect.objectContaining({ deleted: true }), null);
   });
 
   it("settles a payment that arrived while the charge was being closed (race)", async () => {
@@ -75,7 +75,7 @@ describe("Asaas checkout expiry", () => {
     mocks.processAsaasPayment.mockImplementation(async (payment) => ({ status: payment.customerId === "cus_1" ? "released" : "payment_mismatch" }));
     const { reconcileCheckoutExpiry } = await import("@/lib/checkout-expiry");
     await expect(reconcileCheckoutExpiry("order_asaas_1")).resolves.toMatchObject({ outcome: "released" });
-    expect(mocks.processAsaasPayment).toHaveBeenCalledWith(expect.objectContaining({ deleted: true, customerId: "cus_1" }));
+    expect(mocks.processAsaasPayment).toHaveBeenCalledWith(expect.objectContaining({ deleted: true, customerId: "cus_1" }), null);
   });
 
   it("never reports paid when payment reconciliation rejected the binding or value", async () => {

@@ -18,3 +18,6 @@ export const PIX_SEARCH_SETTLE_MS = 180_000;
 export const ASAAS_RESERVATION_MINUTES = 30;
 // A just-created charge may take a moment to show up in the Asaas listing.
 export const ASAAS_SEARCH_SETTLE_MS = 180_000;
+// The production Asaas account refuses any charge below R$ 10,00 (400 invalid_object, observed on
+// 2026-11-16). Orders below it are refused BEFORE any order, reservation or charge exists.
+export const ASAAS_MIN_CHARGE_IN_CENTS = 1_000;

@@ -44,6 +44,7 @@ describe("Asaas transport", () => {
     expect(normalizeAsaasPayment(paymentBody)).toEqual({
       id: "pay_080225913252", status: "PENDING", billingType: "PIX", amountInCents: 17000, customerId: "cus_000005401844",
       externalReference: "order_bf_000001", invoiceUrl: "https://sandbox.asaas.com/i/080225913252", deleted: false,
+      installmentId: null, installmentNumber: null,
     });
     expect(normalizeAsaasPayment({ ...paymentBody, invoiceUrl: "https://evil.example/pay" }).invoiceUrl).toBeNull();
     expect(normalizeAsaasPayment({ ...paymentBody, value: 19.99 }).amountInCents).toBe(1999);

@@ -132,6 +132,9 @@ export async function processEmailOutbox(options: {
         customerName: row.customerName ?? "Cliente RARE",
         orderNumber: row.orderNumber,
         total: formatMoney(row.totalInCents),
+        installments: row.kind === "payment_approved" && row.installmentCount && row.installmentCount >= 2 && row.installmentValueInCents
+          ? { count: row.installmentCount, value: formatMoney(row.installmentValueInCents) }
+          : null,
       });
       // Guard original value before template sanitization as well as adapter.
       assertEmailRecipientAllowed({ ...message, to: row.recipient ?? "" }, config);
