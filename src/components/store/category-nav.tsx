@@ -215,7 +215,9 @@ export function CategoryNav({ categories }: { categories: NavigationCategory[] }
   return (
     <div
       ref={rootRef}
-      className="scrollbar-none mx-auto flex max-w-[1440px] gap-2 overflow-x-auto py-3 pl-4 pr-8 sm:pl-6 sm:pr-10 lg:overflow-visible lg:px-8 xl:px-10"
+      // UIUX-NAV-001: on desktop the bar is centered on the content grid instead of leaving the
+      // right half of the header empty (it only renders from 1024 px, where every item fits).
+      className="scrollbar-none mx-auto flex max-w-[1440px] gap-2 overflow-x-auto py-3 pl-4 pr-8 sm:pl-6 sm:pr-10 lg:justify-center lg:overflow-visible lg:px-8 xl:gap-3 xl:px-10"
     >
       {virtualCatalogCategories.map((category) => {
         const isActive = activeCategorySlug === category.slug;
@@ -256,7 +258,9 @@ export function CategoryNav({ categories }: { categories: NavigationCategory[] }
         return (
           <div
             key={category.id}
-            className="relative shrink-0"
+            // The global `button { font: inherit }` makes the button take its font from here, so this
+            // wrapper carries the pills' size/weight: "Acessórios ▾" matches the links beside it.
+            className="relative shrink-0 text-sm font-bold"
             onPointerEnter={(event) => {
               if (event.pointerType === "mouse" && !pinnedCategoryId) openMenuByHover(category.id);
             }}

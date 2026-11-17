@@ -84,7 +84,7 @@ export function MobileNavigation({ categories }: { categories: NavigationCategor
           >
             <div className="flex items-center justify-between border-b border-white/10 px-5 pb-4 pt-[max(1rem,env(safe-area-inset-top))]">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.28em] text-white/65">Navegação</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.28em] text-white/65">Navegação</p>
                 <h2 id="store-mobile-menu-title" className="mt-1 text-2xl font-black tracking-tight">RARE</h2>
               </div>
               <button ref={closeRef} type="button" onClick={() => setOpen(false)} className="store-icon-button border-white/15" aria-label="Fechar menu">
@@ -94,7 +94,7 @@ export function MobileNavigation({ categories }: { categories: NavigationCategor
 
             <div className="flex-1 overflow-y-auto px-5 py-5" onClick={(event) => { if (event.target instanceof Element && event.target.closest("a[href]")) setOpen(false); }}>
               <nav aria-label="Categorias mobile">
-                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/65">Comprar por categoria</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.24em] text-white/65">Comprar por categoria</p>
                 <div className="mt-3 divide-y divide-white/10 border-y border-white/10">
                   {[...virtualCatalogCategories, ...categories].map((category) => (
                     <div key={category.slug}>
@@ -117,7 +117,7 @@ export function MobileNavigation({ categories }: { categories: NavigationCategor
               </nav>
 
               <nav aria-label="Conta mobile" className="mt-7">
-                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/65">Sua RARE</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.24em] text-white/65">Sua RARE</p>
                 <div className="mt-3 grid gap-2">
                   <Link href="/minha-conta" className="flex min-h-12 items-center gap-3 rounded-md bg-white/[0.06] px-4 text-sm font-black"><UserRound className="h-4 w-4" /> Minha conta</Link>
                   <Link href="/minha-conta/pedidos" className="flex min-h-12 items-center gap-3 rounded-md bg-white/[0.06] px-4 text-sm font-black"><PackageCheck className="h-4 w-4" /> Meus pedidos</Link>

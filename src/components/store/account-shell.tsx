@@ -31,13 +31,14 @@ export function AccountShell({
           {subtitle ? <p className="mt-2 max-w-2xl text-sm font-medium text-neutral-500">{subtitle}</p> : null}
         </div>
       </div>
-      <nav aria-label="Seções da conta" className="scrollbar-none mt-6 flex gap-2 overflow-x-auto border-b border-neutral-200 pb-3">
+      {/* UIUX-ACCOUNT-001: a 2×2 grid on phones, so the current tab is never cut at the edge. */}
+      <nav aria-label="Seções da conta" className="mt-6 grid grid-cols-2 gap-2 border-b border-neutral-200 pb-3 sm:flex sm:flex-wrap">
         {accountLinks.map((link) => (
           <Link
             key={link.href}
             href={link.href}
             aria-current={isCurrent(link.href) ? "page" : undefined}
-            className={`whitespace-nowrap rounded-full border px-4 py-2 text-xs font-black uppercase tracking-wide transition ${isCurrent(link.href) ? "border-black bg-black text-white" : "border-neutral-300 text-neutral-800 hover:border-black"}`}
+            className={`inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-full border px-4 text-xs font-black uppercase tracking-wide transition ${isCurrent(link.href) ? "border-black bg-black text-white" : "border-neutral-300 text-neutral-800 hover:border-black"}`}
           >
             {link.label}
           </Link>

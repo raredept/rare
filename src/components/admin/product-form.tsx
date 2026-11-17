@@ -1,5 +1,7 @@
 import { saveProductAction } from "@/app/admin/(protected)/products/actions";
+import { AdminFixedSaveBar } from "@/components/admin/admin-fixed-save-bar";
 import { AdminSubmitButton } from "@/components/admin/admin-submit-button";
+import { AdminUnsavedChanges } from "@/components/admin/admin-unsaved-changes";
 import { ProductImageManager } from "@/components/admin/product-image-manager";
 import { ProductVariantsEditor } from "@/components/admin/product-variants-editor";
 import { sortProductFormCategoryOptions } from "@/lib/admin-category-options";
@@ -44,7 +46,7 @@ export function ProductForm({ product, categories, error, shippingDraft }: Produ
   const subcategories = sortProductFormCategoryOptions(activeCategories.filter((category) => category.parentId));
 
   return (
-    <form action={action} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+    <form id="admin-product-form" action={action} className="grid gap-6 pb-24 xl:grid-cols-[minmax(0,1fr)_420px] xl:pb-0">
       {error ? (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 xl:col-span-2" role="alert">
           {error}
@@ -172,12 +174,27 @@ export function ProductForm({ product, categories, error, shippingDraft }: Produ
           <ProductVariantsEditor variants={product?.variants ?? []} />
         </section>
 
+        <div className="hidden xl:block">
+          <AdminSubmitButton
+            idleLabel={product ? "Salvar produto" : "Criar produto"}
+            pendingLabel={product ? "Salvando..." : "Criando..."}
+            className="h-12 w-full rounded-lg bg-black text-sm font-black uppercase tracking-wide text-white"
+          />
+          <p className="mt-2 text-center"><AdminUnsavedChanges formId="admin-product-form" /></p>
+        </div>
+      </aside>
+      {/* UIUX-ADMIN-004: below 1280 px the only save button used to sit at the very end of a ~4.000 px
+          page; it now stays fixed at the bottom of the screen (portaled, see AdminFixedSaveBar). Same
+          form, same action; the form's pb-24 keeps its last fields clear of the bar. */}
+      <AdminFixedSaveBar className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-3 border-t border-neutral-800 bg-neutral-950/95 px-4 py-3 backdrop-blur xl:hidden">
         <AdminSubmitButton
+          form="admin-product-form"
           idleLabel={product ? "Salvar produto" : "Criar produto"}
           pendingLabel={product ? "Salvando..." : "Criando..."}
-          className="h-12 w-full rounded-lg bg-black text-sm font-black uppercase tracking-wide text-white"
+          className="h-12 flex-1 rounded-lg bg-black text-sm font-black uppercase tracking-wide text-white sm:max-w-xs"
         />
-      </aside>
+        <AdminUnsavedChanges formId="admin-product-form" />
+      </AdminFixedSaveBar>
     </form>
   );
 }

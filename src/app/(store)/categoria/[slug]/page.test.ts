@@ -19,6 +19,7 @@ vi.mock("next/navigation", () => ({
   notFound: () => {
     throw new Error("NEXT_NOT_FOUND");
   },
+  useRouter: () => ({ push: vi.fn() }),
 }));
 
 vi.mock("@/components/store/product-card", () => ({
@@ -79,7 +80,7 @@ describe("store category page", () => {
     });
     const html = renderToStaticMarkup(element as ReactElement);
 
-    expect(mocks.getCategoryPageData).toHaveBeenCalledWith("destaques", { query: undefined, brand: undefined, page: 1 });
+    expect(mocks.getCategoryPageData).toHaveBeenCalledWith("destaques", { query: undefined, brand: undefined, page: 1 }, expect.objectContaining({ sort: "relevance" }));
     expect(html).toContain("Destaques da loja");
     expect(html).toContain("Peças em evidência na RARE — selecionadas por estilo, procura e presença.");
     expect(html).toContain("Camiseta RARE");
@@ -110,7 +111,7 @@ describe("store category page", () => {
     });
     const html = renderToStaticMarkup(element as ReactElement);
 
-    expect(mocks.getCategoryPageData).toHaveBeenCalledWith("tudo", { query: undefined, brand: undefined, page: 1 });
+    expect(mocks.getCategoryPageData).toHaveBeenCalledWith("tudo", { query: undefined, brand: undefined, page: 1 }, expect.objectContaining({ sort: "relevance" }));
     expect(html).toContain("Catálogo completo");
     expect(html).toContain("Explore todas as peças da RARE por categoria.");
     expect(html).toContain("Camisetas");
@@ -278,7 +279,7 @@ describe("store category page", () => {
       }),
     ).rejects.toThrow("NEXT_NOT_FOUND");
 
-    expect(mocks.getCategoryPageData).toHaveBeenCalledWith("nao-existe", { query: undefined, brand: undefined, page: 1 });
+    expect(mocks.getCategoryPageData).toHaveBeenCalledWith("nao-existe", { query: undefined, brand: undefined, page: 1 }, expect.objectContaining({ sort: "relevance" }));
   });
 
   it("renders the featured empty state when no featured products are active", async () => {
@@ -361,7 +362,7 @@ describe("store category page", () => {
       description: "Peças selecionadas", products: [product], page: 2, hasMore: true });
     const element = await CategoryPage({ params: Promise.resolve({ slug: "camisetas" }), searchParams: Promise.resolve({ q: "Rare +", brand: "STÜSSY", page: "2" }) });
     const html = renderToStaticMarkup(element);
-    expect(mocks.getCategoryPageData).toHaveBeenCalledWith("camisetas", { query: "Rare +", brand: "STÜSSY", page: 2 });
+    expect(mocks.getCategoryPageData).toHaveBeenCalledWith("camisetas", { query: "Rare +", brand: "STÜSSY", page: 2 }, expect.objectContaining({ sort: "relevance" }));
     expect(html).toContain('aria-label="Paginação do catálogo"');
     const links = html.match(/<a\b[^>]*>/g) ?? [];
     expect(links.find((link) => link.includes('rel="prev"'))).toContain('href="/categoria/camisetas?q=Rare+%2B&amp;brand=ST%C3%9CSSY"');
@@ -432,5 +433,33 @@ describe("catalog shortcut bar (regression: hardcoded slugs returned 404)", () =
     const element = await CategoryPage({ params: Promise.resolve({ slug: "tudo" }), searchParams: Promise.resolve({}) });
     const html = renderToStaticMarkup(element as ReactElement);
     expect(html).toMatch(/href="\/categoria\/tudo" aria-current="page"/);
+  });
+});
+
+describe("catalog toolbar, filters and chips (UIUX-CATALOG-001 / UIUX-NAV-001)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getAppUrl.mockReturnValue("https://raredept.com.br");
+    mocks.getNavigationCategories.mockResolvedValue([]);
+  });
+
+  it("shows the real total, the filter button, removable chips and keeps the refinements across pages", async () => {
+    mocks.getCategoryPageData.mockResolvedValueOnce({ kind: "filtered", slug: "tudo", eyebrow: "Catálogo RARE", title: "Catálogo completo", description: "Tudo",
+      products: [product], page: 1, hasMore: true, total: 32,
+      facets: { brands: [{ value: "BAPE", label: "BAPE", count: 4 }], sizes: [{ value: "G", label: "G", count: 3 }], prices: [], availableCount: 30, promoCount: 0 } });
+    const html = renderToStaticMarkup(await CategoryPage({ params: Promise.resolve({ slug: "tudo" }), searchParams: Promise.resolve({ brand: "BAPE", size: "g", sort: "price-asc" }) }) as ReactElement);
+    expect(mocks.getCategoryPageData).toHaveBeenCalledWith("tudo", { query: undefined, brand: "BAPE", page: 1 }, expect.objectContaining({ size: "G", sort: "price-asc" }));
+    expect(html).toContain("32 produtos");
+    expect(html).not.toContain("nesta página");
+    expect(html).toContain("Filtrar");
+    expect(html).toMatch(/href="\/categoria\/tudo\?size=G&amp;sort=price-asc"[^>]*aria-label="Remover filtro Marca: BAPE"/);
+    expect(html).toMatch(/href="\/categoria\/tudo\?brand=BAPE&amp;sort=price-asc"[^>]*aria-label="Remover filtro Tamanho: G"/);
+    expect(html).toMatch(/href="\/categoria\/tudo\?brand=BAPE&amp;size=G&amp;sort=price-asc&amp;page=2" rel="next"/);
+  });
+
+  it("keeps the quick category bar only below 1024 px, where the header has none", async () => {
+    mocks.getCategoryPageData.mockResolvedValueOnce({ kind: "category", slug: "camisetas", eyebrow: "Categoria", title: "Camisetas", description: "x", products: [product], page: 1, hasMore: false, total: 1 });
+    const html = renderToStaticMarkup(await CategoryPage({ params: Promise.resolve({ slug: "camisetas" }), searchParams: Promise.resolve({}) }) as ReactElement);
+    expect(html).toMatch(/class="[^"]*lg:hidden[^"]*" aria-label="Atalhos do catálogo"/);
   });
 });

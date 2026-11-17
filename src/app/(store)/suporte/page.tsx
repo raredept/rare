@@ -5,7 +5,8 @@ import { getCurrentCustomer } from "@/lib/customer-auth";
 import { prisma } from "@/lib/prisma";
 import { buildPageMetadata } from "@/lib/seo";
 import { getInstagramUrl } from "@/lib/store-social";
-import { isSupportCategory } from "@/lib/support-request-contract";
+import { isSupportCategory, SUPPORT_CATEGORY_LABELS } from "@/lib/support-request-contract";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -43,13 +44,28 @@ export default async function SupportPage({ searchParams }: SupportPageProps) {
       <section className="max-w-3xl">
         <p className="text-xs font-black uppercase tracking-[0.28em] text-neutral-500">Atendimento</p>
         <h1 className="mt-5 text-4xl font-black tracking-tight text-neutral-950 sm:text-5xl lg:text-6xl">Suporte RARE</h1>
-        <p className="mt-6 max-w-2xl text-base font-semibold leading-8 text-neutral-600 sm:text-lg">
-          Escreva para a equipe sobre peças, pedidos, pagamento, entrega, trocas ou devoluções. Você recebe um protocolo e a resposta chega no seu e-mail.
+        <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-neutral-600">
+          Você recebe um protocolo e a resposta chega no seu e-mail.
         </p>
+        {/* UIUX-SUPPORT-001: subject shortcuts pre-select the subject (the ?categoria= the form already reads). */}
+        <nav aria-label="Assuntos frequentes" className="mt-6 flex flex-wrap gap-2">
+          {(["ORDER", "SHIPPING", "RETURN", "PAYMENT", "PRODUCT_QUESTION"] as const).map((value) => (
+            <Link
+              key={value}
+              href={`/suporte?categoria=${value}${product ? `&produto=${encodeURIComponent(product.slug)}` : ""}`}
+              aria-current={category === value ? "true" : undefined}
+              className={`inline-flex min-h-11 items-center rounded-full border px-4 text-xs font-black uppercase tracking-[0.12em] ${category === value ? "border-black bg-black text-white" : "border-neutral-300 bg-white text-neutral-800 hover:border-neutral-950"}`}
+            >
+              {SUPPORT_CATEGORY_LABELS[value]}
+            </Link>
+          ))}
+        </nav>
       </section>
 
-      <section aria-label="Formulário de suporte" className="mt-10 rounded-lg border border-neutral-200 bg-white p-5 sm:p-8">
+      <section aria-label="Formulário de suporte" className="mt-8 rounded-lg border border-neutral-200 bg-white p-5 sm:p-8">
         <SupportForm
+          key={category ?? "none"}
+          signedIn={Boolean(customer)}
           submissionKey={randomUUID()}
           defaultName={customer?.name}
           defaultEmail={customer?.email}

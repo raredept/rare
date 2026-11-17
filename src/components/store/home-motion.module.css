@@ -4,8 +4,13 @@
 .brandViewport:focus-visible { outline: 2px solid white; outline-offset: -4px; }
 .brandTrack { display: flex; width: max-content; animation: brands-travel 45s linear infinite; animation-play-state: paused; }
 .brands[data-playing="true"] .brandTrack { animation-play-state: running; }
+/* Hover or keyboard focus on the strip itself holds it still (UIUX-BRANDS-001, WCAG 2.2.2). */
+.brands[data-playing="true"]:hover .brandTrack, .brands[data-playing="true"]:focus-within .brandTrack { animation-play-state: paused; }
+.brandLink { display: inline-flex; min-height: 2.75rem; align-items: center; color: inherit; text-decoration: none; border-radius: .25rem; }
+.brandLink:hover { text-decoration: underline; text-underline-offset: 4px; }
+.brandLink:focus-visible { outline: 2px solid white; outline-offset: 2px; }
 .brandGroup { display: flex; flex: 0 0 auto; justify-content: space-around; align-items: center; width: max-content; min-width: 100cqw; margin: 0; padding: 0; list-style: none; }
-.brandName { display: flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 2rem; padding: 1rem; white-space: nowrap; font-size: .875rem; line-height: 1.5; font-weight: 900; letter-spacing: .12em; }
+.brandName { display: flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 2rem; padding: 0 1rem; white-space: nowrap; font-size: .875rem; line-height: 1.5; font-weight: 900; letter-spacing: .12em; }
 .brandSeparator { width: .25rem; height: .25rem; border-radius: 50%; background: #737373; }
 .brands[data-static="true"] .brandViewport { overflow-x: auto; }
 .brands[data-static="true"] .brandTrack { animation: none; }

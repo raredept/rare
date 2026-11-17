@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { buildCardInstallmentHint } from "@/components/store/card-installment-hint";
 import { CartPageClient } from "@/components/store/cart-page-client";
-import { APPROVED_CARD_INSTALLMENT_SURCHARGES_BPS, DISABLED_CARD_INSTALLMENT_RULES, type CardInstallmentRules } from "@/lib/card-installments";
+import { APPROVED_CARD_INSTALLMENT_SURCHARGES_BPS, DISABLED_CARD_INSTALLMENT_RULES, listCardInstallmentPlans, type CardInstallmentRules } from "@/lib/card-installments";
 
 const cart = vi.hoisted(() => ({ items: [] as Array<Record<string, unknown>>, subtotalInCents: 0 }));
 
@@ -86,8 +86,20 @@ describe("short installment copy (product page and cart)", () => {
     expect(buildCardInstallmentHint({ amountInCents: 59_990, rules, context: "product" })).toBe("ou em até 3x sem juros · ou até 12x no cartão");
   });
 
-  it("product: a cheap item shows only the interest-free count its price allows", () => {
-    expect(buildCardInstallmentHint({ amountInCents: 2_500, rules, context: "product" })).toBe("ou em até 2x sem juros · ou até 12x no cartão");
+  it("product: a cheap item shows only the counts its own price allows (UIUX-PDP-002)", () => {
+    // R$ 25,00: 2x of R$ 12,50; 3x would be R$ 8,33 and 4x+ fall under the R$ 10,00 minimum.
+    expect(buildCardInstallmentHint({ amountInCents: 2_500, rules, context: "product" })).toBe("ou em até 2x sem juros");
+    // Production cases from the audit: Meia FiRE R$ 42,21 -> 4x; camiseta R$ 72,00 -> 8x; meia Bape R$ 89,10 -> 10x.
+    expect(buildCardInstallmentHint({ amountInCents: 4_221, rules, context: "product" })).toBe("ou em até 3x sem juros · ou até 4x no cartão");
+    expect(buildCardInstallmentHint({ amountInCents: 7_200, rules, context: "product" })).toBe("ou em até 3x sem juros · ou até 8x no cartão");
+    expect(buildCardInstallmentHint({ amountInCents: 8_910, rules, context: "product" })).toBe("ou em até 3x sem juros · ou até 10x no cartão");
+    // Exactly what the checkout would list for the item alone.
+    expect(listCardInstallmentPlans(4_221, rules).at(-1)?.installmentCount).toBe(4);
+  });
+
+  it("product: never above the Admin maximum", () => {
+    expect(buildCardInstallmentHint({ amountInCents: 59_990, rules: { ...rules, maxInstallments: 6 }, context: "product" })).toBe("ou em até 3x sem juros · ou até 6x no cartão");
+    expect(buildCardInstallmentHint({ amountInCents: 59_990, rules: { ...rules, maxInstallments: 3 }, context: "product" })).toBe("ou em até 3x sem juros");
   });
 
   it("cart: no amounts, just the policy", () => {

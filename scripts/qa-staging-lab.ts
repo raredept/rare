@@ -277,7 +277,9 @@ async function main() {
     ], { ...testEnv(expected), PLAYWRIGHT_JSON_OUTPUT_NAME: path.join(outputDir, `${label}-${project}-${runId}.json`) }, label);
 
     const phases: Array<{ provider: string; expected: string; specs: string[] }> = [
-      { provider: "asaas", expected: "asaas", specs: ["tests/e2e/bf-mfa-admin-security.spec.ts", "tests/e2e/bf-mfa-payments.spec.ts", "tests/e2e/bf-mfa-promotions.spec.ts", "tests/e2e/prelaunch-consent-analytics.spec.ts", "tests/e2e/prelaunch-rbac-inventory.spec.ts", "tests/e2e/order-item-sku.spec.ts", "tests/e2e/card-installments.spec.ts"] },
+      { provider: "asaas", expected: "asaas", specs: ["tests/e2e/bf-mfa-admin-security.spec.ts", "tests/e2e/bf-mfa-payments.spec.ts", "tests/e2e/bf-mfa-promotions.spec.ts", "tests/e2e/prelaunch-consent-analytics.spec.ts", "tests/e2e/prelaunch-rbac-inventory.spec.ts", "tests/e2e/order-item-sku.spec.ts", "tests/e2e/card-installments.spec.ts",
+        // Opt-in evidence specs (e.g. the UI/UX audit): QA_LAB_EXTRA_SPECS=tests/e2e/a.spec.ts,tests/e2e/b.spec.ts
+        ...(process.env.QA_LAB_EXTRA_SPECS?.split(",").map((spec) => spec.trim()).filter(Boolean) ?? [])] },
       { provider: "qualquer-coisa", expected: "disabled", specs: ["tests/e2e/bf-mfa-payments.spec.ts"] },
       { provider: "stripe", expected: "disabled", specs: ["tests/e2e/bf-mfa-payments.spec.ts"] },
     ];

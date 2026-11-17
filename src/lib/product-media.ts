@@ -60,7 +60,9 @@ const renderDefaults: Record<
   thumbnail: {
     width: 180,
     height: 180,
-    sizes: "(max-width: 639px) 25vw, 12vw",
+    // UIUX-IMG-001: matches the PDP strip (64 px on phones) and its grid (~130 px on tablets), so tablets no
+    // longer upscale a ~95 px rendition.
+    sizes: "(max-width: 639px) 64px, (max-width: 1023px) 20vw, 120px",
     loading: "lazy",
     fetchPriority: "low",
   },

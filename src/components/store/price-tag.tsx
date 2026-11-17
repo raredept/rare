@@ -26,7 +26,7 @@ export function PriceTag({ pricing, size = "card", className = "" }: PriceTagPro
       </s>
       <span aria-hidden="true" className={`whitespace-nowrap ${finalClass}`}>{formatMoney(pricing.finalPriceInCents)}</span>
       {pricing.percentOff > 0 ? (
-        <span aria-hidden="true" className="whitespace-nowrap rounded-full bg-neutral-950 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white sm:text-xs">
+        <span aria-hidden="true" className="whitespace-nowrap rounded-full bg-neutral-950 px-2 py-0.5 text-[11px] font-black uppercase tracking-wide text-white sm:text-xs">
           -{pricing.percentOff}%
         </span>
       ) : null}

@@ -127,7 +127,7 @@ export function AdminPushSubscriptionControl({ publicKey, activeSubscriptionCoun
       }
 
       setStatus("disabled");
-      setMessage("Notificacoes desativadas neste dispositivo.");
+      setMessage("Notificações desativadas neste dispositivo.");
     } catch {
       setStatus("error");
       setMessage("Nao foi possivel desativar as notificacoes neste dispositivo.");
@@ -146,7 +146,7 @@ export function AdminPushSubscriptionControl({ publicKey, activeSubscriptionCoun
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-wide text-neutral-500">Celular</p>
-          <h2 className="mt-2 text-lg font-black text-neutral-950">Notificacoes push</h2>
+          <h2 className="mt-2 text-lg font-black text-neutral-950">Notificações push</h2>
           <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-neutral-500">
             {publicKey
               ? `${activeSubscriptionCount} dispositivo(s) ativo(s) receberao alertas quando uma venda for aprovada.`

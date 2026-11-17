@@ -31,94 +31,80 @@ function FieldError({ errors }: { errors?: string[] }) {
   return errors?.length ? <p className="mt-1 text-sm font-semibold text-red-700">{errors[0]}</p> : null;
 }
 
+const fieldLabel = "mb-2 block text-xs font-black uppercase tracking-wide text-neutral-600";
+
+// UIUX-FORMS-001: the order people write an address in (CEP → rua → número → complemento → bairro →
+// cidade/UF → quem recebe), browser autofill tokens on every field and the store's own input style.
 function AddressFields({ address, state }: { address?: Address; state?: CustomerActionState }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <label className="block">
-        <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Apelido</span>
-        <input name="label" defaultValue={address?.label ?? ""} placeholder="Casa" className="admin-input" />
-        <FieldError errors={state?.fieldErrors?.label} />
-      </label>
-      <label className="block">
-        <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Destinatário</span>
-        <input name="recipientName" defaultValue={address?.recipientName ?? ""} className="admin-input" />
-        <FieldError errors={state?.fieldErrors?.recipientName} />
-      </label>
-      <label className="block">
-        <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">CEP</span>
-        <input name="cep" defaultValue={address?.cep ?? ""} required inputMode="numeric" className="admin-input" />
+        <span className={fieldLabel}>CEP</span>
+        <input name="cep" defaultValue={address?.cep ?? ""} required inputMode="numeric" autoComplete="postal-code" placeholder="00000-000" className="store-input" />
         <FieldError errors={state?.fieldErrors?.cep} />
       </label>
-      <label className="block">
-        <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Telefone</span>
-        <input name="phone" defaultValue={address?.phone ?? ""} inputMode="tel" className="admin-input" />
-        <FieldError errors={state?.fieldErrors?.phone} />
-      </label>
+      <div className="hidden sm:block" aria-hidden="true" />
       <label className="block sm:col-span-2">
-        <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Rua</span>
-        <input name="street" defaultValue={address?.street ?? ""} required className="admin-input" />
+        <span className={fieldLabel}>Rua</span>
+        <input name="street" defaultValue={address?.street ?? ""} required autoComplete="address-line1" className="store-input" />
         <FieldError errors={state?.fieldErrors?.street} />
       </label>
       <label className="block">
-        <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Número</span>
-        <input name="number" defaultValue={address?.number ?? ""} required className="admin-input" />
+        <span className={fieldLabel}>Número</span>
+        <input name="number" defaultValue={address?.number ?? ""} required inputMode="numeric" className="store-input" />
         <FieldError errors={state?.fieldErrors?.number} />
       </label>
       <label className="block">
-        <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Complemento</span>
-        <input name="complement" defaultValue={address?.complement ?? ""} className="admin-input" />
+        <span className={fieldLabel}>Complemento</span>
+        <input name="complement" defaultValue={address?.complement ?? ""} autoComplete="address-line2" placeholder="Apto, bloco (opcional)" className="store-input" />
         <FieldError errors={state?.fieldErrors?.complement} />
       </label>
       <label className="block">
-        <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Bairro</span>
-        <input name="neighborhood" defaultValue={address?.neighborhood ?? ""} required className="admin-input" />
+        <span className={fieldLabel}>Bairro</span>
+        <input name="neighborhood" defaultValue={address?.neighborhood ?? ""} required autoComplete="address-level3" className="store-input" />
         <FieldError errors={state?.fieldErrors?.neighborhood} />
       </label>
       <label className="block">
-        <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Cidade</span>
-        <input name="city" defaultValue={address?.city ?? ""} required className="admin-input" />
+        <span className={fieldLabel}>Cidade</span>
+        <input name="city" defaultValue={address?.city ?? ""} required autoComplete="address-level2" className="store-input" />
         <FieldError errors={state?.fieldErrors?.city} />
       </label>
       <label className="block">
-        <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Estado</span>
-        <input name="state" defaultValue={address?.state ?? ""} required maxLength={2} className="admin-input uppercase" />
+        <span className={fieldLabel}>Estado (UF)</span>
+        <input name="state" defaultValue={address?.state ?? ""} required maxLength={2} autoComplete="address-level1" placeholder="SP" className="store-input uppercase" />
         <FieldError errors={state?.fieldErrors?.state} />
       </label>
-      <label className="flex items-center gap-3 text-sm font-black text-neutral-800">
+      <label className="block">
+        <span className={fieldLabel}>Destinatário</span>
+        <input name="recipientName" defaultValue={address?.recipientName ?? ""} autoComplete="name" className="store-input" />
+        <FieldError errors={state?.fieldErrors?.recipientName} />
+      </label>
+      <label className="block">
+        <span className={fieldLabel}>Telefone</span>
+        <input name="phone" type="tel" defaultValue={address?.phone ?? ""} inputMode="tel" autoComplete="tel" className="store-input" />
+        <FieldError errors={state?.fieldErrors?.phone} />
+      </label>
+      <label className="block">
+        <span className={fieldLabel}>Apelido</span>
+        <input name="label" defaultValue={address?.label ?? ""} placeholder="Casa, trabalho" autoComplete="off" className="store-input" />
+        <FieldError errors={state?.fieldErrors?.label} />
+      </label>
+      <label className="flex min-h-11 items-center gap-3 text-sm font-black text-neutral-800 sm:col-span-2">
         <input name="isDefault" type="checkbox" defaultChecked={address?.isDefault ?? false} className="h-4 w-4" />
         Endereço padrão
       </label>
     </div>
   );
 }
-
 export function CustomerAddresses({ addresses, pageError, checkoutEnabled = true }: { addresses: Address[]; pageError?: string; checkoutEnabled?: boolean }) {
   // The message arrives in the URL; only the server's own messages are shown verbatim.
   const resolvedPageError = resolveCustomerAddressError(pageError);
   const [state, formAction, pending] = useActionState<CustomerActionState, FormData>(createCustomerAddressAction, {});
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[420px_minmax(0,1fr)]">
-      <form action={formAction} className="h-fit space-y-5 rounded-lg border border-neutral-200 bg-white p-5">
-        <div>
-          <h2 className="text-lg font-black text-neutral-950">Novo endereço</h2>
-          <p className="mt-1 text-sm font-medium text-neutral-500">
-            Usado como referência do pedido até a ativação do frete real.
-          </p>
-        </div>
-        <AddressFields state={state} />
-        {state.error ? <p className="text-sm font-semibold text-red-700">{state.error}</p> : null}
-        {state.success ? <p className="text-sm font-semibold text-green-700">{state.success}</p> : null}
-        <button
-          type="submit"
-          disabled={pending}
-          className="h-12 w-full rounded-lg bg-black text-sm font-black uppercase tracking-wide text-white disabled:bg-neutral-500"
-        >
-          {pending ? "Salvando..." : "Cadastrar endereço"}
-        </button>
-      </form>
-
-      <section className="space-y-4">
+    // UIUX-FORMS-001: saved addresses first; the new-address form is folded away once there is one.
+    <div className="grid max-w-3xl gap-6">
+      <section className="space-y-4" aria-label="Endereços salvos">
         {resolvedPageError ? <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">{resolvedPageError}</p> : null}
         {addresses.length ? (
           addresses.map((address) => (
@@ -175,6 +161,26 @@ export function CustomerAddresses({ addresses, pageError, checkoutEnabled = true
           </div>
         )}
       </section>
+
+      <details open={!addresses.length || Boolean(state.error || state.fieldErrors)} className="group rounded-lg border border-neutral-200 bg-white">
+        <summary className="flex min-h-12 cursor-pointer items-center justify-between gap-3 px-5 text-sm font-black text-neutral-950">
+          {addresses.length ? "Adicionar endereço" : "Novo endereço"}
+          <span aria-hidden="true" className="text-lg transition-transform group-open:rotate-45">+</span>
+        </summary>
+        <form action={formAction} className="space-y-5 border-t border-neutral-200 p-5">
+          <p className="text-sm font-medium text-neutral-500">Usado para calcular o frete e entregar seus pedidos.</p>
+          <AddressFields state={state} />
+          {state.error ? <p className="text-sm font-semibold text-red-700">{state.error}</p> : null}
+          {state.success ? <p role="status" className="text-sm font-semibold text-green-700">{state.success}</p> : null}
+          <button
+            type="submit"
+            disabled={pending}
+            className="h-12 w-full rounded-lg bg-black text-sm font-black uppercase tracking-wide text-white disabled:bg-neutral-500 sm:w-auto sm:px-8"
+          >
+            {pending ? "Salvando..." : "Cadastrar endereço"}
+          </button>
+        </form>
+      </details>
     </div>
   );
 }

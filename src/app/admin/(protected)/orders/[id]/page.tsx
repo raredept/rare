@@ -36,6 +36,8 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
     where: { id },
     include: {
       items: {
+        // UIUX-ORDERS-003: the same order as the customer's page (Postgres guarantees none without it).
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
         include: {
           // Current catalog, read only to display orders created before the item snapshot.
           product: { select: { images: { orderBy: { sortOrder: "asc" }, take: PRODUCT_MEDIA_LIMIT, select: { url: true } } } },
@@ -105,7 +107,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
                 <span className="whitespace-nowrap">{formatMoney(order.shippingInCents)}</span>
               </div>
               <div className="flex justify-between gap-4">
-                <span>Metodo</span>
+                <span>Método</span>
                 <span className="text-right">{order.shippingMethodSnapshot ?? "-"}</span>
               </div>
               <div className="flex justify-between">
@@ -142,7 +144,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
           </section>
 
           <section className="rounded-lg border border-neutral-200 bg-white p-5">
-            <h2 className="text-lg font-black text-neutral-950">Endereco de entrega</h2>
+            <h2 className="text-lg font-black text-neutral-950">Endereço de entrega</h2>
             {addressLines.length ? (
               <div className="mt-4 space-y-1 text-sm font-semibold text-neutral-600">
                 {addressLines.map((line) => (
@@ -150,7 +152,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
                 ))}
               </div>
             ) : (
-              <p className="mt-4 text-sm text-neutral-500">Nenhum endereco salvo no snapshot.</p>
+              <p className="mt-4 text-sm text-neutral-500">Nenhum endereço registrado neste pedido.</p>
             )}
           </section>
 
@@ -181,7 +183,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
               {order.paymentProvider === "asaas" ? (
                 <>
                   <p>Provedor: Asaas</p>
-                  <p>Cobrança: {maskExternalId(order.asaasPaymentId)}</p>
+                  <p>Cobrança: {order.asaasPaymentId ? maskExternalId(order.asaasPaymentId) : order.asaasInstallmentId ? `parcelamento ${maskExternalId(order.asaasInstallmentId)}` : "ainda não criada"}</p>
                   {order.refundRequestedAt ? <p>Estorno solicitado em {order.refundRequestedAt.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</p> : null}
                 </>
               ) : order.paymentProvider === "mercadopago" ? (
@@ -195,7 +197,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
                   <p>Payment Intent: {maskExternalId(order.stripePaymentIntentId)}</p>
                 </>
               )}
-              <p>Método: {order.paymentMethod ?? "-"}</p>
+              <p>Método: {order.paymentMethod ? formatPaymentMethod(order.paymentMethod) : "Não informado"}</p>
             </div>
             {order.paymentProvider === "asaas" && (order.asaasPaymentId || order.asaasInstallmentId) && !order.refundRequestedAt && ["paid", "processing", "shipped", "delivered"].includes(order.status) ? (
               <form action={requestOrderRefundAction} className="mt-4 space-y-2 border-t border-neutral-200 pt-4">

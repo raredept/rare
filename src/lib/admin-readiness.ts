@@ -196,24 +196,24 @@ function createSummary(items: ReadinessItem[]) {
 
   const labels: Record<ReadinessFinalStatus, { label: string; description: string }> = {
     blocked_for_staging: {
-      label: "Bloqueado para homologacao",
-      description: "Existem bloqueios que impedem uma validacao segura em staging ou local.",
+      label: "Bloqueado para homologação",
+      description: "Existem bloqueios que impedem uma validação segura em staging ou local.",
     },
     ready_for_staging: {
-      label: "Pronto para homologacao",
-      description: "Nao ha bloqueios de staging; ainda valide checkout e configuracoes antes de abrir vendas.",
+      label: "Pronto para homologação",
+      description: "Não há bloqueios de staging; ainda valide checkout e configurações antes de abrir vendas.",
     },
     blocked_for_open_sales: {
-      label: "Pronto para homologacao; bloqueado para venda aberta",
-      description: "A loja pode seguir para validacao, mas ainda possui bloqueios antes de venda aberta.",
+      label: "Checklist de lançamento com pendências",
+      description: "Há itens do checklist de venda aberta ainda pendentes ou sem evidência registrada. Isto não diz se a loja está vendendo agora.",
     },
     ready_for_limited_production: {
-      label: "Pronto para producao limitada",
-      description: "Nao ha bloqueios criticos, mas ainda existem warnings que pedem acompanhamento.",
+      label: "Pronto para produção limitada",
+      description: "Não há bloqueios críticos, mas ainda existem avisos que pedem acompanhamento.",
     },
     ready_for_open_sales: {
       label: "Pronto para venda aberta",
-      description: "Nao ha bloqueios nem warnings operacionais nos sinais avaliados.",
+      description: "Não há bloqueios nem avisos operacionais nos sinais avaliados.",
     },
   };
 

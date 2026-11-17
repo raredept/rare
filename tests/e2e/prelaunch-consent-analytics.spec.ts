@@ -137,8 +137,11 @@ test("customizing and withdrawing from the footer: the panel, keyboard access an
   await page.locator("[data-cookie-banner]").getByRole("button", { name: "Configurar", exact: true }).click();
   const panel = page.locator("dialog[data-cookie-preferences]");
   await expect(panel).toBeVisible();
+  // UIUX-COOKIES-001: plain language first; the technical names are one click away, Admin ones only in the policy.
+  for (const summary of await panel.getByText("Ver detalhes técnicos").all()) await summary.click();
   await expect(panel.getByText("rare_analytics_visitor")).toBeVisible();
   await expect(panel.getByText("rare_customer_session")).toBeVisible();
+  await expect(panel.getByText("rare_admin_session")).toHaveCount(0);
   const toggle = panel.getByRole("switch");
   await expect(toggle).not.toBeChecked();
   await toggle.check();

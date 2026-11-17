@@ -94,6 +94,9 @@ function getSingleRouteSlug(pathname: string, prefix: string) {
 }
 
 function storeNotFoundResponse(copy: PublicNotFoundCopy) {
+  // A real 404 decided here (before any streaming), dressed like the store (UIUX-404-001): black
+  // header with the logo, search, the main collections and a footer. Static on purpose: no data,
+  // no script, nothing the request could inject (the copy is fixed above).
   return new NextResponse(
     `<!doctype html>
 <html lang="pt-BR">
@@ -103,43 +106,67 @@ function storeNotFoundResponse(copy: PublicNotFoundCopy) {
     <meta name="robots" content="noindex" />
     <title>${copy.title} | RARE</title>
     <style>
-      :root { color-scheme: light; background: #fafafa; color: #0a0a0a; font-family: Arial, Helvetica, sans-serif; }
+      :root { color-scheme: light; background: #fafafa; color: #0a0a0a; font-family: "Helvetica Neue", Arial, Helvetica, sans-serif; }
       * { box-sizing: border-box; }
-      body { margin: 0; min-height: 100vh; background: #fafafa; color: #0a0a0a; }
-      header { border-bottom: 1px solid #e5e5e5; background: #ffffff; }
-      nav, main { width: min(100%, 1440px); margin: 0 auto; padding-left: 1rem; padding-right: 1rem; }
-      nav { min-height: 72px; display: flex; align-items: center; justify-content: space-between; }
-      .brand { color: #0a0a0a; text-decoration: none; font-size: 1.5rem; font-weight: 900; letter-spacing: 0.24em; }
-      main { min-height: 58vh; display: flex; align-items: center; padding-top: 3.5rem; padding-bottom: 3.5rem; }
+      body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; background: #fafafa; color: #0a0a0a; }
+      header { background: #000000; color: #ffffff; }
+      .wrap { width: min(100%, 1440px); margin: 0 auto; padding-left: 1rem; padding-right: 1rem; }
+      nav { min-height: 72px; display: flex; align-items: center; gap: 1.5rem; }
+      .brand { display: inline-flex; align-items: center; min-height: 44px; color: #ffffff; text-decoration: none; }
+      .brand img { height: 40px; width: auto; display: block; }
+      .links { display: none; gap: 0.5rem; margin-left: auto; }
+      .links a { min-height: 44px; display: inline-flex; align-items: center; padding: 0 1rem; border: 1px solid rgb(255 255 255 / 0.2); border-radius: 999px; color: #ffffff; text-decoration: none; font-size: 0.875rem; font-weight: 700; }
+      main { flex: 1; display: flex; align-items: center; padding-top: 3.5rem; padding-bottom: 3.5rem; }
       .content { max-width: 42rem; }
-      .eyebrow { margin: 0; color: #737373; font-size: 0.75rem; font-weight: 900; letter-spacing: 0.24em; text-transform: uppercase; }
-      h1 { margin: 1rem 0 0; font-size: clamp(2.5rem, 8vw, 4rem); line-height: 0.95; letter-spacing: -0.02em; }
-      .description { margin: 1.25rem 0 0; max-width: 36rem; color: #737373; font-size: 1rem; font-weight: 600; line-height: 1.6; }
-      .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 2rem; }
+      .eyebrow { margin: 0; color: #525252; font-size: 0.75rem; font-weight: 900; letter-spacing: 0.24em; text-transform: uppercase; }
+      h1 { margin: 1rem 0 0; font-size: clamp(2.5rem, 8vw, 4rem); font-weight: 900; line-height: 0.95; letter-spacing: -0.02em; }
+      .description { margin: 1.25rem 0 0; max-width: 36rem; color: #525252; font-size: 1rem; font-weight: 600; line-height: 1.6; }
+      form { display: flex; gap: 0.5rem; max-width: 36rem; margin-top: 2rem; }
+      input { flex: 1; min-width: 0; height: 48px; border: 1px solid #d4d4d4; border-radius: 0.375rem; padding: 0 1rem; font: inherit; font-size: 16px; font-weight: 600; background: #ffffff; }
+      button { height: 48px; border: 0; border-radius: 0.375rem; padding: 0 1rem; background: #000000; color: #ffffff; font: inherit; font-size: 0.75rem; font-weight: 900; letter-spacing: 0.14em; text-transform: uppercase; cursor: pointer; }
+      .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; }
       .button { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 0 1.25rem; text-decoration: none; font-size: 0.75rem; font-weight: 900; letter-spacing: 0.16em; text-transform: uppercase; }
       .button-primary { background: #000000; color: #ffffff; border: 1px solid #000000; }
       .button-secondary { background: transparent; color: #262626; border: 1px solid #d4d4d4; }
-      @media (min-width: 640px) { nav, main { padding-left: 1.5rem; padding-right: 1.5rem; } }
-      @media (min-width: 1024px) { nav, main { padding-left: 2rem; padding-right: 2rem; } }
+      footer { background: #000000; color: #d4d4d4; padding: 2rem 0; font-size: 0.875rem; font-weight: 600; }
+      footer a { color: #ffffff; text-decoration: none; display: inline-flex; min-height: 44px; align-items: center; margin-right: 1.25rem; }
+      :focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+      @media (min-width: 640px) { .wrap { padding-left: 1.5rem; padding-right: 1.5rem; } }
+      @media (min-width: 1024px) { .wrap { padding-left: 2rem; padding-right: 2rem; } .links { display: flex; } }
     </style>
   </head>
   <body>
     <header>
-      <nav aria-label="Topo da loja">
-        <a class="brand" href="/">RARE</a>
+      <nav class="wrap" aria-label="Topo da loja">
+        <a class="brand" href="/" aria-label="RARE"><img src="/brand/rare-logo.png" alt="RARE" width="118" height="40" /></a>
+        <div class="links">
+          <a href="/categoria/destaques">Destaques</a>
+          <a href="/categoria/tudo">Tudo</a>
+        </div>
       </nav>
     </header>
-    <main>
+    <main class="wrap">
       <section class="content" aria-labelledby="not-found-title">
         <p class="eyebrow">${copy.eyebrow}</p>
         <h1 id="not-found-title">${copy.title}</h1>
         <p class="description">${copy.description}</p>
+        <form action="/" method="get" role="search">
+          <label for="not-found-search" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Buscar na loja</label>
+          <input id="not-found-search" name="q" type="search" required placeholder="Buscar peças, marcas ou categorias" autocomplete="off" />
+          <button type="submit">Buscar</button>
+        </form>
         <div class="actions">
           <a class="button button-primary" href="/categoria/tudo">Ver catálogo</a>
           <a class="button button-secondary" href="/categoria/destaques">Ver destaques</a>
         </div>
       </section>
     </main>
+    <footer>
+      <div class="wrap">
+        <a href="/suporte">Suporte</a><a href="/trocas-e-devolucoes">Trocas e devoluções</a><a href="/politica-de-envio">Política de envio</a><a href="/minha-conta/pedidos">Meus pedidos</a>
+        <p style="margin:1rem 0 0">© RARE</p>
+      </div>
+    </footer>
   </body>
 </html>`,
     {

@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AccountShell } from "@/components/store/account-shell";
+import { CheckoutDeadline } from "@/components/store/checkout-deadline";
+import { CustomerOrderItemRow, OrderStatusBadge } from "@/components/store/customer-order-parts";
+import { PRODUCT_MEDIA_LIMIT } from "@/lib/product-media";
 import { formatCep } from "@/lib/cep";
 import { formatAddressSnapshotLines } from "@/lib/customer-order";
 import { requireCustomer } from "@/lib/customer-auth";
@@ -25,7 +28,13 @@ export default async function CustomerOrderDetailPage({ params }: CustomerOrderD
         customerId: customer.id,
       },
       include: {
-        items: true,
+        items: {
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+          include: {
+            // Current catalog, read only to picture orders created before the item snapshot.
+            product: { select: { slug: true, active: true, images: { orderBy: { sortOrder: "asc" }, take: PRODUCT_MEDIA_LIMIT, select: { url: true } } } },
+          },
+        },
       },
     }),
     getStoreSettings(),
@@ -40,90 +49,107 @@ export default async function CustomerOrderDetailPage({ params }: CustomerOrderD
     ? `https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent(`Olá, preciso de suporte no pedido ${order.orderNumber}.`)}`
     : null;
 
+  const dateTime = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
+  const paymentLabel = installments ? "Cartão de crédito" : formatPaymentMethod(order.paymentMethod);
+
+  // UIUX-ORDERS-002: status, date and payment up top; money, payment and delivery as separate blocks;
+  // the items card no longer stretches to the height of the side column.
   return (
     <AccountShell title={`Pedido ${order.orderNumber}`} subtitle="Detalhes do pedido vinculado à sua conta.">
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+      <div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-semibold text-neutral-600">
+        <OrderStatusBadge status={order.status} />
+        <span>Feito em {dateTime.format(order.createdAt)}</span>
+        {order.paidAt ? <span>Pago em {dateTime.format(order.paidAt)}</span> : null}
+        <span>{installments ? `Cartão · ${installments.count}x` : paymentLabel}</span>
+      </div>
+
+      {order.status === "awaiting_payment" ? (
+        <>
+          {/* Same window and link the checkout notice uses; nothing shows once the deadline passed. */}
+          <CheckoutDeadline orderId={order.id} className="mb-6" />
+          {/* Coming back from the payment page proves nothing: only the provider's confirmation
+              (webhook or reconciliation) moves the order to paid. */}
+          <p role="status" className="mb-6 rounded-lg bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+            Se você acabou de pagar, a confirmação do pagamento pode levar alguns instantes. Atualize esta página em seguida.
+          </p>
+        </>
+      ) : null}
+
+      <div className="grid items-start gap-6 lg:grid-cols-[1fr_360px]">
         <section className="rounded-lg border border-neutral-200 bg-white p-5">
           <h2 className="text-lg font-black text-neutral-950">Itens</h2>
-          <div className="mt-4 divide-y divide-neutral-200">
+          <ul className="mt-2 divide-y divide-neutral-200">
             {order.items.map((item) => (
-              <div key={item.id} className="grid gap-2 py-4 text-sm sm:grid-cols-[1fr_90px_110px_110px] sm:items-center">
-                <div>
-                  <p className="font-black text-neutral-950">{item.productTitleSnapshot}</p>
-                  <p className="font-semibold text-neutral-500">Tamanho/variação: {item.sizeSnapshot}</p>
-                </div>
-                <span className="font-semibold text-neutral-600">Qtd {item.quantity}</span>
-                <span className="whitespace-nowrap font-semibold text-neutral-600">{formatMoney(item.unitPriceInCents)}</span>
-                <span className="whitespace-nowrap font-black text-neutral-950">{formatMoney(item.totalInCents)}</span>
-              </div>
+              <CustomerOrderItemRow key={item.id} item={item} />
             ))}
-          </div>
+          </ul>
         </section>
 
         <aside className="space-y-5">
-          <section className="rounded-lg border border-neutral-200 bg-white p-5">
-            <h2 className="text-lg font-black text-neutral-950">Resumo</h2>
-            <div className="mt-4 space-y-2 text-sm font-semibold text-neutral-600">
-              <div className="flex justify-between">
-                <span>Status</span>
-                <span>{formatOrderStatus(order.status)}</span>
-              </div>
-              {order.status === "awaiting_payment" ? (
-                // Coming back from the payment page proves nothing: only the provider's confirmation
-                // (webhook or reconciliation) moves the order to paid.
-                <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
-                  Se você acabou de pagar, a confirmação do pagamento pode levar alguns instantes. Atualize esta página em seguida.
-                </p>
-              ) : null}
-              <div className="flex justify-between">
-                <span>Pagamento</span>
-                <span>{installments ? "Cartão de crédito" : formatPaymentMethod(order.paymentMethod)}</span>
-              </div>
-              {installments ? (
-                <div className="flex justify-between gap-4">
-                  <span>Parcelamento</span>
-                  <span className="text-right">{installments.label}</span>
-                </div>
-              ) : null}
-              <div className="flex justify-between">
-                <span>Subtotal</span>
-                <span className="whitespace-nowrap">{formatMoney(order.subtotalInCents)}</span>
+          <section className="rounded-lg border border-neutral-200 bg-white p-5" aria-labelledby="order-values">
+            <h2 id="order-values" className="text-lg font-black text-neutral-950">Valores</h2>
+            <dl className="mt-4 space-y-2 text-sm font-semibold text-neutral-600">
+              <div className="flex justify-between gap-4">
+                <dt>Subtotal</dt>
+                <dd className="whitespace-nowrap">{formatMoney(order.subtotalInCents)}</dd>
               </div>
               {order.discountInCents > 0 ? (
-                <div className="flex justify-between text-emerald-700">
-                  <span>Cupom {order.couponCode ?? ""}</span>
-                  <span className="whitespace-nowrap">- {formatMoney(order.discountInCents)}</span>
+                <div className="flex justify-between gap-4 text-emerald-700">
+                  <dt>Cupom {order.couponCode ?? ""}</dt>
+                  <dd className="whitespace-nowrap">- {formatMoney(order.discountInCents)}</dd>
                 </div>
               ) : null}
-              <div className="flex justify-between">
-                <span>Frete</span>
-                <span className="whitespace-nowrap">{formatMoney(order.shippingInCents)}</span>
-              </div>
               <div className="flex justify-between gap-4">
-                <span>Método</span>
-                <span className="text-right">{order.shippingMethodSnapshot ?? "-"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>CEP entrega</span>
-                <span>{formatCep(order.shippingCepSnapshot ?? order.cep) || "-"}</span>
+                <dt>Frete</dt>
+                <dd className="whitespace-nowrap">{formatMoney(order.shippingInCents)}</dd>
               </div>
               {installments && installments.feeInCents > 0 ? (
                 <div className="flex justify-between gap-4">
-                  <span>Acréscimo do parcelamento</span>
-                  <span className="whitespace-nowrap">+ {formatMoney(installments.feeInCents)}</span>
+                  <dt>Acréscimo do parcelamento</dt>
+                  <dd className="whitespace-nowrap">+ {formatMoney(installments.feeInCents)}</dd>
                 </div>
               ) : null}
-              <div className="flex justify-between border-t border-neutral-200 pt-3 text-lg font-black text-neutral-950">
-                <span>Total</span>
-                <span className="whitespace-nowrap">{formatMoney(order.totalInCents)}</span>
+              <div className="flex justify-between gap-4 border-t border-neutral-200 pt-3 text-lg font-black text-neutral-950">
+                <dt>Total</dt>
+                <dd className="whitespace-nowrap">{formatMoney(order.totalInCents)}</dd>
               </div>
-            </div>
+            </dl>
           </section>
 
-          <section className="rounded-lg border border-neutral-200 bg-white p-5">
-            <h2 className="text-lg font-black text-neutral-950">Entrega</h2>
+          <section className="rounded-lg border border-neutral-200 bg-white p-5" aria-labelledby="order-payment">
+            <h2 id="order-payment" className="text-lg font-black text-neutral-950">Pagamento</h2>
+            <dl className="mt-4 space-y-2 text-sm font-semibold text-neutral-600">
+              <div className="flex justify-between gap-4">
+                <dt>Forma</dt>
+                <dd className="text-right">{paymentLabel}</dd>
+              </div>
+              {installments ? (
+                <div className="flex justify-between gap-4">
+                  <dt>Parcelamento</dt>
+                  <dd className="text-right">{installments.label}</dd>
+                </div>
+              ) : null}
+              <div className="flex justify-between gap-4">
+                <dt>Status</dt>
+                <dd className="text-right">{formatOrderStatus(order.status)}</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section className="rounded-lg border border-neutral-200 bg-white p-5" aria-labelledby="order-delivery">
+            <h2 id="order-delivery" className="text-lg font-black text-neutral-950">Entrega</h2>
+            <dl className="mt-4 space-y-2 text-sm font-semibold text-neutral-600">
+              <div className="flex justify-between gap-4">
+                <dt>Método</dt>
+                <dd className="text-right">{order.shippingMethodSnapshot ?? "-"}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt>CEP</dt>
+                <dd>{formatCep(order.shippingCepSnapshot ?? order.cep) || "-"}</dd>
+              </div>
+            </dl>
             {addressLines.length ? (
-              <div className="mt-3 space-y-1 text-sm font-semibold text-neutral-600">
+              <div className="mt-3 space-y-1 border-t border-neutral-200 pt-3 text-sm font-semibold text-neutral-600">
                 {addressLines.map((line) => (
                   <p key={line}>{line}</p>
                 ))}

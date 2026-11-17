@@ -75,6 +75,8 @@ export type StorageEntry = {
   purpose: string;
   duration: string;
   party: "Próprio (raredept.com.br)" | "Terceiro";
+  /** "staff": only the store team's Admin sets it. Listed in the policy, not in the shopper's panel. */
+  audience?: "staff";
 };
 
 export type ConsentCategoryInfo = {
@@ -100,11 +102,11 @@ export const COOKIE_CATALOG: ConsentCategoryInfo[] = [
     entries: [
       { name: COOKIE_CONSENT_COOKIE, kind: "cookie", purpose: "Guarda a sua decisão sobre cookies (versão da política, categorias e data). Não identifica você.", duration: `${COOKIE_CONSENT_MAX_AGE_DAYS} dias`, party: FIRST_PARTY },
       { name: "rare_customer_session", kind: "cookie", purpose: "Mantém você conectado à sua conta depois do login.", duration: "30 dias", party: FIRST_PARTY },
-      { name: "rare_admin_session", kind: "cookie", purpose: "Sessão do painel administrativo (apenas equipe da loja).", duration: "8 horas", party: FIRST_PARTY },
-      { name: "rare_admin_mfa_pending", kind: "cookie", purpose: "Etapa do segundo fator no login do painel administrativo (apenas equipe da loja).", duration: "até 10 minutos", party: FIRST_PARTY },
+      { name: "rare_admin_session", kind: "cookie", purpose: "Sessão do painel administrativo (apenas equipe da loja).", duration: "8 horas", party: FIRST_PARTY, audience: "staff" },
+      { name: "rare_admin_mfa_pending", kind: "cookie", purpose: "Etapa do segundo fator no login do painel administrativo (apenas equipe da loja).", duration: "até 10 minutos", party: FIRST_PARTY, audience: "staff" },
       { name: "rare_store_cart", kind: "localStorage", purpose: "Itens do seu carrinho neste navegador.", duration: "até você esvaziar o carrinho ou limpar o navegador", party: FIRST_PARTY },
       { name: "rare_store_shipping_selection", kind: "localStorage", purpose: "Opção de entrega escolhida no carrinho.", duration: "até concluir a compra ou limpar o navegador", party: FIRST_PARTY },
-      { name: "rare:home-motion-paused", kind: "localStorage", purpose: "Lembra se você pausou as animações da página inicial.", duration: "até limpar o navegador", party: FIRST_PARTY },
+      { name: "rare:home-motion-paused:v2", kind: "localStorage", purpose: "Lembra se você pausou as animações da página inicial.", duration: "até limpar o navegador", party: FIRST_PARTY },
     ],
   },
   {

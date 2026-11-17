@@ -68,8 +68,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
       <JsonLdScript id="rare-product-json-ld" data={productJsonLd} />
       <JsonLdScript id="rare-product-breadcrumb-json-ld" data={breadcrumbJsonLd} />
       <nav aria-label="Breadcrumb" className="scrollbar-none mb-6 flex items-center gap-2 overflow-x-auto whitespace-nowrap text-xs font-bold text-neutral-500">
-        <Link href="/" className="hover:text-neutral-950">Início</Link><span aria-hidden="true">/</span>
-        {productCategories.map((category) => <span key={category.slug} className="contents"><Link href={`/categoria/${category.slug}`} className="hover:text-neutral-950">{category.name}</Link><span aria-hidden="true">/</span></span>)}
+        <Link href="/" className="inline-flex min-h-6 items-center hover:text-neutral-950">Início</Link><span aria-hidden="true">/</span>
+        {productCategories.map((category) => <span key={category.slug} className="contents"><Link href={`/categoria/${category.slug}`} className="inline-flex min-h-6 items-center hover:text-neutral-950">{category.name}</Link><span aria-hidden="true">/</span></span>)}
         <span aria-current="page" className="truncate text-neutral-700">{product.title}</span>
       </nav>
       <ProductDetailClient

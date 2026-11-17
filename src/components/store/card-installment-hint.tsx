@@ -18,15 +18,19 @@ export function buildCardInstallmentHint({ amountInCents, rules, context }: {
   if (!rules?.enabled || !Number.isSafeInteger(amountInCents) || amountInCents <= 0) return null;
   const maxOffered = maxOfferedInstallments(rules);
   if (maxOffered < 2) return null;
-  const upToCard = maxOffered > maxInterestFreeInstallments(rules) ? `ou até ${maxOffered}x no cartão` : null;
   if (context === "cart") {
+    const upToCard = maxOffered > maxInterestFreeInstallments(rules) ? `ou até ${maxOffered}x no cartão` : null;
     const free = maxInterestFreeInstallments(rules);
     return [free >= 2 ? `Até ${free}x sem juros` : null, upToCard].filter(Boolean).join(" · ") || null;
   }
-  // Product: the largest interest-free count this price allows (minimum installment respected). No
+  // Product: the largest counts THIS price allows on its own (minimum installment respected), so the
+  // page never promises "até 12x" for an item the checkout can only split in 4 (UIUX-PDP-002). No
   // amounts: coupon, promotions, shipping and the cart can still change the final total.
-  const interestFree = listCardInstallmentPlans(amountInCents, rules).filter((plan) => plan.interestFree && plan.installmentCount >= 2).at(-1);
+  const plans = listCardInstallmentPlans(amountInCents, rules);
+  const interestFree = plans.filter((plan) => plan.interestFree && plan.installmentCount >= 2).at(-1);
+  const longest = plans.at(-1);
   const freeText = interestFree ? `ou em até ${interestFree.installmentCount}x sem juros` : null;
+  const upToCard = longest && !longest.interestFree ? `ou até ${longest.installmentCount}x no cartão` : null;
   return [freeText, upToCard].filter(Boolean).join(" · ") || null;
 }
 

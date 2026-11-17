@@ -30,6 +30,42 @@ export function formatPaymentMethod(method?: string | null) {
   return method;
 }
 
+/** Short payment line for order lists: "Pix", "Cartão · 8x", "Cartão" (from the order's snapshot). */
+export function formatOrderPaymentSummary(order: Parameters<typeof describeOrderInstallments>[0]) {
+  const installments = describeOrderInstallments(order);
+  return installments ? `Cartão · ${installments.count}x` : formatPaymentMethod(order.paymentMethod);
+}
+
+export type OrderStatusTone = "waiting" | "success" | "progress" | "neutral" | "danger";
+
+/** Visual tone of a status (the label is always shown too: color is never the only signal). */
+export function getOrderStatusTone(status: OrderStatus): OrderStatusTone {
+  if (status === "pending" || status === "awaiting_payment") return "waiting";
+  if (status === "paid" || status === "delivered") return "success";
+  if (status === "processing" || status === "shipped") return "progress";
+  if (status === "failed" || status === "canceled") return "danger";
+  return "neutral";
+}
+
+const promotionHistoryLabels: Record<string, string> = {
+  "promotion.created": "Criada",
+  "promotion.updated": "Editada",
+  "promotion.activated": "Ativada",
+  "promotion.paused": "Pausada",
+  "promotion.ended": "Encerrada",
+  "promotion.duplicated": "Duplicada",
+};
+
+/** UIUX-ADMIN-001: the audit code ("promotion.updated") in Portuguese for the promotion history. */
+export function formatPromotionHistoryAction(action: string) {
+  return promotionHistoryLabels[action] ?? action.replace("promotion.", "");
+}
+
+/** "1 item" / "3 itens". */
+export function formatItemCount(count: number) {
+  return `${count} ${count === 1 ? "item" : "itens"}`;
+}
+
 /**
  * Installment summary of an order, read ONLY from its own snapshot (never from the current rules):
  * changing the Admin rates later never changes what an existing order shows.
