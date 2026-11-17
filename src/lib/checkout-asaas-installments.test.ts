@@ -365,3 +365,46 @@ describe("webhook: 7x-12x plans settle as ONE sale", () => {
     expect(mocks.tx.inventoryMovement.create).not.toHaveBeenCalled();
   });
 });
+
+describe("SKU + image + 12x together (RARE-CARD-INSTALLMENTS-02)", () => {
+  const ORIGINAL_IMAGE = "https://media.raredept.com.br/products/corteiz-front.webp";
+
+  it("one order keeps BOTH snapshots, and later catalog / Admin changes alter neither", async () => {
+    seed();
+    mocks.tx.productVariant.findMany.mockResolvedValue([{
+      id: "var_1", productId: "prod_1", size: "G", sku: "CRTZ-TSH-BLK-G", active: true,
+      product: { id: "prod_1", title: "Camiseta Corteiz", active: true, priceInCents: 20_000, categoryId: null, subcategoryId: null, weightGrams: 400, lengthCm: 30, widthCm: 24, heightCm: 4, images: [{ url: ORIGINAL_IMAGE }] },
+    }]);
+    await createCheckoutSession(cardInput({ installmentCount: 12 }), { customerId: "customer_000001" });
+    const data = createdOrder() as Record<string, unknown> & { items: { create: Array<Record<string, unknown>> } };
+
+    // Catalog snapshot (SKU cycle) and financial snapshot (installments cycle) side by side.
+    expect(data.items.create).toEqual([expect.objectContaining({
+      productId: "prod_1", variantId: "var_1", productTitleSnapshot: "Camiseta Corteiz", sizeSnapshot: "G",
+      skuSnapshot: "CRTZ-TSH-BLK-G", imageUrlSnapshot: ORIGINAL_IMAGE, catalogSnapshotAt: expect.any(Date),
+      unitPriceInCents: 20_000, totalInCents: 20_000, quantity: 1,
+    })]);
+    expect(data).toMatchObject({
+      subtotalInCents: 20_000, discountInCents: 0, shippingInCents: 2_000,
+      paymentBaseTotalInCents: BASE, paymentInstallmentCount: 12, paymentInstallmentRateBps: 1_800, paymentInstallmentFeeInCents: 3_960,
+      totalInCents: TOTAL_12X, paymentInstallmentValueInCents: EACH_12X, paymentLastInstallmentValueInCents: LAST_12X,
+    });
+    expect(mocks.asaas.createAsaasPayment.mock.calls[0][1]).toMatchObject({ installmentCount: 12, totalInCents: TOTAL_12X });
+
+    // Later: the catalog SKU and image change, and the Admin moves 12x from 18% to 25%.
+    const { resolveOrderItemDisplay } = await import("@/lib/order-item-snapshot");
+    const { describeOrderInstallments } = await import("@/lib/order-display");
+    const stored = { ...data, paymentMethod: "card" };
+    const item = data.items.create[0] as { productId: string; variantId: string; sizeSnapshot: string; skuSnapshot: string; imageUrlSnapshot: string; catalogSnapshotAt: Date };
+    const display = resolveOrderItemDisplay({
+      ...item,
+      product: { images: [{ url: "https://media.raredept.com.br/products/corteiz-NEW.webp" }] },
+      variant: { productId: "prod_1", size: "G", sku: "CRTZ-TSH-BLK-G-V2" },
+    });
+    expect(display).toEqual({ imageUrl: ORIGINAL_IMAGE, sku: "CRTZ-TSH-BLK-G", skuSource: "order" });
+    seed({ settings: { ...installmentSettings, cardInstallmentSurchargesBps: { ...installmentSettings.cardInstallmentSurchargesBps, 12: 2_500 } } });
+    const plan = describeOrderInstallments(stored as Parameters<typeof describeOrderInstallments>[0]);
+    expect(plan).toMatchObject({ count: 12, feeInCents: 3_960, rateText: "18%" });
+    expect(stored.totalInCents).toBe(TOTAL_12X);
+  });
+});
