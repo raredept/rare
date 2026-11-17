@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { AsaasWebhookEvent, Prisma } from "@prisma/client";
-import { ASAAS_PAYMENT_ID_PATTERN, AsaasError, getAsaasConfig, getAsaasPayment } from "@/lib/asaas";
+import { ASAAS_PAYMENT_ID_PATTERN, AsaasError, getAsaasConfig, getAsaasInstallmentOrDeleted, getAsaasPayment } from "@/lib/asaas";
 import { processAsaasPayment } from "@/lib/checkout";
 import { prisma } from "@/lib/prisma";
 
@@ -58,8 +58,12 @@ export async function processAsaasWebhookEvents(options: { limit?: number; now?:
     const { event, token } = claimed;
     try {
       if (!event.paymentId) throw new AsaasError("rejected", "AsaasEventWithoutPayment");
-      const payment = await getAsaasPayment(getAsaasConfig(), event.paymentId);
-      const result = await processAsaasPayment(payment);
+      const config = getAsaasConfig();
+      const payment = await getAsaasPayment(config, event.paymentId);
+      // A card installment is one payment of a plan: the plan (total, count, customer) is what is
+      // matched against the order, and it is also read from the API, never from the body.
+      const installment = payment.installmentId ? await getAsaasInstallmentOrDeleted(config, payment.installmentId) : null;
+      const result = await processAsaasPayment(payment, installment);
       await prisma.asaasWebhookEvent.updateMany({
         where: { id: event.id, leaseToken: token },
         data: { status: "processed", processedAt: clock(), leaseToken: null, leaseExpiresAt: null, lastErrorCode: result.status === "payment_mismatch" ? "PAYMENT_MISMATCH" : null },

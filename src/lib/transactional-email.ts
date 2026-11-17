@@ -43,6 +43,8 @@ export type OrderEmailInput = {
   orderNumber: string;
   total: string;
   trackingCode?: string | null;
+  /** Card installments, e.g. { count: 6, value: "R$ 84,00" }. Never card data. */
+  installments?: { count: number; value: string } | null;
 };
 
 export type SupportEmailInput = {
@@ -80,13 +82,17 @@ function orderTemplate(
   const total = cleanHeader(input.total, 80);
   const tracking = input.trackingCode ? cleanText(input.trackingCode, 160) : null;
   const trackingText = tracking ? ` Código de rastreio: ${tracking}.` : "";
+  const installments = input.installments && Number.isSafeInteger(input.installments.count) && input.installments.count >= 2
+    ? `${input.installments.count}x de ${cleanHeader(input.installments.value, 40)}`
+    : null;
+  const paymentText = installments ? ` Pagamento: Cartão de crédito. Parcelamento: ${installments}.` : "";
 
   return {
     kind,
     to: cleanHeader(input.to),
     subject: `${title} — pedido ${orderNumber}`,
-    text: `Olá, ${name}. ${detail} Pedido ${orderNumber}, total ${total}.${trackingText}`,
-    html: `<h1>${escapeEmailHtml(title)}</h1><p>Olá, ${escapeEmailHtml(name)}.</p><p>${escapeEmailHtml(detail)}</p><p>Pedido <strong>${escapeEmailHtml(orderNumber)}</strong>, total ${escapeEmailHtml(total)}.</p>${tracking ? `<p>Código de rastreio: ${escapeEmailHtml(tracking)}.</p>` : ""}`,
+    text: `Olá, ${name}. ${detail} Pedido ${orderNumber}, total ${total}.${paymentText}${trackingText}`,
+    html: `<h1>${escapeEmailHtml(title)}</h1><p>Olá, ${escapeEmailHtml(name)}.</p><p>${escapeEmailHtml(detail)}</p><p>Pedido <strong>${escapeEmailHtml(orderNumber)}</strong>, total ${escapeEmailHtml(total)}.</p>${installments ? `<p>Pagamento: Cartão de crédito. Parcelamento: ${escapeEmailHtml(installments)}.</p>` : ""}${tracking ? `<p>Código de rastreio: ${escapeEmailHtml(tracking)}.</p>` : ""}`,
   } satisfies TransactionalEmailMessage;
 }
 

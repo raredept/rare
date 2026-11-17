@@ -77,29 +77,29 @@ enum EmailOutboxStatus {
 }
 
 model User {
-  id                     String                  @id @default(cuid())
-  name                   String
-  email                  String                  @unique
-  username               String?                 @unique
-  passwordHash           String
-  role                   UserRole                @default(ADMIN)
-  active                 Boolean                 @default(true)
-  mustChangePassword     Boolean                 @default(false)
+  id                        String                  @id @default(cuid())
+  name                      String
+  email                     String                  @unique
+  username                  String?                 @unique
+  passwordHash              String
+  role                      UserRole                @default(ADMIN)
+  active                    Boolean                 @default(true)
+  mustChangePassword        Boolean                 @default(false)
   /// Bumped on logout; a session token carrying an older value is rejected.
-  sessionVersion         Int                     @default(0)
+  sessionVersion            Int                     @default(0)
   /// Active TOTP secret, AES-256-GCM sealed with ADMIN_MFA_ENCRYPTION_KEY (never a hash: the
   /// server must recompute codes). Null until an enrollment is confirmed with a valid code.
-  mfaSecretEncrypted     String?
-  mfaEnabledAt           DateTime?
+  mfaSecretEncrypted        String?
+  mfaEnabledAt              DateTime?
   /// Last accepted TOTP time step: a code is accepted once, never replayed.
-  mfaLastUsedStep        Int?
+  mfaLastUsedStep           Int?
   /// Enrollment in progress. Kept apart so an unconfirmed QR never replaces or looks like an active factor.
   mfaPendingSecretEncrypted String?
-  mfaPendingCreatedAt    DateTime?
-  mfaRecoveryCodes       AdminMfaRecoveryCode[]
-  adminPushSubscriptions AdminPushSubscription[]
-  createdAt              DateTime                @default(now())
-  updatedAt              DateTime                @updatedAt
+  mfaPendingCreatedAt       DateTime?
+  mfaRecoveryCodes          AdminMfaRecoveryCode[]
+  adminPushSubscriptions    AdminPushSubscription[]
+  createdAt                 DateTime                @default(now())
+  updatedAt                 DateTime                @updatedAt
 }
 
 /// Single-use recovery codes. Only a keyed hash is stored; the code is shown once.
@@ -174,19 +174,19 @@ model CustomerAddress {
 }
 
 model Category {
-  id                  String     @id @default(cuid())
+  id                  String              @id @default(cuid())
   name                String
-  slug                String     @unique
+  slug                String              @unique
   parentId            String?
-  parent              Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children            Category[] @relation("CategoryHierarchy")
-  sortOrder           Int        @default(0)
-  active              Boolean    @default(true)
-  products            Product[]  @relation("ProductCategory")
-  subcategoryProducts Product[]  @relation("ProductSubcategory")
+  parent              Category?           @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children            Category[]          @relation("CategoryHierarchy")
+  sortOrder           Int                 @default(0)
+  active              Boolean             @default(true)
+  products            Product[]           @relation("ProductCategory")
+  subcategoryProducts Product[]           @relation("ProductSubcategory")
   promotions          PromotionCategory[]
-  createdAt           DateTime   @default(now())
-  updatedAt           DateTime   @updatedAt
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
 
   @@index([parentId, sortOrder])
   @@index([active, sortOrder])
@@ -264,62 +264,74 @@ model ProductVariant {
 }
 
 model Order {
-  id                      String              @id @default(cuid())
-  orderNumber             String              @unique
-  customerId              String?
-  customer                Customer?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  customerName            String?
-  customerEmail           String?
-  customerPhone           String?
-  customerDocument        String?
-  customerEmailSnapshot   String?
-  customerNameSnapshot    String?
-  customerPhoneSnapshot   String?
-  customerCpfSnapshot     String?
-  shippingAddressSnapshot Json?
-  billingAddressSnapshot  Json?
-  shippingMethodSnapshot  String?
-  shippingCepSnapshot     String?
-  shippingQuoteSnapshot   Json?
-  cep                     String?
-  addressLine1            String?
-  addressLine2            String?
-  neighborhood            String?
-  city                    String?
-  state                   String?
-  subtotalInCents         Int
-  couponCode              String?
-  discountInCents         Int                 @default(0)
+  id                                 String              @id @default(cuid())
+  orderNumber                        String              @unique
+  customerId                         String?
+  customer                           Customer?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customerName                       String?
+  customerEmail                      String?
+  customerPhone                      String?
+  customerDocument                   String?
+  customerEmailSnapshot              String?
+  customerNameSnapshot               String?
+  customerPhoneSnapshot              String?
+  customerCpfSnapshot                String?
+  shippingAddressSnapshot            Json?
+  billingAddressSnapshot             Json?
+  shippingMethodSnapshot             String?
+  shippingCepSnapshot                String?
+  shippingQuoteSnapshot              Json?
+  cep                                String?
+  addressLine1                       String?
+  addressLine2                       String?
+  neighborhood                       String?
+  city                               String?
+  state                              String?
+  subtotalInCents                    Int
+  couponCode                         String?
+  discountInCents                    Int                 @default(0)
   /// Sum of automatic promotion discounts already applied to the item prices (subtotal is net of it).
-  promotionDiscountInCents Int                @default(0)
-  shippingInCents         Int                 @default(0)
-  totalInCents            Int
-  status                  OrderStatus         @default(pending)
-  paymentProvider         PaymentProvider     @default(stripe)
-  stripeCheckoutSessionId String?             @unique
-  stripePaymentIntentId   String?
+  promotionDiscountInCents           Int                 @default(0)
+  shippingInCents                    Int                 @default(0)
+  totalInCents                       Int
+  status                             OrderStatus         @default(pending)
+  paymentProvider                    PaymentProvider     @default(stripe)
+  stripeCheckoutSessionId            String?             @unique
+  stripePaymentIntentId              String?
   /// Mercado Pago payment id of the Pix created for this order (Checkout API).
-  mercadoPagoPaymentId    String?             @unique
+  mercadoPagoPaymentId               String?             @unique
   /// Asaas charge (pay_...) created for this order.
-  asaasPaymentId          String?             @unique
+  asaasPaymentId                     String?             @unique
+  /// Asaas installment plan (card 2x+). Each installment is its own Asaas payment under this id;
+  /// asaasPaymentId keeps the first one.
+  asaasInstallmentId                 String?             @unique
   /// Provider-hosted page where the shopper pays (Asaas invoice for card). Never a card form of ours.
-  paymentUrl              String?
+  paymentUrl                         String?
   /// Set once when a refund is requested at the provider, so it is never requested twice.
-  refundRequestedAt       DateTime?
-  pixCharge               PixCharge?
-  paymentMethod           String?
-  reservationExpiresAt    DateTime?
-  checkoutDeadlineAt      DateTime?
-  checkoutExpiredAt       DateTime?
-  checkoutExpiryJob       CheckoutExpiryJob?
-  paidAt                  DateTime?
-  items                   OrderItem[]
-  inventoryMovements      InventoryMovement[]
-  adminNotifications      AdminNotification[]
-  emailOutbox             EmailOutbox[]
-  supportRequests         SupportRequest[]
-  createdAt               DateTime            @default(now())
-  updatedAt               DateTime            @updatedAt
+  refundRequestedAt                  DateTime?
+  pixCharge                          PixCharge?
+  paymentMethod                      String?
+  /// Card installment snapshot, fixed when the order is created and never recalculated from the
+  /// current rules. totalInCents is the FINAL total charged; paymentBaseTotalInCents the total
+  /// before the installment surcharge. Pix and orders before installments: null / 0.
+  paymentInstallmentCount            Int?
+  paymentInstallmentRateBps          Int?
+  paymentInstallmentFeeInCents       Int                 @default(0)
+  paymentBaseTotalInCents            Int?
+  paymentInstallmentValueInCents     Int?
+  paymentLastInstallmentValueInCents Int?
+  reservationExpiresAt               DateTime?
+  checkoutDeadlineAt                 DateTime?
+  checkoutExpiredAt                  DateTime?
+  checkoutExpiryJob                  CheckoutExpiryJob?
+  paidAt                             DateTime?
+  items                              OrderItem[]
+  inventoryMovements                 InventoryMovement[]
+  adminNotifications                 AdminNotification[]
+  emailOutbox                        EmailOutbox[]
+  supportRequests                    SupportRequest[]
+  createdAt                          DateTime            @default(now())
+  updatedAt                          DateTime            @updatedAt
 
   @@index([status, createdAt])
   @@index([status, paidAt])
@@ -332,27 +344,30 @@ model Order {
 // Payment and enqueue commit together; SMTP runs only after this transaction.
 // accepted means SMTP acceptance, never confirmed inbox delivery.
 model EmailOutbox {
-  id             String            @id @default(cuid())
-  orderId        String
-  order          Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  kind           String            @default("payment_approved")
-  recipient      String?
-  customerName   String?
-  orderNumber    String
-  totalInCents   Int
-  messageId      String            @unique
-  status         EmailOutboxStatus @default(pending)
-  attempts       Int               @default(0)
-  nextAttemptAt  DateTime          @default(now())
-  leaseToken     String?
-  leaseExpiresAt DateTime?
-  provider       String?
-  acceptedAt     DateTime?
-  lastErrorCode  String?
-  reviewedAt     DateTime?
-  reviewNote     String?
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  id                      String            @id @default(cuid())
+  orderId                 String
+  order                   Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  kind                    String            @default("payment_approved")
+  recipient               String?
+  customerName            String?
+  orderNumber             String
+  totalInCents            Int
+  /// Card installments shown in the e-mail (snapshot of the order; null for Pix / 1x).
+  installmentCount        Int?
+  installmentValueInCents Int?
+  messageId               String            @unique
+  status                  EmailOutboxStatus @default(pending)
+  attempts                Int               @default(0)
+  nextAttemptAt           DateTime          @default(now())
+  leaseToken              String?
+  leaseExpiresAt          DateTime?
+  provider                String?
+  acceptedAt              DateTime?
+  lastErrorCode           String?
+  reviewedAt              DateTime?
+  reviewNote              String?
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
 
   @@unique([orderId, kind])
   @@index([status, nextAttemptAt, createdAt])
@@ -428,37 +443,37 @@ model AdminPushSubscription {
 }
 
 model OrderItem {
-  id                   String              @id @default(cuid())
-  orderId              String
-  order                Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId            String?
-  product              Product?            @relation(fields: [productId], references: [id], onDelete: SetNull)
-  productTitleSnapshot String
-  variantId            String?
-  variant              ProductVariant?     @relation(fields: [variantId], references: [id], onDelete: SetNull)
-  sizeSnapshot         String
+  id                       String              @id @default(cuid())
+  orderId                  String
+  order                    Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId                String?
+  product                  Product?            @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productTitleSnapshot     String
+  variantId                String?
+  variant                  ProductVariant?     @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  sizeSnapshot             String
   /// SKU of the variant when the order was created. Null when it had none, or on orders created
   /// before this snapshot existed (see catalogSnapshotAt).
-  skuSnapshot          String?
+  skuSnapshot              String?
   /// Catalog image (variant image, else the product's main image) when the order was created.
-  imageUrlSnapshot     String?
+  imageUrlSnapshot         String?
   /// Set when skuSnapshot / imageUrlSnapshot were captured. Null marks an order created before
   /// the snapshot existed, whose SKU / image may only be shown from the current catalog.
-  catalogSnapshotAt    DateTime?
-  quantity             Int
+  catalogSnapshotAt        DateTime?
+  quantity                 Int
   /// Final unit price charged (after the automatic promotion, before order-level coupon).
-  unitPriceInCents     Int
-  totalInCents         Int
+  unitPriceInCents         Int
+  totalInCents             Int
   /// Catalog price at checkout. Null on orders created before promotions existed.
-  basePriceInCents     Int?
+  basePriceInCents         Int?
   /// Snapshot of the promotion applied to this item; readable even if the promotion changes later.
-  promotionId          String?
-  promotionName        String?
-  promotionCode        String?
-  promotionDiscountInCents Int               @default(0)
-  inventoryMovements   InventoryMovement[]
-  createdAt            DateTime            @default(now())
-  updatedAt            DateTime            @updatedAt
+  promotionId              String?
+  promotionName            String?
+  promotionCode            String?
+  promotionDiscountInCents Int                 @default(0)
+  inventoryMovements       InventoryMovement[]
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @updatedAt
 
   @@index([orderId])
   @@index([orderId, productId])
@@ -502,6 +517,13 @@ model StoreSettings {
   shippingInstructions         String?
   checkoutRequiresAddress      Boolean  @default(true)
   checkoutReservationMinutes   Int      @default(15)
+  /// Card installments (Admin → Configurações → Pagamentos). Also gated by CARD_INSTALLMENTS_ENABLED.
+  cardInstallmentsEnabled      Boolean  @default(false)
+  cardInstallmentsMax          Int      @default(12)
+  cardInstallmentsMinInCents   Int      @default(1000)
+  /// TOTAL surcharge per count in basis points, { "4": 900, ..., "12": 1800 } (900 = 9%). A missing
+  /// or invalid entry means that count is not offered. Default = table approved on 2026-11-16.
+  cardInstallmentSurchargesBps Json     @default("{\"4\":900,\"5\":1000,\"6\":1100,\"7\":1300,\"8\":1400,\"9\":1500,\"10\":1600,\"11\":1700,\"12\":1800}")
   createdAt                    DateTime @default(now())
   updatedAt                    DateTime @updatedAt
 }
@@ -688,36 +710,36 @@ enum SupportDeliveryStatus {
 /// the acknowledgement to the customer; both are delivered with idempotency keys derived from the
 /// id (support/<id>/team, support/<id>/customer) and retried by the worker under a lease.
 model SupportRequest {
-  id                   String                @id @default(cuid())
+  id                    String                @id @default(cuid())
   /// Public reference shown to the customer (SUP-XXXXXXXX).
-  protocol             String                @unique
+  protocol              String                @unique
   /// One-time token of the form render: a double submit returns the same request.
-  submissionKey        String                @unique
-  customerId           String?
-  customer             Customer?             @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  productId            String?
-  product              Product?              @relation(fields: [productId], references: [id], onDelete: SetNull)
-  productTitleSnapshot String?
-  productSlugSnapshot  String?
-  orderId              String?
-  order                Order?                @relation(fields: [orderId], references: [id], onDelete: SetNull)
-  orderNumberSnapshot  String?
-  name                 String
-  email                String
-  category             SupportCategory
-  message              String
-  status               SupportDeliveryStatus @default(PENDING)
-  attempts             Int                   @default(0)
-  emailSentAt          DateTime?
-  lastErrorCode        String?
-  confirmationStatus   SupportDeliveryStatus @default(PENDING)
-  confirmationSentAt   DateTime?
+  submissionKey         String                @unique
+  customerId            String?
+  customer              Customer?             @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  productId             String?
+  product               Product?              @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productTitleSnapshot  String?
+  productSlugSnapshot   String?
+  orderId               String?
+  order                 Order?                @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  orderNumberSnapshot   String?
+  name                  String
+  email                 String
+  category              SupportCategory
+  message               String
+  status                SupportDeliveryStatus @default(PENDING)
+  attempts              Int                   @default(0)
+  emailSentAt           DateTime?
+  lastErrorCode         String?
+  confirmationStatus    SupportDeliveryStatus @default(PENDING)
+  confirmationSentAt    DateTime?
   confirmationErrorCode String?
-  nextAttemptAt        DateTime              @default(now())
-  leaseToken           String?
-  leaseExpiresAt       DateTime?
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
+  nextAttemptAt         DateTime              @default(now())
+  leaseToken            String?
+  leaseExpiresAt        DateTime?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
 
   @@index([createdAt])
   @@index([status, nextAttemptAt])

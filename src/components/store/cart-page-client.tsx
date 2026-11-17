@@ -5,10 +5,11 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PaymentMethodPicker, type CheckoutPaymentMethod, type CheckoutPaymentProvider } from "@/components/store/payment-method-picker";
-import { ASAAS_RESERVATION_MINUTES } from "@/lib/checkout-policy";
+import { ASAAS_MIN_CHARGE_IN_CENTS, ASAAS_MINIMUM_PAYMENT_MESSAGE, ASAAS_RESERVATION_MINUTES } from "@/lib/checkout-policy";
+import { CardInstallmentHint } from "@/components/store/card-installment-hint";
+import { DISABLED_CARD_INSTALLMENT_RULES, describeCardInstallmentPlan, listCardInstallmentPlans, type CardInstallmentRules } from "@/lib/card-installments";
 import { useCart, type CartItem } from "@/components/store/cart-context";
 import { ProductMediaPlaceholder } from "@/components/store/product-media-placeholder";
-import { InstallmentTerms } from "@/components/store/installment-terms";
 import { formatCep, parseCep } from "@/lib/cep";
 import { formatCpf, isValidCpf, normalizeCpf } from "@/lib/cpf";
 import { formatMoney } from "@/lib/money";
@@ -46,6 +47,9 @@ type CartPageClientProps = {
   // PAYMENT_PROVIDER, also decided on the server: the copy and the payment window follow it.
   // "disabled" (or an unknown value) offers no payment at all.
   paymentProvider?: CheckoutPaymentProvider | "disabled";
+  // Card installment rules (flag + Admin), decided on the server. Used here ONLY to preview the
+  // options; the server recalculates the chosen plan from the order and ignores any amount sent.
+  cardInstallmentRules?: CardInstallmentRules;
   shippingSettings: ProvisionalShippingSettings & {
     shippingInstructions?: string | null;
   };
@@ -175,7 +179,7 @@ function formatCheckoutMessage(message: string) {
   return message;
 }
 
-export function CartPageClient({ customer, addresses, initialSelectedAddressId, pixAvailable = false, cardAvailable = true, paymentProvider = "disabled", shippingSettings, shippingConfig, welcomeCoupon }: CartPageClientProps) {
+export function CartPageClient({ customer, addresses, initialSelectedAddressId, pixAvailable = false, cardAvailable = true, paymentProvider = "disabled", cardInstallmentRules = DISABLED_CARD_INSTALLMENT_RULES, shippingSettings, shippingConfig, welcomeCoupon }: CartPageClientProps) {
   const { items, subtotalInCents, updateQuantity, removeItem, syncPrices } = useCart();
   const priceSignature = useMemo(() => items.map((item) => `${item.productId}:${item.variantId}`).sort().join("|"), [items]);
   useEffect(() => {
@@ -271,6 +275,20 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
   const totalInCents = subtotalInCents + shippingInCents;
   const discountInCents = welcomeCoupon ? calculatePercentDiscountInCents(couponEligibleSubtotalInCents, welcomeCoupon.percentOff) : 0;
   const discountedTotalInCents = totalInCents - discountInCents;
+  // The total is final only once the delivery is known (no surcharge, coupon or minimum guessed before).
+  const totalKnown = items.length > 0 && (!shippingConfig.enabled || Boolean(selectedShippingOption));
+  const belowMinimumPayment = usesAsaas && totalKnown && discountedTotalInCents < ASAAS_MIN_CHARGE_IN_CENTS;
+  const payWithCard = usesAsaas && cardAvailable && !payWithPix;
+  const installmentPlans = useMemo(
+    () => (payWithCard && totalKnown && cardInstallmentRules.enabled ? listCardInstallmentPlans(discountedTotalInCents, cardInstallmentRules) : []),
+    [cardInstallmentRules, discountedTotalInCents, payWithCard, totalKnown],
+  );
+  const [installmentChoice, setInstallmentChoice] = useState(1);
+  // A choice that the current total no longer allows falls back to 1x (never a stale surcharge).
+  const selectedPlan = installmentPlans.find((plan) => plan.installmentCount === installmentChoice) ?? installmentPlans[0] ?? null;
+  const installmentCount = payWithCard ? selectedPlan?.installmentCount ?? 1 : undefined;
+  const installmentFeeInCents = payWithCard ? selectedPlan?.feeInCents ?? 0 : 0;
+  const payableTotalInCents = discountedTotalInCents + installmentFeeInCents;
 
   const checkoutPayload = useMemo(
     () => {
@@ -293,9 +311,12 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
             }),
         couponCode: welcomeCoupon?.code,
         paymentMethod: payWithPix ? "pix" as const : "card" as const,
+        // Only the COUNT. Rate, surcharge and totals are never sent: the server prices the plan.
+        ...(installmentCount && installmentCount > 1 ? { installmentCount } : {}),
       };
     },
     [
+      installmentCount,
       checkoutCep,
       items,
       payWithPix,
@@ -822,23 +843,60 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
                 {formatCheckoutMessage(legacyShippingPreview.error)}
               </p>
             ) : null}
+            {installmentFeeInCents > 0 ? (
+              <div className="flex justify-between gap-4">
+                <span>Acréscimo do parcelamento</span>
+                <span className="whitespace-nowrap">+ {formatMoney(installmentFeeInCents)}</span>
+              </div>
+            ) : null}
             <div className="border-t border-neutral-200 pt-4">
               <div className="flex justify-between gap-4 text-xl font-black text-neutral-950">
                 <span>Total</span>
-                <span className="whitespace-nowrap">{formatMoney(discountedTotalInCents)}</span>
+                <span className="whitespace-nowrap">{formatMoney(payableTotalInCents)}</span>
               </div>
-              <InstallmentTerms amountInCents={discountedTotalInCents} checkoutEnabled context="order" />
+              {payWithCard && selectedPlan && selectedPlan.installmentCount > 1 ? (
+                <p className="mt-2 text-xs font-semibold leading-5 text-neutral-600">No cartão: {describeCardInstallmentPlan(selectedPlan)}</p>
+              ) : !installmentPlans.length ? (
+                <CardInstallmentHint amountInCents={discountedTotalInCents} rules={usesAsaas && cardAvailable ? cardInstallmentRules : null} context="cart" />
+              ) : null}
             </div>
           </div>
+          {belowMinimumPayment ? <p role="alert" className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">{ASAAS_MINIMUM_PAYMENT_MESSAGE}</p> : null}
           {error ? <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{error}</p> : null}
           {paymentAvailable && pixAvailable && cardAvailable ? <PaymentMethodPicker value={paymentMethod} onChange={setPaymentMethod} disabled={loading} provider={usesAsaas ? "asaas" : "stripe"} /> : null}
+          {installmentPlans.length > 1 ? (
+            <fieldset className="mt-5" disabled={loading}>
+              <legend className="text-sm font-black text-neutral-950">Parcelamento no cartão</legend>
+              <div className="mt-3 grid gap-2">
+                {installmentPlans.map((plan) => {
+                  const selected = selectedPlan?.installmentCount === plan.installmentCount;
+                  return (
+                    <label
+                      key={plan.installmentCount}
+                      className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm transition focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-black ${selected ? "border-neutral-950 bg-neutral-50" : "border-neutral-300 bg-white hover:border-neutral-500"}`}
+                    >
+                      <input
+                        type="radio"
+                        name="card-installments"
+                        value={plan.installmentCount}
+                        checked={selected}
+                        onChange={() => setInstallmentChoice(plan.installmentCount)}
+                        className="mt-1 h-4 w-4 accent-black"
+                      />
+                      <span className="font-semibold text-neutral-800">{describeCardInstallmentPlan(plan)}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
+          ) : null}
           {paymentAvailable ? (
             <p className="mt-5 text-sm font-semibold leading-6 text-neutral-700">Ao iniciar o pagamento, você terá {paymentWindowMinutes} minutos para finalizar. O prazo fica salvo com seu pedido e não se renova ao voltar à loja. Pagamentos já em processamento aguardam confirmação.</p>
           ) : null}
           <button
             type="button"
             onClick={checkout}
-            disabled={loading || needsCpf || !paymentAvailable || (shippingConfig.enabled && !selectedShippingOption)}
+            disabled={loading || needsCpf || !paymentAvailable || belowMinimumPayment || (shippingConfig.enabled && !selectedShippingOption)}
             className="mt-6 flex h-12 w-full items-center justify-center rounded-lg bg-black px-6 text-sm font-black uppercase tracking-wide text-white transition hover:bg-neutral-800 disabled:cursor-wait disabled:bg-neutral-500"
           >
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}

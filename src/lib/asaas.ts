@@ -30,6 +30,19 @@ export type AsaasPayment = {
   externalReference: string | null;
   invoiceUrl: string | null;
   deleted: boolean;
+  /** Installment plan this charge belongs to (card 2x+), or null for a single charge. */
+  installmentId?: string | null;
+  installmentNumber?: number | null;
+};
+
+/** One card installment plan. Its total is the order total; each installment is a payment. */
+export type AsaasInstallment = {
+  id: string;
+  totalInCents: number | null;
+  installmentCount: number | null;
+  billingType: string | null;
+  customerId: string | null;
+  deleted: boolean;
 };
 
 export type AsaasPixQrCode = { copyPaste: string; qrCodeBase64: string | null; expiresAt: string | null };
@@ -38,6 +51,10 @@ export type AsaasPixQrCode = { copyPaste: string; qrCodeBase64: string | null; e
 const PAYMENT_ID = /^pay_[A-Za-z0-9_]{6,64}$/;
 const CUSTOMER_ID = /^cus_[A-Za-z0-9]{6,64}$/;
 const ORDER_REFERENCE = /^[A-Za-z0-9_-]{8,120}$/;
+// Installment ids are UUID-like. No path or query characters.
+const INSTALLMENT_ID = /^[A-Za-z0-9-]{8,80}$/;
+/** Transport ceiling (Asaas card limit). The STORE policy (max 12x) is enforced in card-installments. */
+const ASAAS_MAX_CARD_INSTALLMENTS = 21;
 
 function networkErrorCode(error: unknown) {
   const value = error as { code?: unknown; cause?: { code?: unknown } } | null;
@@ -128,6 +145,28 @@ export function normalizeAsaasPayment(raw: unknown): AsaasPayment {
     // Only an Asaas-hosted https page is ever handed to the shopper.
     invoiceUrl: invoiceUrl && /^https:\/\/([a-z0-9-]+\.)*asaas\.com\//.test(invoiceUrl) ? invoiceUrl : null,
     deleted: value?.deleted === true,
+    installmentId: installmentIdOf(value?.installment),
+    installmentNumber: typeof value?.installmentNumber === "number" && Number.isSafeInteger(value.installmentNumber) && value.installmentNumber > 0 ? value.installmentNumber : null,
+  };
+}
+
+function installmentIdOf(value: unknown) {
+  const id = text(value, 80);
+  return id && INSTALLMENT_ID.test(id) ? id : null;
+}
+
+export function normalizeAsaasInstallment(raw: unknown): AsaasInstallment {
+  const value = raw as Record<string, unknown> | null;
+  const id = installmentIdOf(value?.id);
+  if (!id) throw new AsaasError("unknown", "AsaasUnexpectedResponse");
+  const count = value?.installmentCount;
+  return {
+    id,
+    totalInCents: toCents(value?.value),
+    installmentCount: typeof count === "number" && Number.isSafeInteger(count) ? count : null,
+    billingType: text(value?.billingType, 30),
+    customerId: text(value?.customer, 80),
+    deleted: value?.deleted === true,
   };
 }
 
@@ -178,17 +217,24 @@ export type AsaasChargeInput = {
   method: "pix" | "card";
   dueDate: Date;
   successUrl?: string;
+  /** Card only. 2+ creates an Asaas installment plan whose TOTAL is totalInCents. */
+  installmentCount?: number;
 };
 
 export function buildAsaasPaymentRequest(input: AsaasChargeInput) {
   if (!Number.isSafeInteger(input.totalInCents) || input.totalInCents <= 0) throw new AsaasError("rejected", "InvalidChargeAmount");
   if (!CUSTOMER_ID.test(input.customerId)) throw new AsaasError("rejected", "InvalidCustomer");
   if (!ORDER_REFERENCE.test(input.orderId)) throw new AsaasError("rejected", "InvalidOrderReference");
+  const installmentCount = input.installmentCount ?? 1;
+  if (!Number.isSafeInteger(installmentCount) || installmentCount < 1 || installmentCount > ASAAS_MAX_CARD_INSTALLMENTS) throw new AsaasError("rejected", "InvalidInstallmentCount");
+  if (installmentCount > 1 && input.method !== "card") throw new AsaasError("rejected", "InvalidInstallmentCount");
   return {
     customer: input.customerId,
     // Explicit method: UNDEFINED would let the shopper pick boleto, which outlives the stock hold.
     billingType: input.method === "pix" ? "PIX" : "CREDIT_CARD",
-    value: input.totalInCents / 100,
+    // A single charge sends only `value`. An installment plan sends the count and the TOTAL (Asaas
+    // splits it; any rounding cent goes to the last installment). Never both, never installmentValue.
+    ...(installmentCount > 1 ? { installmentCount, totalValue: input.totalInCents / 100 } : { value: input.totalInCents / 100 }),
     dueDate: formatAsaasDate(input.dueDate),
     description: `Pedido ${input.orderNumber} - RARE`.slice(0, 500),
     externalReference: input.orderId,
@@ -213,6 +259,39 @@ export async function getAsaasPixQrCode(config: AsaasConfig, paymentId: string, 
   if (!copyPaste) throw new AsaasError("unknown", "AsaasPixDataMissing");
   const image = text(body?.encodedImage, 200_000);
   return { copyPaste, qrCodeBase64: image && /^[A-Za-z0-9+/=]+$/.test(image) ? image : null, expiresAt: text(body?.expirationDate, 40) };
+}
+
+export async function getAsaasInstallment(config: AsaasConfig, installmentId: string, options?: AsaasRequestOptions) {
+  if (!INSTALLMENT_ID.test(installmentId)) throw new AsaasError("rejected", "InvalidAsaasInstallmentId");
+  return normalizeAsaasInstallment(await request(config, "GET", `/installments/${installmentId}`, undefined, options));
+}
+
+/**
+ * The plan of an installment payment, read from the API. A plan Asaas no longer finds was removed:
+ * it is reported as deleted (the "can no longer be paid" answer), never as a match for any order.
+ */
+export async function getAsaasInstallmentOrDeleted(config: AsaasConfig, installmentId: string, options?: AsaasRequestOptions): Promise<AsaasInstallment> {
+  try {
+    return await getAsaasInstallment(config, installmentId, options);
+  } catch (error) {
+    if (error instanceof AsaasError && error.code === "AsaasNotFound") {
+      return { id: installmentId, totalInCents: null, installmentCount: null, billingType: null, customerId: null, deleted: true };
+    }
+    throw error;
+  }
+}
+
+/** Removes a whole unpaid installment plan (every installment) so it can no longer be paid. */
+export async function deleteAsaasInstallment(config: AsaasConfig, installmentId: string, options?: AsaasRequestOptions) {
+  if (!INSTALLMENT_ID.test(installmentId)) throw new AsaasError("rejected", "InvalidAsaasInstallmentId");
+  const body = (await request(config, "DELETE", `/installments/${installmentId}`, undefined, options)) as { deleted?: unknown } | null;
+  return body?.deleted === true;
+}
+
+/** Full refund of a whole card installment plan (no value = full). The outcome arrives by webhook. */
+export async function refundAsaasInstallment(config: AsaasConfig, installmentId: string, options?: AsaasRequestOptions) {
+  if (!INSTALLMENT_ID.test(installmentId)) throw new AsaasError("rejected", "InvalidAsaasInstallmentId");
+  return normalizeAsaasInstallment(await request(config, "POST", `/installments/${installmentId}/refund`, {}, options));
 }
 
 /** Removes an unpaid charge so it can no longer be paid. Asaas refuses for a paid charge. */
@@ -249,3 +328,4 @@ export function verifyAsaasWebhookToken(received: string | null, expected: strin
 }
 
 export const ASAAS_PAYMENT_ID_PATTERN = PAYMENT_ID;
+export const ASAAS_INSTALLMENT_ID_PATTERN = INSTALLMENT_ID;

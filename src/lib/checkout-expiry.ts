@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
 import { classifyAsaasPayment, processAsaasPayment, processMercadoPagoPayment, processStripeCheckoutEvent, processStripePaymentIntentEvent, releaseAsaasOrderWithoutPayment, releasePixOrderWithoutPayment } from "@/lib/checkout";
 import { ASAAS_SEARCH_SETTLE_MS, PIX_SEARCH_SETTLE_MS } from "@/lib/checkout-policy";
-import { AsaasError, deleteAsaasPayment, findAsaasPaymentsForOrder, getAsaasConfig, getAsaasPayment, type AsaasPayment } from "@/lib/asaas";
+import { AsaasError, deleteAsaasInstallment, deleteAsaasPayment, findAsaasPaymentsForOrder, getAsaasConfig, getAsaasInstallmentOrDeleted, getAsaasPayment, type AsaasPayment } from "@/lib/asaas";
 import { cancelMercadoPagoPayment, findMercadoPagoPaymentsForOrder, getMercadoPagoConfig, getMercadoPagoPayment, type MercadoPagoPayment } from "@/lib/mercadopago";
 import { releasableReservationStatuses } from "@/lib/order-status";
 
@@ -150,6 +150,10 @@ async function reconcileAsaasExpiry(order: Order): Promise<ReconcileResult> {
     ? await prisma.customer.findUnique({ where: { id: order.customerId }, select: { asaasCustomerId: true } })
     : null;
   if (!customer?.asaasCustomerId) throw new Error("SESSION_ORDER_MISMATCH");
+  // Card installment plan: N Asaas payments (one per installment) under one plan id, all carrying
+  // this order's reference. It is closed and matched as ONE plan, never installment by installment.
+  const isPlanOrder = Boolean(order.asaasInstallmentId) || (order.paymentInstallmentCount ?? 1) > 1;
+  let installmentId = order.asaasInstallmentId;
   let paymentId = order.asaasPaymentId;
   if (!paymentId) {
     // The creation response was lost. Asaas's own listing says whether a charge exists.
@@ -161,9 +165,14 @@ async function reconcileAsaasExpiry(order: Order): Promise<ReconcileResult> {
     }
     // An ambiguous creation must not close just one of several still-payable charges
     // and then free the reservation. Leave it for reconciliation/manual review.
-    if (found.length !== 1) throw new Error("SESSION_CREATION_UNCONFIRMED");
-    if (found[0].customerId !== customer.asaasCustomerId) throw new Error("SESSION_ORDER_MISMATCH");
-    paymentId = found[0].id;
+    // The installments of ONE plan are not ambiguous: they are closed together, as that plan.
+    const planIds = new Set(found.map((payment) => payment.installmentId ?? null));
+    const singlePlan = isPlanOrder && planIds.size === 1 && !planIds.has(null);
+    if (found.length !== 1 && !singlePlan) throw new Error("SESSION_CREATION_UNCONFIRMED");
+    const first = [...found].sort((a, b) => (a.installmentNumber ?? 0) - (b.installmentNumber ?? 0))[0];
+    if (found.some((payment) => payment.customerId !== customer.asaasCustomerId)) throw new Error("SESSION_ORDER_MISMATCH");
+    paymentId = first.id;
+    if (singlePlan) installmentId = first.installmentId ?? null;
   }
 
   const read = async (id: string): Promise<AsaasPayment> => {
@@ -174,7 +183,7 @@ async function reconcileAsaasExpiry(order: Order): Promise<ReconcileResult> {
       if (error instanceof AsaasError && error.code === "AsaasNotFound") {
         // The id is bound on the order or came from the verified reference/customer
         // above. A 404 has no customer payload: carry that stored identity, not null.
-        return { id, status: "DELETED", billingType: null, amountInCents: null, customerId: customer.asaasCustomerId, externalReference: order.id, invoiceUrl: null, deleted: true };
+        return { id, status: "DELETED", billingType: null, amountInCents: null, customerId: customer.asaasCustomerId, externalReference: order.id, invoiceUrl: null, deleted: true, installmentId: isPlanOrder ? installmentId : null, installmentNumber: null };
       }
       throw error;
     }
@@ -182,9 +191,16 @@ async function reconcileAsaasExpiry(order: Order): Promise<ReconcileResult> {
 
   let payment = await read(paymentId);
   if (payment.externalReference !== order.id || payment.customerId !== customer.asaasCustomerId) throw new Error("SESSION_ORDER_MISMATCH");
+  if (isPlanOrder) {
+    installmentId ??= payment.installmentId ?? null;
+    if (!installmentId || (payment.installmentId && payment.installmentId !== installmentId)) throw new Error("SESSION_ORDER_MISMATCH");
+  }
+  const planId = installmentId;
 
   const applyVerified = async (current: AsaasPayment) => {
-    const result = await processAsaasPayment(current);
+    // The plan is read again each time, from the API: it is what a plan order is matched against.
+    const plan = isPlanOrder && planId ? await getAsaasInstallmentOrDeleted(config, planId) : null;
+    const result = await processAsaasPayment(current, plan);
     // The provider status alone cannot complete a job if the application rejected it.
     if (result.status === "payment_mismatch" || result.status === "order_not_found") throw new Error("SESSION_ORDER_MISMATCH");
     return result;
@@ -209,9 +225,14 @@ async function reconcileAsaasExpiry(order: Order): Promise<ReconcileResult> {
 
   const settled = await settle(payment);
   if (settled) return settled;
-  if (classifyAsaasPayment(payment) === "pending") {
+  // A plan is decided by the PLAN: even when its first installment is already gone, the others may
+  // still be payable, so the whole plan is removed before any stock is freed.
+  const planStillOpen = isPlanOrder && planId ? !(await getAsaasInstallmentOrDeleted(config, planId)).deleted : false;
+  if (classifyAsaasPayment(payment) === "pending" || planStillOpen) {
     try {
-      await deleteAsaasPayment(config, payment.id);
+      // A plan is removed whole (every installment); a single charge as before.
+      if (isPlanOrder && planId) await deleteAsaasInstallment(config, planId);
+      else await deleteAsaasPayment(config, payment.id);
     } catch {
       // Paid meanwhile, already removed, or a timeout: read the authoritative state again.
       // A second error bubbles into a durable retry with the stock still held.

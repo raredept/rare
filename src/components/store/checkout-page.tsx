@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { getStoreSettings } from "@/lib/settings";
 import { getEffectiveFixedShippingInCents, getEffectiveFreeShippingThresholdInCents, getShippingPublicConfig } from "@/lib/shipping";
 import { getStorefrontCommerceState } from "@/lib/storefront-commerce";
+import { getStorefrontCardInstallmentRules } from "@/lib/storefront-installments";
 
 type StoreCheckoutPageProps = {
   searchParams: Promise<{ address?: string }>;
@@ -60,6 +61,7 @@ export async function StoreCheckoutPage({ searchParams }: StoreCheckoutPageProps
       pixAvailable={getAvailableCheckoutMethods().includes("pix")}
       cardAvailable={getAvailableCheckoutMethods().includes("card")}
       paymentProvider={getPaymentProvider()}
+      cardInstallmentRules={getStorefrontCardInstallmentRules(settings)}
       shippingSettings={{
         shippingMode: settings.shippingMode,
         manualShippingInCents: settings.manualShippingInCents,
