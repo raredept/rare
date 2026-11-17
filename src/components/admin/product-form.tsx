@@ -1,6 +1,7 @@
 import { saveProductAction } from "@/app/admin/(protected)/products/actions";
 import { AdminSubmitButton } from "@/components/admin/admin-submit-button";
 import { ProductImageManager } from "@/components/admin/product-image-manager";
+import { ProductVariantsEditor } from "@/components/admin/product-variants-editor";
 import { sortProductFormCategoryOptions } from "@/lib/admin-category-options";
 import { formatMoney } from "@/lib/money";
 import type { ReactNode } from "react";
@@ -168,17 +169,7 @@ export function ProductForm({ product, categories, error, shippingDraft }: Produ
               <option value="UNIQUE">{STOCK_POLICY_LABELS.UNIQUE} (peça única)</option>
             </select>
           </Field>
-          <Field label="Variações / estoque">
-            <textarea
-              name="variants"
-              required
-              rows={6}
-              defaultValue={product?.variants.map((variant) => `${variant.size}:${variant.stock}${variant.sku ? `:${variant.sku}` : ""}`).join("\n")}
-              placeholder={"P:2\nM:5\nÚnico:4"}
-              className="admin-input font-mono"
-            />
-          </Field>
-          <p className="text-xs font-semibold text-neutral-500">Formato: Tamanho:Estoque ou Tamanho:Estoque:SKU.</p>
+          <ProductVariantsEditor variants={product?.variants ?? []} />
         </section>
 
         <AdminSubmitButton

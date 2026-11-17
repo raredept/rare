@@ -11,6 +11,7 @@ import { formatOrderStatus, formatPaymentMethod } from "@/lib/order-display";
 import { maskCpf } from "@/lib/privacy";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
+import { skuSearchTerm } from "@/lib/sku";
 
 export const dynamic = "force-dynamic";
 
@@ -25,11 +26,14 @@ function buildWhere(filters: ReturnType<typeof parseAdminOrderFilters>): Prisma.
   if (filters.search) {
     // Order number, or the customer as the order recorded them. Free text never
     // reaches an enum or a raw query.
+    // SKU as recorded on the order item (snapshot), never the catalog's current SKU.
+    const skuTerm = skuSearchTerm(filters.search);
     where.OR = [
       { orderNumber: { contains: filters.search, mode: "insensitive" } },
       { customerEmailSnapshot: { contains: filters.search, mode: "insensitive" } },
       { customerNameSnapshot: { contains: filters.search, mode: "insensitive" } },
       { customerEmail: { contains: filters.search, mode: "insensitive" } },
+      ...(skuTerm ? [{ items: { some: { skuSnapshot: { contains: skuTerm } } } }] : []),
     ];
   }
 
@@ -100,7 +104,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
             type="search"
             name="q"
             defaultValue={filters.search}
-            placeholder="Número do pedido, nome ou e-mail"
+            placeholder="Número do pedido, nome, e-mail ou SKU"
             className="admin-input mt-1"
           />
         </label>

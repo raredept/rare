@@ -28,6 +28,8 @@ import { notifyAdminsOfPaidOrder } from "@/lib/admin-notifications";
 import { firstOrderCouponConsumedWhere, getFirstOrderCouponDiscount, paidOrderStatuses } from "@/lib/coupons";
 import { priceProduct } from "@/lib/promotions/engine";
 import { loadApplicablePromotionRules } from "@/lib/promotions/store";
+import { buildOrderItemCatalogSnapshot } from "@/lib/order-item-snapshot";
+import { PRODUCT_MEDIA_LIMIT } from "@/lib/product-media";
 import { enqueueOrderShippedEmail, enqueuePaidOrderEmail } from "@/lib/email-outbox";
 import { ASAAS_RESERVATION_MINUTES, CHECKOUT_RESERVATION_MINUTES, PIX_PROVIDER_EXPIRY_GRACE_SECONDS, PIX_RESERVATION_MINUTES, STRIPE_SESSION_FALLBACK_SECONDS } from "@/lib/checkout-policy";
 import { createPixPayment, getMercadoPagoConfig, isPixCheckoutAvailable, MercadoPagoError, type MercadoPagoConfig, type MercadoPagoPayment } from "@/lib/mercadopago";
@@ -564,13 +566,16 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
       include: {
         product: {
           include: {
-            images: { orderBy: { sortOrder: "asc" }, take: 1 },
+            // All media (at most PRODUCT_MEDIA_LIMIT): the order item snapshot needs the first still
+            // image, which is not the first item when the product opens with a video.
+            images: { orderBy: { sortOrder: "asc" }, take: PRODUCT_MEDIA_LIMIT },
           },
         },
       },
     });
 
     const variantsById = new Map(variants.map((variant) => [variant.id, variant]));
+    const catalogSnapshotAt = new Date();
     // Prices come only from the catalog and the promotions active at this instant, read inside
     // the same transaction. Nothing price-related in the request body is used.
     const pricingNow = new Date();
@@ -601,6 +606,12 @@ export async function createCheckoutSession(input: unknown, options: CheckoutOpt
         promotionName: price.promotion?.name ?? null,
         promotionCode: price.promotion?.slug ?? null,
         promotionDiscountInCents: price.discountInCents,
+        // SKU and image as they are in the catalog now; later catalog edits do not reach the order.
+        ...buildOrderItemCatalogSnapshot({
+          variantSku: variant.sku,
+          productMedia: variant.product.images,
+          capturedAt: catalogSnapshotAt,
+        }),
       };
     });
 

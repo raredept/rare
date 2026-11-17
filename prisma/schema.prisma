@@ -247,7 +247,10 @@ model ProductVariant {
   productId          String
   product            Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
   size               String
-  sku                String?
+  /// Internal stock code of this sellable unit. Optional (NULL when absent, never ""), stored
+  /// normalized (trimmed, upper case) and unique across every variant. A product "without
+  /// variants" is a single variant (e.g. size "Único"), so this is the only SKU column.
+  sku                String?             @unique
   stock              Int                 @default(0)
   reservedStock      Int                 @default(0)
   active             Boolean             @default(true)
@@ -434,6 +437,14 @@ model OrderItem {
   variantId            String?
   variant              ProductVariant?     @relation(fields: [variantId], references: [id], onDelete: SetNull)
   sizeSnapshot         String
+  /// SKU of the variant when the order was created. Null when it had none, or on orders created
+  /// before this snapshot existed (see catalogSnapshotAt).
+  skuSnapshot          String?
+  /// Catalog image (variant image, else the product's main image) when the order was created.
+  imageUrlSnapshot     String?
+  /// Set when skuSnapshot / imageUrlSnapshot were captured. Null marks an order created before
+  /// the snapshot existed, whose SKU / image may only be shown from the current catalog.
+  catalogSnapshotAt    DateTime?
   quantity             Int
   /// Final unit price charged (after the automatic promotion, before order-level coupon).
   unitPriceInCents     Int

@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { ADMIN_PAGE_SIZE } from "@/lib/admin-pagination";
 import { prisma } from "@/lib/prisma";
+import { skuSearchTerm } from "@/lib/sku";
 import { LOW_STOCK_THRESHOLD } from "@/lib/stock-policy";
 
 export type AdminProductListFilters = {
@@ -31,12 +32,15 @@ const productListInclude = Prisma.validator<Prisma.ProductInclude>()({
 });
 
 function buildPrismaWhere(filters: AdminProductListFilters): Prisma.ProductWhereInput {
+  const skuTerm = skuSearchTerm(filters.query);
   return {
     ...(filters.query
       ? {
           AND: [{ OR: [
             { title: { contains: filters.query, mode: "insensitive" as const } },
             { brand: { contains: filters.query, mode: "insensitive" as const } },
+            // SKUs are stored normalized (trimmed, upper case), so the term is normalized too.
+            ...(skuTerm ? [{ variants: { some: { sku: { contains: skuTerm } } } }] : []),
           ] }],
         }
       : {}),
@@ -53,7 +57,11 @@ function buildSqlConditions(filters: AdminProductListFilters) {
   const conditions: Prisma.Sql[] = [Prisma.sql`TRUE`];
   if (filters.query) {
     const pattern = `%${filters.query}%`;
-    conditions.push(Prisma.sql`(product."title" ILIKE ${pattern} OR COALESCE(product."brand", '') ILIKE ${pattern})`);
+    const skuTerm = skuSearchTerm(filters.query);
+    const skuCondition = skuTerm
+      ? Prisma.sql` OR EXISTS (SELECT 1 FROM "ProductVariant" AS sku_variant WHERE sku_variant."productId" = product."id" AND sku_variant."sku" LIKE ${`%${skuTerm}%`})`
+      : Prisma.empty;
+    conditions.push(Prisma.sql`(product."title" ILIKE ${pattern} OR COALESCE(product."brand", '') ILIKE ${pattern}${skuCondition})`);
   }
   if (filters.category) {
     conditions.push(Prisma.sql`(product."categoryId" = ${filters.category} OR product."subcategoryId" = ${filters.category})`);

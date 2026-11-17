@@ -131,7 +131,8 @@ async function main() {
 
   // Long actor labels must also fit the promotion history at 320 px (real staging regression).
   // A-D: legacy ADMIN (MFA specs). E: SYSTEM_ADMIN and F: SELLER_ADMIN (RBAC per role).
-  const adminRoles: Record<string, "ADMIN" | "SYSTEM_ADMIN" | "SELLER_ADMIN"> = { A: "ADMIN", B: "ADMIN", C: "ADMIN", D: "ADMIN", E: "SYSTEM_ADMIN", F: "SELLER_ADMIN" };
+  // G: SELLER_ADMIN of the SKU / order item image spec (each spec enrolls its own admins).
+  const adminRoles: Record<string, "ADMIN" | "SYSTEM_ADMIN" | "SELLER_ADMIN"> = { A: "ADMIN", B: "ADMIN", C: "ADMIN", D: "ADMIN", E: "SYSTEM_ADMIN", F: "SELLER_ADMIN", G: "SELLER_ADMIN" };
   const admins = Object.fromEntries(Object.keys(adminRoles).map((key) => [key, { login: `qa-mfa-${key.toLowerCase()}.${runId}@homologacao.rare.invalid`, password: `Qa${key}${secret(12)}9z` }]));
   const customer = { email: `qa.cliente.${runId}@homologacao.rare.invalid`, password: `QaCliente${secret(10)}7x`, cpf: syntheticCpf() };
   const labSecrets = {
@@ -274,7 +275,7 @@ async function main() {
     ], { ...testEnv(expected), PLAYWRIGHT_JSON_OUTPUT_NAME: path.join(outputDir, `${label}-${project}-${runId}.json`) }, label);
 
     const phases: Array<{ provider: string; expected: string; specs: string[] }> = [
-      { provider: "asaas", expected: "asaas", specs: ["tests/e2e/bf-mfa-admin-security.spec.ts", "tests/e2e/bf-mfa-payments.spec.ts", "tests/e2e/bf-mfa-promotions.spec.ts", "tests/e2e/prelaunch-consent-analytics.spec.ts", "tests/e2e/prelaunch-rbac-inventory.spec.ts"] },
+      { provider: "asaas", expected: "asaas", specs: ["tests/e2e/bf-mfa-admin-security.spec.ts", "tests/e2e/bf-mfa-payments.spec.ts", "tests/e2e/bf-mfa-promotions.spec.ts", "tests/e2e/prelaunch-consent-analytics.spec.ts", "tests/e2e/prelaunch-rbac-inventory.spec.ts", "tests/e2e/order-item-sku.spec.ts"] },
       { provider: "qualquer-coisa", expected: "disabled", specs: ["tests/e2e/bf-mfa-payments.spec.ts"] },
       { provider: "stripe", expected: "disabled", specs: ["tests/e2e/bf-mfa-payments.spec.ts"] },
     ];

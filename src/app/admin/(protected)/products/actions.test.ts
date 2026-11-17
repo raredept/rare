@@ -15,6 +15,10 @@ const mocks = vi.hoisted(() => ({
       findUnique: vi.fn(),
       update: vi.fn(),
     },
+    productVariant: {
+      findMany: vi.fn(),
+      findFirst: vi.fn(),
+    },
     $transaction: vi.fn(),
   },
   tx: {
@@ -145,6 +149,8 @@ beforeEach(() => {
     subcategory: { slug: "bags" },
   });
   mocks.tx.productVariant.findMany.mockResolvedValue([]);
+  mocks.prisma.productVariant.findMany.mockResolvedValue([]);
+  mocks.prisma.productVariant.findFirst.mockResolvedValue(null);
 });
 
 describe("product admin actions", () => {
@@ -411,5 +417,149 @@ describe("slug collisions (regression: a duplicate slug crashed the Admin)", () 
     const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
 
     await expect(saveProductAction(null, buildProductFormData())).rejects.toThrow("connection reset");
+  });
+});
+
+describe("SKU (RARE-ORDER-ITEM-IMAGE-01)", () => {
+  const skuTaken = encodeURIComponent("Este SKU já está sendo utilizado por outro item.");
+
+  function withVariantRows(formData: FormData, rows: Array<[string, string, string]>) {
+    formData.delete("variants");
+    for (const [size, stock, sku] of rows) {
+      formData.append("variantSize", size);
+      formData.append("variantStock", stock);
+      formData.append("variantSku", sku);
+    }
+    return formData;
+  }
+
+  function lastRedirect() {
+    return mocks.redirect.mock.calls.at(-1)?.[0] as string;
+  }
+
+  it("creates a product without SKU: stored as NULL, never an empty string", async () => {
+    const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
+    const formData = withVariantRows(buildProductFormData(), [["Único", "1", ""]]);
+
+    await expect(saveProductAction(null, formData)).rejects.toThrow("NEXT_REDIRECT:");
+    expect(lastRedirect()).toContain("success=product-created");
+    expect(mocks.tx.productVariant.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ create: expect.objectContaining({ size: "Único", stock: 1, sku: null }), update: expect.objectContaining({ sku: null }) }),
+    );
+    // Nothing to check for uniqueness when no SKU was given.
+    expect(mocks.prisma.productVariant.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("creates a product with a SKU per variant, normalized (trim + upper case)", async () => {
+    const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
+    const formData = withVariantRows(buildProductFormData(), [
+      ["M", "2", " crtz-tsh-blk-m "],
+      ["G", "1", "CRTZ-TSH-BLK-G"],
+      ["GG", "0", ""],
+    ]);
+
+    await expect(saveProductAction(null, formData)).rejects.toThrow("NEXT_REDIRECT:");
+    expect(lastRedirect()).toContain("success=product-created");
+    const created = mocks.tx.productVariant.upsert.mock.calls.map(([args]) => args.create);
+    expect(created).toEqual([
+      expect.objectContaining({ size: "M", stock: 2, sku: "CRTZ-TSH-BLK-M" }),
+      expect.objectContaining({ size: "G", stock: 1, sku: "CRTZ-TSH-BLK-G" }),
+      expect.objectContaining({ size: "GG", stock: 0, sku: null }),
+    ]);
+    expect(mocks.prisma.productVariant.findFirst).toHaveBeenCalledWith({
+      where: { sku: { in: ["CRTZ-TSH-BLK-M", "CRTZ-TSH-BLK-G"] } },
+      select: { id: true },
+    });
+  });
+
+  it("still reads the legacy Tamanho:Estoque:SKU textarea", async () => {
+    const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
+
+    await expect(saveProductAction(null, buildProductFormData())).rejects.toThrow("NEXT_REDIRECT:");
+    expect(mocks.tx.productVariant.upsert).toHaveBeenCalledWith(expect.objectContaining({ create: expect.objectContaining({ size: "Único", stock: 2, sku: "SKU-1" }) }));
+  });
+
+  it("rejects a SKU already used by another product with the friendly message", async () => {
+    mocks.prisma.productVariant.findFirst.mockResolvedValueOnce({ id: "var-other" });
+    const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
+    const formData = withVariantRows(buildProductFormData(), [["G", "1", "crtz-tsh-blk-g"]]);
+
+    await expect(saveProductAction("prod-1", formData)).rejects.toThrow("NEXT_REDIRECT:");
+    expect(lastRedirect()).toContain(`error=${skuTaken}`);
+    expect(mocks.prisma.productVariant.findFirst).toHaveBeenCalledWith({
+      where: { sku: { in: ["CRTZ-TSH-BLK-G"] }, productId: { not: "prod-1" } },
+      select: { id: true },
+    });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("rejects the same SKU on two variants of the same submission", async () => {
+    const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
+    const formData = withVariantRows(buildProductFormData(), [["M", "1", "CRTZ-1"], ["G", "1", "crtz-1"]]);
+
+    await expect(saveProductAction(null, formData)).rejects.toThrow("NEXT_REDIRECT:");
+    expect(lastRedirect()).toContain(`error=${skuTaken}`);
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("turns a SKU race lost to the database unique index into the same message (no Prisma text)", async () => {
+    const { Prisma } = await import("@prisma/client");
+    mocks.prisma.$transaction.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError("Unique constraint failed on the fields: (`sku`)", { code: "P2002", clientVersion: "test", meta: { target: ["sku"] } }),
+    );
+    const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
+    const formData = withVariantRows(buildProductFormData(), [["G", "1", "CRTZ-TSH-BLK-G"]]);
+
+    await expect(saveProductAction(null, formData)).rejects.toThrow("NEXT_REDIRECT:");
+    const url = lastRedirect();
+    expect(url).toContain(`error=${skuTaken}`);
+    expect(decodeURIComponent(url)).not.toMatch(/unique constraint|prisma|P2002/i);
+  });
+
+  it("rejects an invalid SKU format with a readable message", async () => {
+    const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
+    const formData = withVariantRows(buildProductFormData(), [["G", "1", "camiseta preta"]]);
+
+    await expect(saveProductAction(null, formData)).rejects.toThrow("NEXT_REDIRECT:");
+    expect(decodeURIComponent(lastRedirect())).toContain("SKU inválido. Use de 3 a 64 caracteres");
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("edits SKUs: releases the ones taken away first, keeps the stock math (never below reserved)", async () => {
+    mocks.tx.productVariant.findMany.mockResolvedValueOnce([
+      { id: "var-m", size: "M", sku: "OLD-M", stock: 3, reservedStock: 0 },
+      { id: "var-g", size: "G", sku: "SAME-G", stock: 2, reservedStock: 2 },
+      { id: "var-p", size: "P", sku: "GONE-P", stock: 1, reservedStock: 0 },
+    ]);
+    const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
+    const formData = withVariantRows(buildProductFormData(), [["M", "3", "NEW-M"], ["G", "1", "same-g"]]);
+
+    await expect(saveProductAction("prod-1", formData)).rejects.toThrow("NEXT_REDIRECT:");
+    expect(lastRedirect()).toContain("success=product-saved");
+    // OLD-M changed and GONE-P's variant was removed: both freed before the upserts; SAME-G kept.
+    expect(mocks.tx.productVariant.updateMany).toHaveBeenCalledWith({ where: { id: { in: ["var-m", "var-p"] } }, data: { sku: null } });
+    const updates = mocks.tx.productVariant.upsert.mock.calls.map(([args]) => args.update);
+    expect(updates).toEqual([
+      { sku: "NEW-M", stock: 3, active: true },
+      { sku: "SAME-G", stock: 2, active: true },
+    ]);
+    expect(mocks.tx.productVariant.updateMany).toHaveBeenCalledWith({ where: { productId: "prod-1", size: { notIn: ["M", "G"] } }, data: { active: false } });
+  });
+
+  it("ignores the blank row of the variant editor", async () => {
+    const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
+    const formData = withVariantRows(buildProductFormData(), [["Único", "1", ""], ["", "", ""]]);
+
+    await expect(saveProductAction(null, formData)).rejects.toThrow("NEXT_REDIRECT:");
+    expect(mocks.tx.productVariant.upsert).toHaveBeenCalledTimes(1);
+  });
+
+  it("requires size and a whole, non-negative stock in every filled row", async () => {
+    const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
+    const formData = withVariantRows(buildProductFormData(), [["G", "-1", "CRTZ-1"]]);
+
+    await expect(saveProductAction(null, formData)).rejects.toThrow("NEXT_REDIRECT:");
+    expect(decodeURIComponent(lastRedirect())).toContain("Informe tamanho e estoque");
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });
 });
