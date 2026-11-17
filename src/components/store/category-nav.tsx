@@ -1,12 +1,13 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Tag } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { categoryNavReducer, initialCategoryNavState } from "@/components/store/category-nav-state";
 import { virtualCatalogCategories } from "@/lib/catalog-categories";
 import { sortByPreferredCategoryOrder } from "@/lib/catalog-shortcuts";
+import type { NavigationCollection } from "@/lib/promotions/collections";
 
 type NavigationCategory = {
   id: string;
@@ -36,6 +37,15 @@ function getActiveCategorySlug(pathname: string) {
   return match?.[1] ?? null;
 }
 
+function getActiveCollectionSlug(pathname: string) {
+  const match = /^\/colecao\/([^/?#]+)/.exec(pathname);
+  return match?.[1] ?? null;
+}
+
+// RARE-COLLECTIONS-CART-01: a collection pill = same size and focus as a category, a red outline and
+// a tag icon (shape, not only colour, tells it is a campaign).
+const collectionPillClass = "border-red-500/80 bg-red-500/[0.08] text-white";
+
 function getCategoryPillClass(isActive: boolean) {
   return `${categoryPillBaseClass} ${isActive ? activeCategoryPillClass : inactiveCategoryPillClass}`;
 }
@@ -44,16 +54,22 @@ function getCategoryMenuLinkClass(isActive: boolean) {
   return `${categoryMenuLinkBaseClass} ${isActive ? activeCategoryMenuLinkClass : inactiveCategoryMenuLinkClass}`;
 }
 
-export function CategoryNav({ categories }: { categories: NavigationCategory[] }) {
+export function CategoryNav({ categories, collections = [] }: { categories: NavigationCategory[]; collections?: NavigationCollection[] }) {
   const pathname = usePathname();
   const [navState, dispatchNav] = useReducer(categoryNavReducer, initialCategoryNavState);
   const [menuTop, setMenuTop] = useState(0);
+  const [menuLeft, setMenuLeft] = useState(16);
+  // RARE-COLLECTIONS-CART-01: with collections the pills may not fit at 1024 px. Centered only while
+  // everything fits; otherwise left-aligned with horizontal scroll (and the dropdown fixed under its
+  // button), so nothing is cut on either side and the page never widens.
+  const [overflowing, setOverflowing] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const buttonRefs = useRef(new Map<string, HTMLButtonElement>());
   const hoverCloseTimeoutRef = useRef<number | null>(null);
   const openCategoryId = navState.openCategoryId;
   const pinnedCategoryId = navState.pinnedCategoryId;
   const activeCategorySlug = getActiveCategorySlug(pathname);
+  const activeCollectionSlug = getActiveCollectionSlug(pathname);
 
   const clearHoverCloseTimer = useCallback(() => {
     if (hoverCloseTimeoutRef.current === null) return;
@@ -102,7 +118,9 @@ export function CategoryNav({ categories }: { categories: NavigationCategory[] }
     function onViewportChange() {
       const button = buttonRefs.current.get(activeCategoryId);
       if (!button) return;
-      setMenuTop(Math.round(button.getBoundingClientRect().bottom + 8));
+      const rect = button.getBoundingClientRect();
+      setMenuTop(Math.round(rect.bottom + 8));
+      setMenuLeft(Math.round(Math.max(16, Math.min(rect.left, window.innerWidth - 240))));
     }
 
     document.addEventListener("pointerdown", onPointerDown);
@@ -121,9 +139,25 @@ export function CategoryNav({ categories }: { categories: NavigationCategory[] }
   function updateMenuPosition(categoryId: string) {
     const button = buttonRefs.current.get(categoryId);
     if (button) {
-      setMenuTop(Math.round(button.getBoundingClientRect().bottom + 8));
+      const rect = button.getBoundingClientRect();
+      setMenuTop(Math.round(rect.bottom + 8));
+      setMenuLeft(Math.round(Math.max(16, Math.min(rect.left, window.innerWidth - 240))));
     }
   }
+
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const measure = () => setOverflowing(root.scrollWidth > root.clientWidth + 1);
+    measure();
+    window.addEventListener("resize", measure);
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    observer?.observe(root);
+    return () => {
+      window.removeEventListener("resize", measure);
+      observer?.disconnect();
+    };
+  }, [categories, collections]);
 
   function openMenuByHover(categoryId: string) {
     clearHoverCloseTimer();
@@ -209,6 +243,7 @@ export function CategoryNav({ categories }: { categories: NavigationCategory[] }
 
   const menuStyle = {
     "--accessory-menu-top": `${menuTop}px`,
+    "--accessory-menu-left": `${menuLeft}px`,
     maxHeight: menuTop ? `calc(100vh - ${menuTop}px - 16px)` : undefined,
   } as CSSProperties;
 
@@ -217,7 +252,8 @@ export function CategoryNav({ categories }: { categories: NavigationCategory[] }
       ref={rootRef}
       // UIUX-NAV-001: on desktop the bar is centered on the content grid instead of leaving the
       // right half of the header empty (it only renders from 1024 px, where every item fits).
-      className="scrollbar-none mx-auto flex max-w-[1440px] gap-2 overflow-x-auto py-3 pl-4 pr-8 sm:pl-6 sm:pr-10 lg:justify-center lg:overflow-visible lg:px-8 xl:gap-3 xl:px-10"
+      className={`scrollbar-none mx-auto flex max-w-[1440px] gap-2 overflow-x-auto py-3 pl-4 pr-8 sm:pl-6 sm:pr-10 lg:px-8 xl:gap-3 xl:px-10 ${overflowing ? "" : "lg:justify-center lg:overflow-visible"}`}
+      data-overflowing={overflowing ? "true" : undefined}
     >
       {virtualCatalogCategories.map((category) => {
         const isActive = activeCategorySlug === category.slug;
@@ -308,7 +344,9 @@ export function CategoryNav({ categories }: { categories: NavigationCategory[] }
             <div
               id={menuId}
               data-category-menu
-              className={`top-[var(--accessory-menu-top)] fixed left-4 right-4 z-50 overflow-y-auto rounded-lg border border-neutral-200 bg-white p-2 text-neutral-900 shadow-2xl transition-[opacity,transform,visibility] duration-150 ease-out lg:absolute lg:left-0 lg:right-auto lg:top-full lg:mt-2 lg:min-w-56 ${
+              className={`top-[var(--accessory-menu-top)] fixed z-50 overflow-y-auto rounded-lg border border-neutral-200 bg-white p-2 text-neutral-900 shadow-2xl transition-[opacity,transform,visibility] duration-150 ease-out ${
+                overflowing ? "left-[var(--accessory-menu-left)] min-w-56" : "left-4 right-4 lg:absolute lg:left-0 lg:right-auto lg:top-full lg:mt-2 lg:min-w-56"
+              } ${
                 isOpen ? "visible translate-y-0 opacity-100" : "invisible pointer-events-none -translate-y-1 opacity-0"
               }`}
               style={menuStyle}
@@ -347,6 +385,22 @@ export function CategoryNav({ categories }: { categories: NavigationCategory[] }
               ))}
             </div>
           </div>
+        );
+      })}
+
+      {collections.map((collection) => {
+        const isActive = activeCollectionSlug === encodeURIComponent(collection.slug);
+        return (
+          <Link
+            key={collection.id}
+            href={collection.href}
+            className={`${categoryPillBaseClass} gap-1.5 ${isActive ? activeCategoryPillClass : collectionPillClass}`}
+            aria-current={isActive ? "page" : undefined}
+            data-collection-link
+          >
+            <Tag className="h-3.5 w-3.5" aria-hidden="true" />
+            {collection.label}
+          </Link>
         );
       })}
     </div>

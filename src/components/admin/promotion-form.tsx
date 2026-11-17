@@ -26,6 +26,9 @@ export type PromotionFormValues = {
   bannerAlt: string;
   productIds: string[];
   categoryIds: string[];
+  storefrontCollectionEnabled: boolean;
+  storefrontCollectionLabel: string;
+  storefrontCollectionSortOrder: number;
 };
 
 type ProductOption = { id: string; title: string; priceInCents: number; active: boolean; categoryId: string | null; subcategoryId: string | null };
@@ -152,6 +155,25 @@ export function PromotionForm({ values, products, categories }: { values: Promot
           <label className="block"><span className={label}>Banner desktop (URL)</span><input name="bannerImageUrl" maxLength={600} defaultValue={values.bannerImageUrl} className="admin-input" /></label>
           <label className="block"><span className={label}>Banner mobile (URL)</span><input name="bannerMobileImageUrl" maxLength={600} defaultValue={values.bannerMobileImageUrl} className="admin-input" /></label>
           <label className="block sm:col-span-2"><span className={label}>Texto alternativo do banner</span><input name="bannerAlt" maxLength={200} defaultValue={values.bannerAlt} className="admin-input" /></label>
+        </fieldset>
+
+        {/* RARE-COLLECTIONS-CART-01: the promotion may also be a public collection. Presentation only. */}
+        <fieldset className="grid min-w-0 gap-4 rounded-lg border border-neutral-200 bg-white p-5 sm:grid-cols-2" aria-describedby="promotion-collection-help">
+          <legend className="px-1 text-sm font-black text-neutral-950">Exibição na loja</legend>
+          <label className="inline-flex items-center gap-2 text-sm font-semibold sm:col-span-2">
+            <input type="checkbox" name="storefrontCollectionEnabled" defaultChecked={values.storefrontCollectionEnabled} /> Exibir esta promoção como coleção
+          </label>
+          <label className="block"><span className={label}>Nome no menu</span>
+            <input name="storefrontCollectionLabel" maxLength={40} defaultValue={values.storefrontCollectionLabel} className="admin-input" placeholder={values.name || "ex.: SALE BLACK"} />
+            <span className="mt-1 block text-xs text-neutral-500">Vazio: usa o nome da promoção. Texto simples, até 40 caracteres.</span></label>
+          <label className="block"><span className={label}>Ordem no menu</span>
+            <input name="storefrontCollectionSortOrder" type="number" min={0} max={999} step={1} defaultValue={values.storefrontCollectionSortOrder} className="admin-input" />
+            <span className="mt-1 block text-xs text-neutral-500">Menor aparece primeiro entre as coleções.</span></label>
+          <div id="promotion-collection-help" className="space-y-1 text-xs text-neutral-600 sm:col-span-2">
+            <p className="font-black text-neutral-800">Os produtos continuam em suas categorias originais. Esta opção cria uma coleção promocional separada na loja.</p>
+            <p>Adicionar um produto à coleção NÃO altera a categoria dele. Endereço da coleção: /colecao/{values.slug || "<código interno>"}.</p>
+            <p>A coleção só aparece no menu e no endereço enquanto a promoção estiver ativa e tiver ao menos um produto com este desconto.</p>
+          </div>
         </fieldset>
 
         <button type="submit" disabled={pending} className="h-12 rounded-lg bg-black px-6 text-sm font-black text-white disabled:opacity-60">

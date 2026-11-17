@@ -8,6 +8,7 @@ import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isUniqueViolationOn } from "@/lib/prisma-errors";
 import { getActivationIssues } from "@/lib/promotions/admin";
+import { getCollectionLabel, getCollectionLabelKey } from "@/lib/promotions/collections";
 import { getEffectivePromotionStatus } from "@/lib/promotions/engine";
 import { parsePromotionForm, slugifyPromotionCode, type PromotionInput } from "@/lib/promotions/validation";
 
@@ -28,12 +29,32 @@ function actorOf(admin: { id: string; username: string | null; email: string }) 
 function auditView(promotion: {
   name: string; slug: string; status: string; type: string; value: number | null; scope: string; startsAt: Date | null; endsAt: Date | null;
   priority: number; homepageFeatured: boolean; productIds?: string[]; categoryIds?: string[];
+  storefrontCollectionEnabled: boolean; storefrontCollectionLabel: string | null; storefrontCollectionSortOrder: number;
 }) {
   return {
     name: promotion.name, code: promotion.slug, status: promotion.status, type: promotion.type, value: promotion.value, scope: promotion.scope,
     startsAt: promotion.startsAt, endsAt: promotion.endsAt, priority: promotion.priority, homepageFeatured: promotion.homepageFeatured,
     productIds: promotion.productIds, categoryIds: promotion.categoryIds,
+    storefrontCollectionEnabled: promotion.storefrontCollectionEnabled, storefrontCollectionLabel: promotion.storefrontCollectionLabel,
+    storefrontCollectionSortOrder: promotion.storefrontCollectionSortOrder,
   };
+}
+
+/**
+ * RARE-COLLECTIONS-CART-01: two collections with the same menu name would show two identical
+ * links. Compared case/spacing-insensitively against the other collection-enabled promotions that
+ * are not ENDED (an ended one never shows again).
+ */
+async function findDuplicateCollectionLabel(input: PromotionInput, ownId: string | null) {
+  if (!input.storefrontCollectionEnabled) return null;
+  const label = getCollectionLabel({ name: input.name, storefrontCollectionLabel: input.storefrontCollectionLabel });
+  const others = await prisma.promotion.findMany({
+    where: { storefrontCollectionEnabled: true, status: { not: "ENDED" }, ...(ownId ? { id: { not: ownId } } : {}) },
+    select: { name: true, storefrontCollectionLabel: true },
+    take: 200,
+  });
+  const key = getCollectionLabelKey(label);
+  return others.some((other) => getCollectionLabelKey(getCollectionLabel(other)) === key) ? label : null;
 }
 
 async function findInvalidTargets(input: PromotionInput) {
@@ -54,6 +75,9 @@ function promotionData(input: PromotionInput) {
     priority: input.priority, homepageFeatured: input.homepageFeatured, badgeText: input.badgeText, headline: input.headline,
     subheadline: input.subheadline, ctaLabel: input.ctaLabel, ctaHref: input.ctaHref, bannerImageUrl: input.bannerImageUrl,
     bannerMobileImageUrl: input.bannerMobileImageUrl, bannerAlt: input.bannerAlt,
+    // Storefront collection: presentation only (no status, discount, scope or target is derived from it).
+    storefrontCollectionEnabled: input.storefrontCollectionEnabled, storefrontCollectionLabel: input.storefrontCollectionLabel,
+    storefrontCollectionSortOrder: input.storefrontCollectionSortOrder,
   } satisfies Prisma.PromotionUncheckedUpdateInput;
 }
 
@@ -73,6 +97,8 @@ export async function savePromotionAction(_state: PromotionFormState, formData: 
   const input = parsed.input;
   const targetErrors = await findInvalidTargets(input);
   if (targetErrors.length) return { errors: targetErrors };
+  const duplicateLabel = await findDuplicateCollectionLabel(input, existing?.id ?? null);
+  if (duplicateLabel) return { errors: [`Já existe outra coleção chamada "${duplicateLabel}" no menu. Use outro nome no menu ou desligue a outra coleção.`] };
 
   let savedId: string;
   try {

@@ -45,10 +45,13 @@ async function openCheckoutWithCart() {
   }, [requireEnv("QA_BF_PRODUCT_ID"), requireEnv("QA_BF_VARIANT_ID"), requireEnv("QA_BF_PRODUCT_SLUG"), requireEnv("QA_BF_PRODUCT_TITLE")]);
   await page.goto("/finalizar-compra");
   await waitForEntranceAnimations(page);
-  // The order summary (picker, payment window, button, gateway note). The deadline banner above it
-  // belongs to an earlier order and names that order's own gateway.
+  // The order summary (button, gateway note) plus the "3 Pagamento" step, where the payment window
+  // notice lives since UIUX-CHECKOUT-005 moved it out of the summary. The deadline banner above both
+  // belongs to an earlier order and names that order's own gateway, so it is left out.
   const summary = page.locator("aside, section, div").filter({ has: page.getByRole("button", { name: "Finalizar compra" }) }).last();
-  return { summary, text: await summary.innerText() };
+  const paymentStep = page.locator("section").filter({ has: page.getByRole("heading", { name: /Pagamento/ }) }).first();
+  const paymentText = (await paymentStep.count()) ? await paymentStep.innerText() : "";
+  return { summary, text: `${await summary.innerText()}\n${paymentText}` };
 }
 
 test(`checkout names only the gateway that charges (${expected})`, async () => {

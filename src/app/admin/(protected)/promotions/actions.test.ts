@@ -12,8 +12,8 @@ const mocks = vi.hoisted(() => {
     redirect: vi.fn((url: string) => { throw new Error(`NEXT_REDIRECT:${url}`); }),
     requireAdmin: vi.fn(),
     prisma: {
-      promotion: { findUnique: vi.fn() },
-      product: { count: vi.fn() },
+      promotion: { findUnique: vi.fn(), findMany: vi.fn() },
+      product: { count: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
       category: { count: vi.fn() },
       $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
     },
@@ -39,6 +39,7 @@ beforeEach(() => {
   mocks.requireAdmin.mockResolvedValue(admin);
   mocks.prisma.product.count.mockResolvedValue(1);
   mocks.prisma.category.count.mockResolvedValue(0);
+  mocks.prisma.promotion.findMany.mockResolvedValue([]);
   mocks.tx.promotion.create.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ id: "promo_new", createdAt: new Date(), updatedAt: new Date(), ...data }));
 });
 
@@ -119,5 +120,48 @@ describe("promotion admin actions", () => {
     await expect(changePromotionStatusAction(form({ promotionId: "promo_1", intent: "activate" }))).rejects.toThrow("error=promotion-invalid-transition");
     await expect(changePromotionStatusAction(form({ promotionId: "promo_1", intent: "delete" }))).rejects.toThrow("error=promotion-action-failed");
     await expect(changePromotionStatusAction(form({ promotionId: "../../x", intent: "pause" }))).rejects.toThrow("error=promotion-action-failed");
+  });
+  describe("storefront collection (RARE-COLLECTIONS-CART-01)", () => {
+    const existing = {
+      id: "promo_1", name: "BF", slug: "sale-black", status: "ACTIVE", type: "PERCENTAGE", value: 30, scope: "SELECTED_PRODUCTS", startsAt: null, endsAt: null,
+      priority: 0, homepageFeatured: false, products: [{ productId: "prod_1" }], categories: [],
+      storefrontCollectionEnabled: false, storefrontCollectionLabel: null, storefrontCollectionSortOrder: 0,
+    };
+
+    it("saves the collection fields and audits them before/after; no product row is written", async () => {
+      mocks.prisma.promotion.findUnique.mockResolvedValueOnce(existing);
+      mocks.tx.promotion.update.mockImplementationOnce(async ({ data }: { data: Record<string, unknown> }) => ({ ...existing, ...data }));
+      const { savePromotionAction } = await import("@/app/admin/(protected)/promotions/actions");
+      await expect(savePromotionAction({}, form({ ...draftForm, promotionId: "promo_1", name: "BF", slug: "sale-black", value: "30",
+        storefrontCollectionEnabled: "on", storefrontCollectionLabel: "SALE BLACK", storefrontCollectionSortOrder: "10" }))).rejects.toThrow("success=promotion-saved");
+      const data = mocks.tx.promotion.update.mock.calls[0][0].data;
+      expect(data).toMatchObject({ storefrontCollectionEnabled: true, storefrontCollectionLabel: "SALE BLACK", storefrontCollectionSortOrder: 10 });
+      // The flag never changes status, discount, scope or priority.
+      expect(data).not.toHaveProperty("status");
+      expect(data).toMatchObject({ value: 30, scope: "SELECTED_PRODUCTS", priority: 0 });
+      const audit = mocks.tx.adminAuditLog.create.mock.calls[0][0].data;
+      expect(audit.before).toMatchObject({ storefrontCollectionEnabled: false, storefrontCollectionLabel: null, storefrontCollectionSortOrder: 0 });
+      expect(audit.after).toMatchObject({ storefrontCollectionEnabled: true, storefrontCollectionLabel: "SALE BLACK", storefrontCollectionSortOrder: 10 });
+      // Adding a product to the promotion/collection only writes PromotionProduct: Product.categoryId is untouched.
+      expect(mocks.prisma.product.update).not.toHaveBeenCalled();
+      expect(mocks.prisma.product.updateMany).not.toHaveBeenCalled();
+      expect(mocks.tx).not.toHaveProperty("product");
+    });
+
+    it("refuses a second collection with the same menu name (case/spacing-insensitive)", async () => {
+      mocks.prisma.promotion.findMany.mockResolvedValueOnce([{ name: "Outra", storefrontCollectionLabel: "sale  black" }]);
+      const { savePromotionAction } = await import("@/app/admin/(protected)/promotions/actions");
+      const result = await savePromotionAction({}, form({ ...draftForm, storefrontCollectionEnabled: "on", storefrontCollectionLabel: "SALE BLACK" }));
+      expect(result.errors?.[0]).toContain("Já existe outra coleção chamada");
+      expect(mocks.tx.promotion.create).not.toHaveBeenCalled();
+      expect(mocks.prisma.promotion.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ storefrontCollectionEnabled: true, status: { not: "ENDED" } }) }));
+    });
+
+    it("a collection that is off is never checked for duplicates", async () => {
+      const { savePromotionAction } = await import("@/app/admin/(protected)/promotions/actions");
+      await expect(savePromotionAction({}, form(draftForm))).rejects.toThrow("success=promotion-created");
+      expect(mocks.prisma.promotion.findMany).not.toHaveBeenCalled();
+      expect(mocks.tx.promotion.create.mock.calls[0][0].data).toMatchObject({ storefrontCollectionEnabled: false, storefrontCollectionLabel: null, storefrontCollectionSortOrder: 0 });
+    });
   });
 });

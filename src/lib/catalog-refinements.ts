@@ -1,4 +1,4 @@
-import { buildCatalogPageHref, normalizeCatalogPage } from "@/lib/catalog-pagination";
+import { buildCatalogPageHref, normalizeCatalogPage, type CatalogBasePath } from "@/lib/catalog-pagination";
 import { formatMoney } from "@/lib/money";
 
 /**
@@ -204,8 +204,8 @@ export function buildCatalogFacets(products: readonly RefinableProduct[], refine
 export type CatalogUrlState = { query?: string; brand?: string; page?: number } & Partial<CatalogRefinements>;
 
 /** One URL builder for pagination, chips, sort and the filter form: empty values never reach the URL. */
-export function buildCatalogHref(slug: string, state: CatalogUrlState = {}) {
-  const base = buildCatalogPageHref(slug, { query: state.query, brand: state.brand });
+export function buildCatalogHref(slug: string, state: CatalogUrlState = {}, basePath: CatalogBasePath = "/categoria") {
+  const base = buildCatalogPageHref(slug, { query: state.query, brand: state.brand }, basePath);
   const [path, search = ""] = base.split("?");
   const query = new URLSearchParams(search);
   if (state.size) query.set("size", state.size);

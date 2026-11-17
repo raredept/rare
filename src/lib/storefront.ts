@@ -12,8 +12,18 @@ import {
   hasActiveRefinements,
   type CatalogRefinements,
 } from "@/lib/catalog-refinements";
+import { isPromotionsEnabled } from "@/lib/feature-flags";
+import {
+  compareCollections,
+  getCollectionDescription,
+  getCollectionLabel,
+  isCollectionLive,
+  isCollectionSlug,
+  toNavigationCollection,
+  type NavigationCollection,
+} from "@/lib/promotions/collections";
 import { loadApplicablePromotionRules } from "@/lib/promotions/store";
-import { priceProduct, type ProductPrice } from "@/lib/promotions/engine";
+import { priceProduct, selectPromotionForProduct, type ProductPrice } from "@/lib/promotions/engine";
 
 export const productInclude = {
   category: true,
@@ -235,8 +245,10 @@ export async function getProducts(params?: {
   limit?: number;
   offset?: number;
   orderBy?: Prisma.ProductOrderByWithRelationInput[];
+  /** Extra filter ANDed with the active-product filter (e.g. a promotion's targets). */
+  where?: Prisma.ProductWhereInput;
 }) {
-  const where = buildActiveProductWhere(params);
+  const where = params?.where ? { AND: [buildActiveProductWhere(params), params.where] } : buildActiveProductWhere(params);
   const purchasable = { active: true, stock: { gt: prisma.productVariant.fields.reservedStock } };
   const availableWhere: Prisma.ProductWhereInput = { AND: [where, { variants: { some: purchasable } }] };
   const soldOutWhere: Prisma.ProductWhereInput = { AND: [where, { variants: { none: purchasable } }] };
@@ -568,36 +580,119 @@ export async function getProductBySlug(slug: string) {
   return priced;
 }
 
+type PromotionTargets = {
+  scope: "ALL_PRODUCTS" | "SELECTED_PRODUCTS" | "SELECTED_CATEGORIES";
+  products: { productId: string }[];
+  categories: { categoryId: string }[];
+};
+
+/** The products a promotion TARGETS (category OR subcategory, as the engine reads them). */
+function promotionTargetWhere(promotion: PromotionTargets): Prisma.ProductWhereInput {
+  if (promotion.scope === "ALL_PRODUCTS") return {};
+  if (promotion.scope === "SELECTED_PRODUCTS") return { id: { in: promotion.products.map((item) => item.productId) } };
+  const categoryIds = promotion.categories.map((item) => item.categoryId);
+  return { OR: [{ categoryId: { in: categoryIds } }, { subcategoryId: { in: categoryIds } }] };
+}
+
 /**
- * Products shown in a homepage campaign: the ones whose winning promotion right now IS this
- * campaign (another, higher-priority promotion may own some of its targets). Available first,
- * sold-out last, like the rest of the catalog.
+ * Active products whose WINNING promotion right now is this one (the engine decides: another,
+ * higher-priority or bigger promotion may own some of its targets, and a price too low for the
+ * discount is skipped). Available first, sold-out last, in catalog order — like every listing.
+ * Shared by the homepage campaign and the storefront collections: no second pricing rule.
  */
+async function getPromotionWinnerProducts(promotionId: string, targets: PromotionTargets) {
+  const scope = await getProducts({ where: promotionTargetWhere(targets) });
+  return scope.filter((product) => product.pricing.promotion?.id === promotionId);
+}
+
+/** Products shown in a homepage campaign (first `limit` of the campaign's winning products). */
 export async function getCampaignProducts(campaignId: string, limit = 8) {
   const promotion = await prisma.promotion.findUnique({
     where: { id: campaignId },
     select: { scope: true, products: { select: { productId: true } }, categories: { select: { categoryId: true } } },
   });
   if (!promotion) return [];
-  const targetWhere: Prisma.ProductWhereInput =
-    promotion.scope === "ALL_PRODUCTS"
-      ? {}
-      : promotion.scope === "SELECTED_PRODUCTS"
-        ? { id: { in: promotion.products.map((item) => item.productId) } }
-        : { OR: [
-            { categoryId: { in: promotion.categories.map((item) => item.categoryId) } },
-            { subcategoryId: { in: promotion.categories.map((item) => item.categoryId) } },
-          ] };
-  const rows = await prisma.product.findMany({
-    where: { AND: [{ active: true }, targetWhere] },
-    include: productInclude,
-    orderBy: productOrderBy,
-    take: 60,
-  });
-  const priced = (await attachPricing(rows)).filter((product) => product.pricing.promotion?.id === campaignId);
-  const isAvailable = (product: StorefrontProduct) => product.variants.some((variant) => isVariantPurchasable(variant));
-  return [...priced.filter(isAvailable), ...priced.filter((product) => !isAvailable(product))].slice(0, limit);
+  return (await getPromotionWinnerProducts(campaignId, promotion)).slice(0, limit);
 }
+
+const collectionSelect = {
+  id: true, name: true, slug: true, status: true, value: true, startsAt: true, endsAt: true, scope: true,
+  headline: true, subheadline: true, badgeText: true,
+  storefrontCollectionEnabled: true, storefrontCollectionLabel: true, storefrontCollectionSortOrder: true,
+  products: { select: { productId: true } }, categories: { select: { categoryId: true } },
+} satisfies Prisma.PromotionSelect;
+
+/**
+ * RARE-COLLECTIONS-CART-01: a public collection, or null (404) when it is not public right now —
+ * flag off, not effectively ACTIVE (draft, scheduled, paused, ended), promotions switched off, or no
+ * active product currently won by this promotion.
+ */
+export const getPublicCollection = cache(async function getPublicCollection(slug: string) {
+  if (!isPromotionsEnabled() || !isCollectionSlug(slug)) return null;
+  const promotion = await prisma.promotion.findUnique({ where: { slug }, select: collectionSelect });
+  if (!promotion || !isCollectionLive(promotion, new Date())) return null;
+  const products = await getPromotionWinnerProducts(promotion.id, promotion);
+  if (!products.length) return null;
+  return {
+    id: promotion.id,
+    slug: promotion.slug,
+    label: getCollectionLabel(promotion),
+    description: getCollectionDescription(promotion),
+    badgeText: promotion.badgeText,
+    endsAt: promotion.endsAt,
+    products,
+  };
+});
+
+/** The collection page: same filters, sort and pagination as the catalog ("Em promoção" is implied). */
+export async function getCollectionPageData(slug: string, params: { brand?: string; page?: number }, refinements: CatalogRefinements) {
+  const collection = await getPublicCollection(slug);
+  if (!collection) return null;
+  const page = normalizeCatalogPage(params.page);
+  const effective = { ...refinements, promo: false };
+  const results = applyCatalogRefinements(collection.products, effective, params.brand);
+  const offset = (page - 1) * CATALOG_PAGE_SIZE;
+  return {
+    collection,
+    refinements: effective,
+    products: results.slice(offset, offset + CATALOG_PAGE_SIZE),
+    page,
+    hasMore: results.length > offset + CATALOG_PAGE_SIZE,
+    total: results.length,
+    facets: { ...buildCatalogFacets(collection.products, effective, params.brand), promoCount: 0 },
+  };
+}
+
+/**
+ * Collections for the store menu: flag on, effectively ACTIVE and winning at least one active
+ * product now. Two queries in total (candidates + one light product read), whatever the number of
+ * collections — no query per collection.
+ */
+export const getNavigationCollections = cache(async function getNavigationCollections(): Promise<NavigationCollection[]> {
+  if (!isPromotionsEnabled()) return [];
+  const now = new Date();
+  const candidates = await prisma.promotion.findMany({
+    where: {
+      storefrontCollectionEnabled: true,
+      status: { in: ["ACTIVE", "SCHEDULED"] },
+      value: { not: null },
+      AND: [
+        { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
+        { OR: [{ endsAt: null }, { endsAt: { gt: now } }] },
+      ],
+    },
+    select: { id: true, name: true, slug: true, status: true, value: true, startsAt: true, endsAt: true, storefrontCollectionEnabled: true, storefrontCollectionLabel: true, storefrontCollectionSortOrder: true },
+    take: 50,
+  });
+  const live = candidates.filter((promotion) => isCollectionLive(promotion, now));
+  if (!live.length) return [];
+  const [{ now: rulesNow, rules }, products] = await Promise.all([
+    getRequestPromotionRules(),
+    prisma.product.findMany({ where: { active: true }, select: { id: true, priceInCents: true, categoryId: true, subcategoryId: true } }),
+  ]);
+  const winning = new Set(products.map((product) => selectPromotionForProduct(rules, product, rulesNow)?.rule.id).filter(Boolean));
+  return live.filter((promotion) => winning.has(promotion.id)).map(toNavigationCollection).sort(compareCollections);
+});
 
 export async function getPublicSitemapCatalogData() {
   const [categories, products] = await Promise.all([
