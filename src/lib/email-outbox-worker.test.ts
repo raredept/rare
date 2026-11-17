@@ -85,9 +85,9 @@ describe("email worker and readiness", () => {
     const provider = { name: "smtp", send: vi.fn().mockResolvedValue({ id: "smtp-1" }) };
     await processEmailOutbox({ repository: db, provider, env: testEnv });
     const plan = provider.send.mock.calls[0][0];
-    expect(plan.text.replace(/ /g, " ")).toContain("Pagamento: Cartão de crédito. Parcelamento: 6x de R$ 39,96.");
+    expect(plan.text.replace(/ /g, " ")).toContain("Pagamento: Cartão de crédito. Parcelamento: 6x de R$ 39,96 (última R$ 40,00).");
     expect(plan.text.replace(/ /g, " ")).toContain("total R$ 239,80");
-    expect(plan.html.replace(/ /g, " ")).toContain("Parcelamento: 6x de R$ 39,96.");
+    expect(plan.html.replace(/ /g, " ")).toContain("Parcelamento: 6x de R$ 39,96 (última R$ 40,00).");
     const single = provider.send.mock.calls[1][0];
     expect(single.text).not.toContain("Parcelamento");
   });

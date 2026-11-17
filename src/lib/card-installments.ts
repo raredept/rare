@@ -20,6 +20,11 @@ export const CARD_INSTALLMENT_MAX_SURCHARGE_BPS = 3_000;
 export const ASAAS_MIN_CARD_INSTALLMENT_IN_CENTS = 500;
 /** Store default for the smallest installment; the Admin may only make it stricter. */
 export const DEFAULT_MIN_INSTALLMENT_IN_CENTS = 1_000;
+/**
+ * Lowest minimum the Admin may set: the production Asaas account refused charges below R$ 10,00 and
+ * every installment is a charge. Lower only after it is proven in production.
+ */
+export const STORE_MIN_INSTALLMENT_FLOOR_IN_CENTS = 1_000;
 
 export const SURCHARGED_INSTALLMENT_COUNTS = [4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
 export type SurchargedInstallmentCount = (typeof SURCHARGED_INSTALLMENT_COUNTS)[number];
@@ -153,7 +158,7 @@ export function resolveCardInstallmentRules(flagEnabled: boolean, settings: {
   return {
     enabled: true,
     maxInstallments: Number.isSafeInteger(max) && (max as number) >= 1 && (max as number) <= CARD_INSTALLMENTS_MAX ? (max as number) : 1,
-    minInstallmentInCents: Number.isSafeInteger(min) && (min as number) >= ASAAS_MIN_CARD_INSTALLMENT_IN_CENTS ? (min as number) : DEFAULT_MIN_INSTALLMENT_IN_CENTS,
+    minInstallmentInCents: Number.isSafeInteger(min) && (min as number) >= STORE_MIN_INSTALLMENT_FLOOR_IN_CENTS ? (min as number) : DEFAULT_MIN_INSTALLMENT_IN_CENTS,
     surchargeBps: parseSurchargeTable(settings.cardInstallmentSurchargesBps),
   };
 }

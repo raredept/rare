@@ -133,7 +133,15 @@ export async function processEmailOutbox(options: {
         orderNumber: row.orderNumber,
         total: formatMoney(row.totalInCents),
         installments: row.kind === "payment_approved" && row.installmentCount && row.installmentCount >= 2 && row.installmentValueInCents
-          ? { count: row.installmentCount, value: formatMoney(row.installmentValueInCents) }
+          ? {
+              count: row.installmentCount,
+              // Asaas puts the rounding remainder on the last installment; say so, so the e-mail adds up.
+              value: (() => {
+                const last = row.totalInCents - row.installmentValueInCents * (row.installmentCount - 1);
+                const each = formatMoney(row.installmentValueInCents);
+                return last !== row.installmentValueInCents && last > 0 ? `${each} (última ${formatMoney(last)})` : each;
+              })(),
+            }
           : null,
       });
       // Guard original value before template sanitization as well as adapter.

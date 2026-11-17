@@ -198,6 +198,18 @@ describe("Asaas checkout expiry — card installment plan", () => {
     expect(mocks.releaseAsaasOrderWithoutPayment).not.toHaveBeenCalled();
   });
 
+  it("LOW-2: first installment already gone but the plan still open -> remove the whole plan before releasing", async () => {
+    mocks.findUniqueOrThrow.mockResolvedValue(planOrder);
+    mocks.getAsaasPayment.mockResolvedValueOnce({ ...first, deleted: true }).mockResolvedValueOnce({ ...first, deleted: true });
+    mocks.getAsaasInstallmentOrDeleted.mockResolvedValueOnce(livePlan).mockResolvedValue({ ...livePlan, deleted: true });
+    mocks.deleteAsaasInstallment.mockResolvedValueOnce(true);
+    mocks.processAsaasPayment.mockResolvedValueOnce({ status: "released" });
+    const { reconcileCheckoutExpiry } = await import("@/lib/checkout-expiry");
+    await expect(reconcileCheckoutExpiry("order_asaas_1")).resolves.toMatchObject({ outcome: "released" });
+    expect(mocks.deleteAsaasInstallment).toHaveBeenCalledWith(expect.anything(), PLAN);
+    expect(mocks.deleteAsaasInstallment.mock.invocationCallOrder[0]).toBeLessThan(mocks.processAsaasPayment.mock.invocationCallOrder[0]);
+  });
+
   it("refuses a plan order whose stored plan differs from the charge", async () => {
     mocks.findUniqueOrThrow.mockResolvedValue(planOrder);
     mocks.getAsaasPayment.mockResolvedValueOnce({ ...first, installmentId: "5e1f7c2a-0b1d-4c3e-9f00-0000000000bb" });

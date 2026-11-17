@@ -131,7 +131,8 @@ describe("checkout: the server prices the plan (Asaas contract)", () => {
     });
     expect(mocks.asaas.createAsaasPayment.mock.calls[0][1]).toMatchObject({ method: "card", installmentCount: 12, totalInCents: TOTAL_12X, orderId: "order_asaas_1", customerId: CUSTOMER });
     expect(mocks.asaas.getAsaasInstallment).toHaveBeenCalledWith(expect.anything(), PLAN_ID);
-    expect(mocks.prisma.order.update).toHaveBeenCalledWith({ where: { id: "order_asaas_1" }, data: { asaasPaymentId: "pay_080225913252", asaasInstallmentId: PLAN_ID, paymentUrl: INVOICE } });
+    expect(mocks.prisma.order.update).toHaveBeenCalledWith({ where: { id: "order_asaas_1" }, data: { asaasPaymentId: "pay_080225913252", asaasInstallmentId: PLAN_ID, paymentUrl: null } });
+    expect(mocks.prisma.order.update).toHaveBeenLastCalledWith({ where: { id: "order_asaas_1" }, data: { paymentUrl: INVOICE } });
     expect(result.url).toBe(INVOICE);
   });
 
@@ -406,5 +407,71 @@ describe("SKU + image + 12x together (RARE-CARD-INSTALLMENTS-02)", () => {
     const plan = describeOrderInstallments(stored as Parameters<typeof describeOrderInstallments>[0]);
     expect(plan).toMatchObject({ count: 12, feeInCents: 3_960, rateText: "18%" });
     expect(data.totalInCents).toBe(TOTAL_12X);
+  });
+});
+
+describe("independent audit fixes (RARE-CARD-INSTALLMENTS-02)", () => {
+  const planOrder = (overrides: Record<string, unknown> = {}) => ({
+    id: "order_asaas_1", orderNumber: "RARE-ASAAS", status: "awaiting_payment", paymentProvider: "asaas", paymentMethod: "card",
+    asaasPaymentId: "pay_080225913252", asaasInstallmentId: PLAN_ID, paymentInstallmentCount: 12, paymentInstallmentValueInCents: EACH_12X,
+    refundRequestedAt: null, stripePaymentIntentId: null, totalInCents: TOTAL_12X, reservationExpiresAt: new Date("2026-11-27T15:30:00Z"),
+    customerId: "customer_000001", customerName: "Ana", customerEmail: "ana@example.com", customerPhone: null, customerNameSnapshot: "Ana", customerEmailSnapshot: "ana@example.com",
+    customerPhoneSnapshot: null, shippingAddressSnapshot: null, billingAddressSnapshot: null,
+    items: [{ id: "item_1", productId: "prod_1", variantId: "var_1", quantity: 1 }],
+    ...overrides,
+  });
+
+  it("MEDIUM-2: 'received in cash' on ONE installment never settles the plan order", async () => {
+    mocks.tx.order.findUniqueOrThrow.mockResolvedValue(planOrder());
+    await expect(processAsaasPayment(payment({ status: "RECEIVED_IN_CASH" }), plan())).resolves.toEqual({ status: "payment_mismatch" });
+    expect(mocks.tx.inventoryMovement.create).not.toHaveBeenCalled();
+    expect(mocks.tx.emailOutbox.createMany).not.toHaveBeenCalled();
+  });
+
+  it("MEDIUM-1: one refunded installment (not requested by the store) does not mark the order refunded", async () => {
+    mocks.tx.order.findUniqueOrThrow.mockResolvedValue(planOrder({ status: "paid" }));
+    await expect(processAsaasPayment(payment({ status: "REFUNDED", installmentNumber: 3 }), plan())).resolves.toEqual({ status: "ignored" });
+    expect(mocks.tx.order.update).not.toHaveBeenCalledWith(expect.objectContaining({ data: { status: "refunded" } }));
+    expect(mocks.tx.adminNotification.createMany.mock.calls[0][0].data[0]).toMatchObject({ type: "payment_plan_partial_refund" });
+  });
+
+  it("MEDIUM-1: one refunded installment never frees the reservation of an unpaid plan order", async () => {
+    mocks.tx.order.findUniqueOrThrow.mockResolvedValue(planOrder());
+    await expect(processAsaasPayment(payment({ status: "REFUNDED" }), plan())).resolves.toEqual({ status: "ignored" });
+    expect(mocks.tx.productVariant.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("MEDIUM-1: the whole-plan refund requested by the store marks the order refunded", async () => {
+    mocks.tx.order.findUniqueOrThrow.mockResolvedValue(planOrder({ status: "paid", refundRequestedAt: new Date() }));
+    await expect(processAsaasPayment(payment({ status: "REFUNDED" }), plan())).resolves.toEqual({ status: "refunded" });
+    expect(mocks.tx.order.update).toHaveBeenCalledWith({ where: { id: "order_asaas_1" }, data: { status: "refunded" } });
+  });
+
+  it("LOW-4: a plan in risk analysis that does not match the order does not hold the stock", async () => {
+    mocks.tx.order.findUniqueOrThrow.mockResolvedValue(planOrder());
+    await expect(processAsaasPayment(payment({ status: "AWAITING_RISK_ANALYSIS" }), plan({ totalInCents: BASE }))).resolves.toEqual({ status: "payment_mismatch" });
+    expect(mocks.tx.order.update).not.toHaveBeenCalledWith(expect.objectContaining({ data: { reservationExpiresAt: null } }));
+    await expect(processAsaasPayment(payment({ status: "AWAITING_RISK_ANALYSIS" }), plan())).resolves.toEqual({ status: "processing" });
+  });
+
+  it("LOW-1: a plan's invoice is stored (resumable) only after the plan is verified", async () => {
+    seed();
+    mocks.asaas.getAsaasInstallment.mockResolvedValue(plan({ totalInCents: BASE }));
+    await expect(createCheckoutSession(cardInput({ installmentCount: 12 }), { customerId: "customer_000001" })).rejects.toMatchObject({ code: "AsaasChargeMismatch" });
+    for (const [call] of mocks.prisma.order.update.mock.calls) expect(call.data.paymentUrl ?? null).toBeNull();
+
+    vi.clearAllMocks();
+    seed();
+    await createCheckoutSession(cardInput({ installmentCount: 12 }), { customerId: "customer_000001" });
+    expect(mocks.prisma.order.update).toHaveBeenLastCalledWith({ where: { id: "order_asaas_1" }, data: { paymentUrl: INVOICE } });
+  });
+});
+
+describe("LOW-3: a bound plan is never released as 'no charge exists'", () => {
+  it("keeps the reservation when only the plan id is known", async () => {
+    const { releaseAsaasOrderWithoutPayment } = await import("@/lib/checkout");
+    mocks.tx.order.findUniqueOrThrow.mockResolvedValue({ id: "order_asaas_1", paymentProvider: "asaas", asaasPaymentId: null, asaasInstallmentId: PLAN_ID, items: [{ id: "item_1", productId: "prod_1", variantId: "var_1", quantity: 1 }] });
+    await expect(releaseAsaasOrderWithoutPayment("order_asaas_1")).resolves.toBe(false);
+    expect(mocks.tx.productVariant.updateMany).not.toHaveBeenCalled();
   });
 });

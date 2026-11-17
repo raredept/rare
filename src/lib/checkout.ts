@@ -1029,7 +1029,8 @@ async function createAsaasCharge(
       data: {
         asaasPaymentId: payment.id,
         ...(installmentCount > 1 && payment.installmentId ? { asaasInstallmentId: payment.installmentId } : {}),
-        paymentUrl: method === "card" ? payment.invoiceUrl : null,
+        // A plan's invoice is stored (and resumable) only AFTER the plan is verified below.
+        paymentUrl: method === "card" && installmentCount === 1 ? payment.invoiceUrl : null,
       },
     });
     if (installmentCount > 1) {
@@ -1043,6 +1044,7 @@ async function createAsaasCharge(
         throw new AsaasError("unknown", "AsaasChargeMismatch");
       }
       if (!payment.invoiceUrl) throw new AsaasError("unknown", "AsaasInvoiceUrlMissing");
+      await prisma.order.update({ where: { id: order.id }, data: { paymentUrl: payment.invoiceUrl } });
       return { url: payment.invoiceUrl, orderId: order.id, orderNumber: order.orderNumber, checkoutDeadlineAt: reservationExpiresAt.toISOString() };
     }
     // Never show a charge for anything other than this order's total and method.
@@ -1259,7 +1261,11 @@ export async function processAsaasPayment(payment: AsaasPayment, installment?: A
     const outcome = classifyAsaasPayment(payment);
     if (outcome === "paid") {
       const expectedBillingType = order.paymentMethod === "pix" ? "PIX" : "CREDIT_CARD";
-      const amountMatches = isPlanOrder ? planMatches && payment.billingType === "CREDIT_CARD" : payment.amountInCents === order.totalInCents;
+      // A plan is settled only by the card itself (Asaas confirms every installment together). A
+      // "received in cash" mark on one installment is that installment's value, never the order's.
+      const amountMatches = isPlanOrder
+        ? planMatches && payment.billingType === "CREDIT_CARD" && (payment.status === "CONFIRMED" || payment.status === "RECEIVED")
+        : payment.amountInCents === order.totalInCents;
       if (!amountMatches || (payment.billingType && payment.billingType !== expectedBillingType && payment.status !== "RECEIVED_IN_CASH")) {
         // Never mark paid on a divergent value: record the incident and keep the order as it is.
         await flagOrderIncident(tx, order, "mismatch", `Pagamento divergente: ${order.orderNumber}`, "O Asaas confirmou um pagamento com valor ou forma diferente do pedido. O pedido NÃO foi marcado como pago.");
@@ -1293,6 +1299,13 @@ export async function processAsaasPayment(payment: AsaasPayment, installment?: A
     }
 
     if (outcome === "refunded") {
+      // A plan is refunded as a whole only through the store (Admin -> refund of the whole plan, which
+      // claims refundRequestedAt first). One refunded installment from anywhere else is a partial
+      // refund: it never marks the order refunded and never frees a reservation.
+      if (isPlanOrder && !((paidOrderStatuses as readonly string[]).includes(order.status) && order.refundRequestedAt)) {
+        await flagOrderIncident(tx, order, "plan_partial_refund", `Estorno parcial de parcelamento: ${order.orderNumber}`, "Uma parcela foi estornada no Asaas, mas o pedido não teve o estorno total solicitado pela loja. Nada foi alterado. Verifique no painel do Asaas.");
+        return { status: "ignored" as const };
+      }
       if ((paidOrderStatuses as readonly string[]).includes(order.status)) {
         // Stock is not put back automatically: a refunded item may not have returned. The Admin
         // adjusts stock when (and if) the piece comes back.
@@ -1310,6 +1323,11 @@ export async function processAsaasPayment(payment: AsaasPayment, installment?: A
     }
 
     if (outcome === "processing" && releasableReservationStatuses.includes(order.status)) {
+      // A plan that does not match the order must not hold the stock indefinitely.
+      if (!planMatches) {
+        await flagOrderIncident(tx, order, "mismatch", `Parcelamento não confere: ${order.orderNumber}`, "Um parcelamento em análise no Asaas não corresponde ao pedido. A reserva segue o prazo normal.");
+        return { status: "payment_mismatch" as const };
+      }
       // Risk analysis / authorization in progress: keep the stock until a final state arrives.
       await tx.order.update({ where: { id: order.id }, data: { reservationExpiresAt: null } });
       return { status: "processing" as const };
@@ -1326,7 +1344,8 @@ export async function processAsaasPayment(payment: AsaasPayment, installment?: A
 export async function releaseAsaasOrderWithoutPayment(orderId: string) {
   return prisma.$transaction(async (tx) => {
     const order = await lockOrder(tx, orderId);
-    if (order.paymentProvider !== "asaas" || order.asaasPaymentId) return false;
+    // A bound plan (even one recovered only from a later installment) means a charge exists.
+    if (order.paymentProvider !== "asaas" || order.asaasPaymentId || order.asaasInstallmentId) return false;
     const released = await releaseOrderReservation(tx, order.id, order.items, "canceled", "Cobrança não chegou a ser criada no Asaas");
     if (released) await tx.order.update({ where: { id: order.id }, data: { checkoutExpiredAt: new Date() } });
     return released;

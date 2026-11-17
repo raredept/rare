@@ -53,7 +53,7 @@ const CUSTOMER_ID = /^cus_[A-Za-z0-9]{6,64}$/;
 const ORDER_REFERENCE = /^[A-Za-z0-9_-]{8,120}$/;
 // Installment ids are UUID-like. No path or query characters.
 const INSTALLMENT_ID = /^[A-Za-z0-9-]{8,80}$/;
-/** Transport ceiling (Asaas card limit). The STORE policy (max 6x) is enforced in card-installments. */
+/** Transport ceiling (Asaas card limit). The STORE policy (max 12x) is enforced in card-installments. */
 const ASAAS_MAX_CARD_INSTALLMENTS = 21;
 
 function networkErrorCode(error: unknown) {

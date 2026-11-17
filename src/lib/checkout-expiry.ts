@@ -225,7 +225,10 @@ async function reconcileAsaasExpiry(order: Order): Promise<ReconcileResult> {
 
   const settled = await settle(payment);
   if (settled) return settled;
-  if (classifyAsaasPayment(payment) === "pending") {
+  // A plan is decided by the PLAN: even when its first installment is already gone, the others may
+  // still be payable, so the whole plan is removed before any stock is freed.
+  const planStillOpen = isPlanOrder && planId ? !(await getAsaasInstallmentOrDeleted(config, planId)).deleted : false;
+  if (classifyAsaasPayment(payment) === "pending" || planStillOpen) {
     try {
       // A plan is removed whole (every installment); a single charge as before.
       if (isPlanOrder && planId) await deleteAsaasInstallment(config, planId);

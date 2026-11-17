@@ -94,7 +94,7 @@ export function isCheckoutEnabled(env: Record<string, string | undefined> = proc
 }
 
 /**
- * Card installments (2x–6x) on Asaas. Deploy-level kill switch: anything but exactly "true" keeps the
+ * Card installments (2x–12x) on Asaas. Deploy-level kill switch: anything but exactly "true" keeps the
  * previous card experience (1x only), whatever the Admin settings say.
  */
 export function isCardInstallmentsEnabled(env: Record<string, string | undefined> = process.env) {

@@ -85,7 +85,7 @@ Na V1 a sugestão não foi gravada; na V2 a tabela aprovada é o estado inicial 
 - Cartão continua na fatura hospedada do Asaas (`invoiceUrl`); a loja não recebe número nem CVV.
   Provado no Sandbox: a fatura de um plano 4x mostra "Valor total R$ 233,20, parcelado em 4x de
   R$ 58,30", o resumo das 4 parcelas e um único formulário de cartão.
-- O navegador envia só `installmentCount` (1–6). Taxa, acréscimo e totais enviados são descartados
+- O navegador envia só `installmentCount` (1–12). Taxa, acréscimo e totais enviados são descartados
   pelo schema; o servidor recalcula tudo a partir do pedido.
 - Asaas: 1x envia só `value` (payload idêntico ao atual); 2x+ envia `installmentCount` + `totalValue`
   (sem `value`, sem `installmentValue`). `externalReference = order.id` (copiado pelo Asaas para

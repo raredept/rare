@@ -1,10 +1,10 @@
 import {
-  ASAAS_MIN_CARD_INSTALLMENT_IN_CENTS,
   CARD_INSTALLMENT_MAX_SURCHARGE_BPS,
   CARD_INSTALLMENTS_INTEREST_FREE,
   CARD_INSTALLMENTS_MAX,
   parsePercentToBps,
   parseSurchargeTable,
+  STORE_MIN_INSTALLMENT_FLOOR_IN_CENTS,
   SURCHARGED_INSTALLMENT_COUNTS,
   type SurchargedInstallmentCount,
   type SurchargeTable,
@@ -38,7 +38,7 @@ export const surchargeFieldName = (count: SurchargedInstallmentCount) => `rate${
 /** Only fixed messages reach the page (the URL carries a code, never free text). */
 export function cardInstallmentSettingsErrorMessage(code: string | null | undefined) {
   if (code === "max") return `O máximo de parcelas deve ficar entre 1x e ${CARD_INSTALLMENTS_MAX}x.`;
-  if (code === "min") return "O valor mínimo por parcela deve ficar entre R$ 5,00 (mínimo do Asaas) e R$ 1.000,00.";
+  if (code === "min") return "O valor mínimo por parcela deve ficar entre R$ 10,00 (mínimo da conta Asaas) e R$ 1.000,00.";
   const match = /^(range|missing)-(\d{1,2})$/.exec(code ?? "");
   const count = match ? Number(match[2]) : Number.NaN;
   if (!match || !(SURCHARGED_INSTALLMENT_COUNTS as readonly number[]).includes(count)) return null;
@@ -53,7 +53,7 @@ export function parseCardInstallmentSettings(form: { get(name: string): FormData
   if (!Number.isSafeInteger(max) || max < 1 || max > CARD_INSTALLMENTS_MAX) return { ok: false, code: "max" };
   const minRaw = form.get("cardInstallmentsMin");
   const min = typeof minRaw === "string" && minRaw.trim() ? parseMoneyToCents(minRaw) : Number.NaN;
-  if (!Number.isSafeInteger(min) || min < ASAAS_MIN_CARD_INSTALLMENT_IN_CENTS || min > MAX_MIN_INSTALLMENT_IN_CENTS) return { ok: false, code: "min" };
+  if (!Number.isSafeInteger(min) || min < STORE_MIN_INSTALLMENT_FLOOR_IN_CENTS || min > MAX_MIN_INSTALLMENT_IN_CENTS) return { ok: false, code: "min" };
   const table: Record<string, number | null> = {};
   for (const count of SURCHARGED_INSTALLMENT_COUNTS) {
     const bps = parsePercentToBps(form.get(surchargeFieldName(count)));

@@ -197,7 +197,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
               )}
               <p>Método: {order.paymentMethod ?? "-"}</p>
             </div>
-            {order.paymentProvider === "asaas" && order.asaasPaymentId && !order.refundRequestedAt && ["paid", "processing", "shipped", "delivered"].includes(order.status) ? (
+            {order.paymentProvider === "asaas" && (order.asaasPaymentId || order.asaasInstallmentId) && !order.refundRequestedAt && ["paid", "processing", "shipped", "delivered"].includes(order.status) ? (
               <form action={requestOrderRefundAction} className="mt-4 space-y-2 border-t border-neutral-200 pt-4">
                 <input type="hidden" name="id" value={order.id} />
                 <label className="block text-xs font-semibold text-neutral-600">

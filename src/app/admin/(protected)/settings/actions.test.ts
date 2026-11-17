@@ -60,6 +60,7 @@ describe("installment settings validation (1x-12x)", () => {
     [{ cardInstallmentsMax: "0" }, "max"],
     [{ cardInstallmentsMax: "abc" }, "max"],
     [{ cardInstallmentsMin: "R$ 4,99" }, "min"],
+    [{ cardInstallmentsMin: "R$ 9,99" }, "min"],
     [{ cardInstallmentsMin: "" }, "min"],
     [{ rate4x: "-1" }, "range-4"],
     [{ rate12x: "31" }, "range-12"],
