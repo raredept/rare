@@ -4,11 +4,16 @@ import {
   buildAsaasPaymentRequest,
   createAsaasCustomer,
   createAsaasPayment,
+  deleteAsaasInstallment,
   deleteAsaasPayment,
   findAsaasPaymentsForOrder,
+  getAsaasInstallment,
+  getAsaasInstallmentOrDeleted,
   getAsaasPayment,
   getAsaasPixQrCode,
+  normalizeAsaasInstallment,
   normalizeAsaasPayment,
+  refundAsaasInstallment,
   refundAsaasPayment,
   verifyAsaasWebhookToken,
   type AsaasConfig,
@@ -44,6 +49,7 @@ describe("Asaas transport", () => {
     expect(normalizeAsaasPayment(paymentBody)).toEqual({
       id: "pay_080225913252", status: "PENDING", billingType: "PIX", amountInCents: 17000, customerId: "cus_000005401844",
       externalReference: "order_bf_000001", invoiceUrl: "https://sandbox.asaas.com/i/080225913252", deleted: false,
+      installmentId: null, installmentNumber: null,
     });
     expect(normalizeAsaasPayment({ ...paymentBody, invoiceUrl: "https://evil.example/pay" }).invoiceUrl).toBeNull();
     expect(normalizeAsaasPayment({ ...paymentBody, value: 19.99 }).amountInCents).toBe(1999);
@@ -149,5 +155,68 @@ describe("Asaas transport", () => {
     expect(verifyAsaasWebhookToken(null, config.webhookToken)).toBe(false);
     expect(verifyAsaasWebhookToken(config.apiKey, config.webhookToken)).toBe(false);
     expect(verifyAsaasWebhookToken("x".repeat(600), config.webhookToken)).toBe(false);
+  });
+});
+
+describe("Asaas card installment contract (RARE-CARD-INSTALLMENTS-01)", () => {
+  const base = { customerId: "cus_000005401844", orderId: "order_bf_000001", orderNumber: "RARE-1", method: "card" as const, dueDate: new Date("2026-11-27T15:00:00Z") };
+  const planId = "5e1f7c2a-0b1d-4c3e-9f00-0000000000aa";
+
+  it("1x: the current single-charge payload, with `value` only (no installment fields)", () => {
+    const body = buildAsaasPaymentRequest({ ...base, totalInCents: 22000, installmentCount: 1 });
+    expect(body).toMatchObject({ billingType: "CREDIT_CARD", value: 220, externalReference: "order_bf_000001" });
+    expect(body).not.toHaveProperty("installmentCount");
+    expect(body).not.toHaveProperty("totalValue");
+    expect(body).toEqual(buildAsaasPaymentRequest({ ...base, totalInCents: 22000 }));
+  });
+
+  it("3x: CREDIT_CARD, 3 installments, exact total in totalValue, never `value` or installmentValue", () => {
+    const body = buildAsaasPaymentRequest({ ...base, totalInCents: 22000, installmentCount: 3 });
+    expect(body).toMatchObject({ billingType: "CREDIT_CARD", installmentCount: 3, totalValue: 220, externalReference: "order_bf_000001", customer: "cus_000005401844" });
+    expect(body).not.toHaveProperty("value");
+    expect(body).not.toHaveProperty("installmentValue");
+  });
+
+  it("6x: the financed total and the order reference", () => {
+    expect(buildAsaasPaymentRequest({ ...base, totalInCents: 23980, installmentCount: 6 })).toMatchObject({ billingType: "CREDIT_CARD", installmentCount: 6, totalValue: 239.8, externalReference: "order_bf_000001" });
+  });
+
+  it.each([[7, 24860], [8, 25080], [9, 25300], [10, 25520], [11, 25740], [12, 25960]])("%ix: CREDIT_CARD plan with the financed totalValue (cents %i), no value field", (count, total) => {
+    const body = buildAsaasPaymentRequest({ ...base, totalInCents: total, installmentCount: count });
+    expect(body).toMatchObject({ billingType: "CREDIT_CARD", installmentCount: count, totalValue: total / 100, externalReference: "order_bf_000001" });
+    expect(body).not.toHaveProperty("value");
+    expect(body).not.toHaveProperty("installmentValue");
+  });
+
+  it("never sends late-payment interest or fine fields to price an installment plan", () => {
+    const body = buildAsaasPaymentRequest({ ...base, totalInCents: 23980, installmentCount: 6 });
+    expect(body).not.toHaveProperty("interest");
+    expect(body).not.toHaveProperty("fine");
+  });
+
+  it("refuses installments on Pix and counts outside 1..21", () => {
+    expect(() => buildAsaasPaymentRequest({ ...base, method: "pix", totalInCents: 22000, installmentCount: 2 })).toThrow("InvalidInstallmentCount");
+    expect(() => buildAsaasPaymentRequest({ ...base, totalInCents: 22000, installmentCount: 0 })).toThrow("InvalidInstallmentCount");
+    expect(() => buildAsaasPaymentRequest({ ...base, totalInCents: 22000, installmentCount: 22 })).toThrow("InvalidInstallmentCount");
+  });
+
+  it("reads the plan link of an installment payment and the plan itself", () => {
+    expect(normalizeAsaasPayment({ ...paymentBody, billingType: "CREDIT_CARD", installment: planId, installmentNumber: 2 })).toMatchObject({ installmentId: planId, installmentNumber: 2 });
+    expect(normalizeAsaasPayment({ ...paymentBody, installment: "../payments" }).installmentId).toBeNull();
+    expect(normalizeAsaasInstallment({ object: "installment", id: planId, value: 239.8, paymentValue: 39.96, installmentCount: 6, billingType: "CREDIT_CARD", customer: "cus_000005401844", deleted: false })).toEqual({ id: planId, totalInCents: 23980, installmentCount: 6, billingType: "CREDIT_CARD", customerId: "cus_000005401844", deleted: false });
+  });
+
+  it("closes, reads and refunds a plan through its own endpoints", async () => {
+    const del = respond(200, { deleted: true, id: planId });
+    await expect(deleteAsaasInstallment(config, planId, { fetchImpl: del })).resolves.toBe(true);
+    expect(del.mock.calls[0][0]).toBe(`https://api-sandbox.asaas.com/v3/installments/${planId}`);
+    expect(del.mock.calls[0][1].method).toBe("DELETE");
+    const refund = respond(200, { id: planId, value: 239.8, installmentCount: 6, billingType: "CREDIT_CARD", customer: "cus_000005401844" });
+    await refundAsaasInstallment(config, planId, { fetchImpl: refund });
+    expect(refund.mock.calls[0][0]).toBe(`https://api-sandbox.asaas.com/v3/installments/${planId}/refund`);
+    // Full refund: no value is sent.
+    expect(JSON.parse(String(refund.mock.calls[0][1].body))).toEqual({});
+    await expect(getAsaasInstallmentOrDeleted(config, planId, { fetchImpl: respond(404, {}) })).resolves.toMatchObject({ id: planId, deleted: true, totalInCents: null });
+    await expect(getAsaasInstallment(config, "../x", { fetchImpl: respond(200, {}) })).rejects.toThrow("InvalidAsaasInstallmentId");
   });
 });

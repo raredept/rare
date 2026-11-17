@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CARD_INSTALLMENTS_MAX } from "@/lib/card-installments";
 import { hasCompleteProductShippingData, PRODUCT_SHIPPING_LIMITS } from "@/lib/product-shipping-readiness";
 export { hasCompleteProductShippingData } from "@/lib/product-shipping-readiness";
 import { isValidCep, parseCep } from "@/lib/cep";
@@ -107,6 +108,9 @@ export const checkoutRequestSchema = z.object({
   couponCode: z.string().trim().max(40).optional(),
   // Card goes to Stripe (the default, so older clients keep working); Pix to Mercado Pago.
   paymentMethod: z.enum(["card", "pix"]).optional(),
+  // Card installments: the ONLY installment input accepted. Rate, surcharge and totals sent by a
+  // browser are not part of this schema and are dropped; the server recalculates everything.
+  installmentCount: z.number().int().min(1).max(CARD_INSTALLMENTS_MAX).optional(),
 });
 
 export const customerRegisterSchema = z

@@ -8,11 +8,12 @@ const mocks = vi.hoisted(() => ({
   getAsaasPayment: vi.fn(),
   getAsaasConfig: vi.fn(() => ({ environment: "sandbox", apiBase: "https://api-sandbox.asaas.com/v3", apiKey: "k", webhookToken: "t" })),
   processAsaasPayment: vi.fn(),
+  getAsaasInstallmentOrDeleted: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({ prisma: { $queryRaw: mocks.queryRaw, asaasWebhookEvent: { updateMany: mocks.updateMany }, adminNotification: { createMany: mocks.notify } } }));
 vi.mock("@/lib/checkout", () => ({ processAsaasPayment: mocks.processAsaasPayment }));
-vi.mock("@/lib/asaas", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/asaas")>()), getAsaasPayment: mocks.getAsaasPayment, getAsaasConfig: mocks.getAsaasConfig }));
+vi.mock("@/lib/asaas", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/asaas")>()), getAsaasPayment: mocks.getAsaasPayment, getAsaasConfig: mocks.getAsaasConfig, getAsaasInstallmentOrDeleted: mocks.getAsaasInstallmentOrDeleted }));
 
 const now = new Date("2026-11-27T15:00:00Z");
 function claimed(overrides: Record<string, unknown> = {}) {
@@ -75,5 +76,27 @@ describe("Asaas webhook inbox processing", () => {
   it("keeps the real Sandbox segmented payment id for asynchronous processing", async () => {
     const { parseAsaasWebhookBody } = await import("@/lib/asaas-webhook");
     expect(parseAsaasWebhookBody({ id: "evt_qa_real_shape", event: "PAYMENT_CREATED", payment: { id: "pay_0_qa123456789abc" } })).toEqual({ id: "evt_qa_real_shape", event: "PAYMENT_CREATED", paymentId: "pay_0_qa123456789abc" });
+  });
+
+  it("reads the installment plan from the API too, and passes it with the payment (never from the body)", async () => {
+    const plan = { id: "5e1f7c2a-0b1d-4c3e-9f00-0000000000aa", totalInCents: 23980, installmentCount: 6, billingType: "CREDIT_CARD", customerId: "cus_1", deleted: false };
+    mocks.queryRaw.mockResolvedValueOnce(claimed({ event: "PAYMENT_CONFIRMED" })).mockResolvedValueOnce([]);
+    mocks.getAsaasPayment.mockResolvedValueOnce({ id: "pay_080225913252", status: "CONFIRMED", installmentId: plan.id });
+    mocks.getAsaasInstallmentOrDeleted.mockResolvedValueOnce(plan);
+    mocks.processAsaasPayment.mockResolvedValueOnce({ status: "paid", orderId: "o1" });
+    const { processAsaasWebhookEvents } = await import("@/lib/asaas-webhook");
+    await expect(processAsaasWebhookEvents({ now: () => now })).resolves.toEqual([{ eventId: "evt_1", outcome: "paid" }]);
+    expect(mocks.getAsaasInstallmentOrDeleted).toHaveBeenCalledWith(expect.anything(), plan.id);
+    expect(mocks.processAsaasPayment).toHaveBeenCalledWith(expect.objectContaining({ installmentId: plan.id }), plan);
+  });
+
+  it("does not read any plan for a single charge (Pix and card 1x unchanged)", async () => {
+    mocks.queryRaw.mockResolvedValueOnce(claimed()).mockResolvedValueOnce([]);
+    mocks.getAsaasPayment.mockResolvedValueOnce({ id: "pay_080225913252", status: "RECEIVED", installmentId: null });
+    mocks.processAsaasPayment.mockResolvedValueOnce({ status: "paid", orderId: "o1" });
+    const { processAsaasWebhookEvents } = await import("@/lib/asaas-webhook");
+    await processAsaasWebhookEvents({ now: () => now });
+    expect(mocks.getAsaasInstallmentOrDeleted).not.toHaveBeenCalled();
+    expect(mocks.processAsaasPayment).toHaveBeenCalledWith(expect.objectContaining({ id: "pay_080225913252" }), null);
   });
 });

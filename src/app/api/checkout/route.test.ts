@@ -15,6 +15,8 @@ vi.mock("@/lib/checkout", () => ({
   pixUnavailableMessage: "O Pix está indisponível no momento. Escolha cartão ou tente novamente em instantes.",
   cardUnavailableMessage: "O pagamento com cartão está indisponível no momento. Escolha Pix ou tente novamente em instantes.",
   paymentUnavailableMessage: "Pagamentos temporariamente indisponíveis. Tente novamente em alguns minutos.",
+  installmentUnavailableMessage: "O parcelamento escolhido não está disponível para este pedido. Escolha outra opção de parcelamento.",
+  minimumPaymentMessage: "O valor mínimo para pagamento é de R$ 10,00. Adicione mais itens ao carrinho para continuar.",
   createCheckoutSession: routeMocks.createCheckoutSession,
 }));
 

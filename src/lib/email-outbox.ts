@@ -7,7 +7,18 @@ type PaidOrderEmailSnapshot = {
   customerEmailSnapshot: string | null;
   customerNameSnapshot: string | null;
   totalInCents: number;
+  /** Card installments (2x+) shown in the e-mail; absent/null for Pix and 1x. */
+  installmentCount?: number | null;
+  installmentValueInCents?: number | null;
 };
+
+function installmentSnapshot(order: PaidOrderEmailSnapshot) {
+  const count = order.installmentCount;
+  const value = order.installmentValueInCents;
+  return Number.isSafeInteger(count) && (count as number) >= 2 && Number.isSafeInteger(value) && (value as number) > 0
+    ? { installmentCount: count as number, installmentValueInCents: value as number }
+    : {};
+}
 
 // No SMTP, env-dependent branching, or rendering in the payment transaction.
 // Missing/invalid recipients are retained for review without blocking payment.
@@ -25,6 +36,7 @@ export async function enqueuePaidOrderEmail(
       customerName: order.customerNameSnapshot,
       orderNumber: order.orderNumber,
       totalInCents: order.totalInCents,
+      ...installmentSnapshot(order),
       messageId: `<rare-${key}@raredept.com.br>`,
     }],
     skipDuplicates: true,

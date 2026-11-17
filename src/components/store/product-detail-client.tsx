@@ -19,7 +19,8 @@ import {
 } from "@/lib/product-media";
 import { getAvailableStock } from "@/lib/stock";
 import { buildStorefrontCommerceState, type StorefrontCommerceState } from "@/lib/storefront-commerce";
-import { InstallmentTerms } from "@/components/store/installment-terms";
+import { CardInstallmentHint } from "@/components/store/card-installment-hint";
+import type { CardInstallmentRules } from "@/lib/card-installments";
 import { PriceTag } from "@/components/store/price-tag";
 import type { ProductPrice } from "@/lib/promotions/engine";
 
@@ -42,6 +43,8 @@ type ProductDetailClientProps = {
   whatsappNumber?: string | null;
   whatsappMessage: string;
   commerce?: StorefrontCommerceState;
+  /** Card installment rules (flag + Admin), decided on the server; null = no installment copy. */
+  cardInstallmentRules?: CardInstallmentRules | null;
 };
 
 type ShippingQuoteOption = {
@@ -181,7 +184,7 @@ function formatProductShippingError(message: string) {
   return message;
 }
 
-export function ProductDetailClient({ product, productUrl, whatsappNumber, whatsappMessage, commerce }: ProductDetailClientProps) {
+export function ProductDetailClient({ product, productUrl, whatsappNumber, whatsappMessage, commerce, cardInstallmentRules }: ProductDetailClientProps) {
   const pricing: ProductPrice = product.pricing ?? { basePriceInCents: product.priceInCents, finalPriceInCents: product.priceInCents, discountInCents: 0, percentOff: 0, promotion: null };
   const commerceState = commerce ?? buildStorefrontCommerceState(true);
   const { addItem } = useCart();
@@ -542,7 +545,8 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
         {pricing.promotion && !soldOut ? (
           <p className="mt-1 text-xs font-black uppercase tracking-[0.16em] text-neutral-600">{pricing.promotion.badgeText ?? pricing.promotion.name}</p>
         ) : null}
-        <InstallmentTerms amountInCents={pricing.finalPriceInCents} checkoutEnabled={commerceState.checkoutEnabled} className="mt-2 text-sm font-semibold leading-6 text-neutral-600" />
+        {/* Interest-free count only; 4x-12x totals depend on coupon and shipping and appear at checkout. */}
+        <CardInstallmentHint amountInCents={pricing.finalPriceInCents} rules={commerceState.checkoutEnabled ? cardInstallmentRules : null} context="product" className="mt-2 text-sm font-semibold leading-6 text-neutral-600" />
 
         <div className="mt-6 space-y-5 rounded-lg border border-neutral-200 bg-white p-5">
           <fieldset>
