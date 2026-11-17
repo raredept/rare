@@ -102,9 +102,50 @@ describe("short installment copy (product page and cart)", () => {
     expect(buildCardInstallmentHint({ amountInCents: 59_990, rules: { ...rules, maxInstallments: 3 }, context: "product" })).toBe("ou em até 3x sem juros");
   });
 
-  it("cart: no amounts, just the policy", () => {
-    expect(buildCardInstallmentHint({ amountInCents: 10_000, rules, context: "cart" })).toBe("Até 3x sem juros · ou até 12x no cartão");
-    expect(buildCardInstallmentHint({ amountInCents: 10_000, rules: { ...rules, maxInstallments: 3 }, context: "cart" })).toBe("Até 3x sem juros");
+  // RARE-COLLECTIONS-CART-01: the cart used the Admin maximum ("até 12x") whatever the total. It now
+  // reads the plans of the total it shows, like the product page and the checkout.
+  const maxFromHint = (text: string | null) => {
+    if (!text) return 1;
+    const card = /ou até (\d+)x no cartão/.exec(text);
+    const free = /(?:Até|ou em até) (\d+)x sem juros/.exec(text);
+    return Number(card?.[1] ?? free?.[1] ?? 1);
+  };
+  const checkoutMax = (amount: number) => listCardInstallmentPlans(amount, rules).at(-1)?.installmentCount ?? 1;
+
+  it("cart: R$ 42,21 promises exactly what the checkout lists (4x), never 12x", () => {
+    const text = buildCardInstallmentHint({ amountInCents: 4_221, rules, context: "cart" });
+    expect(text).toBe(`Até 3x sem juros · ou até ${checkoutMax(4_221)}x no cartão`);
+    expect(text).not.toContain("12x");
+    expect(maxFromHint(text)).toBe(4);
+  });
+
+  it("cart: R$ 72,00 and R$ 600,00 follow the real plans", () => {
+    expect(maxFromHint(buildCardInstallmentHint({ amountInCents: 7_200, rules, context: "cart" }))).toBe(checkoutMax(7_200));
+    expect(buildCardInstallmentHint({ amountInCents: 60_000, rules, context: "cart" })).toBe("Até 3x sem juros · ou até 12x no cartão");
+    // R$ 100,00 used to say 12x; 12x would be R$ 9,83 per installment, under the R$ 10,00 minimum.
+    expect(buildCardInstallmentHint({ amountInCents: 10_000, rules, context: "cart" })).toBe(`Até 3x sem juros · ou até ${checkoutMax(10_000)}x no cartão`);
+    expect(checkoutMax(10_000)).toBe(11);
+  });
+
+  it("cart: only interest-free counts -> no redundant card part; only 1x -> no promise at all", () => {
+    expect(buildCardInstallmentHint({ amountInCents: 3_000, rules, context: "cart" })).toBe("Até 3x sem juros");
+    expect(buildCardInstallmentHint({ amountInCents: 2_500, rules, context: "cart" })).toBe("Até 2x sem juros");
+    expect(buildCardInstallmentHint({ amountInCents: 1_500, rules, context: "cart" })).toBeNull();
+    expect(buildCardInstallmentHint({ amountInCents: 60_000, rules: { ...rules, maxInstallments: 3 }, context: "cart" })).toBe("Até 3x sem juros");
+  });
+
+  it("cart: a coupon that lowers the total lowers the promise", () => {
+    expect(maxFromHint(buildCardInstallmentHint({ amountInCents: 4_690, rules, context: "cart" }))).toBe(checkoutMax(4_690));
+    expect(maxFromHint(buildCardInstallmentHint({ amountInCents: 4_221, rules, context: "cart" }))).toBeLessThanOrEqual(maxFromHint(buildCardInstallmentHint({ amountInCents: 4_690, rules, context: "cart" })));
+  });
+
+  it("product, cart and checkout agree for the same amount", () => {
+    for (const amount of [3_000, 4_221, 7_200, 8_910, 10_000, 30_000, 60_000]) {
+      const product = maxFromHint(buildCardInstallmentHint({ amountInCents: amount, rules, context: "product" }));
+      const cartMax = maxFromHint(buildCardInstallmentHint({ amountInCents: amount, rules, context: "cart" }));
+      expect(product, `product ${amount}`).toBe(checkoutMax(amount));
+      expect(cartMax, `cart ${amount}`).toBe(checkoutMax(amount));
+    }
   });
 
   it("nothing when installments are off", () => {

@@ -616,6 +616,14 @@ model Promotion {
   bannerImageUrl       String?
   bannerMobileImageUrl String?
   bannerAlt            String?
+  /// Also shown as a public storefront collection (/colecao/<slug> + the store menu) while its
+  /// effective status is ACTIVE and it wins at least one active product. Never moves a product's
+  /// category: collections are campaigns, categories are taxonomy (RARE-COLLECTIONS-CART-01).
+  storefrontCollectionEnabled   Boolean @default(false)
+  /// Menu label; null = the promotion name.
+  storefrontCollectionLabel     String?
+  /// Menu order among collections (ascending, then name, then id).
+  storefrontCollectionSortOrder Int     @default(0)
   createdById          String?
   updatedById          String?
   products             PromotionProduct[]

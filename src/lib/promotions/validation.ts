@@ -1,6 +1,7 @@
 import { parseBusinessDateTime } from "@/lib/business-time";
 import { parseMoneyToCents } from "@/lib/money";
 import { resolveSafeInternalPath } from "@/lib/safe-redirect";
+import { COLLECTION_LABEL_MAX_LENGTH, COLLECTION_SORT_ORDER_MAX, COLLECTION_SORT_ORDER_MIN } from "@/lib/promotions/collections";
 import { computePromotionDiscount, type PromotionScopeValue, type PromotionTypeValue } from "@/lib/promotions/engine";
 
 // Admin input for promotions. Only the fields listed here are read from the form (allowlist):
@@ -31,6 +32,11 @@ export type PromotionInput = {
   bannerAlt: string | null;
   productIds: string[];
   categoryIds: string[];
+  /** RARE-COLLECTIONS-CART-01: also a public collection (/colecao/<slug>). Never touches status, discount or targets. */
+  storefrontCollectionEnabled: boolean;
+  /** Plain text; null = use the promotion name. */
+  storefrontCollectionLabel: string | null;
+  storefrontCollectionSortOrder: number;
 };
 
 export type PromotionInputResult = { ok: true; input: PromotionInput } | { ok: false; errors: string[] };
@@ -145,6 +151,14 @@ export function parsePromotionForm(formData: FormData, options: { requireComplet
   const headline = cleanCommercialText(formData.get("headline"), 80);
   if (options.requireComplete && homepageFeatured && !headline) errors.push("Campanha em destaque na home precisa de um título.");
 
+  const storefrontCollectionEnabled = formData.get("storefrontCollectionEnabled") === "on" || formData.get("storefrontCollectionEnabled") === "true";
+  const storefrontCollectionLabel = cleanCommercialText(formData.get("storefrontCollectionLabel"), COLLECTION_LABEL_MAX_LENGTH);
+  const rawSortOrder = formData.get("storefrontCollectionSortOrder");
+  const storefrontCollectionSortOrder = typeof rawSortOrder === "string" && rawSortOrder.trim() ? Number(rawSortOrder.trim()) : 0;
+  if (!Number.isInteger(storefrontCollectionSortOrder) || storefrontCollectionSortOrder < COLLECTION_SORT_ORDER_MIN || storefrontCollectionSortOrder > COLLECTION_SORT_ORDER_MAX) {
+    errors.push(`Ordem no menu deve ser um número inteiro entre ${COLLECTION_SORT_ORDER_MIN} e ${COLLECTION_SORT_ORDER_MAX}.`);
+  }
+
   if (errors.length || !name || !type || !scope) return { ok: false, errors };
   return {
     ok: true,
@@ -168,6 +182,9 @@ export function parsePromotionForm(formData: FormData, options: { requireComplet
       bannerAlt,
       productIds: scope === "SELECTED_PRODUCTS" ? productIds : [],
       categoryIds: scope === "SELECTED_CATEGORIES" ? categoryIds : [],
+      storefrontCollectionEnabled,
+      storefrontCollectionLabel,
+      storefrontCollectionSortOrder,
     },
   };
 }

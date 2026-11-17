@@ -10,7 +10,10 @@ import { formatMoney } from "@/lib/money";
 import { formatPromotionHistoryAction } from "@/lib/order-display";
 import { prisma } from "@/lib/prisma";
 import { countTargetedProducts, getActivationIssues, getPromotionSalesSummary, PROMOTION_SCOPE_LABELS } from "@/lib/promotions/admin";
+import { getCollectionHref, getCollectionLabel } from "@/lib/promotions/collections";
 import { getEffectivePromotionStatus } from "@/lib/promotions/engine";
+import { absoluteUrl } from "@/lib/seo";
+import { getPublicCollection } from "@/lib/storefront";
 
 export const dynamic = "force-dynamic";
 
@@ -33,11 +36,13 @@ export default async function PromotionDetailPage({ params }: { params: Promise<
   if (!promotion) notFound();
   const now = new Date();
   const effective = getEffectivePromotionStatus(promotion, now);
-  const [affected, sales, history] = await Promise.all([
+  const [affected, sales, history, publicCollection] = await Promise.all([
     countTargetedProducts(promotion),
     getPromotionSalesSummary(promotion.id),
     prisma.adminAuditLog.findMany({ where: { entityType: "Promotion", entityId: promotion.id }, orderBy: { createdAt: "desc" }, take: 20 }),
+    promotion.storefrontCollectionEnabled ? getPublicCollection(promotion.slug) : Promise.resolve(null),
   ]);
+  const collectionUrl = absoluteUrl(getCollectionHref(promotion.slug));
   const issues = getActivationIssues({ ...promotion, productCount: promotion._count.products, categoryCount: promotion._count.categories }, now);
   const canActivate = ["DRAFT", "PAUSED"].includes(promotion.status) || (promotion.status === "SCHEDULED" && effective !== "SCHEDULED" && effective !== "ENDED");
 
@@ -82,6 +87,26 @@ export default async function PromotionDetailPage({ params }: { params: Promise<
           <div key={term}><dt className="text-xs font-black uppercase tracking-wide text-neutral-500">{term}</dt><dd className="mt-1 font-semibold">{value}</dd></div>
         ))}
       </dl>
+
+      {/* RARE-COLLECTIONS-CART-01: where the collection lives and whether it is public right now. */}
+      <section className="mt-6 rounded-lg border border-neutral-200 bg-white p-5" aria-labelledby="promotion-collection-title">
+        <h2 id="promotion-collection-title" className="text-lg font-black text-neutral-950">Coleção na loja</h2>
+        {promotion.storefrontCollectionEnabled ? (
+          <div className="mt-2 space-y-2 text-sm">
+            <p><span className="font-black">Nome no menu:</span> {getCollectionLabel(promotion)} · <span className="font-black">Ordem:</span> {promotion.storefrontCollectionSortOrder}</p>
+            <p className="[overflow-wrap:anywhere]"><span className="font-black">Coleção pública:</span>{" "}
+              {publicCollection ? <a href={collectionUrl} target="_blank" rel="noreferrer" className="underline underline-offset-4">{collectionUrl}</a> : <span>{collectionUrl}</span>}</p>
+            {publicCollection ? (
+              <p className="font-semibold text-emerald-700">No ar agora: {publicCollection.products.length} produto(s) com este desconto.</p>
+            ) : (
+              <p className="font-semibold text-amber-700">A coleção só fica pública quando a promoção estiver ativa e tiver produtos elegíveis.</p>
+            )}
+            <p className="text-xs text-neutral-500">Os produtos continuam em suas categorias originais; a coleção não altera a categoria de nenhum produto.</p>
+          </div>
+        ) : (
+          <p className="mt-2 text-sm text-neutral-500">Desligada. Para exibir esta promoção como coleção, use Editar → Exibição na loja.</p>
+        )}
+      </section>
 
       <section className="mt-6 rounded-lg border border-neutral-200 bg-white p-5" aria-labelledby="promotion-sales-title">
         <h2 id="promotion-sales-title" className="text-lg font-black text-neutral-950">Vendas com esta promoção</h2>

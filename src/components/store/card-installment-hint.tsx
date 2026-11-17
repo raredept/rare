@@ -1,14 +1,15 @@
-import {
-  listCardInstallmentPlans,
-  maxInterestFreeInstallments,
-  maxOfferedInstallments,
-  type CardInstallmentRules,
-} from "@/lib/card-installments";
+import { listCardInstallmentPlans, type CardInstallmentRules } from "@/lib/card-installments";
 
 /**
  * Short card installment copy for the product page and the cart. It never shows a surcharged
  * amount: the final 4x-12x value depends on coupon, promotions and shipping and is calculated (by
  * the server) only at checkout.
+ *
+ * Both contexts read the plans THIS amount allows from listCardInstallmentPlans — the very function
+ * the checkout lists its options with — so neither page promises "até 12x" for an amount the checkout
+ * can only split in 4 (UIUX-PDP-002 for the product page; RARE-COLLECTIONS-CART-01 for the cart).
+ * In the cart the amount is the total shown before delivery: shipping can only raise it, so the
+ * hint is conservative and the checkout may offer more once the delivery is chosen.
  */
 export function buildCardInstallmentHint({ amountInCents, rules, context }: {
   amountInCents: number;
@@ -16,21 +17,12 @@ export function buildCardInstallmentHint({ amountInCents, rules, context }: {
   context: "product" | "cart";
 }): string | null {
   if (!rules?.enabled || !Number.isSafeInteger(amountInCents) || amountInCents <= 0) return null;
-  const maxOffered = maxOfferedInstallments(rules);
-  if (maxOffered < 2) return null;
-  if (context === "cart") {
-    const upToCard = maxOffered > maxInterestFreeInstallments(rules) ? `ou até ${maxOffered}x no cartão` : null;
-    const free = maxInterestFreeInstallments(rules);
-    return [free >= 2 ? `Até ${free}x sem juros` : null, upToCard].filter(Boolean).join(" · ") || null;
-  }
-  // Product: the largest counts THIS price allows on its own (minimum installment respected), so the
-  // page never promises "até 12x" for an item the checkout can only split in 4 (UIUX-PDP-002). No
-  // amounts: coupon, promotions, shipping and the cart can still change the final total.
   const plans = listCardInstallmentPlans(amountInCents, rules);
   const interestFree = plans.filter((plan) => plan.interestFree && plan.installmentCount >= 2).at(-1);
   const longest = plans.at(-1);
-  const freeText = interestFree ? `ou em até ${interestFree.installmentCount}x sem juros` : null;
-  const upToCard = longest && !longest.interestFree ? `ou até ${longest.installmentCount}x no cartão` : null;
+  // Only 1x: no installment promise at all. Longest interest-free: no redundant "no cartão" part.
+  const upToCard = longest && !longest.interestFree && longest.installmentCount >= 2 ? `ou até ${longest.installmentCount}x no cartão` : null;
+  const freeText = interestFree ? `${context === "cart" ? "Até" : "ou em até"} ${interestFree.installmentCount}x sem juros` : null;
   return [freeText, upToCard].filter(Boolean).join(" · ") || null;
 }
 

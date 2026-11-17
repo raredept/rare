@@ -25,6 +25,7 @@ export function toFormValues(promotion?: Promotion & { products: { productId: st
     return {
       name: "", slug: "", type: "PERCENTAGE", value: "", scope: "SELECTED_PRODUCTS", startsAt: "", endsAt: "", priority: 0, homepageFeatured: false,
       badgeText: "", headline: "", subheadline: "", ctaLabel: "", ctaHref: "", bannerImageUrl: "", bannerMobileImageUrl: "", bannerAlt: "", productIds: [], categoryIds: [],
+      storefrontCollectionEnabled: false, storefrontCollectionLabel: "", storefrontCollectionSortOrder: 0,
     };
   }
   return {
@@ -48,5 +49,8 @@ export function toFormValues(promotion?: Promotion & { products: { productId: st
     bannerAlt: promotion.bannerAlt ?? "",
     productIds: promotion.products.map((item) => item.productId),
     categoryIds: promotion.categories.map((item) => item.categoryId),
+    storefrontCollectionEnabled: promotion.storefrontCollectionEnabled,
+    storefrontCollectionLabel: promotion.storefrontCollectionLabel ?? "",
+    storefrontCollectionSortOrder: promotion.storefrontCollectionSortOrder,
   };
 }

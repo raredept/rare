@@ -1,9 +1,10 @@
 "use client";
 
-import { ChevronRight, Menu, PackageCheck, ShoppingBag, UserRound, X } from "lucide-react";
+import { ChevronRight, Menu, Tag, PackageCheck, ShoppingBag, UserRound, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { virtualCatalogCategories } from "@/lib/catalog-categories";
+import type { NavigationCollection } from "@/lib/promotions/collections";
 import { useCartDrawer } from "@/components/store/cart-context";
 
 type NavigationCategory = {
@@ -15,7 +16,7 @@ type NavigationCategory = {
 
 const focusableSelector = "a[href],button:not([disabled]),[tabindex]:not([tabindex='-1'])";
 
-export function MobileNavigation({ categories }: { categories: NavigationCategory[] }) {
+export function MobileNavigation({ categories, collections = [] }: { categories: NavigationCategory[]; collections?: NavigationCollection[] }) {
   const [open, setOpen] = useState(false);
   const { openCart } = useCartDrawer();
   const dialogRef = useRef<HTMLDivElement | null>(null);
@@ -93,6 +94,21 @@ export function MobileNavigation({ categories }: { categories: NavigationCategor
             </div>
 
             <div className="flex-1 overflow-y-auto px-5 py-5" onClick={(event) => { if (event.target instanceof Element && event.target.closest("a[href]")) setOpen(false); }}>
+              {/* RARE-COLLECTIONS-CART-01: public collections (campaigns) first, then the taxonomy. */}
+              {collections.length ? (
+                <nav aria-label="Coleções mobile" className="mb-7">
+                  <p className="text-[11px] font-black uppercase tracking-[0.24em] text-white/65">Coleções</p>
+                  <div className="mt-3 grid gap-2">
+                    {collections.map((collection) => (
+                      <Link key={collection.id} href={collection.href} className="flex min-h-12 items-center justify-between gap-3 rounded-md border border-red-500/70 bg-red-500/[0.08] px-4 text-base font-black" data-collection-link>
+                        <span className="inline-flex min-w-0 items-center gap-2"><Tag className="h-4 w-4 shrink-0" aria-hidden="true" /><span className="break-words">{collection.label}</span></span>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-white/50" aria-hidden="true" />
+                      </Link>
+                    ))}
+                  </div>
+                </nav>
+              ) : null}
+
               <nav aria-label="Categorias mobile">
                 <p className="text-[11px] font-black uppercase tracking-[0.24em] text-white/65">Comprar por categoria</p>
                 <div className="mt-3 divide-y divide-white/10 border-y border-white/10">

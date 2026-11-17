@@ -3,6 +3,7 @@
 import { SlidersHorizontal, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type FormEvent, type MouseEvent } from "react";
+import type { CatalogBasePath } from "@/lib/catalog-pagination";
 import {
   buildCatalogHref,
   CATALOG_SORT_LABELS,
@@ -22,6 +23,8 @@ type CatalogToolbarProps = {
   /** Null when the scope could not offer options (e.g. older data shape): only the sort shows. */
   facets: CatalogFacets | null;
   total: number;
+  /** "/colecao" on a collection page (RARE-COLLECTIONS-CART-01); the URLs keep the same query string. */
+  basePath?: CatalogBasePath;
 };
 
 type Draft = { brand: string; size: string; price: string; available: boolean; promo: boolean };
@@ -31,7 +34,7 @@ type Draft = { brand: string; size: string; price: string; available: boolean; p
  * (focus kept inside, Esc closes): a drawer on the right from 640 px, a bottom sheet on phones. Every
  * choice lives in the URL, so a filtered page can be shared and the back button works.
  */
-export function CatalogToolbar({ slug, query, brand, refinements, facets, total }: CatalogToolbarProps) {
+export function CatalogToolbar({ slug, query, brand, refinements, facets, total, basePath = "/categoria" }: CatalogToolbarProps) {
   const router = useRouter();
   const dialogRef = useRef<HTMLDialogElement | null>(null);
   const openerRef = useRef<HTMLButtonElement | null>(null);
@@ -59,7 +62,7 @@ export function CatalogToolbar({ slug, query, brand, refinements, facets, total 
   }
 
   function navigate(next: Partial<CatalogRefinements> & { brand?: string }) {
-    router.push(buildCatalogHref(slug, { query, brand: next.brand ?? brand, ...refinements, ...next, page: 1 }));
+    router.push(buildCatalogHref(slug, { query, brand: next.brand ?? brand, ...refinements, ...next, page: 1 }, basePath));
   }
 
   function applyFilters(event: FormEvent<HTMLFormElement>) {
@@ -115,7 +118,9 @@ export function CatalogToolbar({ slug, query, brand, refinements, facets, total 
         {total} {total === 1 ? "produto" : "produtos"}
       </p>
       {/* Font on the wrapper: the global `button { font: inherit }` (UIUX-GLOBAL-001) beats classes on the button. */}
-      <div className="flex items-center gap-2 text-xs font-black">
+      {/* flex-wrap + max-w-full: on a 320 px phone the sort select (16 px there, so iOS does not zoom)
+          cannot sit beside "Filtrar"; it drops to its own line instead of widening the page. */}
+      <div className="flex max-w-full flex-wrap items-center gap-2 text-xs font-black">
         {facets ? (
           <button
             ref={openerRef}
@@ -134,7 +139,7 @@ export function CatalogToolbar({ slug, query, brand, refinements, facets, total 
             ) : null}
           </button>
         ) : null}
-        <label className="relative inline-flex min-h-11 items-center rounded-full border border-neutral-300 pl-4 pr-2 text-xs font-black uppercase tracking-[0.12em] text-neutral-950 focus-within:ring-2 focus-within:ring-neutral-950 hover:border-neutral-950">
+        <label className="relative inline-flex min-h-11 max-w-full items-center rounded-full border border-neutral-300 pl-4 pr-2 text-xs font-black uppercase tracking-[0.12em] text-neutral-950 focus-within:ring-2 focus-within:ring-neutral-950 hover:border-neutral-950">
           <span className="sr-only">Ordenar por</span>
           <span aria-hidden="true" className="hidden sm:inline">Ordenar:&nbsp;</span>
           <select
