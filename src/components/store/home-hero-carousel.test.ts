@@ -88,6 +88,27 @@ describe("HomeHeroCarousel", () => {
     expect(html).not.toContain("Slide inativo");
   });
 
+  it("draws nothing over an art-led banner (art with no site title) but keeps its text for screen readers", () => {
+    const html = renderToStaticMarkup(createElement(HomeHeroCarousel, {
+      slides: [
+        { id: "bf", eyebrow: "Sale Black Friday", description: "Condições especiais por tempo limitado.", href: "/categoria/destaques", imageUrl: "https://media.rare.example/banners/bf.webp", alt: "Black Friday até 30% off", active: true },
+        { ...baseSlides[1], imageUrl: "https://media.rare.example/banners/drops.webp" },
+      ],
+    }));
+    expect(html).toContain('data-art-led="true"');
+    expect(html).not.toContain("rgba(0,0,0,0.86)_0%");
+    expect(html).not.toContain("tracking-[0.3em] text-white/58");
+    expect(html).toMatch(/<div class="sr-only"><p>Sale Black Friday<\/p><p>Condições especiais por tempo limitado\.<\/p><\/div>/);
+    expect(html).toContain('aria-label="Abrir destaque: Black Friday até 30% off"');
+  });
+
+  it("keeps the site text and scrim when the banner has a title", () => {
+    const html = renderToStaticMarkup(createElement(HomeHeroCarousel, { slides: [{ ...baseSlides[0], imageUrl: "https://media.rare.example/banners/a.webp" }] }));
+    expect(html).not.toContain("data-art-led");
+    expect(html).toContain("rgba(0,0,0,0.86)_0%");
+    expect(html).toContain("Peças escolhidas a dedo.");
+  });
+
   it("does not render arrow or dot controls for one active slide", () => {
     const html = renderToStaticMarkup(createElement(HomeHeroCarousel, { slides: [baseSlides[0]] }));
 
@@ -222,7 +243,9 @@ describe("HomeHeroCarousel", () => {
   it("bounds many slide indicators without shrinking targets or overlapping the arrows", () => {
     const slides = Array.from({ length: 10 }, (_, index) => ({ ...baseSlides[0], id: `slide-${index}` }));
     const html = renderToStaticMarkup(createElement(HomeHeroCarousel, { slides }));
-    expect(html).toMatch(/class="scrollbar-none absolute bottom-5 left-5 right-5 z-30 flex touch-pan-x items-center overflow-x-auto[^"]*"/);
+    // Indicators sit in their own row below the media (UIUX-HOME-001), scrolling when there are many.
+    expect(html).toMatch(/class="scrollbar-none touch-pan-x overflow-x-auto[^"]*" role="group" aria-label="Selecionar slide"/);
+    expect(html).not.toMatch(/absolute bottom-5 left-5 right-5/);
     expect(html).toContain("focus-visible:ring-inset");
     expect(html.match(/aria-label="Ir para slide \d+"/g)).toHaveLength(10);
     expect(html.match(/h-11 shrink-0/g)).toHaveLength(10);

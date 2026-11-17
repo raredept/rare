@@ -11,6 +11,10 @@ financeira, a mudança é só de apresentação e a regressão deve ser provada 
 
 Índice: [P1](#p1) (9) · [P2](#p2) (19) · [P3](#p3) (7)
 
+> **Status 2026-11-17:** o operador aprovou **todos os P1**; os 9 foram implementados no
+> `RARE-UIUX-REFINE-01` (branch local `refine/rare-uiux-01`, sem deploy) — ver
+> [UIUX_REFINE_01.md](./UIUX_REFINE_01.md). P2 e P3 continuam aguardando aprovação.
+
 ---
 
 ## P1

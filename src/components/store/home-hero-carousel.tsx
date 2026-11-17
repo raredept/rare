@@ -153,6 +153,10 @@ export function HomeHeroCarousel({ slides }: HomeHeroCarouselProps) {
   }
 
   const slideLabel = `${normalizedActiveIndex + 1} de ${activeSlides.length}`;
+  // UIUX-HOME-001: a banner with art but no site title is "art-led": its artwork already carries the
+  // message (often with drawn text). The site then draws nothing over it — no scrim, no eyebrow or
+  // subtitle on top of the art (they stay for screen readers) — and the indicators live below it.
+  const artLed = Boolean(activeSlide.imageUrl) && !failedSlideIds.has(activeSlide.id) && !activeSlide.title;
 
   return (
     <section
@@ -163,8 +167,10 @@ export function HomeHeroCarousel({ slides }: HomeHeroCarouselProps) {
       data-playing={playing}
       {...interactionProps}
     >
+      <div className="relative">
       <div
         key={activeSlide.id}
+        data-art-led={artLed ? "true" : undefined}
         className="store-home-hero-slide relative min-h-[360px] overflow-hidden md:min-h-[460px] xl:min-h-[540px]"
         role="group"
         aria-roledescription="slide"
@@ -184,11 +190,22 @@ export function HomeHeroCarousel({ slides }: HomeHeroCarouselProps) {
           />
         </div>
 
-        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.86)_0%,rgba(0,0,0,0.58)_42%,rgba(0,0,0,0.18)_100%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.18)_0%,rgba(0,0,0,0.08)_45%,rgba(0,0,0,0.68)_100%)]" />
+        {artLed ? null : (
+          <>
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.86)_0%,rgba(0,0,0,0.58)_42%,rgba(0,0,0,0.18)_100%)]" />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.18)_0%,rgba(0,0,0,0.08)_45%,rgba(0,0,0,0.68)_100%)]" />
+          </>
+        )}
 
-        <div className="relative z-20 flex min-h-[360px] max-w-3xl flex-col justify-end px-5 pb-16 pt-7 sm:px-8 md:min-h-[460px] md:px-10 md:py-10 xl:min-h-[540px] xl:px-12">
-          {activeSlide.eyebrow ? (
+        {artLed && (activeSlide.eyebrow || activeSlide.description) ? (
+          <div className="sr-only">
+            {activeSlide.eyebrow ? <p>{activeSlide.eyebrow}</p> : null}
+            {activeSlide.description ? <p>{activeSlide.description}</p> : null}
+          </div>
+        ) : null}
+
+        <div className="relative z-20 flex min-h-[360px] max-w-3xl flex-col justify-end px-5 pb-7 pt-7 sm:px-8 md:min-h-[460px] md:px-10 md:py-10 xl:min-h-[540px] xl:px-12">
+          {activeSlide.eyebrow && !artLed ? (
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/58 sm:text-xs">{activeSlide.eyebrow}</p>
           ) : null}
           {activeSlide.title ? (
@@ -196,7 +213,7 @@ export function HomeHeroCarousel({ slides }: HomeHeroCarouselProps) {
               {activeSlide.title}
             </h2>
           ) : null}
-          {activeSlide.description ? (
+          {activeSlide.description && !artLed ? (
             <p className="mt-4 max-w-xl text-sm font-semibold leading-6 text-white/68 sm:text-base">{activeSlide.description}</p>
           ) : null}
           {activeSlide.href && activeSlide.ctaLabel ? (
@@ -228,8 +245,14 @@ export function HomeHeroCarousel({ slides }: HomeHeroCarouselProps) {
           >
             <ChevronRight className="h-5 w-5" aria-hidden="true" />
           </button>
+        </>
+      ) : null}
+      </div>
 
-          <div className="scrollbar-none absolute bottom-5 left-5 right-5 z-30 flex touch-pan-x items-center overflow-x-auto sm:left-8 sm:right-8 md:left-10 md:right-10 xl:left-12 xl:right-12" role="group" aria-label="Selecionar slide">
+      {controlsEnabled ? (
+          // Below the media, never over the art or the site text (UIUX-HOME-001).
+          <div className="scrollbar-none touch-pan-x overflow-x-auto px-5 py-1 sm:px-8" role="group" aria-label="Selecionar slide">
+            <div className="mx-auto flex w-max items-center">
             {activeSlides.map((slide, index) => (
               <button
                 key={slide.id}
@@ -249,8 +272,8 @@ export function HomeHeroCarousel({ slides }: HomeHeroCarouselProps) {
                 />
               </button>
             ))}
+            </div>
           </div>
-        </>
       ) : null}
     </section>
   );

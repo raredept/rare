@@ -534,7 +534,8 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
         ) : null}
       </section>
 
-      <aside className="lg:sticky lg:top-36 lg:self-start">
+      {/* Not sticky: with the details in this column it is the taller one, so sticky never engaged. */}
+      <aside className="min-w-0 lg:self-start">
         <p className="text-xs font-black uppercase tracking-[0.24em] text-neutral-500">Seleção RARE</p>
         <h1 className="mt-3 text-3xl font-black tracking-tight text-neutral-950 lg:text-4xl">{product.title}</h1>
         {soldOut ? <p className="mt-3 inline-flex rounded-full bg-black px-3 py-1 text-xs font-black uppercase tracking-wide text-white">{uniqueSold ? "Vendida" : "Esgotado"}</p> : null}
@@ -619,6 +620,15 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
             Fale com a RARE pelo WhatsApp
           </a>
         </div>
+
+        {/* UIUX-PDP-001: the full description sits right under the buying block instead of a grid row
+            that only started after the taller column, leaving an empty area beside the gallery. */}
+        {fullDescription && fullDescription !== mainDescription ? (
+          <section className="mt-6 rounded-lg border border-neutral-200 bg-white p-5" aria-labelledby="product-details-title">
+            <h2 id="product-details-title" className="text-sm font-black text-neutral-950">Detalhes do produto</h2>
+            <p className="mt-3 whitespace-pre-line text-sm font-semibold leading-7 text-neutral-600">{fullDescription}</p>
+          </section>
+        ) : null}
 
         <div className="mt-6 rounded-lg border border-neutral-200 bg-white p-5">
           <p className="text-sm font-black text-neutral-950">Frete e prazo</p>
@@ -711,13 +721,6 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
           </div>
         </div>
       </aside>
-      {fullDescription && fullDescription !== mainDescription ? (
-        <section className="border-t border-neutral-200 pt-8 lg:col-span-2 lg:pt-10" aria-labelledby="product-details-title">
-          <p className="store-section-label">Sobre a peça</p>
-          <h2 id="product-details-title" className="mt-3 text-2xl font-black tracking-tight text-neutral-950">Detalhes do produto</h2>
-          <p className="mt-4 max-w-3xl whitespace-pre-line text-base font-semibold leading-8 text-neutral-600">{fullDescription}</p>
-        </section>
-      ) : null}
       {zoomedImage && typeof document !== "undefined"
         ? createPortal(
             <ProductImageZoomDialog

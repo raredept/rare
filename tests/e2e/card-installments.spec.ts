@@ -103,6 +103,9 @@ test("phone: checkout lists 1x-12x, interest-free up to 3x and the final card to
   if (await card.count()) await card.check();
   const options = page.locator('input[name="card-installments"]');
   await expect(options).toHaveCount(12);
+  // UIUX-CHECKOUT-001: the plans live in a compact picker; open it to read and choose.
+  await expect(page.getByTestId("card-installment-toggle")).toContainText(/1x de R\$\s600,00 sem juros/);
+  await page.getByTestId("card-installment-toggle").click();
   await expect(page.getByText(/^3x de R\$\s200,00 sem juros$/)).toBeVisible();
   await expect(page.getByText(/^12x de .* com acréscimo · Total no cartão R\$\s708,00$/)).toBeVisible();
   await expect(page.locator('input[name="card-installments"][value="13"]')).toHaveCount(0);

@@ -10,6 +10,7 @@ import { buildPageMetadata, RARE_DEFAULT_SITE_URL } from "@/lib/seo";
 import { buildOrganizationJsonLd, buildWebsiteJsonLd, JsonLdScript } from "@/lib/structured-data";
 import { getAvailableBrandsForStore, getCampaignProducts, getFeaturedProducts, getHomeCategoryTiles, getProducts, getRecentProducts, type HomeCategoryTile, type StorefrontProduct } from "@/lib/storefront";
 import { HomeCampaign } from "@/components/store/home-campaign";
+import { buildCatalogHref } from "@/lib/catalog-refinements";
 import { getHomepageCampaign } from "@/lib/promotions/store";
 import { getStorefrontCommerceState, type StorefrontCommerceState } from "@/lib/storefront-commerce";
 import { getProductMediaTypeFromUrl } from "@/lib/product-media";
@@ -149,6 +150,18 @@ function SearchResults({ products, query, commerce }: { products: StorefrontProd
             Peças encontradas pelo que você buscou.
           </p>
         </div>
+        {products.length ? (
+          // UIUX-CATALOG-001: the same results, with filters, sort and the real total, in the catalog.
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-sm font-black text-neutral-950">{products.length} {products.length === 1 ? "produto" : "produtos"}</p>
+            <Link
+              href={buildCatalogHref("tudo", { query })}
+              className="inline-flex min-h-11 items-center rounded-full border border-neutral-300 px-4 text-xs font-black uppercase tracking-[0.12em] text-neutral-950 hover:border-neutral-950"
+            >
+              Filtrar e ordenar
+            </Link>
+          </div>
+        ) : null}
       </section>
 
       {products.length ? (

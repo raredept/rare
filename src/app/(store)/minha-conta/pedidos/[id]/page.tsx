@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AccountShell } from "@/components/store/account-shell";
+import { CustomerOrderItemRow, OrderStatusBadge } from "@/components/store/customer-order-parts";
+import { PRODUCT_MEDIA_LIMIT } from "@/lib/product-media";
 import { formatCep } from "@/lib/cep";
 import { formatAddressSnapshotLines } from "@/lib/customer-order";
 import { requireCustomer } from "@/lib/customer-auth";
@@ -25,7 +27,13 @@ export default async function CustomerOrderDetailPage({ params }: CustomerOrderD
         customerId: customer.id,
       },
       include: {
-        items: true,
+        items: {
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+          include: {
+            // Current catalog, read only to picture orders created before the item snapshot.
+            product: { select: { images: { orderBy: { sortOrder: "asc" }, take: PRODUCT_MEDIA_LIMIT, select: { url: true } } } },
+          },
+        },
       },
     }),
     getStoreSettings(),
@@ -44,20 +52,15 @@ export default async function CustomerOrderDetailPage({ params }: CustomerOrderD
     <AccountShell title={`Pedido ${order.orderNumber}`} subtitle="Detalhes do pedido vinculado à sua conta.">
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <section className="rounded-lg border border-neutral-200 bg-white p-5">
-          <h2 className="text-lg font-black text-neutral-950">Itens</h2>
-          <div className="mt-4 divide-y divide-neutral-200">
-            {order.items.map((item) => (
-              <div key={item.id} className="grid gap-2 py-4 text-sm sm:grid-cols-[1fr_90px_110px_110px] sm:items-center">
-                <div>
-                  <p className="font-black text-neutral-950">{item.productTitleSnapshot}</p>
-                  <p className="font-semibold text-neutral-500">Tamanho/variação: {item.sizeSnapshot}</p>
-                </div>
-                <span className="font-semibold text-neutral-600">Qtd {item.quantity}</span>
-                <span className="whitespace-nowrap font-semibold text-neutral-600">{formatMoney(item.unitPriceInCents)}</span>
-                <span className="whitespace-nowrap font-black text-neutral-950">{formatMoney(item.totalInCents)}</span>
-              </div>
-            ))}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-black text-neutral-950">Itens</h2>
+            <OrderStatusBadge status={order.status} />
           </div>
+          <ul className="mt-2 divide-y divide-neutral-200">
+            {order.items.map((item) => (
+              <CustomerOrderItemRow key={item.id} item={item} />
+            ))}
+          </ul>
         </section>
 
         <aside className="space-y-5">

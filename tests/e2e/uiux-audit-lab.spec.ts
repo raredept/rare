@@ -16,7 +16,8 @@ test.skip(!labEnabled, "Lab only: run through scripts/qa-staging-lab.ts (QA_LAB_
 test.setTimeout(600_000);
 
 const run = randomBytes(3).toString("hex").toLowerCase();
-const outDir = path.join("output", "uiux-audit-01", "lab");
+// UIUX_LAB_OUT=output/uiux-refine-01/lab captures the AFTER set of the refine cycle with the same spec.
+const outDir = process.env.UIUX_LAB_OUT ?? path.join("output", "uiux-audit-01", "lab");
 const metrics: Record<string, unknown> = { run };
 const IMAGES = ["/seed-products/bone-supreme.svg", "/seed-products/bermuda-adidas.svg", "/seed-products/conjunto-nike-tech.svg", "/seed-products/calca-high-strapped.svg", "/seed-products/bolsa-bag-supreme.svg", "/brand/rare-logo.png"];
 const products = Array.from({ length: 20 }, (_, index) => ({
@@ -176,11 +177,32 @@ test("checkout: card with 1x-12x (R$ 600) on phone and desktop, then Pix", async
     await page.waitForLoadState("networkidle");
     const card = page.locator('input[name="payment-method"][value="card"]');
     if (await card.count()) await card.check();
+    // Before the refine: a visible fieldset of 12 radios. After (UIUX-CHECKOUT-001): a one-row toggle
+    // that opens the same radios in a box with its own scroll.
+    const toggle = page.getByTestId("card-installment-toggle");
+    const compact = (await toggle.count()) > 0;
     const fieldset = page.locator("fieldset").filter({ hasText: "Parcelamento no cartão" });
-    const box = await fieldset.boundingBox().catch(() => null);
-    metrics[`checkout card ${label}`] = { ...(await layout(page)), installmentOptions: await page.locator('input[name="card-installments"]').count(), installmentFieldsetHeight: box ? Math.round(box.height) : null };
+    const box = compact ? await toggle.boundingBox().catch(() => null) : await fieldset.boundingBox().catch(() => null);
+    const finalize = await page.getByRole("button", { name: "Finalizar compra" }).boundingBox().catch(() => null);
+    metrics[`checkout card ${label}`] = {
+      ...(await layout(page)),
+      installmentOptions: await page.locator('input[name="card-installments"]').count(),
+      installmentFieldsetHeight: box ? Math.round(box.height) : null,
+      finalizeButtonTop: finalize ? Math.round(finalize.y + (await page.evaluate(() => window.scrollY))) : null,
+    };
     await shot(page, "checkout", `checkout-cartao-12x-${label}`);
-    if (await fieldset.count()) {
+    if (compact) {
+      await toggle.scrollIntoViewIfNeeded();
+      await shot(page, "checkout", `checkout-cartao-12x-${label}-viewport`, false);
+      await toggle.click();
+      const panel = await fieldset.boundingBox().catch(() => null);
+      metrics[`checkout card ${label} open`] = { panelHeight: panel ? Math.round(panel.height) : null };
+      await shot(page, "checkout", `checkout-cartao-12x-${label}-aberto`, false);
+      // A pointer pick closes the list and leaves the chosen plan (with its card total) in the toggle.
+      await page.locator('input[name="card-installments"][value="8"]').check();
+      metrics[`checkout card ${label} 8x`] = { toggle: (await toggle.textContent())?.trim() ?? null, listOpen: await fieldset.isVisible() };
+      await shot(page, "checkout", `checkout-cartao-8x-${label}-escolhido`, false);
+    } else if (await fieldset.count()) {
       await fieldset.scrollIntoViewIfNeeded();
       await shot(page, "checkout", `checkout-cartao-12x-${label}-viewport`, false);
     }

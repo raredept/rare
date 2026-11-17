@@ -7,10 +7,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PaymentMethodPicker, type CheckoutPaymentMethod, type CheckoutPaymentProvider } from "@/components/store/payment-method-picker";
 import { ASAAS_MIN_CHARGE_IN_CENTS, ASAAS_MINIMUM_PAYMENT_MESSAGE, ASAAS_RESERVATION_MINUTES } from "@/lib/checkout-policy";
 import { CardInstallmentHint } from "@/components/store/card-installment-hint";
+import { CardInstallmentSelector } from "@/components/store/card-installment-selector";
 import { DISABLED_CARD_INSTALLMENT_RULES, describeCardInstallmentPlan, listCardInstallmentPlans, type CardInstallmentRules } from "@/lib/card-installments";
 import { useCart, type CartItem } from "@/components/store/cart-context";
 import { ProductMediaPlaceholder } from "@/components/store/product-media-placeholder";
 import { formatCep, parseCep } from "@/lib/cep";
+import { formatCheckoutMessage } from "@/lib/checkout-messages";
 import { formatCpf, isValidCpf, normalizeCpf } from "@/lib/cpf";
 import { formatMoney } from "@/lib/money";
 import { calculatePercentDiscountInCents } from "@/lib/coupons";
@@ -169,14 +171,6 @@ function formatShippingError(message: string) {
     return "A loja precisa finalizar a configuração do Melhor Envio para calcular o frete.";
   }
   return formatCheckoutMessage(message);
-}
-
-function formatCheckoutMessage(message: string) {
-  if (message === "Checkout temporariamente indisponível." || message.includes("Checkout temporariamente indisponível")) {
-    return "O checkout está temporariamente pausado. Consulte a RARE para verificar disponibilidade.";
-  }
-
-  return message;
 }
 
 export function CartPageClient({ customer, addresses, initialSelectedAddressId, pixAvailable = false, cardAvailable = true, paymentProvider = "disabled", cardInstallmentRules = DISABLED_CARD_INSTALLMENT_RULES, shippingSettings, shippingConfig, welcomeCoupon }: CartPageClientProps) {
@@ -865,30 +859,7 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
           {error ? <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{error}</p> : null}
           {paymentAvailable && pixAvailable && cardAvailable ? <PaymentMethodPicker value={paymentMethod} onChange={setPaymentMethod} disabled={loading} provider={usesAsaas ? "asaas" : "stripe"} /> : null}
           {installmentPlans.length > 1 ? (
-            <fieldset className="mt-5" disabled={loading}>
-              <legend className="text-sm font-black text-neutral-950">Parcelamento no cartão</legend>
-              <div className="mt-3 grid gap-2">
-                {installmentPlans.map((plan) => {
-                  const selected = selectedPlan?.installmentCount === plan.installmentCount;
-                  return (
-                    <label
-                      key={plan.installmentCount}
-                      className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm transition focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-black ${selected ? "border-neutral-950 bg-neutral-50" : "border-neutral-300 bg-white hover:border-neutral-500"}`}
-                    >
-                      <input
-                        type="radio"
-                        name="card-installments"
-                        value={plan.installmentCount}
-                        checked={selected}
-                        onChange={() => setInstallmentChoice(plan.installmentCount)}
-                        className="mt-1 h-4 w-4 accent-black"
-                      />
-                      <span className="font-semibold text-neutral-800">{describeCardInstallmentPlan(plan)}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </fieldset>
+            <CardInstallmentSelector plans={installmentPlans} selectedPlan={selectedPlan} onSelect={setInstallmentChoice} disabled={loading} />
           ) : null}
           {paymentAvailable ? (
             <p className="mt-5 text-sm font-semibold leading-6 text-neutral-700">Ao iniciar o pagamento, você terá {paymentWindowMinutes} minutos para finalizar. O prazo fica salvo com seu pedido e não se renova ao voltar à loja. Pagamentos já em processamento aguardam confirmação.</p>

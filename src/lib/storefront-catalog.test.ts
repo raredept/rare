@@ -475,17 +475,41 @@ describe("storefront catalog helpers", () => {
     }));
   });
 
-  it("returns a 24-product leaf page with a lookahead and keeps the same search and brand filters", async () => {
+  it("returns a 24-product leaf page from the whole scope, with the real total, brand filter and facets (UIUX-CATALOG-001)", async () => {
+    const inStock = [{ size: "G", active: true, stock: 2, reservedStock: 0 }];
     mocks.prisma.category.findUnique.mockResolvedValueOnce({ name: "Camisetas", slug: "camisetas", active: true, children: [] });
-    mocks.prisma.product.count.mockResolvedValueOnce(60);
-    mocks.prisma.product.findMany.mockResolvedValueOnce(Array.from({ length: 25 }, (_, index) => product({ id: `page-${index}` })));
+    mocks.prisma.product.findMany
+      .mockResolvedValueOnce([
+        ...Array.from({ length: 50 }, (_, index) => product({ id: `bape-${index}`, brand: "BAPE", variants: inStock, createdAt: new Date(2026, 0, 1 + index) })),
+        ...Array.from({ length: 5 }, (_, index) => product({ id: `stussy-${index}`, brand: "Stüssy", variants: inStock, createdAt: new Date(2026, 0, 1) })),
+      ])
+      .mockResolvedValueOnce([]);
     const { getCategoryPageData } = await import("@/lib/storefront");
-    const data = await getCategoryPageData("camisetas", { page: 2, query: "Rare", brand: "BAPE" });
-    expect(data).toMatchObject({ page: 2, hasMore: true });
+    const data = await getCategoryPageData("camisetas", { page: 2, query: "Rare", brand: "bape" });
+    expect(data).toMatchObject({ page: 2, hasMore: true, total: 50 });
     if (data?.kind !== "category") throw new Error("Expected leaf page");
     expect(data.products).toHaveLength(24);
-    expect(mocks.prisma.product.findMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 24, take: 25,
-      where: availableWhere({ active: true, brand: { equals: "BAPE", mode: "insensitive" } }),
-    }));
+    expect(data.products.every((item) => item.brand === "BAPE")).toBe(true);
+    // The scope is read once, without paging or the brand, so the brand facet still lists the others.
+    expect(mocks.prisma.product.findMany).toHaveBeenNthCalledWith(1, expect.objectContaining({ skip: 0, take: undefined }));
+    expect(mocks.prisma.product.findMany).toHaveBeenNthCalledWith(1, expect.objectContaining({ where: availableWhere({ active: true }) }));
+    expect(data.facets.brands.map((option) => [option.label, option.count])).toEqual([["BAPE", 50], ["Stüssy", 5]]);
+    expect(data.facets.sizes).toEqual([{ value: "G", label: "G", count: 50 }]);
+  });
+
+  it("a sorted or filtered parent/complete catalog becomes one flat paginated list", async () => {
+    const inStock = [{ size: "M", active: true, stock: 1, reservedStock: 0 }];
+    mocks.prisma.product.findMany
+      .mockResolvedValueOnce([
+        product({ id: "old", brand: "A", variants: inStock, createdAt: new Date("2026-01-01") }),
+        product({ id: "new", brand: "A", variants: inStock, createdAt: new Date("2026-06-01") }),
+      ])
+      .mockResolvedValueOnce([product({ id: "sold", brand: "A", variants: [], createdAt: new Date("2026-12-01") })]);
+    const { getCategoryPageData } = await import("@/lib/storefront");
+    const data = await getCategoryPageData("tudo", {}, { available: false, promo: false, sort: "newest" });
+    if (data?.kind !== "filtered") throw new Error("Expected the flat filtered list");
+    // Newest first among the available ones; the sold-out piece stays last.
+    expect(data.products.map((item) => item.id)).toEqual(["new", "old", "sold"]);
+    expect(data.total).toBe(3);
   });
 });

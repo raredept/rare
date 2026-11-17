@@ -5,6 +5,13 @@ import { getPreferredCategoryOrder } from "@/lib/catalog-shortcuts";
 import { prisma } from "@/lib/prisma";
 import { isVariantPurchasable } from "@/lib/stock";
 import { buildCatalogPageHref, CATALOG_PAGE_SIZE, normalizeCatalogPage } from "@/lib/catalog-pagination";
+import {
+  applyCatalogRefinements,
+  buildCatalogFacets,
+  DEFAULT_CATALOG_REFINEMENTS,
+  hasActiveRefinements,
+  type CatalogRefinements,
+} from "@/lib/catalog-refinements";
 import { loadApplicablePromotionRules } from "@/lib/promotions/store";
 import { priceProduct, type ProductPrice } from "@/lib/promotions/engine";
 
@@ -400,8 +407,10 @@ export async function getProductsGroupedByCategory(params?: {
   categories?: GroupingCategory[];
   limitPerCategory?: number;
   includeEmpty?: boolean;
+  /** Already loaded (and brand-filtered) scope, to avoid reading the catalog twice. */
+  products?: StorefrontProduct[];
 }) {
-  const products = await getProducts({ query: params?.query, brand: params?.brand, categorySlug: params?.categorySlug });
+  const products = params?.products ?? await getProducts({ query: params?.query, brand: params?.brand, categorySlug: params?.categorySlug });
   const limitPerCategory = params?.limitPerCategory ?? 8;
 
   if (!params?.categories) {
@@ -442,15 +451,40 @@ export async function getProductsGroupedByCategory(params?: {
   });
 }
 
-export async function getCategoryPageData(slug: string, params?: { query?: string; brand?: string; page?: number }) {
+export async function getCategoryPageData(
+  slug: string,
+  params?: { query?: string; brand?: string; page?: number },
+  refinements: CatalogRefinements = DEFAULT_CATALOG_REFINEMENTS,
+) {
   const page = normalizeCatalogPage(params?.page);
-  async function loadProductPage(categorySlug?: string, featuredOnly = false) {
-    const products = await getProducts({ categorySlug, featuredOnly, query: params?.query, brand: params?.brand,
-      limit: CATALOG_PAGE_SIZE + 1, offset: (page - 1) * CATALOG_PAGE_SIZE,
-      ...(featuredOnly ? { orderBy: featuredProductOrderBy } : {}),
-    });
-    return { products: products.slice(0, CATALOG_PAGE_SIZE), page, hasMore: products.length > CATALOG_PAGE_SIZE };
+  const refined = hasActiveRefinements(refinements);
+
+  // UIUX-CATALOG-001: the whole scope (category / search) is read once — the catalog has dozens of
+  // products, not thousands — so the filter options, the real total and the sort all come from the
+  // same rows. The incoming order is unchanged (available first, then the catalog order).
+  async function loadScope(categorySlug?: string, featuredOnly = false) {
+    return getProducts({ categorySlug, featuredOnly, query: params?.query, ...(featuredOnly ? { orderBy: featuredProductOrderBy } : {}) });
   }
+  function toProductPage(scope: StorefrontProduct[]) {
+    const results = applyCatalogRefinements(scope, refinements, params?.brand);
+    const offset = (page - 1) * CATALOG_PAGE_SIZE;
+    return {
+      products: results.slice(offset, offset + CATALOG_PAGE_SIZE),
+      page,
+      hasMore: results.length > offset + CATALOG_PAGE_SIZE,
+      total: results.length,
+      facets: buildCatalogFacets(scope, refinements, params?.brand),
+    };
+  }
+  async function toGroupedSections(scope: StorefrontProduct[], options: { categorySlug?: string; categories?: GroupingCategory[]; limitPerCategory?: number }) {
+    const results = applyCatalogRefinements(scope, refinements, params?.brand);
+    return {
+      sections: await getProductsGroupedByCategory({ ...options, query: params?.query, brand: params?.brand, products: results }),
+      total: results.length,
+      facets: buildCatalogFacets(scope, refinements, params?.brand),
+    };
+  }
+
   if (slug === "destaques") {
     return {
       kind: "featured" as const,
@@ -458,19 +492,17 @@ export async function getCategoryPageData(slug: string, params?: { query?: strin
       eyebrow: "Destaques RARE",
       title: "Destaques da loja",
       description: "Peças em evidência na RARE — selecionadas por estilo, procura e presença.",
-      ...await loadProductPage(undefined, true),
+      ...toProductPage(await loadScope(undefined, true)),
     };
   }
 
   if (slug === "tudo") {
-    return {
-      kind: "grouped" as const,
-      slug,
-      eyebrow: "Catálogo RARE",
-      title: "Catálogo completo",
-      description: "Explore todas as peças da RARE por categoria.",
-      sections: await getProductsGroupedByCategory({ query: params?.query, brand: params?.brand, limitPerCategory: 10 }),
-    };
+    const scope = await loadScope();
+    const meta = { slug, eyebrow: "Catálogo RARE", title: "Catálogo completo", description: "Explore todas as peças da RARE por categoria." };
+    // Filtered or sorted: one flat, paginated list (sections would hide the chosen order).
+    return refined
+      ? { kind: "filtered" as const, ...meta, ...toProductPage(scope) }
+      : { kind: "grouped" as const, ...meta, ...await toGroupedSections(scope, { limitPerCategory: 10 }) };
   }
 
   const category = await prisma.category.findUnique({
@@ -487,19 +519,11 @@ export async function getCategoryPageData(slug: string, params?: { query?: strin
   }
 
   if (category.children.length) {
-    return {
-      kind: "grouped" as const,
-      slug,
-      eyebrow: "Categoria",
-      title: category.name,
-      description: "Peças da RARE nesta categoria, separadas por seção.",
-      sections: await getProductsGroupedByCategory({
-        categorySlug: slug,
-        query: params?.query,
-        brand: params?.brand,
-        categories: category.children,
-      }),
-    };
+    const scope = await loadScope(slug);
+    const meta = { slug, eyebrow: "Categoria", title: category.name, description: "Peças da RARE nesta categoria, separadas por seção." };
+    return refined
+      ? { kind: "filtered" as const, ...meta, ...toProductPage(scope) }
+      : { kind: "grouped" as const, ...meta, ...await toGroupedSections(scope, { categorySlug: slug, categories: category.children }) };
   }
 
   return {
@@ -508,7 +532,7 @@ export async function getCategoryPageData(slug: string, params?: { query?: strin
     eyebrow: "Categoria",
     title: category.name,
     description: "Peças selecionadas pela RARE nesta categoria.",
-    ...await loadProductPage(slug),
+    ...toProductPage(await loadScope(slug)),
   };
 }
 

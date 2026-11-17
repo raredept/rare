@@ -8,12 +8,14 @@ import { getCategoryPageData, getNavigationCategories, type StorefrontProduct } 
 import { buildCatalogShortcuts } from "@/lib/catalog-shortcuts";
 import { getStorefrontCommerceState, type StorefrontCommerceState } from "@/lib/storefront-commerce";
 import { buildCatalogPageHref, normalizeCatalogPage } from "@/lib/catalog-pagination";
+import { buildCatalogHref, formatPriceBand, hasActiveRefinements, parseCatalogRefinements } from "@/lib/catalog-refinements";
+import { CatalogToolbar } from "@/components/store/catalog-toolbar";
 
 export const dynamic = "force-dynamic";
 
 type CategoryPageProps = {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ q?: string; brand?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; brand?: string; page?: string; size?: string; price?: string; available?: string; promo?: string; sort?: string }>;
 };
 
 export async function generateMetadata({ params }: Pick<CategoryPageProps, "params">): Promise<Metadata> {
@@ -24,7 +26,8 @@ export async function generateMetadata({ params }: Pick<CategoryPageProps, "para
     notFound();
   }
 
-  return buildCategoryMetadata(pageData);
+  // Metadata always reads the unfiltered page; "filtered" only exists with refinements, kept for the type.
+  return buildCategoryMetadata(pageData.kind === "filtered" ? { ...pageData, kind: "category" } : pageData);
 }
 
 function ProductGrid({
@@ -93,19 +96,35 @@ function EmptyState({
 }
 
 export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {
-  const [{ slug }, { q, brand, page }] = await Promise.all([params, searchParams]);
+  const [{ slug }, search] = await Promise.all([params, searchParams]);
+  const { q, brand, page } = search;
   const filters = { query: q, brand };
+  const refinements = parseCatalogRefinements(search);
   const [pageData, navigableCategories] = await Promise.all([
-    getCategoryPageData(slug, { ...filters, page: normalizeCatalogPage(page) }),
+    getCategoryPageData(slug, { ...filters, page: normalizeCatalogPage(page) }, refinements),
     getNavigationCategories(),
   ]);
 
   if (!pageData) notFound();
   const shortcuts = buildCatalogShortcuts(navigableCategories);
   const commerce = getStorefrontCommerceState();
-  const totalProducts = pageData.kind === "grouped"
-    ? pageData.sections.reduce((total, section) => total + section.total, 0)
-    : pageData.products.length;
+  // The real total of the scope with its filters (UIUX-CATALOG-001), not "N on this page".
+  const totalProducts = "total" in pageData && typeof pageData.total === "number"
+    ? pageData.total
+    : pageData.kind === "grouped"
+      ? pageData.sections.reduce((total, section) => total + section.total, 0)
+      : pageData.products.length;
+  const facets = "facets" in pageData && pageData.facets ? pageData.facets : null;
+  const urlState = { ...filters, ...refinements };
+  const anyFilter = Boolean(q?.trim() || brand?.trim()) || hasActiveRefinements(refinements);
+  const chips = [
+    q?.trim() ? { label: `Busca: ${q.trim()}`, href: buildCatalogHref(slug, { ...urlState, query: undefined }) } : null,
+    brand?.trim() ? { label: `Marca: ${brand.trim()}`, href: buildCatalogHref(slug, { ...urlState, brand: undefined }) } : null,
+    refinements.size ? { label: `Tamanho: ${refinements.size}`, href: buildCatalogHref(slug, { ...urlState, size: undefined }) } : null,
+    refinements.price ? { label: formatPriceBand(refinements.price), href: buildCatalogHref(slug, { ...urlState, price: undefined }) } : null,
+    refinements.available ? { label: "Disponível agora", href: buildCatalogHref(slug, { ...urlState, available: false }) } : null,
+    refinements.promo ? { label: "Em promoção", href: buildCatalogHref(slug, { ...urlState, promo: false }) } : null,
+  ].filter((chip): chip is { label: string; href: string } => Boolean(chip));
 
   const breadcrumbJsonLd = buildBreadcrumbListJsonLd(RARE_DEFAULT_SITE_URL, [
     { name: "Início", path: "/" },
@@ -115,23 +134,34 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   return (
     <div className="store-shell py-8 lg:py-12">
       <JsonLdScript id="rare-category-breadcrumb-json-ld" data={breadcrumbJsonLd} />
-      <div className="mb-9 border-b border-neutral-200 pb-7">
-        <nav aria-label="Breadcrumb" className="mb-5 flex items-center gap-2 text-xs font-bold text-neutral-500">
+      <div className="mb-8">
+        <nav aria-label="Breadcrumb" className="mb-4 flex items-center gap-2 text-xs font-bold text-neutral-500">
           <Link href="/" className="hover:text-neutral-950">Início</Link><span aria-hidden="true">/</span><span aria-current="page">{pageData.title}</span>
         </nav>
         <p className="text-xs font-black uppercase tracking-[0.24em] text-neutral-500">{pageData.eyebrow}</p>
-        <h1 className="mt-3 text-3xl font-black tracking-tight text-neutral-950 lg:text-5xl">{pageData.title}</h1>
-        <p className="mt-4 max-w-2xl text-sm font-semibold leading-6 text-neutral-500">{pageData.description}</p>
-        <p className="mt-5 text-xs font-black uppercase tracking-[0.18em] text-neutral-700">{totalProducts} {totalProducts === 1 ? "produto" : "produtos"}{pageData.kind !== "grouped" ? ` nesta página · Página ${pageData.page}` : ""}</p>
-        {q?.trim() || brand?.trim() ? <div className="mt-3 flex flex-wrap items-center gap-3 text-sm font-semibold text-neutral-600">
-          {q?.trim() ? <span>Busca: {q.trim()}</span> : null}{brand?.trim() ? <span>Marca: {brand.trim()}</span> : null}
-          <Link href={buildCatalogPageHref(slug)} className="inline-flex min-h-11 items-center underline underline-offset-4">Limpar filtros</Link>
-        </div> : null}
-        <div className="scrollbar-none mt-6 flex gap-2 overflow-x-auto pb-1" aria-label="Atalhos do catálogo">
+        <h1 className="mt-2 text-3xl font-black tracking-tight text-neutral-950 lg:text-5xl">{pageData.title}</h1>
+        <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-neutral-500">{pageData.description}</p>
+        {/* UIUX-NAV-001: from 1024 px the header already lists every category; this quick bar is the
+            only category navigation below that, so it stays there (and only there). */}
+        <div className="scrollbar-none mt-5 flex gap-2 overflow-x-auto pb-1 lg:hidden" aria-label="Atalhos do catálogo">
           {shortcuts.map((item) => (
-            <Link key={item.href} href={item.href} aria-current={item.slug === slug ? "page" : undefined} className={`inline-flex min-h-10 shrink-0 items-center rounded-full border px-4 text-xs font-black uppercase tracking-[0.12em] ${item.slug === slug ? "border-black bg-black text-white" : "border-neutral-300 bg-white text-neutral-700 hover:border-black"}`}>{item.label}</Link>
+            <Link key={item.href} href={item.href} aria-current={item.slug === slug ? "page" : undefined} className={`inline-flex min-h-11 shrink-0 items-center rounded-full border px-4 text-xs font-black uppercase tracking-[0.12em] ${item.slug === slug ? "border-black bg-black text-white" : "border-neutral-300 bg-white text-neutral-700 hover:border-black"}`}>{item.label}</Link>
           ))}
         </div>
+        <div className="mt-5">
+          <CatalogToolbar slug={slug} query={q?.trim() || undefined} brand={brand?.trim() || undefined} refinements={refinements} facets={facets} total={totalProducts} />
+        </div>
+        {chips.length ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2" aria-label="Filtros aplicados">
+            {chips.map((chip) => (
+              <Link key={chip.label} href={chip.href} className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-neutral-100 px-3 text-xs font-bold text-neutral-800 hover:bg-neutral-200" aria-label={`Remover filtro ${chip.label}`}>
+                {chip.label}
+                <span aria-hidden="true">×</span>
+              </Link>
+            ))}
+            <Link href={buildCatalogPageHref(slug)} className="inline-flex min-h-11 items-center px-2 text-xs font-bold text-neutral-600 underline underline-offset-4">Limpar filtros</Link>
+          </div>
+        ) : null}
       </div>
 
       {pageData.kind === "grouped" ? (
@@ -172,8 +202,8 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
         <ProductGrid products={pageData.products} commerce={commerce} priorityFirst />
       ) : pageData.page > 1 ? (
         <EmptyState title="Nenhum produto nesta página." description="Volte à primeira página para explorar esta seleção."
-          actions={[{ href: buildCatalogPageHref(slug, filters), label: "Voltar à primeira página", variant: "primary" }]} />
-      ) : q?.trim() || brand?.trim() ? (
+          actions={[{ href: buildCatalogHref(slug, { ...urlState, page: 1 }), label: "Voltar à primeira página", variant: "primary" }]} />
+      ) : anyFilter ? (
         <EmptyState title="Nenhum produto encontrado." description="Tente outro termo ou remova os filtros."
           actions={[{ href: buildCatalogPageHref(slug), label: "Limpar filtros", variant: "primary" }]} />
       ) : pageData.kind === "featured" ? (
@@ -189,9 +219,9 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
         />
       )}
       {pageData.kind !== "grouped" && (pageData.page > 1 || pageData.hasMore) ? <nav aria-label="Paginação do catálogo" className="mt-10 flex flex-wrap items-center justify-center gap-3 border-t border-neutral-200 pt-6">
-        {pageData.page > 1 ? <Link rel="prev" href={buildCatalogPageHref(slug, { ...filters, page: pageData.page - 1 })} className="inline-flex min-h-11 items-center rounded-full border border-neutral-300 px-5 text-sm font-bold hover:border-black">Página anterior</Link> : null}
+        {pageData.page > 1 ? <Link rel="prev" href={buildCatalogHref(slug, { ...urlState, page: pageData.page - 1 })} className="inline-flex min-h-11 items-center rounded-full border border-neutral-300 px-5 text-sm font-bold hover:border-black">Página anterior</Link> : null}
         <span className="px-2 text-sm font-bold" aria-current="page">Página {pageData.page}</span>
-        {pageData.hasMore ? <Link rel="next" href={buildCatalogPageHref(slug, { ...filters, page: pageData.page + 1 })} className="inline-flex min-h-11 items-center rounded-full border border-neutral-300 px-5 text-sm font-bold hover:border-black">Próxima página</Link> : null}
+        {pageData.hasMore ? <Link rel="next" href={buildCatalogHref(slug, { ...urlState, page: pageData.page + 1 })} className="inline-flex min-h-11 items-center rounded-full border border-neutral-300 px-5 text-sm font-bold hover:border-black">Próxima página</Link> : null}
       </nav> : null}
     </div>
   );

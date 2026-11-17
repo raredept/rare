@@ -180,6 +180,11 @@ export function HomeBannerForm({ banner, error, nextSortOrder }: HomeBannerFormP
             onChange={(event) => updateField("title", event.target.value)}
           />
         </Field>
+        {!isLogin ? (
+          <p className="-mt-2 text-xs leading-5 text-neutral-400">
+            Arte que já traz texto ou botão desenhado: deixe o título vazio. Na home, banner com imagem e sem título aparece sem nenhum texto da loja por cima; eyebrow e descrição ficam só para leitores de tela. Evite desenhar botão na arte quando houver CTA.
+          </p>
+        ) : null}
 
         <Field label="Descrição">
           <textarea
