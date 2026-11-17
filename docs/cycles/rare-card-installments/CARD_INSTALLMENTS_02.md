@@ -108,6 +108,9 @@ H = parcelamento), porque o cadastro de MFA de uma conta não se repete na mesma
 ## 8. Pendências / bloqueadores
 
 - PR #4 ainda não mergeado em `main`: este ciclo deve entrar **depois** dele (ou junto, revisado como um só).
-- Pix no staging depende da ativação da chave Pix da conta Sandbox.
+- Pix no staging: **gate dispensado pelo operador em 17/11/2026** ("Libere o staging sem API mesmo, vamos testar na
+  produção e se não tiver funcionando lá, a gente tira por enquanto"). Motivo: a chave EVP da conta Sandbox ficou
+  `AWAITING_ACTIVATION`; o Asaas recusa criar outra ("Já existe uma chave aguardando ativação") e o painel trava ao
+  excluir. A prova do Pix passa a ser feita em produção; rollback = desligar o parcelamento (flag/toggle).
 - Fora do escopo: erro "Falha temporária" relatado pelo vendedor ao editar promoção no Admin (não investigado).
 - Produção: nada publicado; `CARD_INSTALLMENTS_ENABLED` continua desligado.
