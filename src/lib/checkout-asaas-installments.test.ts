@@ -405,6 +405,6 @@ describe("SKU + image + 12x together (RARE-CARD-INSTALLMENTS-02)", () => {
     seed({ settings: { ...installmentSettings, cardInstallmentSurchargesBps: { ...installmentSettings.cardInstallmentSurchargesBps, 12: 2_500 } } });
     const plan = describeOrderInstallments(stored as Parameters<typeof describeOrderInstallments>[0]);
     expect(plan).toMatchObject({ count: 12, feeInCents: 3_960, rateText: "18%" });
-    expect(stored.totalInCents).toBe(TOTAL_12X);
+    expect(data.totalInCents).toBe(TOTAL_12X);
   });
 });
