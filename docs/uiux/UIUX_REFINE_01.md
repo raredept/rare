@@ -117,10 +117,22 @@ lab `uiux-refine-lab.spec.ts` 5/5 (404 com status, banner 24%, fonte dos botões
 foco abaixo do header); `prelaunch-consent-analytics.spec.ts` 5/5 (com `--https`, que a rota de análise exige em
 build de produção); `support.spec.ts` 7/7.
 
+## Revisão final (RARE-UIUX-REFINE-01-FINAL-REVIEW, sobre 8190f2f)
+
+A revisão independente do PR #6 rodou a matriz Chromium / Firefox / WebKit (375 / 768 / 1440, rotas da
+loja, banner de cookies e seletor de parcelas) e não achou CRITICAL nem HIGH. Dois MEDIUM de apresentação
+foram corrigidos depois, com aprovação do operador:
+
+| Achado | Correção | Prova |
+| --- | --- | --- |
+| PDP celular: no fim da página a barra fixa cobria "© 2026 RARE" e o aviso final do rodapé | Enquanto a barra pode aparecer, a página reserva a altura medida dela no fim (`html[data-pdp-buy-bar]` + `--pdp-buy-bar-space`, só abaixo de 1024 px); sai ao deixar a página | Lab: 0 itens do rodapé cobertos em 320–430 (Chromium) e 375 (Firefox, WebKit); desktop sem reserva; `uiux-refine-p2.test.ts` |
+| Admin produto < 1280 px: a barra "Salvar produto" não ficava presa na tela (a animação `.admin-page-transition` deixa `transform` no `main`) | Barra via portal no `body` (`AdminFixedSaveBar`), botão ligado ao formulário por `form="admin-product-form"`; mesma Server Action | Lab 390 px: barra em 771–844 px de 844 em qualquer rolagem, salvar pela barra grava o produto; `order-item-sku.spec.ts` 8/8 |
+
 ## Não feito / limites
 
-- Nada foi enviado para produção; nenhum push; nenhum merge.
-- WebKit/Firefox não rodaram neste ciclo (lab em Chromium, como os specs financeiros).
+- Nada foi enviado para produção; nenhum merge. O branch está no PR #6.
+- A matriz WebKit/Firefox rodou na revisão final; WebKit no Windows desenha a fonte com traço mais fino e
+  os prefetches de RSC falham no proxy TLS do lab (ambiente, sem efeito na navegação).
 - O erro real de backend da promoção continua sem prova (sem logs de produção nesta máquina).
 - Polimento não feito: na lista de pedidos, o texto começa em posições diferentes conforme o número de
   miniaturas (1, 2 ou 3+). Funcional, mas pode ganhar uma coluna de largura fixa.

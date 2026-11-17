@@ -10,14 +10,17 @@ type AdminSubmitButtonProps = {
   className?: string;
   disabled?: boolean;
   icon?: ReactNode;
+  /** The id of the form to submit, for a button rendered outside it in the DOM (e.g. a portaled bar). */
+  form?: string;
 };
 
-export function AdminSubmitButton({ idleLabel, pendingLabel, className = "", disabled = false, icon }: AdminSubmitButtonProps) {
+export function AdminSubmitButton({ idleLabel, pendingLabel, className = "", disabled = false, icon, form }: AdminSubmitButtonProps) {
   const { pending } = useFormStatus();
 
   return (
     <button
       type="submit"
+      form={form}
       disabled={disabled || pending}
       className={`${className} inline-flex items-center justify-center gap-2 transition disabled:cursor-not-allowed disabled:opacity-60`}
       aria-busy={pending}

@@ -1,4 +1,5 @@
 import { saveProductAction } from "@/app/admin/(protected)/products/actions";
+import { AdminFixedSaveBar } from "@/components/admin/admin-fixed-save-bar";
 import { AdminSubmitButton } from "@/components/admin/admin-submit-button";
 import { AdminUnsavedChanges } from "@/components/admin/admin-unsaved-changes";
 import { ProductImageManager } from "@/components/admin/product-image-manager";
@@ -183,15 +184,17 @@ export function ProductForm({ product, categories, error, shippingDraft }: Produ
         </div>
       </aside>
       {/* UIUX-ADMIN-004: below 1280 px the only save button used to sit at the very end of a ~4.000 px
-          page; it now stays fixed at the bottom of the screen. Same form, same action. */}
-      <div className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-3 border-t border-neutral-800 bg-neutral-950/95 px-4 py-3 backdrop-blur xl:hidden">
+          page; it now stays fixed at the bottom of the screen (portaled, see AdminFixedSaveBar). Same
+          form, same action; the form's pb-24 keeps its last fields clear of the bar. */}
+      <AdminFixedSaveBar className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-3 border-t border-neutral-800 bg-neutral-950/95 px-4 py-3 backdrop-blur xl:hidden">
         <AdminSubmitButton
+          form="admin-product-form"
           idleLabel={product ? "Salvar produto" : "Criar produto"}
           pendingLabel={product ? "Salvando..." : "Criando..."}
           className="h-12 flex-1 rounded-lg bg-black text-sm font-black uppercase tracking-wide text-white sm:max-w-xs"
         />
         <AdminUnsavedChanges formId="admin-product-form" />
-      </div>
+      </AdminFixedSaveBar>
     </form>
   );
 }

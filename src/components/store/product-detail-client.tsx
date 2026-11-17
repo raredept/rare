@@ -238,6 +238,27 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
   const uniqueSold = soldOut && product.stockPolicy === "UNIQUE";
   const fullDescription = product.description.trim();
   const shortDescription = product.shortDescription.trim();
+  // UIUX-PDP-003: the phone buy bar is fixed over the bottom of the screen. While it can appear, the page
+  // ends that much lower (globals.css, below 1024 px), so the footer's last lines are never under it.
+  const buyBarRef = useRef<HTMLDivElement | null>(null);
+  const canShowBuyBar = commerceState.checkoutEnabled && !soldOut && Boolean(selectedVariant) && availableStock > 0;
+  const showBuyBar = canShowBuyBar && !addButtonVisible;
+  useEffect(() => {
+    if (!canShowBuyBar) return;
+    const root = document.documentElement;
+    root.dataset.pdpBuyBar = "true";
+    return () => {
+      delete root.dataset.pdpBuyBar;
+    };
+  }, [canShowBuyBar]);
+  useEffect(() => {
+    const bar = buyBarRef.current;
+    if (!showBuyBar || !bar || typeof ResizeObserver === "undefined") return;
+    const root = document.documentElement;
+    const observer = new ResizeObserver(() => root.style.setProperty("--pdp-buy-bar-space", `${Math.ceil(bar.getBoundingClientRect().height)}px`));
+    observer.observe(bar);
+    return () => observer.disconnect();
+  }, [showBuyBar]);
   const mainDescription = shortDescription || fullDescription;
 
   const selectedSize = selectedVariant?.size;
@@ -739,8 +760,8 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
           "Esgotado" or a button for paused purchases. Hidden from 1024 px, where the column shows it. */}
       {/* Portal to <body>: the page's entrance animation leaves a transform on an ancestor, which would
           pin a `fixed` bar to the page instead of the screen. */}
-      {!addButtonVisible && commerceState.checkoutEnabled && !soldOut && selectedVariant && availableStock > 0 && typeof document !== "undefined" ? createPortal(
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-neutral-200 bg-white/95 px-4 py-3 shadow-[0_-12px_40px_rgba(0,0,0,0.12)] backdrop-blur lg:hidden" data-testid="pdp-buy-bar" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
+      {showBuyBar && selectedVariant && typeof document !== "undefined" ? createPortal(
+        <div ref={buyBarRef} className="fixed inset-x-0 bottom-0 z-30 border-t border-neutral-200 bg-white/95 px-4 py-3 shadow-[0_-12px_40px_rgba(0,0,0,0.12)] backdrop-blur lg:hidden" data-testid="pdp-buy-bar" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
           <div className="mx-auto flex max-w-xl items-center gap-3">
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-bold text-neutral-600">{product.title} · {selectedVariant.size}</p>

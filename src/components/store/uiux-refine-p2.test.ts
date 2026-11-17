@@ -1,8 +1,10 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { createElement, type ReactNode } from "react";
+import { createElement, type ComponentProps, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import { AdminFixedSaveBar } from "@/components/admin/admin-fixed-save-bar";
+import { AdminSubmitButton } from "@/components/admin/admin-submit-button";
 import { CookieConsent } from "@/components/store/cookie-consent";
 import { HomeBrandsStrip } from "@/components/store/home-brands-strip";
 import { HomeMotionProvider } from "@/components/store/home-motion";
@@ -47,5 +49,26 @@ describe("RARE-UIUX-REFINE-01 · P2/P3", () => {
     expect(formatPromotionHistoryAction("promotion.updated")).toBe("Editada");
     expect(formatPromotionHistoryAction("promotion.created")).toBe("Criada");
     expect(formatPromotionHistoryAction("promotion.something")).toBe("something");
+  });
+
+  it("UIUX-PDP-003: while the phone buy bar can show, the page ends below it (footer never hidden)", () => {
+    const css = readFileSync(path.resolve("src/app/globals.css"), "utf8");
+    expect(css).toMatch(/@media \(max-width: 1023px\)\s*\{\s*html\[data-pdp-buy-bar="true"\] body\s*\{\s*padding-bottom: var\(--pdp-buy-bar-space, 5\.5rem\);/);
+    const source = readFileSync(path.resolve("src/components/store/product-detail-client.tsx"), "utf8");
+    expect(source).toContain('root.dataset.pdpBuyBar = "true"');
+    expect(source).toContain("delete root.dataset.pdpBuyBar");
+    expect(source).toContain('root.style.setProperty("--pdp-buy-bar-space"');
+    expect(source).toContain("ref={buyBarRef}");
+  });
+
+  it("UIUX-ADMIN-004: the product save bar is portaled to <body> and still submits its form", () => {
+    const button = renderToStaticMarkup(createElement(AdminSubmitButton, { idleLabel: "Salvar produto", pendingLabel: "Salvando...", form: "admin-product-form" }));
+    expect(button).toContain('form="admin-product-form"');
+    expect(button).toContain('type="submit"');
+    // Server render: nothing until mounted (the portal target only exists in the browser).
+    expect(renderToStaticMarkup(createElement(AdminFixedSaveBar, { className: "fixed" } as ComponentProps<typeof AdminFixedSaveBar>, "x"))).toBe("");
+    const form = readFileSync(path.resolve("src/components/admin/product-form.tsx"), "utf8");
+    expect(form).toMatch(/<AdminFixedSaveBar[^>]*>\s*<AdminSubmitButton\s+form="admin-product-form"/);
+    expect(form).not.toMatch(/<div className="fixed inset-x-0 bottom-0/);
   });
 });

@@ -62,6 +62,14 @@ html {
   }
 }
 
+/* UIUX-PDP-003: while the product page's phone buy bar can show (product-detail-client.tsx sets the
+   attribute and measures the bar), the page ends below it, so the footer is never hidden under it. */
+@media (max-width: 1023px) {
+  html[data-pdp-buy-bar="true"] body {
+    padding-bottom: var(--pdp-buy-bar-space, 5.5rem);
+  }
+}
+
 ::selection {
   background: #111111;
   color: #ffffff;
