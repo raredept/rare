@@ -113,4 +113,35 @@ H = parcelamento), porque o cadastro de MFA de uma conta não se repete na mesma
   `AWAITING_ACTIVATION`; o Asaas recusa criar outra ("Já existe uma chave aguardando ativação") e o painel trava ao
   excluir. A prova do Pix passa a ser feita em produção; rollback = desligar o parcelamento (flag/toggle).
 - Fora do escopo: erro "Falha temporária" relatado pelo vendedor ao editar promoção no Admin (não investigado).
-- Produção: nada publicado; `CARD_INSTALLMENTS_ENABLED` continua desligado.
+- Produção: ver seção 9 (lançado em 17/11/2026).
+
+## 9. Produção — LANÇADO (17/11/2026)
+
+Autorização do operador: "Pode seguir" (plano de produção) e, após a validação, "Pode colocar que eu validei e
+vamos lançar!".
+
+| Passo | Resultado |
+|---|---|
+| Backup antes das migrations | `pg_dump -Fc` do Postgres de produção (146 KB), validado com `pg_restore -l` no próprio container (29 tabelas com dados, 22 migrations), hash local = remoto. Guardado fora do git em `output/card-installments-02/private/` |
+| PR #4 (SKU) | mergeado → main **9d9b16f**; deploy `rare` + `rare-cron` SUCCESS; migration `20261116120000` aplicada (214 variações, as 5 com SKU preservadas); health 200 |
+| PR #5 (parcelamento) | CI verde (3 checks), mergeado → main **2adec1a**; deploy SUCCESS; migration `20261116180000` aplicada; tabela aprovada gravada por padrão; toggle desligado |
+| Ligar | `CARD_INSTALLMENTS_ENABLED=true` no serviço `rare` (redeploy SUCCESS, health 200); toggle ligado pelo operador no Admin (`settings.installments_updated` 02:04Z) |
+| Loja | PDP de produção: "ou em até 3x sem juros · ou até 12x no cartão" |
+
+**Validação do operador (sem pagamento):** o operador validou o checkout de produção e não concluiu o pagamento.
+Pedidos gerados:
+
+- `RARE-20261117-ZK6E03` — Pix, R$ 73,65, cancelado (troca de forma de pagamento antes de pagar).
+- `RARE-20261117-XQQJL7` — cartão **8x**: base R$ 73,65, 14% = + R$ 10,31, total **R$ 83,96**
+  (7 × R$ 10,49 + R$ 10,53; soma exata); plano Asaas criado e conferido antes de gravar o link; foto no item.
+  Não pago: deve expirar pela janela de pagamento e ter o plano apagado no Asaas.
+
+**Sem prova de pagamento neste ciclo em produção:** nenhum pagamento por parcelamento nem Pix foi concluído em
+produção após o lançamento. A liquidação (webhook → pago, estoque, e-mail) está provada no staging (1x/2x/3x/12x)
+e o Pix em produção pela compra RARE-20261116-SPVPKE (ciclo de providers). Validação aceita pelo operador.
+
+**Rollback:** desligar o toggle em Admin → Configurações → Parcelamento (efeito imediato) ou
+`CARD_INSTALLMENTS_ENABLED=false` no serviço `rare`. Colunas novas ficam (aditivas).
+
+**Observação de copy:** "ou até 12x no cartão" aparece em todos os produtos (o total do carrinho pode crescer); uma
+peça sozinha de R$ 46,90 chega só a 5x no checkout por causa da parcela mínima de R$ 10.
