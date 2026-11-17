@@ -1,7 +1,8 @@
 # RARE-CARD-INSTALLMENTS-01 — Parcelamento no cartão (Asaas) — 2026-11-16
 
 Branch `cycle/rare-card-installments-01` (a partir de `main` `44db0f3`). Produção NÃO foi tocada:
-nenhum deploy, nenhuma variável, nenhuma migration aplicada, nenhuma compra. Sem chaves, tokens,
+nenhum deploy, nenhuma variável, nenhuma migration aplicada, nenhuma compra. Staging recebeu a
+branch e a migration (seção 7b). Sem chaves, tokens,
 CPF, e-mail completo ou dado de cartão neste documento.
 
 ## 1. Política implementada
@@ -118,25 +119,43 @@ snapshot — mudar as taxas depois não altera pedidos antigos. Pix: tudo nulo/0
 parcial-por-natureza (`asaasInstallmentId`, NULL permitido). Nenhum dado existente muda; todos os
 pedidos atuais continuam com o mesmo total. Instalação desligada por padrão.
 
-## 7. Evidência Sandbox (scripts/qa-card-installments-sandbox.ts)
+## 7. Evidência Sandbox — contrato via API (scripts/qa-card-installments-sandbox.ts)
 
-Base R$ 220,00; regras 6% / 7,5% / 9% (apenas para a prova).
+V2 (tabela aprovada), base R$ 220,00, cobranças criadas pelo código da loja e removidas depois:
 
-| | 1x | 3x | 4x | 6x |
-|---|---|---|---|---|
-| billingType | CREDIT_CARD | CREDIT_CARD | CREDIT_CARD | CREDIT_CARD |
-| installmentCount (plano) | 1 (sem plano) | 3 | 4 | 6 |
-| totalValue | R$ 220,00 | R$ 220,00 | R$ 233,20 | R$ 239,80 |
-| cobranças sob a referência | 1 | 3 | 4 | 6 |
-| soma das parcelas = total | sim | sim | sim | sim |
-| externalReference em todas | sim | sim | sim | sim |
-| regra de valor da loja | MATCH | MATCH | MATCH | MATCH |
-| plano sem acréscimo recusado | n/a | n/a | sim | sim |
-| status | PENDING | PENDING | PENDING | PENDING |
+| | 1x | 3x | 4x | 6x | 7x | 12x |
+|---|---|---|---|---|---|---|
+| billingType | CREDIT_CARD | CREDIT_CARD | CREDIT_CARD | CREDIT_CARD | CREDIT_CARD | CREDIT_CARD |
+| installmentCount | 1 (sem plano) | 3 | 4 | 6 | 7 | 12 |
+| totalValue | R$ 220,00 | R$ 220,00 | R$ 239,80 | R$ 244,20 | R$ 248,60 | R$ 259,60 |
+| cobranças sob a referência | 1 | 3 | 4 | 6 | 7 | 12 |
+| soma das parcelas = total | sim | sim | sim | sim | sim | sim |
+| externalReference em todas | sim | sim | sim | sim | sim | sim |
+| regra de valor da loja | MATCH | MATCH | MATCH | MATCH | MATCH | MATCH |
+| plano sem acréscimo recusado | n/a | n/a | sim | sim | sim | sim |
 
-**Não provado no Sandbox:** o pagamento com cartão de teste na fatura e o webhook resultante
-processado por este código (o Sandbox entrega webhooks ao staging, que roda `main`). Pendente de
-operador: pagar as faturas de 4x/6x com cartão de teste e rodar o código desta branch em staging.
+## 7b. Ponta a ponta no STAGING (16–17/11/2026)
+
+Staging (`rare-staging` e `rare-checkout-worker-staging`) recebeu esta branch por `railway up`
+(`eba5bfe`); migration aplicada no deploy; `CARD_INSTALLMENTS_ENABLED=true` só no staging; parcelamento
+ligado pelo Admin (auditado: `settings.installments_updated`). Pagamentos feitos pelo operador com cartão
+de teste oficial do Asaas na fatura hospedada (nenhum dado de cartão passou pela loja ou por esta sessão).
+
+| | Pedido 12x (borda superior) | Pedido 3x (zona sem juros) |
+|---|---|---|
+| Pedido | RARE-20261117-ZJEKXY | RARE-20261117-SVYLQQ |
+| Composição | R$ 129,00, frete R$ 0,00 | R$ 454,00 − RARE10 R$ 45,40, frete R$ 0,00 |
+| Base → total | R$ 129,00 + 18% (R$ 23,22) = **R$ 152,22** | R$ 408,60 + 0% = **R$ 408,60** |
+| Parcelas | 11 × R$ 12,68 + R$ 12,74 | 3 × R$ 136,20 |
+| Asaas | 1 plano, 12 cobranças CONFIRMED, soma R$ 152,22 | 1 plano, 3 cobranças CONFIRMED, soma R$ 408,60 |
+| Webhook (staging) | 12 PAYMENT_CREATED + 12 PAYMENT_CONFIRMED, processados | 3 + 3, processados |
+| Pedido | paid (pelo webhook) | paid (pelo webhook) |
+| Estoque | 1 reserve + **1 sale** | 2 reserve + **2 sale** (1 por item, 14 un.) |
+| E-mail | 1 linha `payment_approved` (12x de R$ 12,68); **não enviada**: cliente QA fora da allowlist do staging | 1 linha, **aceita na 1ª tentativa e recebida** ("Parcelamento: 3x de R$ 136,20") |
+| Retorno do navegador | /minha-conta/pedidos/<id> com "Pago" | idem |
+
+RBAC observado: a conta SYSTEM_ADMIN não abre Pedidos ("Sem acesso"). Screenshots (fora do git) em
+`output/card-installments-01/`.
 
 ## 8. Rollback
 
@@ -146,10 +165,11 @@ webhook normalmente. Não desligar o checkout inteiro por causa do parcelamento.
 
 ## 9. Riscos
 
-- Taxas 4x–6x são decisão comercial pendente (acima).
 - Parcela mínima de produção do Asaas para cartão não foi medida (só Sandbox R$ 5,00); padrão da
   loja R$ 10,00 cobre o mínimo de R$ 10,00 observado em produção.
-- Asaas pode recusar o CREDIT_CARD do pagador em 4x–6x conforme a bandeira (limite 12/21x) — não
-  afeta, pois o teto da loja é 6x.
+- Bandeiras fora de Visa/Mastercard aceitam até 12x no Asaas — igual ao teto da loja (12x).
+- O staging agora roda esta branch por upload direto; a configuração do serviço ainda segue
+  `cycle/rare-bf-mfa-asaas-01` (um push nela redeployaria código sem parcelamento — a migration já
+  aplicada continua compatível).
 - Estorno parcial de uma parcela feito direto no painel do Asaas marcaria o pedido como estornado
   (comportamento já existente para cobranças avulsas) — o Admin recebe incidente.
