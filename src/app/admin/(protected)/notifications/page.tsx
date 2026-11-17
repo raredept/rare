@@ -35,7 +35,7 @@ export default async function AdminNotificationsPage() {
     <div>
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
-          <h1 className="text-2xl font-black text-neutral-950">Notificacoes</h1>
+          <h1 className="text-2xl font-black text-neutral-950">Notificações</h1>
           <p className="mt-2 text-sm font-semibold text-neutral-500">
             Alertas administrativos gerados por eventos automaticos do checkout.
           </p>

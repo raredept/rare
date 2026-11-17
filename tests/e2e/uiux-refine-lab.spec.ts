@@ -4,7 +4,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { attachDiagnostics, labContextOptions, labEnabled, withDatabase } from "./lab-helpers";
 
-// RARE-UIUX-REFINE-01: AFTER evidence for the storefront P1 items that need no login — header nav
+// RARE-UIUX-REFINE-01: AFTER evidence for the storefront P1 (and, below, P2/P3) items that need no login — header nav
 // (NAV-001), catalog toolbar/filters/sort (CATALOG-001), PDP details beside the buying block (PDP-001)
 // and the art-led hero (HOME-001). Lab only (production build, disposable database). Anonymous.
 //   QA_LAB_EXTRA_SPECS=tests/e2e/uiux-refine-lab.spec.ts npx tsx scripts/qa-staging-lab.ts --only=uiux-refine-lab
@@ -198,5 +198,83 @@ test("PDP-001: the full description sits under the buying block, beside the gall
   const hint = (await hintLocator.count()) ? await hintLocator.first().textContent() : null;
   metrics["pdp R$42,21 hint"] = hint;
   await shot(page, "product", "pdp-meia-r42-1440", false);
+  await context.close();
+});
+
+// ── P2 / P3 (approved after the P1 cycle) ───────────────────────────────────────────────────────
+
+test("404-001: unknown URLs and products answer 404 inside the store layout", async ({ browser }) => {
+  const context = await browser.newContext(labContextOptions());
+  const page = await context.newPage();
+  for (const [label, url] of [["geral", "/esta-pagina-nao-existe"], ["produto", "/produto/peca-que-nao-existe"]] as const) {
+    for (const [width, viewport] of [["390", PHONE], ["1440", DESKTOP]] as const) {
+      await page.setViewportSize(viewport);
+      const response = await page.goto(url);
+      expect(response?.status(), `${label} status`).toBe(404);
+      await expect(page.getByRole("heading", { level: 1, name: /não encontrad/ })).toBeVisible();
+      const layout = await page.evaluate(() => ({
+        header: Boolean(document.querySelector("header")),
+        footer: Boolean(document.querySelector("footer")),
+        search: Boolean(document.querySelector('form[role="search"]')),
+        robots: document.querySelector('meta[name="robots"]')?.getAttribute("content") ?? null,
+        font: getComputedStyle(document.body).fontFamily,
+      }));
+      metrics[`404 ${label} ${width}`] = layout;
+      expect(layout.header && layout.footer && layout.search).toBe(true);
+      expect(layout.robots ?? "").toMatch(/noindex/);
+      await shot(page, "storefront", `404-${label}-${width}`, false);
+    }
+  }
+  await context.close();
+});
+
+test("COOKIES-002, GLOBAL-001, PDP-003, A11Y-002: banner size, button fonts, phone PDP and focus under the header", async ({ browser }) => {
+  const context = await browser.newContext(labContextOptions());
+  const page = await context.newPage();
+  // The lab context starts with a stored consent; a first visit has none.
+  await context.clearCookies({ name: "rare_cookie_consent" });
+  await page.setViewportSize(PHONE);
+  await page.goto("/");
+  const banner = page.locator("[data-cookie-banner]");
+  await expect(banner).toBeVisible();
+  const bannerBox = await banner.boundingBox();
+  metrics["cookie banner 390"] = { height: bannerBox && Math.round(bannerBox.height), share: bannerBox && Math.round((bannerBox.height / PHONE.height) * 100) };
+  expect(bannerBox!.height).toBeLessThan(PHONE.height * 0.33);
+  await shot(page, "storefront", "cookie-banner-390", false);
+  await banner.getByRole("button", { name: "Recusar não essenciais", exact: true }).click();
+
+  await page.goto(`/produto/${catalog[1].slug}`);
+  await expect(page.getByRole("heading", { level: 1, name: catalog[1].title })).toBeVisible();
+  const pdp = await page.evaluate(() => {
+    const h1 = document.querySelector("main aside h1")!.getBoundingClientRect();
+    const add = [...document.querySelectorAll("main aside button")].find((button) => /adicionar ao carrinho/i.test(button.textContent ?? ""))!;
+    const style = getComputedStyle(add);
+    return { h1Top: Math.round(h1.top + scrollY), addTop: Math.round(add.getBoundingClientRect().top + scrollY), addFont: `${style.fontWeight}/${style.fontSize}` };
+  });
+  metrics["pdp phone first screen 390"] = { ...pdp, viewport: 844 };
+  expect(pdp.addFont).toBe("900/14px");
+  await page.mouse.wheel(0, 1600);
+  await expect(page.getByTestId("pdp-buy-bar")).toBeVisible();
+  // Pinned to the screen, not to the page: its bottom edge is the bottom of the viewport.
+  const bar = await page.getByTestId("pdp-buy-bar").boundingBox();
+  metrics["pdp buy bar 390"] = bar && { top: Math.round(bar.y), bottom: Math.round(bar.y + bar.height) };
+  expect(Math.abs(bar!.y + bar!.height - PHONE.height)).toBeLessThanOrEqual(1);
+  await shot(page, "product", "pdp-barra-compra-390", false);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect(page.getByTestId("pdp-buy-bar")).toBeHidden();
+
+  // Focus a control that sits right under the sticky header after a scroll: it must stay visible.
+  await page.setViewportSize(DESKTOP);
+  await page.goto(`/produto/${catalog[1].slug}`);
+  // Scrolled past the size buttons: focusing one scrolls it back, and it must land below the header.
+  await page.evaluate(() => window.scrollTo(0, 1400));
+  await page.locator("aside button[aria-pressed]").first().focus();
+  const focus = await page.evaluate(() => {
+    const header = document.querySelector("header")!.getBoundingClientRect();
+    const active = document.activeElement!.getBoundingClientRect();
+    return { headerBottom: Math.round(header.bottom), focusedTop: Math.round(active.top), scrollPadding: getComputedStyle(document.documentElement).scrollPaddingTop };
+  });
+  metrics["focus under header 1440"] = focus;
+  expect(focus.focusedTop).toBeGreaterThanOrEqual(focus.headerBottom - 1);
   await context.close();
 });

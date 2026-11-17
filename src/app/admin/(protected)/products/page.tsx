@@ -117,10 +117,12 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
             return (
               <div
                 key={product.id}
-                className="grid gap-4 px-5 py-4 transition hover:bg-white/[0.03] xl:grid-cols-[minmax(0,1fr)_190px_120px_140px_190px] xl:items-center"
+                // UIUX-ADMIN-004: below 1280 px two columns (category | price, stock | actions) instead of
+                // one tall stack per product; secondary lines appear only on the wide table.
+                className="grid grid-cols-2 gap-x-4 gap-y-3 px-4 py-3 transition hover:bg-white/[0.03] sm:px-5 xl:grid-cols-[minmax(0,1fr)_190px_120px_140px_190px] xl:items-center xl:py-4"
               >
-                <div className="flex min-w-0 items-center gap-4">
-                  <div className="flex h-24 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-neutral-800 bg-black">
+                <div className="col-span-2 flex min-w-0 items-center gap-4 xl:col-span-1">
+                  <div className="flex h-20 w-16 shrink-0 sm:h-24 sm:w-20 items-center justify-center overflow-hidden rounded-lg border border-neutral-800 bg-black">
                     {mainImage && mediaType === "video" ? (
                       <video src={mainImage.url} aria-label={product.title} muted playsInline preload="metadata" className="h-full w-full object-cover" />
                     ) : mainImage ? (
@@ -161,15 +163,15 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                 </div>
                 <div className="min-w-0 text-sm font-semibold text-neutral-600 [overflow-wrap:anywhere]">
                   <p>{product.category?.name ?? "Sem categoria"}</p>
-                  <p className="mt-1 text-xs text-neutral-500">{product.subcategory ? `Subcategoria: ${product.subcategory.name}` : "Sem subcategoria"}</p>
+                  <p className="mt-1 hidden text-xs text-neutral-500 xl:block">{product.subcategory ? `Subcategoria: ${product.subcategory.name}` : "Sem subcategoria"}</p>
                 </div>
-                <span className="whitespace-nowrap text-sm font-black text-neutral-950">{formatMoney(product.priceInCents)}</span>
+                <span className="whitespace-nowrap text-right text-sm font-black text-neutral-950 xl:text-left">{formatMoney(product.priceInCents)}</span>
                 <div className="text-sm">
                   <p className="font-black text-neutral-950">{stock} disponível(is)</p>
                   <p className="mt-1 text-xs font-semibold text-neutral-500">
                     {reservedStock} reservado(s) · {product.variants.length} variação(ões)
                   </p>
-                  <p className="mt-1 text-xs font-semibold text-neutral-500">
+                  <p className="mt-1 hidden text-xs font-semibold text-neutral-500 xl:block">
                     Política: {STOCK_POLICY_LABELS[product.stockPolicy]}
                     {stockEntry && stockEntry.soldUnits > 0 ? ` · ${stockEntry.soldUnits} vendida(s)` : ""}
                   </p>
@@ -177,7 +179,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                     <p className="mt-1 text-xs font-black text-red-200">{stockEntry.inconsistencyLabels.join(" · ")}</p>
                   ) : null}
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap justify-end gap-2 xl:justify-start">
                   <Link href={`/admin/products/${product.id}/edit`} className="inline-flex min-h-11 items-center rounded-lg border border-neutral-700 px-3 py-2 text-xs font-black text-neutral-200 transition hover:border-neutral-300 hover:bg-white hover:text-black">
                     Editar
                   </Link>

@@ -61,23 +61,27 @@ export function CookieConsent() {
     <>
       {undecided ? (
         <section aria-label="Aviso de cookies" data-cookie-banner className="fixed inset-x-0 bottom-0 z-40 border-t border-neutral-300 bg-white text-neutral-950 shadow-[0_-12px_40px_rgba(0,0,0,0.12)]">
-          <div className="mx-auto flex max-w-[1440px] flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8 xl:px-10">
+          {/* UIUX-COOKIES-002: short text and the two choices side by side, so the banner no longer
+              covers half of a phone screen. Accept and refuse keep the same weight. */}
+          <div className="mx-auto flex max-w-[1440px] flex-col gap-3 px-4 py-3 sm:px-6 sm:py-4 lg:flex-row lg:items-center lg:justify-between lg:px-8 xl:px-10">
             <p className="max-w-3xl text-sm font-semibold leading-6 text-neutral-700">
-              Usamos cookies essenciais para a loja funcionar. Com a sua permissão, também medimos o uso do site (páginas e produtos vistos), sem ferramentas de
-              terceiros e sem identificar você. Veja a{" "}
+              Usamos cookies essenciais e, com sua permissão, medimos o uso do site sem identificar você.{" "}
               <Link href="/politica-de-cookies" className="font-black text-neutral-950 underline underline-offset-4">
                 Política de Cookies
               </Link>
-              .
             </p>
-            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:shrink-0 lg:flex-nowrap">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center lg:shrink-0 lg:flex-nowrap">
               <button type="button" className={primaryButton} onClick={() => decide(true, true)}>
                 Aceitar
               </button>
               <button type="button" className={primaryButton} onClick={() => decide(false, true)}>
                 Recusar não essenciais
               </button>
-              <button type="button" className={secondaryButton} onClick={openCookiePreferences}>
+              <button
+                type="button"
+                className="col-span-2 inline-flex min-h-11 items-center justify-center px-2 text-xs font-black uppercase tracking-[0.14em] text-neutral-800 underline underline-offset-4 hover:text-neutral-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 sm:col-span-1"
+                onClick={openCookiePreferences}
+              >
                 Configurar
               </button>
             </div>
@@ -139,28 +143,29 @@ export function CookieConsent() {
                   )}
                 </div>
                 <p className="mt-2 text-sm font-semibold leading-6 text-neutral-700">{category.purpose}</p>
-                <ul className="mt-3 grid gap-3">
-                  {category.entries.map((entry) => (
-                    <li key={entry.name} className="rounded-lg bg-neutral-50 p-3 text-sm">
-                      <p className="break-all font-mono text-xs font-bold text-neutral-950">{entry.name}</p>
-                      <p className="mt-1 font-semibold leading-6 text-neutral-700">{entry.purpose}</p>
-                      <dl className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 text-xs font-semibold text-neutral-700 sm:grid-cols-3">
-                        <div>
-                          <dt className="font-black uppercase tracking-wide text-neutral-600">Tipo</dt>
-                          <dd>{kindLabels[entry.kind]}</dd>
-                        </div>
-                        <div>
-                          <dt className="font-black uppercase tracking-wide text-neutral-600">Duração</dt>
-                          <dd>{entry.duration}</dd>
-                        </div>
-                        <div>
-                          <dt className="font-black uppercase tracking-wide text-neutral-600">Origem</dt>
-                          <dd>{entry.party}</dd>
-                        </div>
-                      </dl>
+                {/* UIUX-COOKIES-001: plain language first (what it does, for how long); the technical
+                    names stay one click away. Store-team (Admin) entries are only in the policy. */}
+                <ul className="mt-3 grid gap-2">
+                  {category.entries.filter((entry) => entry.audience !== "staff").map((entry) => (
+                    <li key={entry.name} className="flex flex-col gap-0.5 rounded-lg bg-neutral-50 px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+                      <span className="font-semibold leading-6 text-neutral-800">{entry.purpose}</span>
+                      <span className="shrink-0 text-xs font-bold text-neutral-600">{entry.duration}</span>
                     </li>
                   ))}
                 </ul>
+                <details className="mt-3 text-xs">
+                  <summary className="inline-flex min-h-11 cursor-pointer items-center font-black uppercase tracking-[0.12em] text-neutral-700 hover:text-neutral-950">
+                    Ver detalhes técnicos
+                  </summary>
+                  <ul className="mt-1 grid gap-1.5">
+                    {category.entries.filter((entry) => entry.audience !== "staff").map((entry) => (
+                      <li key={entry.name} className="flex flex-wrap gap-x-3 gap-y-0.5 font-semibold text-neutral-700">
+                        <span className="break-all font-mono font-bold text-neutral-950">{entry.name}</span>
+                        <span>{kindLabels[entry.kind]} · {entry.party}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
               </section>
             ))}
           </div>

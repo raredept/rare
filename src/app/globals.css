@@ -34,6 +34,14 @@ body {
 
 html {
   scroll-behavior: smooth;
+  /* UIUX-A11Y-002: focus and anchors never land under the sticky store header (136 px / 158 px). */
+  scroll-padding-top: 9.5rem;
+}
+
+@media (min-width: 1024px) {
+  html {
+    scroll-padding-top: 11rem;
+  }
 }
 
 :where(a, button, input, select, textarea):focus-visible {
@@ -41,11 +49,17 @@ html {
   outline-offset: 3px;
 }
 
-button,
-input,
-select,
-textarea {
-  font: inherit;
+/* UIUX-GLOBAL-001: `button, input, select, textarea { font: inherit }` used to live here, outside the
+   Tailwind layers, and beat every font utility (all buttons rendered 400/16px). Tailwind's preflight
+   already inherits the font inside @layer base, so the utilities now win as designed.
+   Phones keep 16 px in text fields: anything smaller makes iOS zoom the page on focus. Unlayered on
+   purpose, so it wins over text-sm/text-xs on fields. */
+@media (max-width: 767px) {
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
 }
 
 ::selection {

@@ -252,7 +252,7 @@ function CartDrawerItem({
           </button>
         </div>
         <div className="text-right">
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/65">Subtotal</p>
+          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/65">Subtotal</p>
           <p className="mt-1 whitespace-nowrap text-sm font-black">{formatMoney(item.priceInCents * item.quantity)}</p>
         </div>
       </div>

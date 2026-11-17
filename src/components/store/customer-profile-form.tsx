@@ -26,17 +26,17 @@ export function CustomerProfileForm({ customer }: CustomerProfileFormProps) {
     <form action={formAction} className="max-w-2xl space-y-5 rounded-lg border border-neutral-200 bg-white p-5">
       <label className="block">
         <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Nome</span>
-        <input name="name" defaultValue={customer.name} required className="admin-input h-12" />
+        <input name="name" defaultValue={customer.name} required autoComplete="name" className="store-input" />
         <FieldError errors={state.fieldErrors?.name} />
       </label>
       <label className="block">
         <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">E-mail</span>
-        <input value={customer.email} readOnly className="admin-input h-12 bg-neutral-50 text-neutral-600" />
+        <input value={customer.email} readOnly autoComplete="email" className="store-input bg-neutral-50 text-neutral-600" />
         <p className="mt-1 text-xs font-semibold text-neutral-500">Alteração de e-mail fica para uma fase com verificação.</p>
       </label>
       <label className="block">
         <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Telefone</span>
-        <input name="phone" defaultValue={customer.phone ?? ""} autoComplete="tel" className="admin-input h-12" />
+        <input name="phone" type="tel" inputMode="tel" defaultValue={customer.phone ?? ""} autoComplete="tel" className="store-input" />
         <FieldError errors={state.fieldErrors?.phone} />
       </label>
       <label className="block">
@@ -49,7 +49,7 @@ export function CustomerProfileForm({ customer }: CustomerProfileFormProps) {
           placeholder={customer.cpfMasked || "000.000.000-00"}
           inputMode="numeric"
           maxLength={14}
-          className="admin-input h-12"
+          className="store-input"
         />
         <p className="mt-1 text-xs font-semibold text-neutral-500">
           {hasCpf ? "CPF cadastrado. Digite o CPF completo somente se precisar corrigir." : "Precisamos do CPF para emissão e envio do pedido."}

@@ -107,13 +107,13 @@ export default async function AdminCustomerDetailPage({ params }: CustomerDetail
           </section>
 
           <section className="rounded-lg border border-neutral-200 bg-white p-5">
-            <h2 className="text-lg font-black text-neutral-950">Enderecos</h2>
+            <h2 className="text-lg font-black text-neutral-950">Endereços</h2>
             <div className="mt-4 space-y-3">
               {customer.addresses.length ? (
                 customer.addresses.map((address) => (
                   <div key={address.id} className="rounded-lg border border-neutral-200 p-4 text-sm font-semibold text-neutral-600">
                     <div className="flex items-center gap-2">
-                      <p className="font-black text-neutral-950">{address.label || "Endereco"}</p>
+                      <p className="font-black text-neutral-950">{address.label || "Endereço"}</p>
                       {address.isDefault ? (
                         <span className="rounded-full bg-neutral-950 px-2 py-1 text-[10px] font-black uppercase text-white">Padrao</span>
                       ) : null}
@@ -129,7 +129,7 @@ export default async function AdminCustomerDetailPage({ params }: CustomerDetail
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-neutral-500">Nenhum endereco cadastrado.</p>
+                <p className="text-sm text-neutral-500">Nenhum endereço cadastrado.</p>
               )}
             </div>
           </section>

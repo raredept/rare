@@ -1,4 +1,5 @@
 import type { OrderStatus } from "@prisma/client";
+import Link from "next/link";
 import { AlertTriangle, CheckCircle2, Clock3, Package, PackageCheck, RotateCcw, Truck, XCircle, type LucideIcon } from "lucide-react";
 import { AdminOrderItemThumbnail as OrderItemThumbnailImage } from "@/components/admin/order-item-thumbnail";
 import { formatMoney } from "@/lib/money";
@@ -48,12 +49,14 @@ export function CustomerOrderItemThumbnail({ url, alt, size = "md" }: { url: str
   );
 }
 
-export type CustomerOrderItem = OrderItemForDisplay & {
+export type CustomerOrderItem = Omit<OrderItemForDisplay, "product"> & {
   id: string;
   productTitleSnapshot: string;
   quantity: number;
   unitPriceInCents: number;
   totalInCents: number;
+  /** Current catalog row: images for orders before the snapshot; slug + active to link the product. */
+  product?: { images: { url: string }[]; slug?: string; active?: boolean } | null;
 };
 
 /** Up to `max` distinct pictures for the order card, plus how many items are not pictured. */
@@ -71,7 +74,13 @@ export function CustomerOrderItemRow({ item }: { item: CustomerOrderItem }) {
       <CustomerOrderItemThumbnail url={display.imageUrl} alt={item.productTitleSnapshot} />
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-          <p className="min-w-0 font-black text-neutral-950 [overflow-wrap:anywhere]">{item.productTitleSnapshot}</p>
+          {item.product?.slug && item.product.active !== false ? (
+            <Link href={`/produto/${item.product.slug}`} className="min-w-0 font-black text-neutral-950 underline-offset-4 [overflow-wrap:anywhere] hover:underline">
+              {item.productTitleSnapshot}
+            </Link>
+          ) : (
+            <p className="min-w-0 font-black text-neutral-950 [overflow-wrap:anywhere]">{item.productTitleSnapshot}</p>
+          )}
           <p className="whitespace-nowrap font-black text-neutral-950">{formatMoney(item.totalInCents)}</p>
         </div>
         <p className="mt-1 font-semibold text-neutral-600">

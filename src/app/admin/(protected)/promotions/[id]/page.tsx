@@ -7,6 +7,7 @@ import { ConfirmButton } from "@/components/admin/confirm-button";
 import { requireAdmin } from "@/lib/auth";
 import { formatBusinessDateTime } from "@/lib/business-time";
 import { formatMoney } from "@/lib/money";
+import { formatPromotionHistoryAction } from "@/lib/order-display";
 import { prisma } from "@/lib/prisma";
 import { countTargetedProducts, getActivationIssues, getPromotionSalesSummary, PROMOTION_SCOPE_LABELS } from "@/lib/promotions/admin";
 import { getEffectivePromotionStatus } from "@/lib/promotions/engine";
@@ -102,7 +103,7 @@ export default async function PromotionDetailPage({ params }: { params: Promise<
         <ul className="mt-3 divide-y divide-neutral-100 text-sm">
           {history.map((entry) => (
             <li key={entry.id} className="py-2 [overflow-wrap:anywhere]">
-              <span className="font-black">{entry.action.replace("promotion.", "")}</span> · {entry.actorLabel} · {formatBusinessDateTime(entry.createdAt)}
+              <span className="font-black">{formatPromotionHistoryAction(entry.action)}</span> · {entry.actorLabel} · {formatBusinessDateTime(entry.createdAt)}
             </li>
           ))}
           {!history.length ? <li className="py-2 text-neutral-500">Sem registros.</li> : null}

@@ -149,7 +149,7 @@ describe("AdminReadinessPage", () => {
     const html = renderToStaticMarkup(element as ReactElement);
 
     expect(html).toContain("Prontidão de Venda");
-    expect(html).toContain("Pronto para homologacao; bloqueado para venda aberta");
+    expect(html).toContain("Checklist de lançamento com pendências");
     expect(html).toContain("Rate limit compartilhado");
     expect(html).toContain("Configurar RATE_LIMIT_DRIVER=redis");
     expect(html).toContain("Produto sem medidas sem peso ou dimensoes completas");
@@ -184,7 +184,7 @@ describe("AdminReadinessPage", () => {
 
     expect(html).toContain("Tabela de evidências ainda não aplicada");
     expect(html).toContain("Tabela de evidências pendente");
-    expect(html).toContain("Pronto para homologacao; bloqueado para venda aberta");
+    expect(html).toContain("Checklist de lançamento com pendências");
     expect(html).toContain("Aplique a migration");
     expect(html).not.toContain("does not exist");
     expect(html).not.toContain("P2021");

@@ -142,7 +142,7 @@ async function settled(tab: Page) {
 async function setHomeMotionPaused(paused: boolean) {
   for (const tab of [page, shopper]) {
     await tab.evaluate((value) => {
-      try { localStorage.setItem("rare:home-motion-paused", String(value)); } catch { /* storage is optional */ }
+      try { localStorage.setItem("rare:home-motion-paused:v2", String(value)); } catch { /* storage is optional */ }
     }, paused);
   }
 }

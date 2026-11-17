@@ -43,7 +43,7 @@ function PasswordField({
           aria-invalid={invalid || undefined}
           className="store-input pr-12"
         />
-        <button type="button" onClick={() => setVisible((current) => !current)} className="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100 hover:text-neutral-950" aria-label={visible ? `Ocultar ${label.toLowerCase()}` : `Mostrar ${label.toLowerCase()}`}>
+        <button type="button" onClick={() => setVisible((current) => !current)} className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100 hover:text-neutral-950" aria-label={visible ? `Ocultar ${label.toLowerCase()}` : `Mostrar ${label.toLowerCase()}`}>
           {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </button>
       </span>
@@ -118,7 +118,7 @@ export function CustomerRegisterForm({ next }: { next?: string }) {
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block">
           <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-neutral-700">Telefone</span>
-          <input name="phone" autoComplete="tel" aria-describedby={state.fieldErrors?.phone?.length ? "register-phone-error" : undefined} aria-invalid={Boolean(state.fieldErrors?.phone?.length) || undefined} className="store-input" />
+          <input name="phone" type="tel" inputMode="tel" autoComplete="tel" aria-describedby={state.fieldErrors?.phone?.length ? "register-phone-error" : undefined} aria-invalid={Boolean(state.fieldErrors?.phone?.length) || undefined} className="store-input" />
           <FieldError id="register-phone-error" errors={state.fieldErrors?.phone} />
         </label>
         <label className="block">

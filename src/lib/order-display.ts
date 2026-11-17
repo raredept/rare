@@ -47,6 +47,20 @@ export function getOrderStatusTone(status: OrderStatus): OrderStatusTone {
   return "neutral";
 }
 
+const promotionHistoryLabels: Record<string, string> = {
+  "promotion.created": "Criada",
+  "promotion.updated": "Editada",
+  "promotion.activated": "Ativada",
+  "promotion.paused": "Pausada",
+  "promotion.ended": "Encerrada",
+  "promotion.duplicated": "Duplicada",
+};
+
+/** UIUX-ADMIN-001: the audit code ("promotion.updated") in Portuguese for the promotion history. */
+export function formatPromotionHistoryAction(action: string) {
+  return promotionHistoryLabels[action] ?? action.replace("promotion.", "");
+}
+
 /** "1 item" / "3 itens". */
 export function formatItemCount(count: number) {
   return `${count} ${count === 1 ? "item" : "itens"}`;

@@ -34,7 +34,13 @@ export default function CookiePolicyPage() {
             {category.label} {category.required ? <span className="text-base text-neutral-500">(sempre ativos)</span> : <span className="text-base text-neutral-500">(opcional)</span>}
           </h2>
           <p className="mt-4 max-w-2xl text-base font-semibold leading-8 text-neutral-600">{category.purpose}</p>
-          <div className="mt-6 overflow-x-auto">
+          {/* UIUX-A11Y-001: the scrollable table box can take keyboard focus (arrows scroll it). */}
+          <div
+            className="mt-6 overflow-x-auto rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-neutral-950"
+            role="region"
+            aria-labelledby={`cookies-${category.id}`}
+            tabIndex={0}
+          >
             <table className="w-full min-w-[36rem] text-left text-sm">
               <caption className="sr-only">{`${category.label}: nome, tipo, finalidade, duração e origem`}</caption>
               <thead>
@@ -51,7 +57,10 @@ export default function CookiePolicyPage() {
                   <tr key={entry.name}>
                     <td className="break-all py-3 pr-4 font-mono text-xs font-bold text-neutral-950">{entry.name}</td>
                     <td className="py-3 pr-4 font-semibold text-neutral-700">{kindLabels[entry.kind]}</td>
-                    <td className="py-3 pr-4 font-semibold leading-6 text-neutral-700">{entry.purpose}</td>
+                    <td className="py-3 pr-4 font-semibold leading-6 text-neutral-700">
+                      {entry.purpose}
+                      {entry.audience === "staff" ? <span className="mt-1 block text-xs font-black uppercase tracking-wide text-neutral-500">Só no painel da equipe da loja; não é criado para clientes.</span> : null}
+                    </td>
                     <td className="py-3 pr-4 font-semibold text-neutral-700">{entry.duration}</td>
                     <td className="py-3 font-semibold text-neutral-700">{entry.party}</td>
                   </tr>

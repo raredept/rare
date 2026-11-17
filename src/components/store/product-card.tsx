@@ -78,7 +78,7 @@ export function ProductCard({ product, commerce, priority = false, headingLevel 
           ) : null}
         </div>
         <div className="flex flex-1 flex-col px-0.5 pt-3 sm:pt-4">
-          <p className="line-clamp-1 text-[10px] font-black uppercase tracking-[0.18em] text-neutral-500 sm:tracking-[0.2em]">
+          <p className="line-clamp-1 text-[11px] font-black uppercase tracking-[0.18em] text-neutral-500 sm:tracking-[0.2em]">
             {categoryName}
           </p>
           <Title className="mt-2 line-clamp-2 min-h-10 break-words text-[13px] font-black leading-5 text-neutral-950 sm:min-h-12 sm:text-base sm:leading-6">
@@ -86,7 +86,7 @@ export function ProductCard({ product, commerce, priority = false, headingLevel 
           </Title>
           <div className="mt-auto flex min-w-0 flex-col gap-1 pt-3">
             <PriceTag pricing={pricing} />
-            <p className="whitespace-nowrap text-[10px] font-bold uppercase leading-4 tracking-wide text-neutral-500 sm:text-xs">
+            <p className="whitespace-nowrap text-[11px] font-bold uppercase leading-4 tracking-wide text-neutral-500 sm:text-xs">
               {soldOut ? "Esgotado" : commerceState.checkoutEnabled ? "Disponível" : "Consulte disponibilidade"}
             </p>
             <InstallmentTerms amountInCents={pricing.finalPriceInCents} checkoutEnabled={commerceState.checkoutEnabled} className="text-xs font-semibold leading-4 text-neutral-600" />

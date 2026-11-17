@@ -3,7 +3,9 @@
 import { Pause, Play } from "lucide-react";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore, type PointerEvent, type ReactNode } from "react";
 
-const preferenceKey = "rare:home-motion-paused";
+// v2 (UIUX-BRANDS-001): only the explicit "Pausar animações" control writes it now. The old key was also
+// written by any click on the hero arrows, which froze the brands strip for good; a new key resets that.
+const preferenceKey = "rare:home-motion-paused:v2";
 const preferenceEvent = "rare:home-motion-change";
 let memoryPaused = false;
 
@@ -51,7 +53,7 @@ export function HomeMotionControl({ className = "" }: { className?: string }) {
   return (
     <button type="button" data-motion-control aria-label={`${label} da página`} disabled={reducedMotion}
       onClick={() => setPaused(!paused)}
-      className={`inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full border border-white/30 px-3 text-[10px] font-bold uppercase tracking-wide text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white disabled:opacity-75 ${className}`}>
+      className={`inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full border border-white/30 px-3 text-[11px] font-bold uppercase tracking-wide text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white disabled:opacity-75 ${className}`}>
       <Icon className="h-3.5 w-3.5" aria-hidden="true" /><span>{label}</span>
     </button>
   );
@@ -76,13 +78,15 @@ export function useHomeCarousel(count: number, intervalMs = 5000) {
   const [index, setIndex] = useState(0);
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
+  // A click on this carousel's arrows/dots pauses THIS carousel only, in memory (UIUX-BRANDS-001).
+  const [interactionPaused, setInteractionPaused] = useState(false);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const suppressClick = useRef(false);
-  const mediaPlaying = inView && motion.pageVisible && !motion.paused && !motion.reducedMotion && !hovered && !focused;
+  const mediaPlaying = inView && motion.pageVisible && !motion.paused && !motion.reducedMotion && !hovered && !focused && !interactionPaused;
   const playing = count > 1 && mediaPlaying;
   const activeIndex = count ? ((index % count) + count) % count : 0;
 
-  function select(next: number) { motion.setPaused(true); setIndex(next); }
+  function select(next: number) { setInteractionPaused(true); setIndex(next); }
   function move(direction: number) { select(activeIndex + direction); }
 
   useEffect(() => {

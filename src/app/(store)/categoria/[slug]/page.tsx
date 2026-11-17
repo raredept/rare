@@ -136,7 +136,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
       <JsonLdScript id="rare-category-breadcrumb-json-ld" data={breadcrumbJsonLd} />
       <div className="mb-8">
         <nav aria-label="Breadcrumb" className="mb-4 flex items-center gap-2 text-xs font-bold text-neutral-500">
-          <Link href="/" className="hover:text-neutral-950">Início</Link><span aria-hidden="true">/</span><span aria-current="page">{pageData.title}</span>
+          <Link href="/" className="inline-flex min-h-6 items-center hover:text-neutral-950">Início</Link><span aria-hidden="true">/</span><span aria-current="page">{pageData.title}</span>
         </nav>
         <p className="text-xs font-black uppercase tracking-[0.24em] text-neutral-500">{pageData.eyebrow}</p>
         <h1 className="mt-2 text-3xl font-black tracking-tight text-neutral-950 lg:text-5xl">{pageData.title}</h1>

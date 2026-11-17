@@ -8,6 +8,7 @@ import { useCart, useCartDrawer } from "@/components/store/cart-context";
 import { ProductMedia } from "@/components/store/product-media";
 import { ProductMediaPlaceholder } from "@/components/store/product-media-placeholder";
 import { formatMoney } from "@/lib/money";
+import { readJsonSafely } from "@/lib/checkout-messages";
 import { trackAnalyticsEvent } from "@/lib/site-analytics-client";
 import {
   getPreferredProductCardMedia,
@@ -210,6 +211,16 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
   const [shippingOptions, setShippingOptions] = useState<ShippingQuoteOption[]>([]);
   const [shippingLoading, setShippingLoading] = useState(false);
   const [shippingError, setShippingError] = useState<string | null>(null);
+  // UIUX-PDP-003: on phones a buy bar appears while the main button is off screen.
+  const addButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [addButtonVisible, setAddButtonVisible] = useState(true);
+  useEffect(() => {
+    const button = addButtonRef.current;
+    if (!button || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(([entry]) => setAddButtonVisible(entry.isIntersecting), { threshold: 0 });
+    observer.observe(button);
+    return () => observer.disconnect();
+  }, []);
   const image = product.images[imageIndex];
   const mainMediaType = image ? getProductMediaTypeFromUrl(image.url) : null;
   const mainVideoPoster = image && mainMediaType === "video" ? getProductVideoPoster(product.images, image.url) : undefined;
@@ -380,11 +391,11 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
           ],
         }),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error ?? "Frete indisponível.");
-      setShippingOptions(data.options ?? []);
+      const data = (await readJsonSafely(response)) ?? {};
+      if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : "Frete indisponível no momento. Tente novamente em alguns instantes.");
+      setShippingOptions(Array.isArray(data.options) ? (data.options as ShippingQuoteOption[]) : []);
       if (data.disabled) {
-        setShippingError(data.message ?? "Frete automático desativado; entrega combinada manualmente.");
+        setShippingError(typeof data.message === "string" ? data.message : "Frete automático desativado; entrega combinada manualmente.");
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Frete indisponível.";
@@ -491,14 +502,16 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
           ) : null}
         </div>
         {product.images.length > 1 ? (
-          <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-5 lg:grid-cols-6">
+          // UIUX-PDP-003: one scrollable row of thumbnails on phones (it used to wrap into rows that
+          // pushed the name, price and button below the first screen); the grid from 640 px.
+          <div className="scrollbar-none mt-3 flex gap-2 overflow-x-auto sm:grid sm:grid-cols-5 sm:overflow-visible lg:grid-cols-6">
             {product.images.map((media, index) => {
               const mediaType = getProductMediaTypeFromUrl(media.url);
               return (
                 <button
                   key={media.url}
                   type="button"
-                  className={`relative aspect-square overflow-hidden rounded-lg border bg-white p-1 transition-[border-color,box-shadow,transform] duration-150 hover:border-neutral-950/40 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 ${
+                  className={`relative aspect-square w-16 shrink-0 overflow-hidden rounded-lg border bg-white p-1 sm:w-auto transition-[border-color,box-shadow,transform] duration-150 hover:border-neutral-950/40 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 ${
                     index === imageIndex ? "border-neutral-950 shadow-[0_10px_30px_rgba(15,23,42,0.12)]" : "border-neutral-200"
                   }`}
                   onClick={() => {
@@ -588,6 +601,7 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
           </div>
 
           <button
+            ref={addButtonRef}
             type="button"
             onClick={addToCart}
             disabled={!commerceState.checkoutEnabled || soldOut || !selectedVariant || availableStock <= 0}
@@ -643,7 +657,7 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
               }}
               placeholder="Digite seu CEP"
               inputMode="numeric"
-              className="admin-input h-11"
+              className="store-input h-11"
               aria-label="Digite seu CEP para calcular o frete"
             />
             <button
@@ -676,7 +690,7 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
             Frete e prazo podem variar conforme endereço e disponibilidade.
           </p>
           </> : <p className="mt-3 text-sm font-semibold leading-6 text-neutral-600">A consulta automática está indisponível enquanto as compras estiverem pausadas. Fale com a RARE para tirar dúvidas gerais sobre envio.</p>}
-          <Link href="/politica-de-envio" className="mt-3 inline-flex text-sm font-black text-neutral-950 underline underline-offset-4">
+          <Link href="/politica-de-envio" className="mt-1 inline-flex min-h-11 items-center text-sm font-black text-neutral-950 underline underline-offset-4">
             Ver política de envio
           </Link>
         </div>
@@ -706,7 +720,7 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
           <div className="flex items-start gap-3">
             <RotateCcw className="mt-0.5 h-5 w-5 text-success" />
             <span>
-              <Link href="/trocas-e-devolucoes" className="block font-black text-neutral-950 underline underline-offset-4">
+              <Link href="/trocas-e-devolucoes" className="inline-flex min-h-6 items-center font-black text-neutral-950 underline underline-offset-4">
                 Troca e devolução em até 7 dias
               </Link>
               <span className="mt-1 block font-semibold leading-6 text-neutral-600">Consulte as regras antes da compra.</span>
@@ -721,6 +735,28 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
           </div>
         </div>
       </aside>
+      {/* Only when buying is possible (checkout open, size chosen and in stock) — never a second
+          "Esgotado" or a button for paused purchases. Hidden from 1024 px, where the column shows it. */}
+      {/* Portal to <body>: the page's entrance animation leaves a transform on an ancestor, which would
+          pin a `fixed` bar to the page instead of the screen. */}
+      {!addButtonVisible && commerceState.checkoutEnabled && !soldOut && selectedVariant && availableStock > 0 && typeof document !== "undefined" ? createPortal(
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-neutral-200 bg-white/95 px-4 py-3 shadow-[0_-12px_40px_rgba(0,0,0,0.12)] backdrop-blur lg:hidden" data-testid="pdp-buy-bar" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
+          <div className="mx-auto flex max-w-xl items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-bold text-neutral-600">{product.title} · {selectedVariant.size}</p>
+              <p className="text-base font-black text-neutral-950">{formatMoney(pricing.finalPriceInCents)}</p>
+            </div>
+            <button
+              type="button"
+              onClick={addToCart}
+              className="h-12 shrink-0 rounded-lg bg-black px-5 text-xs font-black uppercase tracking-[0.14em] text-white transition hover:bg-neutral-800"
+            >
+              Adicionar
+            </button>
+          </div>
+        </div>,
+        document.body,
+      ) : null}
       {zoomedImage && typeof document !== "undefined"
         ? createPortal(
             <ProductImageZoomDialog

@@ -78,6 +78,45 @@ Prints em `output/uiux-refine-01/` (99 capturas; fora do Git, como no ciclo da a
 | NAV-001 | barra com 537 px vazios à direita (1440); "Acessórios" 400/16px | 331 px de cada lado; "Acessórios" 700/14px como os links; atalhos do catálogo só abaixo de 1024 px |
 | CATALOG-001 | sem filtro/ordenação; "24 produtos nesta página" | "10 produtos" (total real); filtro BAPE → 3; "Menor preço" ordena R$ 42,21 → 72,00 → 180,00; painel lateral no desktop e bottom sheet de 717 px no celular, Esc fecha, sem rolagem horizontal |
 
+## P2 e P3 (aprovados depois dos P1)
+
+O operador aprovou também os 26 itens P2/P3. Mesma regra: só apresentação; nenhum cálculo, Asaas,
+webhook, estoque, cupom, frete, RBAC, SEO ou migration. Resultado:
+
+| ID | Status | O que mudou |
+| --- | --- | --- |
+| GLOBAL-001 | DONE | Regra `font: inherit` saiu de fora das camadas (o preflight do Tailwind já herda a fonte em `@layer base`); botões renderizam o peso/tamanho desenhado ("Adicionar ao carrinho" 900/14px, "Acessórios" 700/14px). Campos de texto continuam com 16 px abaixo de 768 px (sem zoom do iOS). |
+| A11Y-002 | DONE | `scroll-padding-top` 9,5rem / 11rem (≥ 1024): o foco volta abaixo do header (medido: header termina em 158 px, foco em 523 px). |
+| TYPE-001 | DONE | Textos informativos de 10 px (categoria e disponibilidade do card, selo de desconto, subtotal da gaveta, menu, contador) passaram a 11 px; decorativos ficaram. |
+| A11Y-003 | DONE | "Mostrar senha" 44×44; "Ver acessórios", "Ver política de envio" com 44 px de altura; breadcrumbs e "Troca e devolução" com 24 px (mínimo AA). |
+| A11Y-001 | DONE | Tabelas da Política de Cookies em região rolável com foco por teclado (`tabIndex=0`, `role="region"`, rótulo). |
+| COOKIES-001 | DONE | Painel mostra finalidade e duração em linguagem simples; nomes técnicos em "Ver detalhes técnicos"; cookies do painel da equipe só na Política (marcados "Só no painel da equipe da loja"). Lógica de consentimento intacta. Revisão jurídica do texto continua recomendada. |
+| COOKIES-002 | DONE | Banner com texto de uma frase, "Aceitar" e "Recusar não essenciais" lado a lado (mesmo peso), "Configurar" como link: 24% da tela em 390 px (antes ~45%). |
+| 404-001 | DONE | URL inexistente: rota própria `(store-missing)` sem `loading.tsx`, dentro da moldura da loja (header, busca, rodapé), status 404 e `noindex`. Produto/categoria inexistentes: o `proxy.ts` continua respondendo o 404 real (contrato e testes mantidos), agora com cabeçalho preto, logo, busca, links e rodapé. |
+| PERF-001 | PARTIAL | Os estados vazios continuam dentro de `main` com `flex-1` (rodapé não sobe). Placeholder com cor dominante depende das variantes de imagem (IMG-001). |
+| BRANDS-001 | DONE | Clique nas setas do hero pausa só o hero (em memória). A faixa obedece só a movimento reduzido, aba oculta, o controle explícito "Pausar animações" e hover/foco nela. Chave nova `rare:home-motion-paused:v2` zera a pausa gravada pelo bug. Cada marca abre `/categoria/tudo?brand=…`. |
+| SUPPORT-001 | DONE | Confirmação no mesmo cartão (sem cartão dentro de cartão), protocolo em destaque com "Copiar" (feedback "Copiado"), "A resposta será enviada para o e-mail informado" (sem prazo), "Ver meus pedidos" (logado) e "Voltar para a loja"; atalhos de assunto antes do formulário. |
+| ACCOUNT-001 | DONE | Abas da conta em grade 2×2 no celular. |
+| ORDERS-002 | DONE | Cabeçalho com status, data/hora do pedido e do pagamento, forma de pagamento; blocos Valores · Pagamento · Entrega; cartão de itens não estica; link para o produto (se ativo); "Continuar pagamento" pelo mesmo aviso/prazo do checkout quando aguardando pagamento. |
+| ORDERS-003 | DONE | Itens ordenados por criação (cliente e Admin). |
+| FORMS-001 | DONE (sem busca por CEP) | `autocomplete` em todos os campos, ordem CEP → rua → número → complemento → bairro → cidade/UF → destinatário/telefone, `store-input`, lista salva primeiro e "Adicionar endereço" recolhido, texto atualizado, telefone `type=tel`. A busca do endereço pelo CEP **não** foi feita: exige um serviço externo (envio do CEP a terceiro + CSP), decisão do operador. |
+| CHECKOUT-003 | DONE | Respostas não-JSON (502 HTML) e falhas de rede nunca mostram texto do parser/navegador. |
+| CHECKOUT-004 | PARTIAL | Cada falha conhecida virou mensagem com próximo passo (sessão expirada com link "Entrar", tamanho indisponível, estoque, frete com WhatsApp, checkout em andamento). **Não feito:** citar o nome do produto na mensagem — exige o servidor de checkout devolver código + variante (mudança de contrato na rota de checkout, fora do escopo de UI). |
+| CHECKOUT-005 | DONE | Passos 1 Contato · 2 Entrega · 3 Pagamento na coluna principal; resumo à direita só com valores, total e botão. Aviso de reserva alinhado ao container. Mesmos estados e condições. |
+| CHECKOUT-006 | DONE | Resolvido pelo seletor de parcelas do CHECKOUT-001 (`shrink-0`). |
+| PDP-003 | DONE | Miniaturas numa linha rolável no celular; barra fixa com nome, tamanho, preço e "Adicionar" enquanto o botão principal está fora da tela (só com checkout aberto e tamanho disponível). |
+| CATALOG-002 | DONE | Total real no catálogo e na busca (feito com o CATALOG-001). |
+| IMG-001 | PARTIAL | `sizes` das miniaturas corrigido (tablet deixa de ampliar a variante de ~95 px). O **backfill de variantes** (`media:variants:backfill`) escreve no storage/banco de produção e **não foi executado**: precisa de autorização operacional. |
+| ADMIN-001 | DONE | Acentos (Notificações, Método, Endereço, Instruções, Frete grátis…), "Método: Cartão/Pix", cobrança de parcelamento identificada, histórico da promoção em português, opções de frete com a de produção primeiro e as de homologação em "Avançado / homologação" (mesmos valores). |
+| ADMIN-002 | DONE | "Alterações não salvas nesta seção" ao lado de cada botão, aviso do navegador ao sair, confirmação com resumo antes de salvar o parcelamento; o botão da loja diz que salva só a seção. Validação intacta. |
+| ADMIN-003 | DONE (texto) | Rótulo "Checklist de lançamento com pendências" (em vez de "bloqueado para venda aberta") e nota de que o painel confere configuração/evidências, não o status de vendas. Registrar as evidências pendentes é processo do operador. |
+| ADMIN-004 | DONE | Formulário de produto com barra fixa "Salvar produto" abaixo de 1280 px; lista de produtos em duas colunas no celular, linhas secundárias só na tabela larga. |
+
+Provas: `src/components/store/uiux-refine-p2.test.ts`, `src/lib/checkout-messages.test.ts`, `src/proxy.test.ts`;
+lab `uiux-refine-lab.spec.ts` 5/5 (404 com status, banner 24%, fonte dos botões, barra de compra presa na tela,
+foco abaixo do header); `prelaunch-consent-analytics.spec.ts` 5/5 (com `--https`, que a rota de análise exige em
+build de produção); `support.spec.ts` 7/7.
+
 ## Não feito / limites
 
 - Nada foi enviado para produção; nenhum push; nenhum merge.

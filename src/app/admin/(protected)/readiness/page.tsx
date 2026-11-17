@@ -156,6 +156,10 @@ export default async function AdminReadinessPage({ searchParams }: AdminReadines
             <StatusBadge report={report} />
             <h2 className="mt-4 text-xl font-black text-neutral-950">{report.summaryLabel}</h2>
             <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-neutral-500">{report.summaryDescription}</p>
+            {/* UIUX-ADMIN-003: this panel scores configuration and recorded evidence; it is not the live sales status. */}
+            <p className="mt-2 max-w-3xl text-xs font-semibold leading-5 text-neutral-500">
+              Este painel confere configuração e evidências registradas no checklist de lançamento. Para fechar uma pendência, registre a evidência na seção abaixo.
+            </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <Counter label="OK" value={report.counts.ok} tone="ok" />
@@ -363,7 +367,7 @@ function OperationalEvidenceCard({
             />
           </label>
           <p className="text-xs font-semibold leading-5 text-neutral-500">
-            Não salve secrets, tokens, URLs assinadas, CPF, e-mail real, cartão, payload Stripe/webhook ou dados pessoais.
+            Não salve secrets, tokens, URLs assinadas, CPF, e-mail real, cartão, conteúdo de webhook de pagamento ou dados pessoais.
           </p>
           <AdminSubmitButton
             disabled={!storageAvailable}

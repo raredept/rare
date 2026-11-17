@@ -14,6 +14,8 @@ type SupportFormProps = {
   defaultCategory?: SupportCategoryValue;
   product?: { slug: string; title: string } | null;
   orders?: Array<{ id: string; label: string }>;
+  /** Signed-in customers get a "Ver meus pedidos" shortcut after sending. */
+  signedIn?: boolean;
 };
 
 const labelClass = "mb-2 block text-xs font-black uppercase tracking-[0.16em] text-neutral-700";
@@ -22,7 +24,32 @@ function FieldError({ id, message }: { id: string; message?: string }) {
   return message ? <p id={id} className="mt-2 text-sm font-semibold text-red-700">{message}</p> : null;
 }
 
-export function SupportForm({ submissionKey, defaultName, defaultEmail, defaultCategory, product, orders = [] }: SupportFormProps) {
+function CopyProtocolButton({ protocol }: { protocol: string }) {
+  const [copied, setCopied] = useState<"idle" | "copied" | "failed">("idle");
+  return (
+    <span className="ml-auto inline-flex items-center gap-2 text-xs font-black">
+      <button
+        type="button"
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(protocol);
+            setCopied("copied");
+          } catch {
+            setCopied("failed");
+          }
+        }}
+        className="inline-flex min-h-11 items-center rounded-md border border-neutral-400 bg-white px-4 text-xs font-black uppercase tracking-[0.14em] text-neutral-950 hover:border-neutral-950"
+      >
+        Copiar
+      </button>
+      <span aria-live="polite" className="text-neutral-700">
+        {copied === "copied" ? "Copiado" : copied === "failed" ? "Selecione e copie o protocolo" : ""}
+      </span>
+    </span>
+  );
+}
+
+export function SupportForm({ submissionKey, defaultName, defaultEmail, defaultCategory, product, orders = [], signedIn = false }: SupportFormProps) {
   const [state, formAction, pending] = useActionState<SupportFormState, FormData>(submitSupportRequestAction, {});
   const [started, setStarted] = useState(false);
   const statusRef = useRef<HTMLDivElement | null>(null);
@@ -40,14 +67,25 @@ export function SupportForm({ submissionKey, defaultName, defaultEmail, defaultC
   }, [state.protocol]);
 
   if (state.protocol) {
+    // UIUX-SUPPORT-001: the confirmation replaces the form inside the same card (no card in a card),
+    // with the protocol on its own line and a copy button. No response time is promised.
     return (
-      <div ref={statusRef} tabIndex={-1} role="status" aria-live="polite" className="rounded-lg border border-neutral-300 bg-white p-6 focus:outline-none">
-        <p className="store-section-label">Mensagem recebida</p>
-        <h2 className="mt-3 text-2xl font-black tracking-tight text-neutral-950">Recebemos sua solicitação.</h2>
-        <p className="mt-3 text-sm font-semibold leading-6 text-neutral-600">
-          Protocolo: <strong className="font-black text-neutral-950">{state.protocol}</strong>. A equipe da RARE vai responder pelo e-mail informado.
-        </p>
-        <Link href="/" className="store-button-secondary mt-6">Voltar para a loja</Link>
+      <div ref={statusRef} tabIndex={-1} role="status" aria-live="polite" className="focus:outline-none" data-testid="support-received">
+        <p className="store-section-label">Solicitação recebida</p>
+        <h2 className="mt-3 text-2xl font-black tracking-tight text-neutral-950">Recebemos sua mensagem.</h2>
+        <p className="mt-3 text-sm font-semibold leading-6 text-neutral-600">A resposta será enviada para o e-mail informado.</p>
+        <div className="mt-6 flex flex-wrap items-center gap-3 rounded-md bg-neutral-100 px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-neutral-600">Protocolo</p>
+            <p className="mt-1 break-all font-mono text-xl font-black tracking-wide text-neutral-950">{state.protocol}</p>
+          </div>
+          <CopyProtocolButton protocol={state.protocol} />
+        </div>
+        <p className="mt-3 text-xs font-semibold leading-5 text-neutral-600">Guarde o protocolo: ele identifica esta solicitação se você falar com a RARE por outro canal.</p>
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          {signedIn ? <Link href="/minha-conta/pedidos" className="store-button-primary">Ver meus pedidos</Link> : null}
+          <Link href="/" className="store-button-secondary">Voltar para a loja</Link>
+        </div>
       </div>
     );
   }

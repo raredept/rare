@@ -48,7 +48,7 @@ export async function StoreCheckoutPage({ searchParams }: StoreCheckoutPageProps
   const paidOrderCount = await prisma.order.count({ where: firstOrderCouponConsumedWhere(customer.id) });
 
   return (
-    <><CheckoutDeadline /><CartPageClient
+    <><CheckoutDeadline className="mx-auto max-w-7xl px-4 pt-6 lg:px-8" /><CartPageClient
       customer={{
         name: customer.name,
         email: customer.email,

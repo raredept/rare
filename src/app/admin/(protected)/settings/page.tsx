@@ -1,5 +1,6 @@
 import { saveCardInstallmentSettingsAction, saveSettingsAction } from "@/app/admin/(protected)/settings/actions";
 import { AdminSubmitButton } from "@/components/admin/admin-submit-button";
+import { AdminUnsavedChanges } from "@/components/admin/admin-unsaved-changes";
 import { formatCep } from "@/lib/cep";
 import { formatMoney } from "@/lib/money";
 import { getStoreSettings } from "@/lib/settings";
@@ -37,7 +38,7 @@ export default async function SettingsPage({ searchParams }: { searchParams?: Pr
   return (
     <div>
       <h1 className="text-2xl font-black text-neutral-950">Configurações</h1>
-      <form action={saveSettingsAction} className="mt-6 max-w-3xl space-y-6 rounded-lg border border-neutral-200 bg-white p-5">
+      <form id="store-settings-form" action={saveSettingsAction} className="mt-6 max-w-3xl space-y-6 rounded-lg border border-neutral-200 bg-white p-5">
         <label className="block">
           <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Instagram da loja</span>
           <input name="instagramUrl" type="url" required defaultValue={getInstagramUrl(settings.instagramUrl)} className="admin-input" />
@@ -60,7 +61,7 @@ export default async function SettingsPage({ searchParams }: { searchParams?: Pr
           <div>
             <h2 className="text-lg font-black text-neutral-950">Frete automático</h2>
             <p className="mt-1 text-sm font-semibold text-neutral-500">
-              O checkout recalcula o frete no backend. Use Melhor Envio em produção e mantenha manual/fixo apenas como legado ou homologação.
+              O valor do frete é sempre recalculado pelo servidor na hora da compra. Em produção, use Melhor Envio; as opções do grupo “Avançado / homologação” servem só para testes ou casos antigos.
             </p>
           </div>
           <label className="block">
@@ -68,24 +69,27 @@ export default async function SettingsPage({ searchParams }: { searchParams?: Pr
             <input name="originCep" defaultValue={formatCep(settings.originCep) || ""} placeholder="00000-000" inputMode="numeric" className="admin-input" />
           </label>
           <label className="block">
-            <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Provider ativo</span>
+            <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Forma de cálculo do frete</span>
+            {/* UIUX-ADMIN-001: the production option first; test/legacy ones grouped apart. Same values. */}
             <select name="shippingMode" defaultValue={settings.shippingMode} className="admin-input">
-              <option value="disabled">Desativado / combinar entrega</option>
-              <option value="manual">Manual/fallback PAC e SEDEX</option>
-              <option value="fixed">Fixo legado</option>
-              <option value="correios">Correios via env</option>
-              <option value="melhor_envio">Melhor Envio automático via env</option>
-              <option value="frenet">Frenet via env</option>
-              <option value="future_provider">Legado: futuro provedor real</option>
+              <option value="melhor_envio">Melhor Envio (automático) — recomendado</option>
+              <option value="disabled">Desativado — combinar a entrega com o cliente</option>
+              <optgroup label="Avançado / homologação">
+                <option value="manual">Manual (PAC e SEDEX de referência)</option>
+                <option value="fixed">Valor fixo (opção antiga)</option>
+                <option value="correios">Correios (configuração do servidor)</option>
+                <option value="frenet">Frenet (configuração do servidor)</option>
+                <option value="future_provider">Reservado (não usar)</option>
+              </optgroup>
             </select>
           </label>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
-              <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Valor fixo legado</span>
+              <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Valor fixo (opção antiga)</span>
               <input name="fixedShipping" defaultValue={formatMoney(fixedShippingInCents)} className="admin-input" />
             </label>
             <label className="block">
-              <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Frete gratis acima de</span>
+              <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Frete grátis acima de</span>
               <input
                 name="freeShippingThreshold"
                 defaultValue={freeShippingThresholdInCents ? formatMoney(freeShippingThresholdInCents) : ""}
@@ -94,7 +98,7 @@ export default async function SettingsPage({ searchParams }: { searchParams?: Pr
             </label>
           </div>
           <label className="block">
-            <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Instrucoes de frete</span>
+            <span className="mb-2 block text-xs font-black uppercase tracking-wide text-neutral-500">Instruções de frete</span>
             <textarea
               name="shippingInstructions"
               defaultValue={settings.shippingInstructions ?? ""}
@@ -105,7 +109,7 @@ export default async function SettingsPage({ searchParams }: { searchParams?: Pr
           </label>
           <label className="flex items-center gap-3 text-sm font-black text-neutral-800">
             <input name="checkoutRequiresAddress" type="checkbox" defaultChecked={settings.checkoutRequiresAddress} className="h-4 w-4" />
-            Exigir endereco no checkout
+            Exigir endereço no checkout
           </label>
         </section>
 
@@ -120,11 +124,16 @@ export default async function SettingsPage({ searchParams }: { searchParams?: Pr
           />
           <p className="mt-2 text-xs text-neutral-600">Novas compras: 15 minutos, com encerramento confirmado no provedor. Pedidos anteriores mantêm o prazo original; login e pagamentos em processamento têm prazos próprios.</p>
         </label>
-        <AdminSubmitButton
-          idleLabel="Salvar configurações"
-          pendingLabel="Salvando..."
-          className="h-12 rounded-lg bg-black px-6 text-sm font-black uppercase tracking-wide text-white"
-        />
+        {/* UIUX-ADMIN-002/004: the save button stays in reach while scrolling on a phone. */}
+        <div className="sticky bottom-0 -mx-5 -mb-5 flex flex-wrap items-center gap-3 rounded-b-lg border-t border-neutral-200 bg-white px-5 py-3">
+          <AdminSubmitButton
+            idleLabel="Salvar configurações da loja"
+            pendingLabel="Salvando..."
+            className="h-12 rounded-lg bg-black px-6 text-sm font-black uppercase tracking-wide text-white"
+          />
+          <AdminUnsavedChanges formId="store-settings-form" />
+        </div>
+        <p className="text-xs font-semibold text-neutral-500">Este botão salva só esta seção. O parcelamento, abaixo, tem o próprio botão.</p>
       </form>
 
       <section id="parcelamento" className="mt-10 max-w-3xl scroll-mt-24">
@@ -140,7 +149,7 @@ export default async function SettingsPage({ searchParams }: { searchParams?: Pr
         ) : null}
         {installmentsError ? <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{installmentsError}</p> : null}
         {installmentsSaved ? <p role="status" className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-800">Parcelamento salvo.</p> : null}
-        <form action={saveCardInstallmentSettingsAction} className="mt-4 space-y-5 rounded-lg border border-neutral-200 bg-white p-5">
+        <form id="installment-settings-form" action={saveCardInstallmentSettingsAction} className="mt-4 space-y-5 rounded-lg border border-neutral-200 bg-white p-5">
           <label className="flex items-center gap-3 text-sm font-black text-neutral-800">
             <input name="cardInstallmentsEnabled" type="checkbox" defaultChecked={settings.cardInstallmentsEnabled} className="h-4 w-4" />
             Parcelamento ativado
@@ -185,11 +194,15 @@ export default async function SettingsPage({ searchParams }: { searchParams?: Pr
               {previewPlans.map((plan) => <li key={plan.installmentCount}>{describeCardInstallmentPlan(plan)}</li>)}
             </ul>
           </div>
-          <AdminSubmitButton
-            idleLabel="Salvar parcelamento"
-            pendingLabel="Salvando..."
-            className="h-12 rounded-lg bg-black px-6 text-sm font-black uppercase tracking-wide text-white"
-          />
+          <div className="flex flex-wrap items-center gap-3">
+            <AdminSubmitButton
+              idleLabel="Salvar parcelamento"
+              pendingLabel="Salvando..."
+              className="h-12 rounded-lg bg-black px-6 text-sm font-black uppercase tracking-wide text-white"
+            />
+            {/* Asks for confirmation with a summary of the rates before posting. */}
+            <AdminUnsavedChanges formId="installment-settings-form" confirmInstallments />
+          </div>
         </form>
       </section>
     </div>

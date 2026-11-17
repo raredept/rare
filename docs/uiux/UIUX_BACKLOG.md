@@ -13,7 +13,9 @@ financeira, a mudança é só de apresentação e a regressão deve ser provada 
 
 > **Status 2026-11-17:** o operador aprovou **todos os P1**; os 9 foram implementados no
 > `RARE-UIUX-REFINE-01` (branch local `refine/rare-uiux-01`, sem deploy) — ver
-> [UIUX_REFINE_01.md](./UIUX_REFINE_01.md). P2 e P3 continuam aguardando aprovação.
+> [UIUX_REFINE_01.md](./UIUX_REFINE_01.md). Em seguida aprovou **P2 e P3**, implementados na mesma
+> branch; parciais: CHECKOUT-004 (nome do produto exige mudança no servidor de checkout), FORMS-001
+> (busca por CEP exige serviço externo), IMG-001 (backfill de mídia é operação de produção) e PERF-001.
 
 ---
 

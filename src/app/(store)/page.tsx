@@ -307,7 +307,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                 <h3 className="text-lg font-black tracking-tight text-neutral-950">Acessórios por tipo</h3>
                 <p className="mt-1 text-sm font-semibold text-neutral-600">Bags, bonés, cuecas, meias, óculos e relógios para fechar o visual.</p>
               </div>
-              <Link href="/categoria/acessorios" className="text-xs font-black uppercase tracking-[0.16em] text-neutral-700 hover:text-neutral-950">
+              <Link href="/categoria/acessorios" className="inline-flex min-h-11 items-center text-xs font-black uppercase tracking-[0.16em] text-neutral-700 hover:text-neutral-950">
                 Ver acessórios
               </Link>
             </div>
@@ -319,7 +319,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                   className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-neutral-300 bg-white px-4 text-sm font-black text-neutral-800 transition-[border-color,background-color,transform] duration-150 hover:-translate-y-px hover:border-neutral-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 active:translate-y-0"
                 >
                   {tile.name}
-                  <span className="text-[10px] uppercase tracking-[0.14em] text-neutral-500">
+                  <span className="text-[11px] uppercase tracking-[0.14em] text-neutral-500">
                     {tile.status === "available" ? tile.total : "Em breve"}
                   </span>
                 </Link>

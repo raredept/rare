@@ -54,7 +54,7 @@ export function CampaignCountdown({ endsAt, endsAtLabel }: { endsAt: string; end
           <div key={label} className="min-w-14 rounded-md border border-white/20 bg-white/5 px-2 py-1.5 text-center">
             <dt className="sr-only">{label}</dt>
             <dd className="text-xl font-black tabular-nums sm:text-2xl">{now === null ? "--" : pad(value)}</dd>
-            <span className="block text-[10px] uppercase tracking-widest text-white/60">{label}</span>
+            <span className="block text-[11px] uppercase tracking-widest text-white/60">{label}</span>
           </div>
         ))}
       </dl>

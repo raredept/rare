@@ -7,7 +7,8 @@ import { paidOrderStatuses } from "@/lib/coupons";
 type CheckoutState = { id: string; orderNumber: string; status: string; deadlineAt: string | null;
   expiredAt: string | null; processing: boolean; resumeUrl: string | null };
 
-export function CheckoutDeadline() {
+/** `orderId` pins one order (the customer's order page); without it, the ?pedido= query or the latest checkout. */
+export function CheckoutDeadline({ orderId, className = "store-shell pt-6" }: { orderId?: string; className?: string } = {}) {
   const [order, setOrder] = useState<CheckoutState | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
   useEffect(() => {
@@ -17,7 +18,7 @@ export function CheckoutDeadline() {
     const tick = () => { if (alive) setRemaining(deadline === null ? null : Math.max(0, Math.ceil((deadline - (Date.now() + clockOffset)) / 1000))); };
     const refresh = async () => {
       try {
-        const query = new URLSearchParams(window.location.search).get("pedido");
+        const query = orderId ?? new URLSearchParams(window.location.search).get("pedido");
         const response = await fetch(`/api/checkout/status${query ? `?pedido=${encodeURIComponent(query)}` : ""}`, { cache: "no-store" });
         if (!response.ok) return;
         const data = await response.json();
@@ -33,14 +34,14 @@ export function CheckoutDeadline() {
     const onVisible = () => { if (document.visibilityState === "visible") void refresh(); };
     window.addEventListener("focus", onVisible); document.addEventListener("visibilitychange", onVisible);
     return () => { alive = false; clearInterval(clock); clearInterval(poll); window.removeEventListener("focus", onVisible); document.removeEventListener("visibilitychange", onVisible); };
-  }, []);
+  }, [orderId]);
   if (!order || !order.deadlineAt) return null;
   const terminal = order.status === "canceled" || order.status === "failed";
   const refunded = order.status === "refunded";
   const paid = refunded || (paidOrderStatuses as readonly string[]).includes(order.status);
   const elapsed = remaining === 0;
   return (
-    <section aria-label="Prazo da compra" className="store-shell pt-6">
+    <section aria-label="Prazo da compra" className={className}>
       <div className="rounded-lg border border-neutral-300 bg-neutral-50 p-5 text-sm leading-6 text-neutral-800">
         <p className="font-black">{refunded ? "Pagamento reembolsado" : paid ? "Pagamento confirmado" : order.processing ? "Pagamento em processamento" : terminal || elapsed ? "Tempo esgotado" : "Sua reserva está em andamento"}</p>
         <p>Pedido {order.orderNumber}.</p>

@@ -12,7 +12,7 @@ import { DISABLED_CARD_INSTALLMENT_RULES, describeCardInstallmentPlan, listCardI
 import { useCart, type CartItem } from "@/components/store/cart-context";
 import { ProductMediaPlaceholder } from "@/components/store/product-media-placeholder";
 import { formatCep, parseCep } from "@/lib/cep";
-import { formatCheckoutMessage } from "@/lib/checkout-messages";
+import { describeCheckoutFailure, formatCheckoutMessage, readJsonSafely } from "@/lib/checkout-messages";
 import { formatCpf, isValidCpf, normalizeCpf } from "@/lib/cpf";
 import { formatMoney } from "@/lib/money";
 import { calculatePercentDiscountInCents } from "@/lib/coupons";
@@ -218,6 +218,8 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
   const [shippingError, setShippingError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The next step for an error that has one (e.g. "Entrar" when the session expired).
+  const [errorAction, setErrorAction] = useState<{ href: string; label: string } | null>(null);
   const [hasRequiredCpf, setHasRequiredCpf] = useState(customer.hasCpf);
   const [cpfMasked, setCpfMasked] = useState(customer.cpfMasked);
   const [cpfInput, setCpfInput] = useState("");
@@ -380,8 +382,8 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
             })),
           }),
         });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error ?? "Frete indisponível.");
+        const data = (await readJsonSafely(response)) ?? {};
+        if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : "Frete indisponível no momento. Tente novamente em alguns instantes.");
 
         const nextOptions = (data.options ?? []) as ShippingQuoteOption[];
         setShippingQuoteContext({ cartSignature, cep: normalizedCep });
@@ -406,7 +408,7 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
         }
 
         if (data.disabled) {
-          setShippingError(data.message ?? "Frete automático desativado; entrega combinada manualmente.");
+          setShippingError(typeof data.message === "string" ? data.message : "Frete automático desativado; entrega combinada manualmente.");
         }
       } catch (quoteError) {
         if (signal?.aborted) return;
@@ -493,10 +495,10 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cpf: normalizedCpfInput }),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error ?? "Não foi possível salvar o CPF.");
+      const data = (await readJsonSafely(response)) ?? {};
+      if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : "Não foi possível salvar o CPF agora. Tente de novo em instantes.");
       setHasRequiredCpf(true);
-      setCpfMasked(data.cpfMasked ?? "");
+      setCpfMasked(typeof data.cpfMasked === "string" ? data.cpfMasked : "");
       setCpfInput("");
       setError(null);
     } catch (saveError) {
@@ -540,6 +542,7 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
 
     setLoading(true);
     setError(null);
+    setErrorAction(null);
 
     try {
       const response = await fetch("/api/checkout", {
@@ -548,12 +551,19 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
         body: JSON.stringify(checkoutPayload),
       });
 
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error ?? "Falha ao iniciar checkout.");
+      const data = await readJsonSafely(response);
+      if (!response.ok || typeof data?.url !== "string") {
+        const failure = describeCheckoutFailure({ message: typeof data?.error === "string" ? data.error : null, status: response.status });
+        setError(failure.text);
+        setErrorAction(failure.action ?? null);
+        setLoading(false);
+        return;
+      }
       window.location.href = data.url;
-    } catch (checkoutError) {
-      const message = checkoutError instanceof Error ? checkoutError.message : "Falha ao iniciar checkout.";
-      setError(formatCheckoutMessage(message));
+    } catch {
+      // fetch itself failed (offline, DNS, connection reset): never show the browser's own text.
+      setError(describeCheckoutFailure({ network: true }).text);
+      setErrorAction(null);
       setLoading(false);
     }
   }
@@ -612,7 +622,7 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
           <section className="rounded-lg border border-neutral-200 bg-white p-5">
             <div className="flex items-center gap-2">
               <UserRound className="h-5 w-5 text-neutral-700" />
-              <h2 className="text-lg font-black text-neutral-950">Dados de contato</h2>
+              <h2 className="text-lg font-black text-neutral-950"><span className="mr-2 text-neutral-400">1</span>Dados de contato</h2>
             </div>
 
             <div className="mt-4 rounded-lg bg-neutral-50 p-4 text-sm font-semibold text-neutral-600 [overflow-wrap:anywhere]">
@@ -641,7 +651,7 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
                     maxLength={14}
                     placeholder="000.000.000-00"
                     aria-invalid={Boolean(cpfInput && !cpfInputIsValid)}
-                    className="admin-input h-12 bg-white"
+                    className="store-input"
                   />
                 </Field>
                 <button
@@ -663,7 +673,7 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2">
                 <MapPin className="h-5 w-5 text-neutral-700" />
-                <h2 className="text-lg font-black text-neutral-950">Entrega</h2>
+                <h2 className="text-lg font-black text-neutral-950"><span className="mr-2 text-neutral-400">2</span>Entrega</h2>
               </div>
               <Link href="/minha-conta/enderecos" className="rounded-lg border border-neutral-300 px-3 py-2 text-xs font-black">
                 Cadastrar ou editar
@@ -759,6 +769,21 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
               </div>
             ) : null}
           </section>
+
+          {/* UIUX-CHECKOUT-005: step 3 lives in the main column with contact and delivery; the summary
+              column keeps only the money, the total and the button. Same components and state. */}
+          {paymentAvailable || installmentPlans.length > 1 ? (
+            <section className="rounded-lg border border-neutral-200 bg-white p-5" aria-labelledby="checkout-payment-title">
+              <h2 id="checkout-payment-title" className="text-lg font-black text-neutral-950">
+                <span className="mr-2 text-neutral-400">3</span>Pagamento
+              </h2>
+              {paymentAvailable && pixAvailable && cardAvailable ? <PaymentMethodPicker value={paymentMethod} onChange={setPaymentMethod} disabled={loading} provider={usesAsaas ? "asaas" : "stripe"} /> : null}
+              {installmentPlans.length > 1 ? (
+                <CardInstallmentSelector plans={installmentPlans} selectedPlan={selectedPlan} onSelect={setInstallmentChoice} disabled={loading} />
+              ) : null}
+              {paymentAvailable ? <p className="mt-5 text-sm font-semibold leading-6 text-neutral-700">Ao iniciar o pagamento, você terá {paymentWindowMinutes} minutos para finalizar. O prazo fica salvo com seu pedido e não se renova ao voltar à loja. Pagamentos já em processamento aguardam confirmação.</p> : null}
+            </section>
+          ) : null}
         </div>
 
         <aside className="h-fit rounded-lg border border-neutral-200 bg-white p-5 lg:sticky lg:top-36">
@@ -856,13 +881,11 @@ export function CartPageClient({ customer, addresses, initialSelectedAddressId, 
             </div>
           </div>
           {belowMinimumPayment ? <p role="alert" className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">{ASAAS_MINIMUM_PAYMENT_MESSAGE}</p> : null}
-          {error ? <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{error}</p> : null}
-          {paymentAvailable && pixAvailable && cardAvailable ? <PaymentMethodPicker value={paymentMethod} onChange={setPaymentMethod} disabled={loading} provider={usesAsaas ? "asaas" : "stripe"} /> : null}
-          {installmentPlans.length > 1 ? (
-            <CardInstallmentSelector plans={installmentPlans} selectedPlan={selectedPlan} onSelect={setInstallmentChoice} disabled={loading} />
-          ) : null}
-          {paymentAvailable ? (
-            <p className="mt-5 text-sm font-semibold leading-6 text-neutral-700">Ao iniciar o pagamento, você terá {paymentWindowMinutes} minutos para finalizar. O prazo fica salvo com seu pedido e não se renova ao voltar à loja. Pagamentos já em processamento aguardam confirmação.</p>
+          {error ? (
+            <div role="alert" className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
+              <p>{error}</p>
+              {errorAction ? <Link href={errorAction.href} className="mt-1 inline-flex min-h-11 items-center font-black text-red-800 underline underline-offset-4">{errorAction.label}</Link> : null}
+            </div>
           ) : null}
           <button
             type="button"
