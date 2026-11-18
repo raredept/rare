@@ -18,8 +18,6 @@ const primaryButton =
 const secondaryButton =
   "inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-neutral-400 bg-white px-4 text-xs font-black uppercase tracking-[0.14em] text-neutral-950 transition hover:border-neutral-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 sm:w-auto";
 
-const kindLabels = { cookie: "Cookie", localStorage: "Armazenamento local", sessionStorage: "Armazenamento da sessão" } as const;
-
 function focusMainContent() {
   document.getElementById("store-main")?.focus({ preventScroll: true });
 }
@@ -142,30 +140,21 @@ export function CookieConsent() {
                     </label>
                   )}
                 </div>
-                <p className="mt-2 text-sm font-semibold leading-6 text-neutral-700">{category.purpose}</p>
-                {/* UIUX-COOKIES-001: plain language first (what it does, for how long); the technical
-                    names stay one click away. Store-team (Admin) entries are only in the policy. */}
+                <p className="mt-2 text-sm font-semibold leading-6 text-neutral-700">{category.summary}</p>
+                {/* RARE-COOKIE-PUBLIC-HARDENING-01: what each item is for and for how long, in plain
+                    language. No technical cookie/storage names and nothing about the store team's
+                    Admin; engineering keeps those in docs/security/COOKIE_STORAGE_INTERNAL.md. */}
                 <ul className="mt-3 grid gap-2">
-                  {category.entries.filter((entry) => entry.audience !== "staff").map((entry) => (
-                    <li key={entry.name} className="flex flex-col gap-0.5 rounded-lg bg-neutral-50 px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-                      <span className="font-semibold leading-6 text-neutral-800">{entry.purpose}</span>
+                  {category.entries.map((entry) => (
+                    <li key={entry.id} className="flex flex-col gap-0.5 rounded-lg bg-neutral-50 px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+                      <span className="leading-6 text-neutral-800">
+                        <span className="font-black text-neutral-950">{entry.label}</span>
+                        <span className="font-semibold">: {entry.purpose}</span>
+                      </span>
                       <span className="shrink-0 text-xs font-bold text-neutral-600">{entry.duration}</span>
                     </li>
                   ))}
                 </ul>
-                <details className="mt-3 text-xs">
-                  <summary className="inline-flex min-h-11 cursor-pointer items-center font-black uppercase tracking-[0.12em] text-neutral-700 hover:text-neutral-950">
-                    Ver detalhes técnicos
-                  </summary>
-                  <ul className="mt-1 grid gap-1.5">
-                    {category.entries.filter((entry) => entry.audience !== "staff").map((entry) => (
-                      <li key={entry.name} className="flex flex-wrap gap-x-3 gap-y-0.5 font-semibold text-neutral-700">
-                        <span className="break-all font-mono font-bold text-neutral-950">{entry.name}</span>
-                        <span>{kindLabels[entry.kind]} · {entry.party}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </details>
               </section>
             ))}
           </div>

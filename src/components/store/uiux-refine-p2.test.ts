@@ -34,8 +34,10 @@ describe("RARE-UIUX-REFINE-01 · P2/P3", () => {
     const html = renderToStaticMarkup(createElement(CookieConsent));
     expect(html).not.toContain("rare_admin_session");
     expect(html).not.toContain("rare_admin_mfa_pending");
-    expect(html).toContain("Ver detalhes técnicos");
-    expect(html).toContain("rare_customer_session");
+    // RARE-COOKIE-PUBLIC-HARDENING-01 superseded the "Ver detalhes técnicos" toggle: plain language only.
+    expect(html).not.toContain("Ver detalhes técnicos");
+    expect(html).not.toContain("rare_customer_session");
+    expect(html).toContain("Sessão da conta");
   });
 
   it("UIUX-GLOBAL-001: no unlayered font reset beats the Tailwind utilities; phone fields keep 16 px", () => {

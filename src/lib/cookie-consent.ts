@@ -69,54 +69,132 @@ export function hasAnalyticsConsent(consent: CookieConsent | null) {
   return consent?.analytics === true;
 }
 
+/** Stable, non-technical ids for what the shopper reads. Never a cookie or storage key name. */
+export type PublicStorageEntryId =
+  | "privacy-preferences"
+  | "account-session"
+  | "cart"
+  | "shipping"
+  | "visual-preferences"
+  | "browser-id"
+  | "visit-id";
+
+/**
+ * One line of the public cookie policy and of the preferences panel, in plain language.
+ *
+ * RARE-COOKIE-PUBLIC-HARDENING-01: the shopper sees what is stored, why, for how long, its type
+ * and origin, but never the technical cookie/storage names, and nothing about the store team's
+ * Admin or its MFA. The technical names live in src/lib/cookie-storage-inventory.ts (engineering
+ * only, never imported by a page or component) and docs/security/COOKIE_STORAGE_INTERNAL.md.
+ */
 export type StorageEntry = {
-  name: string;
+  id: PublicStorageEntryId;
+  label: string;
   kind: "cookie" | "localStorage" | "sessionStorage";
   purpose: string;
   duration: string;
   party: "Próprio (raredept.com.br)" | "Terceiro";
-  /** "staff": only the store team's Admin sets it. Listed in the policy, not in the shopper's panel. */
-  audience?: "staff";
 };
 
 export type ConsentCategoryInfo = {
   id: ConsentCategory;
   label: string;
   required: boolean;
+  /** Full explanation, on the cookie policy page. */
   purpose: string;
+  /** Short explanation, in the preferences panel. */
+  summary: string;
   entries: StorageEntry[];
 };
+
+export const STORAGE_KIND_LABELS = {
+  cookie: "Cookie",
+  localStorage: "Armazenamento local do navegador",
+  sessionStorage: "Armazenamento da aba (sessão)",
+} as const satisfies Record<StorageEntry["kind"], string>;
 
 const FIRST_PARTY = "Próprio (raredept.com.br)" as const;
 
 /**
- * Everything this app stores in the browser. src/lib/cookie-consent.test.ts fails when the code
- * sets a cookie or a storage key that is not listed here, so the policy cannot drift from the app.
+ * Everything this app stores in a shopper's browser, described for people. Each entry is backed
+ * by one or more technical keys in src/lib/cookie-storage-inventory.ts; src/lib/cookie-consent.test.ts
+ * fails when the code stores something the inventory does not map, so the policy cannot drift.
  */
 export const COOKIE_CATALOG: ConsentCategoryInfo[] = [
   {
     id: "ESSENTIAL",
     label: "Essenciais",
     required: true,
-    purpose: "Necessários para a loja funcionar: manter a sessão, o carrinho, a entrega escolhida e a sua decisão sobre cookies. Não podem ser desativados.",
+    purpose:
+      "Necessários para a loja funcionar: manter a sessão da sua conta, o carrinho, a entrega escolhida, a sua decisão sobre cookies e algumas preferências de exibição. Não podem ser desativados.",
+    summary: "Necessários para manter recursos como sua sessão, carrinho, entrega escolhida e preferências de privacidade.",
     entries: [
-      { name: COOKIE_CONSENT_COOKIE, kind: "cookie", purpose: "Guarda a sua decisão sobre cookies (versão da política, categorias e data). Não identifica você.", duration: `${COOKIE_CONSENT_MAX_AGE_DAYS} dias`, party: FIRST_PARTY },
-      { name: "rare_customer_session", kind: "cookie", purpose: "Mantém você conectado à sua conta depois do login.", duration: "30 dias", party: FIRST_PARTY },
-      { name: "rare_admin_session", kind: "cookie", purpose: "Sessão do painel administrativo (apenas equipe da loja).", duration: "8 horas", party: FIRST_PARTY, audience: "staff" },
-      { name: "rare_admin_mfa_pending", kind: "cookie", purpose: "Etapa do segundo fator no login do painel administrativo (apenas equipe da loja).", duration: "até 10 minutos", party: FIRST_PARTY, audience: "staff" },
-      { name: "rare_store_cart", kind: "localStorage", purpose: "Itens do seu carrinho neste navegador.", duration: "até você esvaziar o carrinho ou limpar o navegador", party: FIRST_PARTY },
-      { name: "rare_store_shipping_selection", kind: "localStorage", purpose: "Opção de entrega escolhida no carrinho.", duration: "até concluir a compra ou limpar o navegador", party: FIRST_PARTY },
-      { name: "rare:home-motion-paused:v2", kind: "localStorage", purpose: "Lembra se você pausou as animações da página inicial.", duration: "até limpar o navegador", party: FIRST_PARTY },
+      {
+        id: "privacy-preferences",
+        label: "Preferências de privacidade",
+        kind: "cookie",
+        purpose: "Guarda a sua decisão sobre cookies (versão da política, categorias escolhidas e data da escolha). Não contém dados pessoais.",
+        duration: `${COOKIE_CONSENT_MAX_AGE_DAYS} dias`,
+        party: FIRST_PARTY,
+      },
+      {
+        id: "account-session",
+        label: "Sessão da conta",
+        kind: "cookie",
+        purpose: "Mantém você conectado à sua conta depois do login.",
+        duration: "até 30 dias, ou até você sair da conta",
+        party: FIRST_PARTY,
+      },
+      {
+        id: "cart",
+        label: "Carrinho",
+        kind: "localStorage",
+        purpose: "Mantém os produtos que você escolheu neste navegador.",
+        duration: "até você esvaziar o carrinho ou limpar o navegador",
+        party: FIRST_PARTY,
+      },
+      {
+        id: "shipping",
+        label: "Entrega",
+        kind: "localStorage",
+        purpose: "Mantém temporariamente a opção de entrega escolhida no carrinho.",
+        duration: "até concluir a compra ou limpar o navegador",
+        party: FIRST_PARTY,
+      },
+      {
+        id: "visual-preferences",
+        label: "Preferências visuais",
+        kind: "localStorage",
+        purpose: "Lembra se você pausou as animações da página inicial.",
+        duration: "até limpar o navegador",
+        party: FIRST_PARTY,
+      },
     ],
   },
   {
     id: "ANALYTICS",
     label: "Análise de uso",
     required: false,
-    purpose: "Medição própria da loja, sem ferramentas de terceiros: páginas e produtos vistos, cliques em produtos e itens adicionados ao carrinho, para entender o que interessa aos visitantes. Só é ativada com o seu consentimento e usa identificadores aleatórios, sem nome, e-mail, CPF, telefone ou endereço IP.",
+    purpose:
+      "Medição própria da loja, sem ferramentas de terceiros: páginas e produtos vistos, cliques em produtos e itens adicionados ao carrinho, para entender o que interessa aos visitantes. Só é ativada com o seu consentimento e usa identificadores aleatórios, sem nome, e-mail, CPF, telefone ou endereço IP.",
+    summary: "Ajuda a RARE a entender quais páginas e produtos são mais acessados e como o site é utilizado. Só funciona quando você autoriza.",
     entries: [
-      { name: ANALYTICS_VISITOR_COOKIE, kind: "cookie", purpose: "Identificador aleatório deste navegador, para contar visitas sem saber quem você é.", duration: `${ANALYTICS_VISITOR_MAX_AGE_DAYS} dias (apagado ao recusar)`, party: FIRST_PARTY },
-      { name: ANALYTICS_SESSION_STORAGE_KEY, kind: "sessionStorage", purpose: "Identificador aleatório da visita atual, para agrupar as páginas de uma mesma sessão.", duration: "até fechar a aba (apagado ao recusar)", party: FIRST_PARTY },
+      {
+        id: "browser-id",
+        label: "Identificador do navegador",
+        kind: "cookie",
+        purpose: "Identificador aleatório (pseudônimo) deste navegador, para diferenciar visitas e medir o uso do site. Não usa seu nome, e-mail ou conta.",
+        duration: `${ANALYTICS_VISITOR_MAX_AGE_DAYS} dias (apagado ao recusar)`,
+        party: FIRST_PARTY,
+      },
+      {
+        id: "visit-id",
+        label: "Identificador da visita",
+        kind: "sessionStorage",
+        purpose: "Identificador aleatório da visita atual, para agrupar as páginas vistas numa mesma sessão.",
+        duration: "até fechar a aba (apagado ao recusar)",
+        party: FIRST_PARTY,
+      },
     ],
   },
 ];

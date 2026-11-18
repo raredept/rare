@@ -1,5 +1,5 @@
 import { CookiePreferencesButton } from "@/components/store/cookie-consent";
-import { COOKIE_CATALOG, COOKIE_CONSENT_MAX_AGE_DAYS } from "@/lib/cookie-consent";
+import { COOKIE_CATALOG, COOKIE_CONSENT_MAX_AGE_DAYS, STORAGE_KIND_LABELS } from "@/lib/cookie-consent";
 import { buildPageMetadata } from "@/lib/seo";
 import { SITE_ANALYTICS_RETENTION_DAYS } from "@/lib/site-analytics";
 
@@ -9,10 +9,11 @@ export const metadata = buildPageMetadata({
   path: "/politica-de-cookies",
 });
 
-const kindLabels = { cookie: "Cookie", localStorage: "Armazenamento local", sessionStorage: "Armazenamento da sessão" } as const;
-
 // Built from COOKIE_CATALOG, the same list the preferences panel shows. A test fails when the app
-// stores something that is not listed there, so this page describes what the site really does.
+// stores something that the catalog does not describe, so this page tells what the site really does.
+// RARE-COOKIE-PUBLIC-HARDENING-01: purpose, type, duration and origin in plain language; no technical
+// cookie/storage names and nothing about the store team's Admin (see docs/security/COOKIE_STORAGE_INTERNAL.md).
+// One card per item at every width, so there is no wide table to scroll sideways on a phone.
 export default function CookiePolicyPage() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
@@ -34,40 +35,28 @@ export default function CookiePolicyPage() {
             {category.label} {category.required ? <span className="text-base text-neutral-500">(sempre ativos)</span> : <span className="text-base text-neutral-500">(opcional)</span>}
           </h2>
           <p className="mt-4 max-w-2xl text-base font-semibold leading-8 text-neutral-600">{category.purpose}</p>
-          {/* UIUX-A11Y-001: the scrollable table box can take keyboard focus (arrows scroll it). */}
-          <div
-            className="mt-6 overflow-x-auto rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-neutral-950"
-            role="region"
-            aria-labelledby={`cookies-${category.id}`}
-            tabIndex={0}
-          >
-            <table className="w-full min-w-[36rem] text-left text-sm">
-              <caption className="sr-only">{`${category.label}: nome, tipo, finalidade, duração e origem`}</caption>
-              <thead>
-                <tr className="border-b border-neutral-300 text-[11px] font-black uppercase tracking-wide text-neutral-600">
-                  <th scope="col" className="py-2 pr-4">Nome</th>
-                  <th scope="col" className="py-2 pr-4">Tipo</th>
-                  <th scope="col" className="py-2 pr-4">Finalidade</th>
-                  <th scope="col" className="py-2 pr-4">Duração</th>
-                  <th scope="col" className="py-2">Origem</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-200 align-top">
-                {category.entries.map((entry) => (
-                  <tr key={entry.name}>
-                    <td className="break-all py-3 pr-4 font-mono text-xs font-bold text-neutral-950">{entry.name}</td>
-                    <td className="py-3 pr-4 font-semibold text-neutral-700">{kindLabels[entry.kind]}</td>
-                    <td className="py-3 pr-4 font-semibold leading-6 text-neutral-700">
-                      {entry.purpose}
-                      {entry.audience === "staff" ? <span className="mt-1 block text-xs font-black uppercase tracking-wide text-neutral-500">Só no painel da equipe da loja; não é criado para clientes.</span> : null}
-                    </td>
-                    <td className="py-3 pr-4 font-semibold text-neutral-700">{entry.duration}</td>
-                    <td className="py-3 font-semibold text-neutral-700">{entry.party}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ul className="mt-6 grid gap-3" aria-label={`${category.label}: o que é guardado`}>
+            {category.entries.map((entry) => (
+              <li key={entry.id} className="rounded-lg border border-neutral-200 p-4 sm:p-5">
+                <h3 className="text-base font-black text-neutral-950">{entry.label}</h3>
+                <p className="mt-1 text-sm font-semibold leading-6 text-neutral-700 sm:text-base sm:leading-7">{entry.purpose}</p>
+                <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
+                  <div>
+                    <dt className="text-[11px] font-black uppercase tracking-wide text-neutral-600">Tipo</dt>
+                    <dd className="font-semibold text-neutral-800">{STORAGE_KIND_LABELS[entry.kind]}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-black uppercase tracking-wide text-neutral-600">Duração</dt>
+                    <dd className="font-semibold text-neutral-800">{entry.duration}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-black uppercase tracking-wide text-neutral-600">Origem</dt>
+                    <dd className="font-semibold text-neutral-800">{entry.party}</dd>
+                  </div>
+                </dl>
+              </li>
+            ))}
+          </ul>
         </section>
       ))}
 
@@ -78,7 +67,7 @@ export default function CookiePolicyPage() {
           <li>Recusar é tão simples quanto aceitar e não muda nada na compra.</li>
           <li>Ao recusar ou retirar o consentimento, os identificadores de análise são apagados deste navegador e nenhum evento novo é enviado.</li>
           <li>A sua decisão fica guardada por {COOKIE_CONSENT_MAX_AGE_DAYS} dias, sem dado pessoal; depois perguntamos de novo. Você pode mudar a qualquer momento em “Preferências de Cookies”, no rodapé.</li>
-          <li>Eventos de análise já registrados não identificam você e são apagados após {SITE_ANALYTICS_RETENTION_DAYS} dias.</li>
+          <li>Eventos de análise já registrados não contêm nome, e-mail, CPF, telefone nem endereço IP e são apagados após {SITE_ANALYTICS_RETENTION_DAYS} dias.</li>
           <li>Pedidos, pagamentos e entregas usam os dados da compra conforme a página Privacidade e termos, independentemente desta escolha.</li>
         </ul>
       </section>
