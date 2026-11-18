@@ -64,7 +64,7 @@ scroll sideways (BEFORE evidence `long-answer-320.png`, recorded by the new spec
 | Run | Chromium | Firefox | WebKit |
 | --- | --- | --- | --- |
 | `assistant-ui.spec.ts` | 7/7 | 7/7 | 7/7 |
-| `assistant.spec.ts` | 12/12 | 12/12 | see PR |
+| `assistant.spec.ts` | 12/12 | 12/12 | 12/12 |
 | `prelaunch-consent-analytics.spec.ts` (cookies) | 5/5 | — | — |
 
 Typecheck, lint, unit suite (2,622 passed), build, `npm audit --omit=dev` (0) and `release:guard`
