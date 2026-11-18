@@ -11,8 +11,12 @@ import { readBoundedRequestBody, RequestBodyTooLargeError } from "@/lib/request-
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// The exact PushSubscription.toJSON() shape (W3C Push API): browsers always include
+// expirationTime (null on the push services in use). It is accepted and not stored; any other
+// extra field is still refused.
 const pushSubscriptionSchema = z.object({
   endpoint: z.url().max(2048).refine(isAllowedPushEndpoint, "Unsupported push service."),
+  expirationTime: z.number().int().nonnegative().nullable().optional(),
   keys: z.object({
     p256dh: z.string().min(1).max(512),
     auth: z.string().min(1).max(512),
