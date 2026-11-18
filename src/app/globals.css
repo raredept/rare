@@ -141,12 +141,16 @@ html {
   --assistant-shadow: 0 32px 80px -24px rgb(0 0 0 / 0.5), 0 12px 28px -12px rgb(0 0 0 / 0.22), 0 0 0 1px rgb(0 0 0 / 0.08);
   --assistant-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --assistant-ease-in: cubic-bezier(0.4, 0, 1, 1);
-  --assistant-enter-y: 20px;
+  /* Motion never takes the panel or the launcher past their resting edges, so neither ever covers
+     the cookie banner or the PDP buy bar, not even mid-animation: the panel scales from its bottom
+     edge, its content rises inside it (clipped), the launcher slides in sideways. */
+  --assistant-origin: 50% 100%;
   /* Room kept above the panel on phones: the status bar / Dynamic Island and a sliver of the page. */
   --assistant-top-room: max(0.75rem, env(safe-area-inset-top));
 }
 
 .assistant-launcher {
+  transform-origin: 100% 100%;
   right: max(1rem, env(safe-area-inset-right));
   bottom: calc(max(1rem, env(safe-area-inset-bottom)) + var(--assistant-offset, 0px));
   border: 1px solid rgb(255 255 255 / 0.22);
@@ -224,7 +228,7 @@ html {
   min-height: min(26rem, calc(100dvh - var(--assistant-offset, 0px) - max(0.5rem, env(safe-area-inset-bottom)) - var(--assistant-top-room)));
   border-radius: var(--assistant-radius);
   box-shadow: var(--assistant-shadow);
-  transform-origin: 100% 100%;
+  transform-origin: var(--assistant-origin);
 }
 
 .assistant-panel[hidden] {
@@ -242,7 +246,7 @@ html {
 
 @media (min-width: 640px) {
   [data-assistant-root] {
-    --assistant-enter-y: 10px;
+    --assistant-origin: 100% 100%;
   }
   .assistant-panel {
     left: auto;
@@ -572,28 +576,28 @@ html {
 @keyframes assistant-launcher-in {
   from {
     opacity: 0;
-    transform: translateY(8px) scale(0.96);
+    transform: translateX(10px) scale(0.96);
   }
 }
 
 @keyframes assistant-panel-in {
   from {
     opacity: 0;
-    transform: translateY(var(--assistant-enter-y, 10px)) scale(0.98);
+    transform: scale(0.97);
   }
 }
 
 @keyframes assistant-panel-out {
   to {
     opacity: 0;
-    transform: translateY(calc(var(--assistant-enter-y, 10px) * 0.6)) scale(0.985);
+    transform: scale(0.98);
   }
 }
 
 @keyframes assistant-rise {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(10px);
   }
 }
 

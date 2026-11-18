@@ -21,8 +21,14 @@ test.setTimeout(600_000);
 
 const phase = process.env.QA_ASSISTANT_UI_PHASE === "before" ? "before" : "after";
 const afterOnly = phase === "before";
-const shots = path.join(process.cwd(), "output", "assistant-uiux-02", phase);
-mkdirSync(shots, { recursive: true });
+const shotsRoot = path.join(process.cwd(), "output", "assistant-uiux-02");
+
+/** BEFORE goes to before/, AFTER to after-<browser project>/ (one set per engine). */
+function shotsDir() {
+  const dir = path.join(shotsRoot, phase === "before" ? "before" : `after-${test.info().project.name}`);
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
 
 const DISPLAY_NAME = "Assistente RARE";
 const ENTRIES = [
@@ -108,7 +114,7 @@ async function ask(page: Page, text: string) {
 
 async function shot(page: Page, name: string) {
   await page.waitForTimeout(250);
-  await page.screenshot({ path: path.join(shots, `${name}.png`) });
+  await page.screenshot({ path: path.join(shotsDir(), `${name}.png`) });
 }
 
 /** Horizontal overflow inside the panel (a long URL or word must wrap, never widen the bubble). */
@@ -167,13 +173,36 @@ test("evidence: desktop and phone, closed, open, conversation and fallback", asy
 
 test("evidence: cookie banner and PDP buy bar on phones", async ({ browser }) => {
   const slug = requireEnv("QA_BF_PRODUCT_SLUG");
-  for (const width of [390, 1440]) {
+  for (const width of [320, 390, 1440]) {
     const { context, page } = await storefront(browser, { width, height: width > 500 ? 900 : 844, cookieConsent: "undecided" });
     await gotoWithLauncher(page, "/");
     await expect(page.locator("[data-cookie-banner]")).toBeVisible();
     await page.waitForTimeout(600);
     await shot(page, `cookie-banner-closed-${width}`);
-    await page.locator("[data-assistant-launcher]").click();
+    if (!afterOnly) {
+      // Every frame of the opening motion stays above the banner (sampled inside the page: one driver call).
+      const lowest = await page.evaluate(() => new Promise<number>((resolve) => {
+        const banner = document.querySelector("[data-cookie-banner]")!.getBoundingClientRect().top;
+        let worst = -Infinity;
+        let firstSeen = 0;
+        const started = performance.now();
+        document.querySelector<HTMLButtonElement>("[data-assistant-launcher]")!.click();
+        // The loading frame and then the panel (its chunk may still be loading): both are measured,
+        // until 600 ms after the panel itself shows up.
+        const sample = () => {
+          const now = performance.now();
+          const frame = document.querySelector("[data-assistant-panel], [data-assistant-root] [role='status']");
+          if (frame && frame.getClientRects().length) worst = Math.max(worst, frame.getBoundingClientRect().bottom - banner);
+          if (!firstSeen && document.querySelector("[data-assistant-panel]")?.getClientRects().length) firstSeen = now;
+          if ((firstSeen && now - firstSeen > 600) || now - started > 8_000) resolve(firstSeen ? worst : Infinity);
+          else requestAnimationFrame(sample);
+        };
+        requestAnimationFrame(sample);
+      }));
+      expect(lowest, `panel never dips over the banner while opening @${width}`).toBeLessThanOrEqual(0.5);
+    } else {
+      await page.locator("[data-assistant-launcher]").click();
+    }
     await expect(page.locator("[data-assistant-panel]")).toBeVisible();
     await page.waitForTimeout(400);
     await shot(page, `cookie-banner-open-${width}`);

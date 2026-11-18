@@ -197,6 +197,16 @@ describe("assistant panel presentation (RARE-ASSISTANT-UIUX-02)", () => {
     expect(css).toMatch(/@keyframes assistant-fade-in \{\s*from \{\s*opacity: 0;\s*\}\s*\}/);
   });
 
+  it("never moves the panel or the launcher past their resting edge (cookie banner, PDP buy bar)", () => {
+    for (const name of ["assistant-panel-in", "assistant-panel-out", "assistant-launcher-in"]) {
+      const frames = css.match(new RegExp(`@keyframes ${name} \\{[\\s\\S]*?\\n\\}`))?.[0] ?? "";
+      expect(frames, name).not.toBe("");
+      expect(frames, name).not.toMatch(/translateY/);
+    }
+    expect(css).toMatch(/\.assistant-panel \{[^}]*transform-origin: var\(--assistant-origin\);/);
+    expect(css).toMatch(/--assistant-origin: 50% 100%;/);
+  });
+
   it("adds no motion or chat library to the bundle", () => {
     for (const source of [launcherSource, panelSource]) expect(source).not.toMatch(/framer-motion|from "motion|gsap|lottie/);
   });
