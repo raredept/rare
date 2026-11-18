@@ -137,11 +137,11 @@ test("customizing and withdrawing from the footer: the panel, keyboard access an
   await page.locator("[data-cookie-banner]").getByRole("button", { name: "Configurar", exact: true }).click();
   const panel = page.locator("dialog[data-cookie-preferences]");
   await expect(panel).toBeVisible();
-  // UIUX-COOKIES-001: plain language first; the technical names are one click away, Admin ones only in the policy.
-  for (const summary of await panel.getByText("Ver detalhes técnicos").all()) await summary.click();
-  await expect(panel.getByText("rare_analytics_visitor")).toBeVisible();
-  await expect(panel.getByText("rare_customer_session")).toBeVisible();
-  await expect(panel.getByText("rare_admin_session")).toHaveCount(0);
+  // RARE-COOKIE-PUBLIC-HARDENING-01: plain language only; no technical names, no Admin/MFA, no details toggle.
+  await expect(panel.getByText("Ver detalhes técnicos")).toHaveCount(0);
+  await expect(panel.getByText("Sessão da conta", { exact: true })).toBeVisible();
+  await expect(panel.getByText("Identificador do navegador", { exact: true })).toBeVisible();
+  expect(await panel.innerText()).not.toMatch(/rare[_:]|administrativ|segundo fator/i);
   const toggle = panel.getByRole("switch");
   await expect(toggle).not.toBeChecked();
   await toggle.check();
@@ -177,12 +177,16 @@ test("customizing and withdrawing from the footer: the panel, keyboard access an
   await context.close();
 });
 
-test("cookie policy lists the real cookies and the banner fits from 320 to 1920 px", async ({ browser }) => {
+test("cookie policy explains the storage without technical names and the banner fits from 320 to 1920 px", async ({ browser }) => {
   const visitor = await newVisitor(browser);
   const { page, context } = visitor;
   await page.goto("/politica-de-cookies");
-  for (const name of ["rare_cookie_consent", "rare_customer_session", "rare_admin_session", "rare_store_cart", "rare_analytics_visitor", "rare_analytics_session"]) {
-    await expect(page.getByRole("cell", { name, exact: true })).toBeVisible();
+  for (const label of ["Preferências de privacidade", "Sessão da conta", "Carrinho", "Entrega", "Preferências visuais", "Identificador do navegador", "Identificador da visita"]) {
+    await expect(page.getByRole("heading", { name: label, exact: true })).toBeVisible();
+  }
+  const policyHtml = await page.content();
+  for (const name of ["rare_cookie_consent", "rare_customer_session", "rare_admin_session", "rare_admin_mfa_pending", "rare_store_cart", "rare_store_shipping_selection", "rare:home-motion-paused:v2", "rare_analytics_visitor", "rare_analytics_session"]) {
+    expect(policyHtml, name).not.toContain(name);
   }
   for (const width of [320, 360, 375, 390, 430, 768, 1024, 1280, 1440, 1920]) {
     await page.setViewportSize({ width, height: 900 });
