@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, MessageCircle } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from "react";
 import type { PublicAssistantBootstrap } from "@/lib/assistant/store";
@@ -11,14 +11,23 @@ import type { PublicAssistantBootstrap } from "@/lib/assistant/store";
 // Separate chunk, requested on hover/focus (prefetch) or on the first open; never rendered on the server.
 const AssistantPanel = lazy(() => import("@/components/store/assistant-panel").then((module) => ({ default: module.AssistantPanel })));
 
-/** Shown only while the panel chunk loads after a tap (no hover on phones): the shopper never sees nothing. */
+/**
+ * Shown only while the panel chunk loads after a tap (no hover on phones): the shopper never sees
+ * nothing. Same frame as the panel (black header, quiet body, composer) so the swap is seamless.
+ */
 function PanelLoading({ title }: { title: string }) {
   return (
-    <div role="status" className="assistant-panel fixed z-[60] flex flex-col overflow-hidden rounded-lg border border-neutral-300 bg-white text-neutral-950 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
-      <div className="bg-black px-4 py-3 text-sm font-black uppercase tracking-[0.16em] text-white">{title}</div>
-      <div className="flex flex-1 items-center justify-center gap-2 text-sm font-bold text-neutral-600">
-        <Loader2 aria-hidden="true" className="h-4 w-4 motion-safe:animate-spin" />
-        Carregando…
+    <div role="status" data-state="open" className="assistant-panel fixed z-[60] flex flex-col overflow-hidden bg-white text-neutral-950">
+      <div className="shrink-0 bg-black px-5 pb-4 pt-[3.875rem] text-[11px] font-black uppercase leading-4 tracking-[0.22em] text-white">{title}</div>
+      <div aria-hidden="true" className="flex flex-1 flex-col gap-3 px-5 pt-6">
+        <span className="assistant-skeleton h-7 w-24" />
+        <span className="assistant-skeleton h-4 w-4/5" />
+        <span className="assistant-skeleton mt-5 h-12 w-full" />
+        <span className="assistant-skeleton h-12 w-full" />
+      </div>
+      <span className="sr-only">Carregando…</span>
+      <div aria-hidden="true" className="shrink-0 border-t border-neutral-200 p-3">
+        <span className="assistant-skeleton block h-[3.25rem] w-full rounded-full" />
       </div>
     </div>
   );
@@ -123,11 +132,14 @@ export function AssistantLauncher({ bootstrap }: { bootstrap: PublicAssistantBoo
           }}
           onPointerEnter={() => setRequested(true)}
           onFocus={() => setRequested(true)}
-          className="assistant-launcher fixed z-30 inline-flex min-h-12 min-w-12 items-center justify-center gap-2 rounded-full border border-white/20 bg-black px-3.5 text-white shadow-[0_10px_30px_rgba(0,0,0,0.28)] transition-colors hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 focus-visible:ring-offset-white sm:px-4"
+          className="assistant-launcher group fixed z-30 inline-flex min-h-12 min-w-12 items-center justify-center gap-2.5 rounded-full px-3.5 sm:pl-4 sm:pr-5"
         >
-          <MessageCircle aria-hidden="true" className="h-5 w-5 shrink-0" strokeWidth={2} />
-          <span aria-hidden="true" className="hidden text-xs font-black uppercase tracking-[0.16em] sm:inline">
-            Dúvidas
+          <span aria-hidden="true" className="assistant-launcher-icon relative inline-flex">
+            <MessageCircle className="h-5 w-5 shrink-0" strokeWidth={2} />
+            <span className="assistant-launcher-dot" />
+          </span>
+          <span aria-hidden="true" className="assistant-launcher-label hidden text-[11px] font-black uppercase leading-none sm:inline">
+            Dúvidas?
           </span>
         </button>
       ) : null}
