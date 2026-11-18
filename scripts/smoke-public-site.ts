@@ -13,7 +13,8 @@ function safeErrorMessage(error: unknown) {
 async function main() {
   const cliUrl = process.argv.slice(2).find((arg) => !arg.startsWith("-"));
   const baseUrl = resolvePublicSmokeBaseUrl(cliUrl);
-  const result = await runPublicSiteSmoke({ baseUrl });
+  // RARE-SEO-GOOGLE-01: indexing checks run by default; `--no-seo` keeps only the base smoke.
+  const result = await runPublicSiteSmoke({ baseUrl, seo: !process.argv.includes("--no-seo") });
 
   console.log(formatPublicSmokeReport(result));
 

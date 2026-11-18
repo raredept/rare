@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ProductDetailClient } from "@/components/store/product-detail-client";
-import { isProductVideoUrl } from "@/lib/product-media";
+import { buildProductOfferSnapshot } from "@/lib/product-offer";
 import { buildProductMetadata, RARE_DEFAULT_SITE_URL } from "@/lib/seo";
 import { getStoreSettings } from "@/lib/settings";
-import { buildBreadcrumbListJsonLd, buildProductJsonLd, JsonLdScript } from "@/lib/structured-data";
+import { buildBreadcrumbListJsonLd, buildProductJsonLdFromSnapshot, JsonLdScript } from "@/lib/structured-data";
 import { getProductBySlug } from "@/lib/storefront";
 import { getStorefrontCommerceState } from "@/lib/storefront-commerce";
 import { getStorefrontCardInstallmentRules } from "@/lib/storefront-installments";
@@ -14,6 +14,7 @@ export const dynamic = "force-dynamic";
 
 type ProductPageProps = {
   params: Promise<{ slug: string }>;
+  searchParams?: Promise<{ size?: string | string[] }>;
 };
 
 export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
@@ -27,8 +28,8 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   return buildProductMetadata(product);
 }
 
-export default async function ProductPage({ params }: ProductPageProps) {
-  const { slug } = await params;
+export default async function ProductPage({ params, searchParams }: ProductPageProps) {
+  const [{ slug }, search] = await Promise.all([params, searchParams ?? Promise.resolve(undefined)]);
   const product = await getProductBySlug(slug);
 
   if (!product) notFound();
@@ -36,21 +37,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const settings = await getStoreSettings();
   const commerce = getStorefrontCommerceState();
   const appUrl = RARE_DEFAULT_SITE_URL;
-  const productUrl = `${appUrl}/produto/${product.slug}`;
-  const productJsonLd = buildProductJsonLd({
-    name: product.title,
-    description: product.shortDescription,
-    imageUrls: product.images
-      .filter((image) => !isProductVideoUrl(image.url))
-      .map((image) => (image.url.startsWith("http") ? image.url : `${appUrl}${image.url}`)),
-    // The price the shopper is charged now (automatic promotion included), as shown on the page.
-    priceInCents: product.pricing.finalPriceInCents,
-    inStock: product.variants.some((variant) => variant.stock - variant.reservedStock > 0),
-    url: productUrl,
-    brand: product.brand,
-    sku: product.variants.find((variant) => variant.active && variant.sku)?.sku,
-    checkoutEnabled: commerce.checkoutEnabled,
-  });
+  // RARE-SEO-GOOGLE-01: one offer snapshot feeds both this JSON-LD and the Merchant Center feed.
+  const offer = buildProductOfferSnapshot(product, { siteUrl: appUrl, checkoutEnabled: commerce.checkoutEnabled });
+  const productUrl = offer.url;
+  const productJsonLd = buildProductJsonLdFromSnapshot(offer);
+  // `?size=` (ProductGroup variant URLs) preselects that size when it is an active one.
+  const requestedSize = typeof search?.size === "string" ? search.size.trim() : undefined;
+  const initialSize = requestedSize && offer.variants.some((variant) => variant.size === requestedSize) ? requestedSize : undefined;
   const productCategories: Array<{ name: string; slug: string }> = [];
   for (const category of [product.category, product.subcategory]) {
     if (category && !productCategories.some((item) => item.slug === category.slug)) {
@@ -80,6 +73,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         whatsappMessage={settings.whatsappDefaultMessage}
         commerce={commerce}
         cardInstallmentRules={getStorefrontCardInstallmentRules(settings)}
+        initialSize={initialSize}
       />
     </div>
   );

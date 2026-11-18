@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CatalogEmptyState as EmptyState, CatalogProductGrid as ProductGrid } from "@/components/store/catalog-grid";
-import { buildCategoryMetadata, RARE_DEFAULT_SITE_URL } from "@/lib/seo";
+import { buildCategoryMetadata, buildCategorySeoDescription, getListingIndexState, RARE_DEFAULT_SITE_URL } from "@/lib/seo";
 import { buildBreadcrumbListJsonLd, JsonLdScript } from "@/lib/structured-data";
-import { getCategoryPageData, getNavigationCategories } from "@/lib/storefront";
+import { getCategoryPageData, getCategoryTagline, getNavigationCategories } from "@/lib/storefront";
 import { buildCatalogShortcuts } from "@/lib/catalog-shortcuts";
 import { getStorefrontCommerceState } from "@/lib/storefront-commerce";
 import { buildCatalogPageHref, normalizeCatalogPage } from "@/lib/catalog-pagination";
@@ -18,16 +18,20 @@ type CategoryPageProps = {
   searchParams: Promise<{ q?: string; brand?: string; page?: string; size?: string; price?: string; available?: string; promo?: string; sort?: string }>;
 };
 
-export async function generateMetadata({ params }: Pick<CategoryPageProps, "params">): Promise<Metadata> {
-  const { slug } = await params;
+export async function generateMetadata({ params, searchParams }: Pick<CategoryPageProps, "params"> & Partial<Pick<CategoryPageProps, "searchParams">>): Promise<Metadata> {
+  const [{ slug }, search] = await Promise.all([params, searchParams ?? Promise.resolve({})]);
   const pageData = await getCategoryPageData(slug);
 
   if (!pageData) {
     notFound();
   }
 
-  // Metadata always reads the unfiltered page; "filtered" only exists with refinements, kept for the type.
-  return buildCategoryMetadata(pageData.kind === "filtered" ? { ...pageData, kind: "category" } : pageData);
+  // Metadata reads the unfiltered page 1 (emptiness, title); the URL decides canonical/robots:
+  // filters/sort/search -> noindex,follow + unfiltered canonical; ?page=N -> self canonical.
+  const listing = getListingIndexState(search);
+  const isVirtual = slug === "tudo" || slug === "destaques";
+  const seoDescription = isVirtual ? null : buildCategorySeoDescription(pageData.title, getCategoryTagline(slug));
+  return buildCategoryMetadata(pageData.kind === "filtered" ? { ...pageData, kind: "category" } : pageData, undefined, listing, seoDescription);
 }
 
 export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {

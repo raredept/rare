@@ -33,6 +33,7 @@ vi.mock("@/lib/env", () => ({
 
 vi.mock("@/lib/storefront", () => ({
   getCategoryPageData: mocks.getCategoryPageData,
+  getCategoryTagline: (slug: string) => (slug === "camisetas" ? "Bases fortes para o dia a dia." : null),
   getNavigationCategories: mocks.getNavigationCategories,
 }));
 
@@ -259,6 +260,25 @@ describe("store category page", () => {
 
     expect(result.alternates).toEqual({ canonical: absoluteUrl("/categoria/cuecas") });
     expect(result.robots).toEqual({ index: false, follow: true });
+  });
+
+  it("canonicalizes page 2 to itself and filtered views to the clean category (RARE-SEO-GOOGLE-01)", async () => {
+    const camisetas = { kind: "category", slug: "camisetas", eyebrow: "Categoria", title: "Camisetas", description: "Peças selecionadas pela RARE nesta categoria.", page: 1, hasMore: true, products: [product] };
+    mocks.getCategoryPageData.mockResolvedValue(camisetas);
+
+    const page2 = await generateMetadata({ params: Promise.resolve({ slug: "camisetas" }), searchParams: Promise.resolve({ page: "2" }) });
+    expect(page2.alternates).toEqual({ canonical: `${absoluteUrl("/categoria/camisetas")}?page=2` });
+    expect(page2.title).toBe("Camisetas — página 2");
+    expect(page2.description).toContain("Camisetas na RARE. Bases fortes para o dia a dia.");
+
+    for (const search of [{ brand: "Supreme" }, { sort: "price-asc" }, { size: "M", page: "2" }, { q: "bape" }, { price: "100-200" }, { available: "1" }, { promo: "1" }]) {
+      const filtered = await generateMetadata({ params: Promise.resolve({ slug: "camisetas" }), searchParams: Promise.resolve(search) });
+      expect(filtered.alternates, JSON.stringify(search)).toEqual({ canonical: absoluteUrl("/categoria/camisetas") });
+      expect(filtered.robots, JSON.stringify(search)).toMatchObject({ index: false });
+    }
+    // Metadata always reads the unfiltered first page (the URL only decides canonical/robots).
+    expect(mocks.getCategoryPageData).toHaveBeenCalledWith("camisetas");
+    mocks.getCategoryPageData.mockReset();
   });
 
   it("calls notFound while generating metadata for unknown categories", async () => {

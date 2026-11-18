@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { productOfferContractIssue } from "../../src/lib/product-offer-contract";
+import { collectProductPageOffers, productOfferContractIssue } from "../../src/lib/product-offer-contract";
 import {
   blockExternalRequests,
   captureUnexpectedBrowserIssues, withoutStagingGateNoise,
@@ -22,9 +22,10 @@ const publicRoutes = [
 ] as const;
 const privateSitemapPrefixes = ["/admin", "/api", "/finalizar-compra", "/minha-conta", "/pedido", "/pedidos"];
 
-async function productJsonLdEntries(page: Page) {
+// Offers of the product page: a single Product, or every size of a ProductGroup (RARE-SEO-GOOGLE-01).
+async function productPageOffers(page: Page) {
   const scripts = await page.locator('script[type="application/ld+json"]').allTextContents();
-  return scripts.map((entry) => JSON.parse(entry) as { "@type"?: string; offers?: unknown }).filter((entry) => entry["@type"] === "Product");
+  return collectProductPageOffers(scripts.map((entry) => JSON.parse(entry) as unknown));
 }
 
 test.beforeEach(async ({ page, baseURL }) => {
@@ -77,9 +78,9 @@ test("checkout, carrinho, frete automático e oferta comprável permanecem desat
   await expect(page.locator("main")).not.toContainText(/Pix e cartão|parcelamento/i);
 
   // Paused checkout may still publish the Offer with its price; it must never claim InStock.
-  const productEntries = await productJsonLdEntries(page);
-  expect(productEntries.length).toBeGreaterThan(0);
-  expect(productEntries.map((entry) => productOfferContractIssue(entry.offers, false))).toEqual(productEntries.map(() => null));
+  const productOffers = await productPageOffers(page);
+  expect(productOffers.length).toBeGreaterThan(0);
+  expect(productOffers.map((offer) => productOfferContractIssue(offer, false))).toEqual(productOffers.map(() => null));
 
   await page.goto("/finalizar-compra", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { level: 1, name: "Compras temporariamente pausadas" })).toBeVisible();

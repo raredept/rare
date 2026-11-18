@@ -1,7 +1,7 @@
 export default function StoreLoading() {
   return (
     <div className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6 lg:px-8 lg:py-14 xl:px-10" role="status" aria-live="polite">
-      <h1 className="sr-only">Carregando conteúdo da RARE</h1>
+      <p className="sr-only">Carregando conteúdo da RARE</p>
       <span className="sr-only">Carregando</span>
       <div className="store-loading-shell mb-10 border-b border-neutral-200 pb-8">
         <div className="h-3 w-28 rounded-full bg-neutral-200" />

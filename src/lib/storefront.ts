@@ -104,6 +104,11 @@ const homeCategoryDescriptions = new Map([
   ["relogios", "Relógios e detalhes de impacto."],
 ]);
 
+/** The home tile line of a real category (existing store copy), reused by its meta description. */
+export function getCategoryTagline(slug: string) {
+  return homeCategoryDescriptions.get(slug) ?? null;
+}
+
 function buildActiveProductWhere(params?: { query?: string; categorySlug?: string; brand?: string; featuredOnly?: boolean }) {
   const query = params?.query?.trim();
   const where: Prisma.ProductWhereInput = {

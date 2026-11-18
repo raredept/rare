@@ -1,7 +1,7 @@
 import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import HomePage, { metadata } from "@/app/(store)/page";
+import HomePage, { generateMetadata } from "@/app/(store)/page";
 import { absoluteUrl } from "@/lib/seo";
 
 const mocks = vi.hoisted(() => ({
@@ -176,8 +176,9 @@ describe("store home page", () => {
     expect(JSON.stringify(organizationSchemas[0])).not.toContain("secret");
   });
 
-  it("exports basic SEO metadata for the storefront home", () => {
+  it("exports basic SEO metadata for the storefront home", async () => {
     const canonical = absoluteUrl("/");
+    const metadata = await generateMetadata({ searchParams: Promise.resolve({}) });
 
     expect(metadata.title).toEqual({
       absolute: "RARE — Streetwear importado e drops selecionados",
@@ -197,6 +198,15 @@ describe("store home page", () => {
       title: "RARE — Streetwear importado e drops selecionados",
       description: "Peças importadas, streetwear e acessórios selecionados para quem busca sair do comum.",
     });
+  });
+
+  it("keeps internal search results out of the index while following their links", async () => {
+    const metadata = await generateMetadata({ searchParams: Promise.resolve({ q: "camiseta" }) });
+    expect(metadata.alternates).toEqual({ canonical: absoluteUrl("/") });
+    expect(metadata.title).toBe("Busca: camiseta");
+    // Outside an indexable production build every page is noindex,nofollow; the search page is
+    // never indexable either way.
+    expect(metadata.robots).toMatchObject({ index: false });
   });
 
   it("keeps search pages focused on results without the hero carousel", async () => {
