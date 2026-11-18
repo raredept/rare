@@ -46,6 +46,13 @@ const adminErrorCodes = new Map([
   ["admin-user-last-system-admin", "Precisa existir pelo menos um Administrador de Sistema ativo."],
   ["admin-user-email-taken", "Já existe uma conta com este e-mail ou login."],
   ["admin-user-mfa-reason", "Informe o motivo da redefinição (mínimo de 8 caracteres)."],
+  ["assistant-validation", "Revise os campos do Assistente antes de salvar."],
+  ["assistant-href-invalid", "Link do suporte inválido: use um caminho do site (ex.: /suporte) ou um endereço https://."],
+  ["assistant-enable-empty", "Cadastre e ative ao menos uma resposta antes de ativar o Assistente."],
+  ["assistant-entry-invalid", "Revise a pergunta, a resposta, a prioridade e as palavras-chave (até 30)."],
+  ["assistant-entry-not-found", "Pergunta não encontrada."],
+  ["assistant-entry-conflict", "Esta pergunta foi alterada em outra aba ou por outra pessoa. Recarregue a página e tente de novo."],
+  ["assistant-save-failed", "Não foi possível salvar o Assistente. Tente novamente."],
 ]);
 
 const adminSuccessCodes = new Map([
@@ -84,6 +91,11 @@ const adminSuccessCodes = new Map([
   ["admin-user-role-saved", "Papel atualizado e sessões da conta encerradas."],
   ["admin-user-sessions-revoked", "Sessões da conta encerradas."],
   ["admin-user-mfa-reset", "Segundo fator redefinido. A conta cadastra um novo no próximo login."],
+  ["assistant-config-saved", "Configuração do Assistente salva."],
+  ["assistant-entry-created", "Pergunta criada."],
+  ["assistant-entry-saved", "Pergunta salva."],
+  ["assistant-entry-activated", "Pergunta ativada."],
+  ["assistant-entry-deactivated", "Pergunta desativada. Ela deixa de aparecer na loja."],
 ]);
 
 /** Literal messages the Admin actions send as free text. */

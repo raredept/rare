@@ -16,6 +16,7 @@ const root = path.join(process.cwd(), "src/app/admin/(protected)");
 const MODULE_PERMISSIONS: Record<string, (typeof ADMIN_PERMISSIONS)[number]> = {
   "": "self.account",
   analytics: "analytics.sales",
+  assistant: "system.assistant",
   // Nested area with its own permission (SYSTEM_ADMIN and SELLER_ADMIN).
   "analytics/site": "analytics.site",
   banners: "commerce.catalog",
