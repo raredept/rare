@@ -7,7 +7,8 @@ describe("robots metadata route", () => {
     const rules = Array.isArray(result.rules) ? result.rules[0] : result.rules;
 
     expect(result.sitemap).toBe("https://raredept.com.br/sitemap.xml");
-    expect(result.host).toBe("https://raredept.com.br");
+    // Google ignores "host"; it is no longer emitted.
+    expect(result.host).toBeUndefined();
     expect(rules?.allow).toBe("/");
     expect(rules?.disallow).toEqual(
       expect.arrayContaining([
@@ -16,7 +17,8 @@ describe("robots metadata route", () => {
         "/checkout",
         "/finalizar-compra",
         "/cart",
-        "/conta",
+        "/conta$",
+        "/conta/",
         "/minha-conta",
         "/entrar",
         "/cadastro",
@@ -25,6 +27,26 @@ describe("robots metadata route", () => {
       ]),
     );
     expect(rules?.disallow).not.toEqual(expect.arrayContaining(["/produto", "/categoria", "/sobre"]));
+  });
+
+  // robots.txt rules are prefix matches (RFC 9309 / Google): a bare "/conta" also blocked "/contato".
+  function isDisallowed(path: string, disallow: string[]) {
+    return disallow.some((rule) => (rule.endsWith("$") ? path === rule.slice(0, -1) : path.startsWith(rule)));
+  }
+
+  it("never blocks a public page through a shared prefix with a private route", () => {
+    const result = buildRobots({ NODE_ENV: "production", APP_URL: "https://raredept.com.br" });
+    const rules = Array.isArray(result.rules) ? result.rules[0] : result.rules;
+    const disallow = ([] as string[]).concat(rules?.disallow ?? []);
+    const publicPaths = [
+      "/", "/sobre", "/contato", "/suporte", "/politica-de-envio", "/privacidade-e-termos", "/politica-de-cookies",
+      "/trocas-e-devolucoes", "/categoria/tudo", "/categoria/camisetas", "/produto/camiseta-supreme", "/colecao/black-friday-sale",
+      "/feeds/google-products.xml", "/sitemap.xml", "/brand/rare-logo.png", "/_next/static/chunks/app.js", "/_next/image",
+    ];
+    for (const path of publicPaths) expect(isDisallowed(path, disallow), path).toBe(false);
+    for (const path of ["/conta", "/conta/dados", "/minha-conta", "/minha-conta/pedidos", "/admin", "/api/health", "/checkout", "/finalizar-compra", "/cart", "/entrar", "/cadastro", "/pedido/abc", "/pedidos"]) {
+      expect(isDisallowed(path, disallow), path).toBe(true);
+    }
   });
 
   it("blocks preview, staging, and non-production environments", () => {

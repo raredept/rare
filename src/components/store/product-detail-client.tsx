@@ -46,6 +46,8 @@ type ProductDetailClientProps = {
   commerce?: StorefrontCommerceState;
   /** Card installment rules (flag + Admin), decided on the server; null = no installment copy. */
   cardInstallmentRules?: CardInstallmentRules | null;
+  /** Size to preselect (from a validated `?size=` landing URL); ignored when not an active size. */
+  initialSize?: string;
 };
 
 type ShippingQuoteOption = {
@@ -185,7 +187,7 @@ function formatProductShippingError(message: string) {
   return message;
 }
 
-export function ProductDetailClient({ product, productUrl, whatsappNumber, whatsappMessage, commerce, cardInstallmentRules }: ProductDetailClientProps) {
+export function ProductDetailClient({ product, productUrl, whatsappNumber, whatsappMessage, commerce, cardInstallmentRules, initialSize }: ProductDetailClientProps) {
   const pricing: ProductPrice = product.pricing ?? { basePriceInCents: product.priceInCents, finalPriceInCents: product.priceInCents, discountInCents: 0, percentOff: 0, promotion: null };
   const commerceState = commerce ?? buildStorefrontCommerceState(true);
   const { addItem } = useCart();
@@ -202,7 +204,10 @@ export function ProductDetailClient({ product, productUrl, whatsappNumber, whats
   const firstAvailableVariant =
     purchasableVariants.find((variant) => getAvailableStock(variant.stock, variant.reservedStock) > 0) ?? purchasableVariants[0];
   const firstAvailableVariantId = firstAvailableVariant?.id ?? "";
-  const [variantId, setVariantId] = useState(firstAvailableVariantId);
+  // RARE-SEO-GOOGLE-01: a size landing URL (`?size=`, used by the ProductGroup JSON-LD and the
+  // Merchant feed) opens with that size selected; otherwise the first available size, as before.
+  const initialVariantId = (initialSize && purchasableVariants.find((variant) => variant.size === initialSize)?.id) || firstAvailableVariantId;
+  const [variantId, setVariantId] = useState(initialVariantId);
   const selectedVariant = purchasableVariants.find((variant) => variant.id === variantId);
   const availableStock = selectedVariant ? getAvailableStock(selectedVariant.stock, selectedVariant.reservedStock) : 0;
   const [quantity, setQuantity] = useState(1);

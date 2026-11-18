@@ -25,32 +25,70 @@ function dedupeSitemapEntries(entries: MetadataRoute.Sitemap): MetadataRoute.Sit
   return Array.from(new Map(entries.map((entry) => [entry.url, entry])).values());
 }
 
-function getBaseSitemapEntries(): MetadataRoute.Sitemap {
+function getBaseSitemapEntries(homeLastModified?: Date): MetadataRoute.Sitemap {
   return [
     ...PUBLIC_STATIC_ROUTES.map((route) => ({
       url: canonicalUrl(route.path),
+      // RARE-SEO-GOOGLE-01: only a REAL lastmod. The home lists products, so it changes when they do;
+      // institutional pages have no tracked edit date, so they carry none (never `new Date()`).
+      ...(route.path === "/" && homeLastModified ? { lastModified: homeLastModified } : {}),
       changeFrequency: "weekly" as const,
       priority: route.priority,
     })),
   ];
 }
 
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseEntries = getBaseSitemapEntries();
+type SitemapProduct = {
+  updatedAt: Date;
+  featured?: boolean;
+  category?: { slug: string } | null;
+  subcategory?: { slug: string } | null;
+};
 
+function latest(dates: Array<Date | null | undefined>) {
+  let result: Date | undefined;
+  for (const date of dates) {
+    if (date && !Number.isNaN(date.getTime()) && (!result || date > result)) result = date;
+  }
+  return result;
+}
+
+/** A listing page changes when the category itself or any product it lists changes. */
+function getLatestProductUpdateByCategorySlug(products: SitemapProduct[]) {
+  const bySlug = new Map<string, Date>();
+  for (const product of products) {
+    for (const slug of [product.category?.slug, product.subcategory?.slug]) {
+      if (!slug) continue;
+      const current = bySlug.get(slug);
+      if (!current || product.updatedAt > current) bySlug.set(slug, product.updatedAt);
+    }
+  }
+  return bySlug;
+}
+
+/**
+ * Only indexable, canonical URLs: home, institutional pages, real categories with products,
+ * /categoria/tudo, /categoria/destaques (when there are featured products) and active products.
+ * Never: Admin, API, checkout, cart, account, internal search, filtered/sorted/paginated listings,
+ * promotional collections (/colecao/*, noindex) or the Merchant feed.
+ */
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const { categories, products, hasFeaturedProducts } = await getPublicSitemapCatalogData();
+    const catalogLastModified = latest(products.map((product) => product.updatedAt));
+    const featuredLastModified = latest(products.filter((product) => product.featured).map((product) => product.updatedAt));
+    const latestByCategory = getLatestProductUpdateByCategorySlug(products);
     const virtualEntries: MetadataRoute.Sitemap = [
-      ...(products.length ? [{ url: canonicalUrl("/categoria/tudo"), changeFrequency: "daily" as const, priority: 0.7 }] : []),
-      ...(hasFeaturedProducts ? [{ url: canonicalUrl("/categoria/destaques"), changeFrequency: "daily" as const, priority: 0.7 }] : []),
+      ...(products.length ? [{ url: canonicalUrl("/categoria/tudo"), lastModified: catalogLastModified, changeFrequency: "daily" as const, priority: 0.7 }] : []),
+      ...(hasFeaturedProducts ? [{ url: canonicalUrl("/categoria/destaques"), lastModified: featuredLastModified, changeFrequency: "daily" as const, priority: 0.7 }] : []),
     ];
 
     return dedupeSitemapEntries([
-      ...baseEntries,
+      ...getBaseSitemapEntries(catalogLastModified),
       ...virtualEntries,
       ...categories.map((category) => ({
         url: canonicalUrl(`/categoria/${encodeURIComponent(category.slug)}`),
-        lastModified: category.updatedAt,
+        lastModified: latest([category.updatedAt, latestByCategory.get(category.slug)]),
         changeFrequency: "daily" as const,
         priority: 0.7,
       })),
@@ -63,6 +101,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ]);
   } catch {
     console.error("Failed to build public sitemap.");
-    return baseEntries;
+    return getBaseSitemapEntries();
   }
 }

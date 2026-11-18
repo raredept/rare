@@ -258,10 +258,162 @@ function scanForSecretLeaks(checks: PublicSmokeCheck[], responses: CapturedRespo
   }
 }
 
+// ---------------------------------------------------------------------------------------------
+// RARE-SEO-GOOGLE-01: indexing checks (opt-in; the CLI turns them on). Only meaningful on the
+// canonical production host — any other target is noindex/disallow by design.
+// ---------------------------------------------------------------------------------------------
+
+const CANONICAL_HOST = "raredept.com.br";
+const CANONICAL_ORIGIN = `https://${CANONICAL_HOST}`;
+const SEO_PUBLIC_PATHS = ["/", "/contato", "/sobre", "/suporte", "/categoria/tudo", "/produto/exemplo", "/_next/static/chunks/app.js", "/feeds/google-products.xml"];
+const SEO_PRIVATE_PATHS = ["/admin", "/api/health", "/checkout", "/finalizar-compra", "/minha-conta", "/entrar"];
+const FILTERED_LISTING_PATH = "/categoria/tudo?sort=price-asc";
+export const MERCHANT_FEED_SMOKE_PATH = "/feeds/google-products.xml";
+
+/** Disallow rules that apply to a generic crawler ("User-agent: *" groups), per RFC 9309 grouping. */
+export function getWildcardDisallowRules(robotsTxt: string) {
+  const rules: string[] = [];
+  let agents: string[] = [];
+  let collectingAgents = false;
+  for (const rawLine of robotsTxt.split(/\r?\n/)) {
+    const line = rawLine.replace(/#.*$/, "").trim();
+    if (!line) continue;
+    const separator = line.indexOf(":");
+    if (separator < 0) continue;
+    const field = line.slice(0, separator).trim().toLowerCase();
+    const value = line.slice(separator + 1).trim();
+    if (field === "user-agent") {
+      if (!collectingAgents) agents = [];
+      agents.push(value.toLowerCase());
+      collectingAgents = true;
+      continue;
+    }
+    collectingAgents = false;
+    if (field === "disallow" && value && agents.includes("*")) rules.push(value);
+  }
+  return rules;
+}
+
+/** Google-style match of a robots rule (prefix, `*` wildcard, `$` end anchor). */
+export function robotsRuleMatches(rule: string, path: string) {
+  const anchored = rule.endsWith("$");
+  const pattern = (anchored ? rule.slice(0, -1) : rule)
+    .split("*")
+    .map((part) => part.replace(/[.+?^${}()|[\]\\]/g, "\\$&"))
+    .join(".*");
+  return new RegExp(`^${pattern}${anchored ? "$" : ""}`).test(path);
+}
+
+function readCanonical(html: string) {
+  return html.match(/<link[^>]+rel="canonical"[^>]+href="([^"]+)"/i)?.[1] ?? null;
+}
+
+function readRobotsMeta(html: string) {
+  return html.match(/<meta[^>]+name="robots"[^>]+content="([^"]+)"/i)?.[1]?.toLowerCase() ?? null;
+}
+
+function readJsonLdTypes(html: string) {
+  return Array.from(html.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi)).flatMap((match) => {
+    try {
+      const parsed = JSON.parse(match[1] ?? "") as { "@type"?: unknown };
+      return typeof parsed["@type"] === "string" ? [parsed["@type"]] : [];
+    } catch {
+      return ["INVALID"];
+    }
+  });
+}
+
+async function runPublicSeoChecks(params: {
+  baseUrl: string;
+  checks: PublicSmokeCheck[];
+  fetchImpl: FetchLike;
+  timeoutMs: number;
+  robots: CapturedResponse | null;
+  sitemap: CapturedResponse | null;
+  capturedResponses: CapturedResponse[];
+}) {
+  const { baseUrl, checks } = params;
+  if (new URL(baseUrl).hostname !== CANONICAL_HOST) {
+    add(checks, "OK", "seo:target", "Alvo nao canonico: checagens de indexacao ignoradas (staging/preview sao noindex por design).");
+    return;
+  }
+
+  if (params.robots) {
+    const body = params.robots.body;
+    if (/^sitemap:\s*https:\/\/raredept\.com\.br\/sitemap\.xml\s*$/im.test(body)) add(checks, "OK", "seo:robots-sitemap", "robots.txt aponta o sitemap canonico.");
+    else add(checks, "FAIL", "seo:robots-sitemap", "robots.txt nao declara Sitemap: https://raredept.com.br/sitemap.xml.");
+    const rules = getWildcardDisallowRules(body);
+    const blockedPublic = SEO_PUBLIC_PATHS.filter((path) => rules.some((rule) => robotsRuleMatches(rule, path)));
+    const openPrivate = SEO_PRIVATE_PATHS.filter((path) => !rules.some((rule) => robotsRuleMatches(rule, path)));
+    if (blockedPublic.length) add(checks, "FAIL", "seo:robots-public", `robots.txt bloqueia paginas publicas: ${blockedPublic.join(", ")}.`);
+    else add(checks, "OK", "seo:robots-public", "Nenhuma pagina publica conhecida bloqueada.");
+    if (openPrivate.length) add(checks, "FAIL", "seo:robots-private", `robots.txt nao bloqueia: ${openPrivate.join(", ")}.`);
+    else add(checks, "OK", "seo:robots-private", "Superficies privadas bloqueadas.");
+  }
+
+  const locs = params.sitemap
+    ? Array.from(params.sitemap.body.matchAll(/<loc>\s*([^<]+?)\s*<\/loc>/gi)).map((match) => decodeXmlEntities(match[1] ?? ""))
+    : [];
+  if (params.sitemap) {
+    const invalid = locs.filter((loc) => !(loc === CANONICAL_ORIGIN || loc.startsWith(`${CANONICAL_ORIGIN}/`)) || loc.includes("?") || /\/colecao\/|\/feeds\//.test(loc));
+    if (invalid.length) add(checks, "FAIL", "seo:sitemap-urls", `Sitemap com URL nao indexavel/nao canonica: ${invalid.slice(0, 5).join(", ")}.`);
+    else add(checks, "OK", "seo:sitemap-urls", `${locs.length} URLs canonicas, sem parametros, colecoes ou feed.`);
+  }
+
+  const fetchPage = (path: string, label: string) => captureResponse({ baseUrl, path, method: "GET", label, checks, fetchImpl: params.fetchImpl, timeoutMs: params.timeoutMs, readBody: true });
+
+  const home = await fetchPage("/", "seo:home");
+  if (home) {
+    params.capturedResponses.push(home);
+    const canonical = readCanonical(home.body);
+    const robots = readRobotsMeta(home.body);
+    if (canonical === CANONICAL_ORIGIN && !robots?.includes("noindex")) add(checks, "OK", "seo:home", "Home indexavel com canonical canonico.");
+    else add(checks, "FAIL", "seo:home", `Home: canonical=${canonical ?? "ausente"} robots=${robots ?? "padrao"}.`);
+  }
+
+  const productLoc = locs.find((loc) => loc.startsWith(`${CANONICAL_ORIGIN}/produto/`));
+  if (productLoc) {
+    const product = await fetchPage(new URL(productLoc).pathname, "seo:product");
+    if (product) {
+      params.capturedResponses.push(product);
+      const canonical = readCanonical(product.body);
+      const types = readJsonLdTypes(product.body);
+      const robots = readRobotsMeta(product.body);
+      const hasProduct = types.includes("Product") || types.includes("ProductGroup");
+      if (product.status === 200 && canonical === productLoc && hasProduct && !types.includes("INVALID") && !robots?.includes("noindex")) {
+        add(checks, "OK", "seo:product", `${new URL(productLoc).pathname}: canonical proprio e JSON-LD ${types.join("+")}.`);
+      } else {
+        add(checks, "FAIL", "seo:product", `${productLoc}: status=${product.status} canonical=${canonical ?? "ausente"} jsonld=${types.join("+") || "nenhum"} robots=${robots ?? "padrao"}.`);
+      }
+    }
+  } else if (params.sitemap) {
+    add(checks, "WARNING", "seo:product", "Sitemap sem produto para validar.");
+  }
+
+  const filtered = await fetchPage(FILTERED_LISTING_PATH, "seo:filtered-listing");
+  if (filtered) {
+    const robots = readRobotsMeta(filtered.body);
+    const canonical = readCanonical(filtered.body);
+    if (robots?.includes("noindex") && canonical === `${CANONICAL_ORIGIN}/categoria/tudo`) add(checks, "OK", "seo:filtered-listing", "Listagem filtrada/ordenada e noindex com canonical sem parametros.");
+    else add(checks, "FAIL", "seo:filtered-listing", `${FILTERED_LISTING_PATH}: robots=${robots ?? "padrao"} canonical=${canonical ?? "ausente"}.`);
+  }
+
+  const feed = await fetchPage(MERCHANT_FEED_SMOKE_PATH, "seo:merchant-feed");
+  if (feed) {
+    params.capturedResponses.push(feed);
+    const isFeed = feed.status === 200 && feed.body.includes('xmlns:g="http://base.google.com/ns/1.0"') && /noindex/i.test(feed.headers.get("x-robots-tag") ?? "");
+    if (isFeed) add(checks, "OK", "seo:merchant-feed", `Feed Merchant publicado (${(feed.body.match(/<item>/g) ?? []).length} itens), noindex.`);
+    else if (feed.status === 404) add(checks, "WARNING", "seo:merchant-feed", "Feed Merchant ainda nao publicado (404).");
+    else add(checks, "FAIL", "seo:merchant-feed", `Feed Merchant invalido: status ${feed.status}.`);
+  }
+}
+
 export async function runPublicSiteSmoke(options: {
   baseUrl?: string;
   fetchImpl?: FetchLike;
   timeoutMs?: number;
+  /** RARE-SEO-GOOGLE-01 indexing checks (robots, sitemap, canonical, JSON-LD, filters, Merchant feed). */
+  seo?: boolean;
 } = {}): Promise<PublicSmokeResult> {
   const baseUrl = resolvePublicSmokeBaseUrl(options.baseUrl);
   const fetchImpl = options.fetchImpl ?? fetch;
@@ -347,6 +499,10 @@ export async function runPublicSiteSmoke(options: {
   });
   checkHealthJson(checks, health);
   if (health) capturedResponses.push(health);
+
+  if (options.seo) {
+    await runPublicSeoChecks({ baseUrl, checks, fetchImpl, timeoutMs, robots, sitemap, capturedResponses });
+  }
 
   scanForSecretLeaks(checks, capturedResponses);
 

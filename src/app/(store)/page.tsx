@@ -1,4 +1,5 @@
 import { ArrowRight, Headphones, PackageSearch, RotateCcw, ShieldCheck, Sparkles, Truck } from "lucide-react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { HomeHeroCarousel } from "@/components/store/home-hero-carousel";
 import { HomeMotionProvider } from "@/components/store/home-motion";
@@ -6,7 +7,7 @@ import { HomeBrandsStrip } from "@/components/store/home-brands-strip";
 import { HomeFeaturedCarousel, type HomeFeaturedSlide } from "@/components/store/home-featured-carousel";
 import { ProductCard } from "@/components/store/product-card";
 import { getHomeBannerSlidesForStore } from "@/lib/home-banners";
-import { buildPageMetadata, RARE_DEFAULT_SITE_URL } from "@/lib/seo";
+import { buildHomeMetadata, RARE_DEFAULT_SITE_URL } from "@/lib/seo";
 import { buildOrganizationJsonLd, buildWebsiteJsonLd, JsonLdScript } from "@/lib/structured-data";
 import { getAvailableBrandsForStore, getCampaignProducts, getFeaturedProducts, getHomeCategoryTiles, getProducts, getRecentProducts, type HomeCategoryTile, type StorefrontProduct } from "@/lib/storefront";
 import { HomeCampaign } from "@/components/store/home-campaign";
@@ -19,16 +20,15 @@ import { getStoreSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = buildPageMetadata({
-  title: "RARE — Streetwear importado e drops selecionados",
-  description: "Peças importadas, streetwear e acessórios selecionados para quem busca sair do comum.",
-  path: "/",
-  absoluteTitle: true,
-});
-
 type HomePageProps = {
   searchParams: Promise<{ q?: string }>;
 };
+
+// RARE-SEO-GOOGLE-01: `/?q=` renders internal search results — noindex,follow, canonical = home.
+export async function generateMetadata({ searchParams }: HomePageProps): Promise<Metadata> {
+  const { q } = await searchParams;
+  return buildHomeMetadata(q);
+}
 
 function getTrustItems(commerce: StorefrontCommerceState) {
   return [

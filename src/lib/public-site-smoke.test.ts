@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_PUBLIC_SITE_URL,
   formatPublicSmokeReport,
+  getWildcardDisallowRules,
   resolvePublicSmokeBaseUrl,
+  robotsRuleMatches,
   runPublicSiteSmoke,
   summarizePublicSmokeResult,
 } from "@/lib/public-site-smoke";
@@ -181,5 +183,100 @@ describe("public site smoke", () => {
     expect(result.checks).toContainEqual(
       expect.objectContaining({ status: "FAIL", label: "leak:/api/health", message: expect.stringContaining("PostgreSQL connection URL") }),
     );
+  });
+});
+
+// RARE-SEO-GOOGLE-01: indexing checks of the public smoke.
+describe("public site smoke — SEO checks", () => {
+  const goodRobots = [
+    "User-agent: *",
+    "Content-Signal: search=yes",
+    "Allow: /",
+    "",
+    "User-agent: GPTBot",
+    "Disallow: /",
+    "",
+    "User-Agent: *",
+    "Allow: /",
+    "Disallow: /admin",
+    "Disallow: /api",
+    "Disallow: /checkout",
+    "Disallow: /finalizar-compra",
+    "Disallow: /conta$",
+    "Disallow: /conta/",
+    "Disallow: /minha-conta",
+    "Disallow: /entrar",
+    "",
+    "Sitemap: https://raredept.com.br/sitemap.xml",
+  ].join("\n");
+  const page = (canonical: string, extra = "") => `<html><head><link rel="canonical" href="${canonical}"/>${extra}</head><body><h1>x</h1></body></html>`;
+  const productJsonLd = '<script type="application/ld+json">{"@context":"https://schema.org","@type":"ProductGroup","name":"x"}</script>';
+
+  function seoFetch(overrides: { robots?: string; filteredRobots?: string; feedStatus?: number } = {}) {
+    const base = createFetchMock();
+    return async (input: string | URL, init?: RequestInit) => {
+      const url = new URL(String(input));
+      const method = String(init?.method ?? "GET").toUpperCase();
+      if (method === "GET" && url.pathname === "/robots.txt") return new Response(overrides.robots ?? goodRobots, { status: 200, headers: makeHeaders() });
+      if (method === "GET" && url.pathname === "/") return new Response(page("https://raredept.com.br"), { status: 200, headers: makeHeaders() });
+      if (method === "GET" && url.pathname === "/produto/camiseta-rare") return new Response(page("https://raredept.com.br/produto/camiseta-rare", productJsonLd), { status: 200, headers: makeHeaders() });
+      if (method === "GET" && url.pathname === "/categoria/tudo") {
+        return new Response(page("https://raredept.com.br/categoria/tudo", `<meta name="robots" content="${overrides.filteredRobots ?? "noindex, follow"}"/>`), { status: 200, headers: makeHeaders() });
+      }
+      if (method === "GET" && url.pathname === "/feeds/google-products.xml") {
+        const status = overrides.feedStatus ?? 200;
+        return new Response(status === 200 ? '<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0"><channel><item></item></channel></rss>' : "Not found", {
+          status,
+          headers: makeHeaders({ extra: { "content-type": "application/xml; charset=utf-8", "x-robots-tag": "noindex" } }),
+        });
+      }
+      return base(input, init);
+    };
+  }
+
+  it("passes on a correctly indexed production site", async () => {
+    const result = await runPublicSiteSmoke({ baseUrl: "https://raredept.com.br", fetchImpl: seoFetch(), timeoutMs: 1000, seo: true });
+    expect(result.checks.filter((check) => check.status !== "OK")).toEqual([]);
+    expect(result.checks.map((check) => check.label)).toEqual(expect.arrayContaining([
+      "seo:robots-sitemap", "seo:robots-public", "seo:robots-private", "seo:sitemap-urls", "seo:home", "seo:product", "seo:filtered-listing", "seo:merchant-feed",
+    ]));
+  });
+
+  it("fails when robots.txt blocks /contato through the bare /conta prefix (bug found in production)", async () => {
+    const robots = goodRobots.replace("Disallow: /conta$\nDisallow: /conta/", "Disallow: /conta");
+    const result = await runPublicSiteSmoke({ baseUrl: "https://raredept.com.br", fetchImpl: seoFetch({ robots }), timeoutMs: 1000, seo: true });
+    expect(result.checks).toContainEqual(expect.objectContaining({ status: "FAIL", label: "seo:robots-public", message: expect.stringContaining("/contato") }));
+  });
+
+  it("ignores Disallow rules of other crawlers' groups", () => {
+    expect(getWildcardDisallowRules(goodRobots)).not.toContain("/");
+    expect(robotsRuleMatches("/conta$", "/conta")).toBe(true);
+    expect(robotsRuleMatches("/conta$", "/contato")).toBe(false);
+    expect(robotsRuleMatches("/conta", "/contato")).toBe(true);
+    expect(robotsRuleMatches("/*?*sort=", "/categoria/tudo?sort=price-asc")).toBe(true);
+  });
+
+  it("fails an indexable filtered listing and warns while the feed is not deployed", async () => {
+    const result = await runPublicSiteSmoke({ baseUrl: "https://raredept.com.br", fetchImpl: seoFetch({ filteredRobots: "index, follow", feedStatus: 404 }), timeoutMs: 1000, seo: true });
+    expect(result.checks).toContainEqual(expect.objectContaining({ status: "FAIL", label: "seo:filtered-listing" }));
+    expect(result.checks).toContainEqual(expect.objectContaining({ status: "WARNING", label: "seo:merchant-feed" }));
+  });
+
+  it("fails a sitemap with query strings or promotional collections", async () => {
+    const sitemapXml = '<urlset><url><loc>https://raredept.com.br/</loc></url><url><loc>https://raredept.com.br/colecao/black-friday-sale</loc></url><url><loc>https://raredept.com.br/categoria/tudo?page=2</loc></url><url><loc>https://raredept.com.br/produto/camiseta-rare</loc></url></urlset>';
+    const fetchImpl = seoFetch();
+    const result = await runPublicSiteSmoke({
+      baseUrl: "https://raredept.com.br",
+      fetchImpl: async (input, init) => (new URL(String(input)).pathname === "/sitemap.xml" ? new Response(sitemapXml, { status: 200, headers: makeHeaders() }) : fetchImpl(input, init)),
+      timeoutMs: 1000,
+      seo: true,
+    });
+    expect(result.checks).toContainEqual(expect.objectContaining({ status: "FAIL", label: "seo:sitemap-urls" }));
+  });
+
+  it("skips indexing checks on non-canonical targets (staging is noindex by design)", async () => {
+    const result = await runPublicSiteSmoke({ baseUrl: "https://staging.example", fetchImpl: createFetchMock(), timeoutMs: 1000, seo: true });
+    expect(result.checks).toContainEqual(expect.objectContaining({ status: "OK", label: "seo:target" }));
+    expect(summarizePublicSmokeResult(result).failures).toBe(0);
   });
 });

@@ -47,7 +47,7 @@ describe("storefront structured data", () => {
     expect(JSON.parse(stringifyJsonLd(data)).offers).toEqual({
       "@type": "Offer",
       priceCurrency: "BRL",
-      price: "199.90",
+      price: 199.9,
       url: "https://raredept.com.br/produto/camiseta-rare",
     });
   });
@@ -78,7 +78,7 @@ describe("storefront structured data", () => {
     expect(data.offers).toEqual({
       "@type": "Offer",
       priceCurrency: "BRL",
-      price: "199.90",
+      price: 199.9,
       availability: "https://schema.org/OutOfStock",
       url: "https://raredept.com.br/produto/camiseta-rare",
     });

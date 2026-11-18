@@ -1,5 +1,6 @@
 import { isRestrictedAppEnv } from "@/lib/deployment-environment";
 import type { Metadata } from "next";
+import { normalizeCatalogPage } from "@/lib/catalog-pagination";
 import { getProductMediaRenderPlan, isSafeProductOgImageUrl } from "@/lib/product-media";
 
 export const RARE_SITE_NAME = "RARE";
@@ -29,6 +30,8 @@ type BuildPageMetadataInput = {
   title: string;
   description?: string | null;
   path: string;
+  /** Listing page number; > 1 adds `?page=N` to the canonical (each page canonicalizes to itself). */
+  page?: number;
   absoluteTitle?: boolean;
   images?: SeoImage[];
   robots?: Metadata["robots"];
@@ -196,11 +199,16 @@ function appendSiteName(title: string) {
   return `${title} | ${RARE_SITE_NAME}`;
 }
 
+function withPageParam(canonical: string, page: number | undefined) {
+  const normalized = normalizeCatalogPage(page);
+  return normalized > 1 ? `${canonical}?page=${normalized}` : canonical;
+}
+
 export function buildPageMetadata(input: BuildPageMetadataInput): Metadata {
   const env = input.env ?? process.env;
   const title = sanitizeMetadataText(input.title, RARE_SITE_NAME);
   const description = sanitizeMetadataText(input.description, RARE_DEFAULT_DESCRIPTION);
-  const canonical = absoluteUrl(input.path, env);
+  const canonical = withPageParam(absoluteUrl(input.path, env), input.page);
   const socialImages = normalizeSocialImages(input.images, env);
   const socialTitle = input.absoluteTitle ? title : appendSiteName(title);
 
@@ -289,14 +297,103 @@ export function isCategoryMetadataEmpty(pageData: CategoryMetadataData) {
   return !pageData.products?.length;
 }
 
-export function buildCategoryMetadata(pageData: CategoryMetadataData, env: EnvLike = process.env): Metadata {
+/**
+ * RARE-SEO-GOOGLE-01 — indexing of listing URLs (category, catalog, collection, home search).
+ *
+ * - Filters, sort and internal search (`q`, `brand`, `size`, `price`, `available`, `promo`, `sort`)
+ *   only re-slice products that the unfiltered pages already link to, so every such URL is
+ *   `noindex, follow` and canonicalizes to the unfiltered listing: no infinite index, links still
+ *   followed. They are never in the sitemap.
+ * - Pagination (`?page=N`, unfiltered) stays indexable and canonicalizes to ITSELF — Google's
+ *   e-commerce pagination guidance: never point page 2+ at page 1, or deeper products lose their
+ *   only crawl path (7 camisetas were reachable only from `/categoria/camisetas?page=2`).
+ * - Any other parameter (utm_*, fbclid...) is ignored: the canonical drops it.
+ */
+export const LISTING_REFINEMENT_PARAMS = ["q", "brand", "size", "price", "available", "promo", "sort"] as const;
+
+type RawSearchParams = Record<string, string | string[] | undefined>;
+
+export type ListingIndexState = { page: number; refined: boolean };
+
+function firstParam(value: string | string[] | undefined) {
+  return (Array.isArray(value) ? value[0] : value)?.trim() || undefined;
+}
+
+export function getListingIndexState(searchParams: RawSearchParams | undefined): ListingIndexState {
+  const params = searchParams ?? {};
+  const refined = LISTING_REFINEMENT_PARAMS.some((key) => Boolean(firstParam(params[key])));
+  return { page: normalizeCatalogPage(firstParam(params.page)), refined };
+}
+
+const REFINED_LISTING_ROBOTS = { index: false, follow: true } as const;
+
+function listingTitle(title: string, listing: ListingIndexState) {
+  return !listing.refined && listing.page > 1 ? `${title} — página ${listing.page}` : title;
+}
+
+export function buildCategoryMetadata(
+  pageData: CategoryMetadataData,
+  env: EnvLike = process.env,
+  listing: ListingIndexState = { page: 1, refined: false },
+  seoDescription?: string | null,
+): Metadata {
+  const noindex = listing.refined || isCategoryMetadataEmpty(pageData);
   return buildPageMetadata({
-    title: pageData.title,
-    description: pageData.description,
+    title: listingTitle(pageData.title, listing),
+    description: seoDescription ?? pageData.description,
     path: `/categoria/${encodeURIComponent(pageData.slug)}`,
-    robots: isCategoryMetadataEmpty(pageData) ? { index: false, follow: true } : undefined,
+    page: listing.refined ? 1 : listing.page,
+    robots: noindex ? REFINED_LISTING_ROBOTS : undefined,
     env,
   });
+}
+
+/**
+ * Meta description of a real category, from copy the store already has (the home tile line of that
+ * category, then the store description) — never invented marketing.
+ */
+export function buildCategorySeoDescription(categoryName: string, tagline?: string | null) {
+  const name = clean(categoryName) ?? RARE_SITE_NAME;
+  const line = clean(tagline);
+  return line ? `${name} na RARE. ${line} ${RARE_DEFAULT_DESCRIPTION}` : `${name} na RARE. ${RARE_DEFAULT_DESCRIPTION}`;
+}
+
+/**
+ * Storefront collections are Promotions (Black Friday...): short-lived, and a real 404 as soon as
+ * the promotion is paused or ends. They are `noindex, follow` (their products stay indexed through
+ * their categories) and out of the sitemap. The page keeps a self canonical and full social tags.
+ */
+export function buildCollectionMetadata(
+  collection: { label: string; slug: string; description?: string | null },
+  listing: ListingIndexState = { page: 1, refined: false },
+  env: EnvLike = process.env,
+): Metadata {
+  return buildPageMetadata({
+    title: listingTitle(collection.label, listing),
+    description: collection.description || `${collection.label}: peças da RARE com preço promocional por tempo limitado.`,
+    path: `/colecao/${encodeURIComponent(collection.slug)}`,
+    page: listing.refined ? 1 : listing.page,
+    robots: REFINED_LISTING_ROBOTS,
+    env,
+  });
+}
+
+export const HOME_TITLE = "RARE — Streetwear importado e drops selecionados";
+
+/** Home; `/?q=` (internal search results) is `noindex, follow` with the home as canonical. */
+export function buildHomeMetadata(query?: string | null, env: EnvLike = process.env): Metadata {
+  const search = clean(query)?.slice(0, 60);
+  if (search) {
+    return buildPageMetadata({
+      title: `Busca: ${search}`,
+      description: RARE_DEFAULT_DESCRIPTION,
+      path: "/",
+      robots: REFINED_LISTING_ROBOTS,
+      env,
+    });
+  }
+
+  return buildPageMetadata({ title: HOME_TITLE, description: RARE_DEFAULT_DESCRIPTION, path: "/", absoluteTitle: true, env });
 }
 
 export function getSocialImageForProduct(

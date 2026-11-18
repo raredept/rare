@@ -60,6 +60,49 @@ describe("sitemap metadata route", () => {
     expect(entries.find((entry) => entry.url.endsWith("/produto/camiseta-rare"))?.lastModified).toBe(productUpdatedAt);
   });
 
+  it("uses only real lastmod values: listings follow their products, institutional pages carry none", async () => {
+    const older = new Date("2026-10-01T10:00:00.000Z");
+    const newer = new Date("2026-11-10T10:00:00.000Z");
+    const featured = new Date("2026-11-05T10:00:00.000Z");
+    mocks.getPublicSitemapCatalogData.mockResolvedValueOnce({
+      categories: [
+        { slug: "camisetas", updatedAt: older },
+        { slug: "acessorios", updatedAt: older },
+        { slug: "bags", updatedAt: newer },
+      ],
+      products: [
+        { slug: "camiseta-nova", updatedAt: newer, featured: false, category: { slug: "camisetas" }, subcategory: null },
+        { slug: "bag-destaque", updatedAt: featured, featured: true, category: { slug: "acessorios" }, subcategory: { slug: "bags" } },
+      ],
+      hasFeaturedProducts: true,
+    });
+
+    const entries = await sitemap();
+    const lastmod = (path: string) => entries.find((entry) => entry.url === `https://raredept.com.br${path}`)?.lastModified;
+
+    expect(lastmod("")).toEqual(newer);
+    expect(lastmod("/categoria/tudo")).toEqual(newer);
+    expect(lastmod("/categoria/destaques")).toEqual(featured);
+    expect(lastmod("/categoria/camisetas")).toEqual(newer);
+    expect(lastmod("/categoria/acessorios")).toEqual(featured);
+    expect(lastmod("/categoria/bags")).toEqual(newer);
+    for (const path of ["/sobre", "/contato", "/politica-de-envio"]) expect(lastmod(path), path).toBeUndefined();
+  });
+
+  it("never lists filtered, paginated, search, collection or feed URLs", async () => {
+    mocks.getPublicSitemapCatalogData.mockResolvedValueOnce({
+      categories: [{ slug: "camisetas", updatedAt: new Date("2026-10-01T10:00:00.000Z") }],
+      products: [{ slug: "camiseta", updatedAt: new Date("2026-10-02T10:00:00.000Z"), featured: false, category: { slug: "camisetas" }, subcategory: null }],
+      hasFeaturedProducts: false,
+    });
+    const urls = (await sitemap()).map((entry) => entry.url);
+
+    expect(urls.every((url) => url.startsWith("https://raredept.com.br") && !url.includes("?") && !url.includes("#"))).toBe(true);
+    expect(urls.some((url) => /\/colecao\/|\/feeds\/|\/cart|\/checkout|\/entrar|\/cadastro|\/pedido/.test(url))).toBe(false);
+    expect(urls).not.toContain("https://raredept.com.br/categoria/destaques");
+    expect(new Set(urls).size).toBe(urls.length);
+  });
+
   it("falls back to non-sensitive public routes when database reads fail", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     mocks.getPublicSitemapCatalogData.mockRejectedValueOnce(new Error("DATABASE_URL must remain private"));

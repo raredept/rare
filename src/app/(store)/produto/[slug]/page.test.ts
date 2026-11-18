@@ -23,15 +23,18 @@ vi.mock("@/components/store/product-detail-client", () => ({
     productUrl,
     whatsappNumber,
     whatsappMessage,
+    initialSize,
   }: {
     product: { title: string };
     productUrl: string;
     whatsappNumber: string | null;
     whatsappMessage: string | null;
+    initialSize?: string;
   }) =>
     createElement(
       "section",
       {
+        "data-initial-size": initialSize ?? "",
         "data-product-url": productUrl,
         "data-whatsapp-number": whatsappNumber ?? "",
         "data-whatsapp-message": whatsappMessage ?? "",
@@ -127,7 +130,7 @@ describe("store product page", () => {
       offers: {
         "@type": "Offer",
         priceCurrency: "BRL",
-        price: "199.90",
+        price: 199.9,
         availability: "https://schema.org/InStock",
         url: "https://raredept.com.br/produto/camiseta-rare",
       },
@@ -140,6 +143,44 @@ describe("store product page", () => {
     ]);
     expect(JSON.stringify(schemas)).not.toContain("5511999999999");
     expect(JSON.stringify(schemas)).not.toContain("Tenho interesse.");
+  });
+
+  it("publishes a ProductGroup for several sizes and preselects a valid ?size= landing size", async () => {
+    mocks.getProductBySlug.mockResolvedValueOnce({
+      ...product,
+      variants: [
+        { id: "var-p", size: "P", stock: 2, reservedStock: 0, active: true },
+        { id: "var-m", size: "M", stock: 0, reservedStock: 0, active: true },
+      ],
+    });
+
+    const element = await ProductPage({
+      params: Promise.resolve({ slug: "camiseta-rare" }),
+      searchParams: Promise.resolve({ size: "M" }),
+    });
+    const html = renderToStaticMarkup(element as ReactElement);
+    const schemas = getJsonLdScripts(html);
+    const group = schemas.find((schema) => schema["@type"] === "ProductGroup");
+
+    expect(schemas.filter((schema) => schema["@type"] === "Product")).toHaveLength(0);
+    expect(group).toMatchObject({
+      name: "Camiseta RARE",
+      url: "https://raredept.com.br/produto/camiseta-rare",
+      variesBy: ["https://schema.org/size"],
+      category: "Camisetas",
+    });
+    expect(group.hasVariant.map((variant: { offers: { url: string; availability: string } }) => [variant.offers.url, variant.offers.availability])).toEqual([
+      ["https://raredept.com.br/produto/camiseta-rare?size=P", "https://schema.org/InStock"],
+      ["https://raredept.com.br/produto/camiseta-rare?size=M", "https://schema.org/OutOfStock"],
+    ]);
+    expect(html).toContain('data-initial-size="M"');
+  });
+
+  it("ignores an unknown ?size= value", async () => {
+    mocks.getProductBySlug.mockResolvedValueOnce(product);
+    const element = await ProductPage({ params: Promise.resolve({ slug: "camiseta-rare" }), searchParams: Promise.resolve({ size: "<script>" }) });
+    const html = renderToStaticMarkup(element as ReactElement);
+    expect(html).toContain('data-initial-size=""');
   });
 
   it("calls notFound when the product slug does not exist", async () => {

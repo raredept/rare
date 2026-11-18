@@ -6,7 +6,7 @@ import { CatalogToolbar } from "@/components/store/catalog-toolbar";
 import { buildCatalogPageHref, normalizeCatalogPage } from "@/lib/catalog-pagination";
 import { buildCatalogHref, formatPriceBand, parseCatalogRefinements } from "@/lib/catalog-refinements";
 import { getCollectionHref } from "@/lib/promotions/collections";
-import { buildPageMetadata, RARE_DEFAULT_SITE_URL } from "@/lib/seo";
+import { buildCollectionMetadata, getListingIndexState, RARE_DEFAULT_SITE_URL } from "@/lib/seo";
 import { getCollectionPageData, getPublicCollection } from "@/lib/storefront";
 import { getStorefrontCommerceState } from "@/lib/storefront-commerce";
 import { buildBreadcrumbListJsonLd, JsonLdScript } from "@/lib/structured-data";
@@ -20,12 +20,13 @@ type CollectionPageProps = {
 
 // RARE-COLLECTIONS-CART-01: a promotion shown as a storefront collection. Only public while the
 // promotion is effectively ACTIVE and wins at least one active product; otherwise a real 404.
-// SEO beyond the basics (sitemap, indexing of filtered URLs) is decided in RARE-SEO-GOOGLE-01.
-export async function generateMetadata({ params }: Pick<CollectionPageProps, "params">): Promise<Metadata> {
-  const { slug } = await params;
+// RARE-SEO-GOOGLE-01: promotional and short-lived, so `noindex, follow` and out of the sitemap
+// (buildCollectionMetadata); filtered/paginated variants follow the catalog listing rules.
+export async function generateMetadata({ params, searchParams }: Pick<CollectionPageProps, "params"> & Partial<Pick<CollectionPageProps, "searchParams">>): Promise<Metadata> {
+  const [{ slug }, search] = await Promise.all([params, searchParams ?? Promise.resolve({})]);
   const collection = await getPublicCollection(slug);
   if (!collection) notFound();
-  return buildPageMetadata({ title: collection.label, description: collection.description, path: getCollectionHref(collection.slug) });
+  return buildCollectionMetadata(collection, getListingIndexState(search));
 }
 
 export default async function CollectionPage({ params, searchParams }: CollectionPageProps) {
