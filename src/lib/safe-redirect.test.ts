@@ -31,6 +31,16 @@ describe("getSafeAdminNext", () => {
     expect(getSafeAdminNext("/admin/./login")).toBe("/admin");
     expect(getSafeAdminNext(null)).toBe("/admin");
   });
+
+  it("accepts the storefront team entry target and rejects absolute or script URLs", () => {
+    const params = new URL("/admin/login?next=%2Fadmin%2Fnotifications", "https://internal.invalid").searchParams;
+
+    expect(params.get("next")).toBe("/admin/notifications");
+    expect(getSafeAdminNext(params.get("next"))).toBe("/admin/notifications");
+    expect(getSafeAdminNext("https://evil.example")).toBe("/admin");
+    expect(getSafeAdminNext("//evil.example")).toBe("/admin");
+    expect(getSafeAdminNext("javascript:alert(1)")).toBe("/admin");
+  });
 });
 
 describe("getSafeCustomerNext", () => {

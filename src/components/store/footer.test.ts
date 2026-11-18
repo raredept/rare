@@ -48,4 +48,18 @@ describe("StoreFooter", () => {
     expect(html).toContain("compras temporariamente pausadas");
     expect(html).not.toContain("WhatsApp");
   });
+
+  it("exposes the team entry as a discreet same-window Admin login link", () => {
+    const html = renderToStaticMarkup(createElement(StoreFooter, { categories, commerce: buildStorefrontCommerceState(true) }) as ReactElement);
+    const teamLink = /<a[^>]*href="([^"]*)"[^>]*>Acesso da equipe<\/a>/.exec(html);
+
+    expect(html).toContain("Institucional");
+    expect(html).toContain("Acesso da equipe");
+    expect(teamLink, "team entry link should render").not.toBeNull();
+    expect(teamLink?.[1]).toBe("/admin/login?next=%2Fadmin%2Fnotifications");
+    expect(teamLink?.[0]).not.toContain('target="_blank"');
+    expect(teamLink?.[0]).not.toContain('rel="external"');
+    expect(html).not.toContain("javascript:");
+    expect(html).not.toMatch(/href="https?:\/\/[^"]*admin/i);
+  });
 });
