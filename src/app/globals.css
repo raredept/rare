@@ -130,6 +130,35 @@ html {
 }
 .store-skip-link:focus { translate: 0; }
 
+/* RARE Assistant (RARE-FINAL-AUDIT-ASSISTANT-01): bottom-right, inside the iPhone safe area, lifted
+   above the cookie banner while it is on screen (--assistant-offset is the banner height). Below the
+   header (z-40) and every modal overlay (cart z-80, menu z-85, gallery z-90). */
+.assistant-launcher {
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: calc(max(1rem, env(safe-area-inset-bottom)) + var(--assistant-offset, 0px));
+}
+
+.assistant-panel {
+  left: max(0.5rem, env(safe-area-inset-left));
+  right: max(0.5rem, env(safe-area-inset-right));
+  bottom: calc(max(0.5rem, env(safe-area-inset-bottom)) + var(--assistant-offset, 0px));
+  height: min(36rem, calc(100dvh - var(--assistant-offset, 0px) - 4.75rem));
+}
+
+.assistant-panel[hidden] {
+  display: none !important;
+}
+
+@media (min-width: 640px) {
+  .assistant-panel {
+    left: auto;
+    right: max(1.5rem, env(safe-area-inset-right));
+    bottom: calc(max(1.5rem, env(safe-area-inset-bottom)) + var(--assistant-offset, 0px));
+    width: 24rem;
+    height: min(36rem, calc(100dvh - var(--assistant-offset, 0px) - 7rem));
+  }
+}
+
 .store-mobile-menu {
   padding-bottom: env(safe-area-inset-bottom);
   animation: rare-mobile-menu-enter 180ms ease-out both;

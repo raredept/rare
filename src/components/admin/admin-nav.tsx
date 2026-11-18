@@ -4,6 +4,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   BadgePercent,
   Bell,
+  BotMessageSquare,
   ChartNoAxesCombined,
   Boxes,
   ClipboardCheck,
@@ -59,6 +60,7 @@ const navSections: Array<{ label: string; items: NavItem[] }> = [
       { href: "/admin/readiness", label: "Prontidão", icon: ClipboardCheck, permission: "system.readiness" },
       { href: "/admin/settings", label: "Configurações", icon: Settings, permission: "system.settings" },
       { href: "/admin/security", label: "Segurança", icon: ShieldCheck, permission: "system.security" },
+      { href: "/admin/assistant", label: "Assistente Virtual", icon: BotMessageSquare, permission: "system.assistant" },
     ],
   },
   {

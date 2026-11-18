@@ -14,6 +14,7 @@ export const ADMIN_PERMISSIONS = [
   "system.security",
   "system.readiness",
   "system.settings",
+  "system.assistant",
   "analytics.site",
   "analytics.sales",
   "commerce.dashboard",
@@ -35,6 +36,7 @@ const SYSTEM_PERMISSIONS: readonly AdminPermission[] = [
   "system.security",
   "system.readiness",
   "system.settings",
+  "system.assistant",
   "analytics.site",
 ];
 
@@ -54,9 +56,16 @@ const SELLER_PERMISSIONS: readonly AdminPermission[] = [
   "commerce.support",
 ];
 
+/**
+ * Permissions created after RBAC that the legacy ADMIN role must NOT inherit. The legacy role keeps
+ * everything it had on deploy, but a new module that the owner restricts to SYSTEM_ADMIN is listed
+ * here explicitly, so "ADMIN = every permission" can never grant it by accident.
+ */
+export const LEGACY_ADMIN_EXCLUDED_PERMISSIONS: readonly AdminPermission[] = ["system.assistant"];
+
 const ROLE_PERMISSIONS: Record<AdminRole, ReadonlySet<AdminPermission>> = {
   // Transitional: accounts created before RBAC must not lose access on deploy.
-  ADMIN: new Set(ADMIN_PERMISSIONS),
+  ADMIN: new Set(ADMIN_PERMISSIONS.filter((permission) => !LEGACY_ADMIN_EXCLUDED_PERMISSIONS.includes(permission))),
   SYSTEM_ADMIN: new Set(SYSTEM_PERMISSIONS),
   SELLER_ADMIN: new Set(SELLER_PERMISSIONS),
 };

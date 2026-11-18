@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ADMIN_PERMISSIONS,
+  LEGACY_ADMIN_EXCLUDED_PERMISSIONS,
   getAdminHomePath,
   getAdminPermissions,
   hasAdminPermission,
@@ -9,7 +10,7 @@ import {
   USER_MANAGER_ROLES,
 } from "@/lib/admin-permissions";
 
-const systemOnly = ["system.users", "system.security", "system.readiness", "system.settings"] as const;
+const systemOnly = ["system.users", "system.security", "system.readiness", "system.settings", "system.assistant"] as const;
 const commerce = ADMIN_PERMISSIONS.filter((permission) => permission.startsWith("commerce.") || permission === "analytics.sales");
 
 describe("Admin role permissions", () => {
@@ -34,8 +35,8 @@ describe("Admin role permissions", () => {
     for (const permission of systemOnly) expect(hasAdminPermission("SELLER_ADMIN", permission)).toBe(false);
   });
 
-  it("keeps the pre-RBAC ADMIN role on full access until an operator assigns a scoped role", () => {
-    expect(getAdminPermissions("ADMIN")).toEqual([...ADMIN_PERMISSIONS]);
+  it("keeps the pre-RBAC ADMIN role on every permission it had, minus the explicitly excluded new ones", () => {
+    expect(getAdminPermissions("ADMIN")).toEqual(ADMIN_PERMISSIONS.filter((permission) => permission !== "system.assistant"));
     expect(isAdminRole("ADMIN")).toBe(true);
     expect(isAssignableAdminRole("ADMIN")).toBe(false);
   });
@@ -55,5 +56,17 @@ describe("Admin role permissions", () => {
     expect(getAdminHomePath("ADMIN")).toBe("/admin");
     expect(getAdminHomePath("SYSTEM_ADMIN")).toBe("/admin/users");
     expect(getAdminHomePath("CUSTOMER")).toBe("/admin/conta");
+  });
+
+  it("restricts the virtual assistant (system.assistant) to SYSTEM_ADMIN: the legacy ADMIN and SELLER_ADMIN never get it", () => {
+    expect(hasAdminPermission("SYSTEM_ADMIN", "system.assistant")).toBe(true);
+    expect(hasAdminPermission("ADMIN", "system.assistant")).toBe(false);
+    expect(hasAdminPermission("SELLER_ADMIN", "system.assistant")).toBe(false);
+    expect(LEGACY_ADMIN_EXCLUDED_PERMISSIONS).toEqual(["system.assistant"]);
+    // Every other legacy access is preserved exactly.
+    for (const permission of ADMIN_PERMISSIONS) {
+      if (permission === "system.assistant") continue;
+      expect(hasAdminPermission("ADMIN", permission), permission).toBe(true);
+    }
   });
 });

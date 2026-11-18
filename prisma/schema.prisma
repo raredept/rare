@@ -98,6 +98,8 @@ model User {
   mfaPendingCreatedAt       DateTime?
   mfaRecoveryCodes          AdminMfaRecoveryCode[]
   adminPushSubscriptions    AdminPushSubscription[]
+  assistantEntriesCreated   VirtualAssistantEntry[] @relation("VirtualAssistantEntryCreatedBy")
+  assistantEntriesUpdated   VirtualAssistantEntry[] @relation("VirtualAssistantEntryUpdatedBy")
   createdAt                 DateTime                @default(now())
   updatedAt                 DateTime                @updatedAt
 }
@@ -753,4 +755,42 @@ model SupportRequest {
   @@index([status, nextAttemptAt])
   @@index([confirmationStatus, nextAttemptAt])
   @@index([customerId, createdAt])
+}
+
+/// Storefront virtual assistant (RARE Assistant). Singleton "store". A missing row means the
+/// defaults in src/lib/assistant/config.ts, with the assistant DISABLED.
+model VirtualAssistantConfig {
+  id               String   @id @default("store")
+  enabled          Boolean  @default(false)
+  displayName      String   @default("Assistente RARE")
+  welcomeMessage   String
+  inputPlaceholder String
+  fallbackMessage  String
+  supportCtaLabel  String   @default("Falar com a equipe")
+  supportCtaHref   String   @default("/suporte")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+/// One administrable question and its plain-text answer (never HTML). Deactivated, not deleted.
+/// Shopper questions are never stored anywhere: this table holds only what the Admin writes.
+model VirtualAssistantEntry {
+  id          String   @id @default(cuid())
+  question    String
+  answer      String
+  category    String?
+  /// Normalised synonyms / keywords (lowercase, no accents), at most 30.
+  keywords    String[] @default([])
+  active      Boolean  @default(true)
+  /// 0..10. Breaks ties between answers of similar strength; never lifts a weak match.
+  priority    Int      @default(0)
+  sortOrder   Int      @default(0)
+  createdById String?
+  createdBy   User?    @relation("VirtualAssistantEntryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?
+  updatedBy   User?    @relation("VirtualAssistantEntryUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([active, priority, sortOrder])
 }
