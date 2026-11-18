@@ -174,6 +174,29 @@ describe("admin push subscriptions route", () => {
     expect(mocks.upsert).toHaveBeenCalledTimes(1);
   });
 
+  // PushSubscription.toJSON() in Safari/iOS, Chrome and Firefox always carries expirationTime
+  // (null on every push service in use today). The client posts toJSON() as is.
+  it.each([
+    ["iPhone Home Screen app", "https://web.push.apple.com/QOZbYk-real-token", null],
+    ["Chrome", "https://fcm.googleapis.com/fcm/send/real-token", null],
+    ["a service that sets an expiry", "https://updates.push.services.mozilla.com/wpush/v2/real", 1_795_000_000_000],
+  ])("accepts the real browser shape from %s (with expirationTime)", async (_label, endpoint, expirationTime) => {
+    const response = await POST(request("POST", { endpoint, expirationTime, keys: subscription.keys }) as never);
+    expect(response.status).toBe(200);
+    expect(mocks.upsert).toHaveBeenCalledTimes(1);
+    // The expiry is not stored: the row keeps exactly the fields it had.
+    expect(mocks.upsert.mock.calls[0][0].create).not.toHaveProperty("expirationTime");
+  });
+
+  it.each([
+    ["an unknown top-level field", { ...subscription, expirationTime: null, extra: "x" }],
+    ["an unknown key field", { ...subscription, keys: { ...subscription.keys, extra: "x" } }],
+    ["a non-numeric expiry", { ...subscription, expirationTime: "tomorrow" }],
+  ])("still rejects %s", async (_label, body) => {
+    expect((await POST(request("POST", body) as never)).status).toBe(400);
+    expect(mocks.upsert).not.toHaveBeenCalled();
+  });
+
   it("rejects malformed or oversized subscriptions", async () => {
     const response = await POST(request("POST", { endpoint: "not-a-url", keys: { p256dh: "", auth: "" } }) as never);
 
