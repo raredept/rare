@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
 
 import { AssistantPanel } from "@/components/store/assistant-panel";
-import { isAssistantHiddenOnPath } from "@/components/store/assistant-launcher";
+import { ASSISTANT_BOTTOM_OBSTACLES, isAssistantHiddenOnPath } from "@/components/store/assistant-launcher";
 
 const read = (file: string) => readFileSync(path.join(process.cwd(), file), "utf8");
 /** Code only: comments may name what the code must not do. */
@@ -65,13 +65,13 @@ describe("assistant privacy and footprint", () => {
     }
   });
 
-  it("only reads the consent state to stay above the cookie banner (no consent writes)", () => {
-    expect(launcherSource).toMatch(/import \{ getConsentSnapshot, subscribeToConsent \} from "@\/lib\/cookie-consent-client"/);
+  it("does not touch the consent store at all", () => {
+    expect(code(launcherSource)).not.toMatch(/cookie-consent/);
   });
 
-  it("loads the conversation panel lazily (separate chunk, client only)", () => {
-    expect(launcherSource).toMatch(/dynamic\(\(\) => import\("@\/components\/store\/assistant-panel"\)/);
-    expect(launcherSource).toContain("ssr: false");
+  it("loads the conversation panel lazily (separate chunk, only after a hover, focus or tap)", () => {
+    expect(launcherSource).toMatch(/lazy\(\(\) => import\("@\/components\/store\/assistant-panel"\)/);
+    expect(launcherSource).toMatch(/\{requested \? \(\s*<Suspense fallback=\{open \? <PanelLoading/);
     expect(launcherSource).not.toMatch(/^import \{ AssistantPanel \}/m);
   });
 
@@ -96,7 +96,9 @@ describe("assistant placement", () => {
 
   it("respects the iPhone safe area and sits above the cookie banner, under modal overlays", () => {
     expect(css).toMatch(/\.assistant-launcher \{[^}]*env\(safe-area-inset-right\)[^}]*env\(safe-area-inset-bottom\)\) \+ var\(--assistant-offset, 0px\)/);
-    expect(launcherSource).toContain("data-cookie-banner");
+    expect(ASSISTANT_BOTTOM_OBSTACLES).toEqual(["[data-cookie-banner]", '[data-testid="pdp-buy-bar"]']);
+    expect(read("src/components/store/cookie-consent.tsx")).toContain("data-cookie-banner");
+    expect(read("src/components/store/product-detail-client.tsx")).toContain('data-testid="pdp-buy-bar"');
     expect(launcherSource).toMatch(/fixed z-30/);
     expect(panelSource).toMatch(/fixed z-\[60\]/);
   });
@@ -108,7 +110,8 @@ describe("assistant placement", () => {
   });
 
   it("closes on Escape and gives focus back to the launcher", () => {
-    expect(panelSource).toMatch(/event\.key === "Escape"[\s\S]{0,80}onClose\(\)/);
+    expect(panelSource).toMatch(/event\.key !== "Escape"[\s\S]{0,300}onClose\(\)/);
+    expect(panelSource).toContain('document.addEventListener("keydown", onKeyDown)');
     expect(launcherSource).toMatch(/launcherRef\.current\?\.focus\(\)/);
     expect(panelSource).toMatch(/if \(open\) inputRef\.current\?\.focus/);
   });

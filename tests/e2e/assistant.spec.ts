@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
-import { acceptDialogs, attachDiagnostics, enrollAdmin, expectNoHorizontalOverflow, labBaseUrl, labContextOptions, labEnabled, requireEnv, withDatabase } from "./lab-helpers";
+import { acceptDialogs, attachDiagnostics, enrollAdmin, expectNoHorizontalOverflow, labContextOptions, labEnabled, requireEnv, withDatabase } from "./lab-helpers";
 
 // RARE-FINAL-AUDIT-ASSISTANT-01: the virtual assistant end to end, on the production build in the
 // lab (run with --https: the public endpoint requires a same-origin https request in production).
@@ -34,6 +34,7 @@ const ENTRIES = [
 async function signIn(browser: Browser, key: "A" | "E" | "F"): Promise<Session> {
   const context = await browser.newContext(labContextOptions());
   const page = await context.newPage();
+  page.setDefaultTimeout(30_000);
   attachDiagnostics(page);
   await acceptDialogs(page);
   await enrollAdmin(page, requireEnv(`QA_MFA_${key}_LOGIN`), requireEnv(`QA_MFA_${key}_PASSWORD`), new Set());
@@ -60,6 +61,7 @@ async function assistantEntryCount() {
 async function storefront(browser: Browser, options: { cookieConsent?: "refused" | "undecided"; width?: number } = {}) {
   const context = await browser.newContext({ ...labContextOptions({ cookieConsent: options.cookieConsent }), viewport: { width: options.width ?? 1440, height: 900 } });
   const page = await context.newPage();
+  page.setDefaultTimeout(30_000);
   attachDiagnostics(page);
   // Any window.alert would mean injected markup ran: recorded and asserted empty.
   const dialogs: string[] = [];
@@ -137,23 +139,52 @@ test("RBAC: only SYSTEM_ADMIN sees and opens Assistente Virtual", async () => {
   }
 });
 
+/** Posts the "Nova pergunta" Server Action from a plain HTML form built in the page (no-JS flow). */
+async function postForgedEntry(page: Page, actionField: string, question: string) {
+  await page.evaluate(({ field, question: text }) => {
+    const form = document.createElement("form");
+    form.method = "post";
+    form.action = "/admin/assistant";
+    form.enctype = "multipart/form-data";
+    const values: Record<string, string> = { [field]: "", question: text, answer: "Criada por um post forjado.", keywords: "forjada", priority: "1", sortOrder: "0", active: "on", category: "" };
+    for (const [name, value] of Object.entries(values)) {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = name;
+      input.value = value;
+      form.appendChild(input);
+    }
+    document.body.appendChild(form);
+    form.submit();
+  }, { field: actionField, question });
+  await page.waitForLoadState("load");
+}
+
 test("RBAC: a forged Server Action post from SELLER_ADMIN or the legacy ADMIN writes nothing", async () => {
   await system.page.goto("/admin/assistant");
   const actionField = await system.page.locator('#nova-pergunta form input[name^="$ACTION_ID_"]').getAttribute("name");
   expect(actionField).toBeTruthy();
+
+  // Positive control: the very same forged post from SYSTEM_ADMIN reaches the action and writes.
+  await system.page.goto("/admin/conta");
+  await postForgedEntry(system.page, actionField!, "Controle positivo?");
+  await expect(system.page).toHaveURL(/\/admin\/assistant\?success=assistant-entry-created/);
+  const control = await withDatabase((db) => db.query(`SELECT id FROM "VirtualAssistantEntry" WHERE question = 'Controle positivo?'`));
+  expect(control.rowCount).toBe(1);
+  await withDatabase((db) => db.query(`DELETE FROM "VirtualAssistantEntry" WHERE question = 'Controle positivo?'`));
+  await withDatabase((db) => db.query(`DELETE FROM "AdminAuditLog" WHERE "entityType" = 'VirtualAssistantEntry' AND after::text LIKE '%Controle positivo?%'`));
+
   const before = await assistantEntryCount();
-  for (const session of [seller, legacy]) {
-    const response = await session.context.request.post("/admin/assistant", {
-      multipart: { [actionField!]: "", question: "Pergunta forjada?", answer: "Não deveria existir.", keywords: "forjada", priority: "1", sortOrder: "0", active: "on", category: "" },
-      headers: { origin: labBaseUrl() },
-      maxRedirects: 0,
-    });
-    expect([303, 307, 308]).toContain(response.status());
-    expect(response.headers().location ?? "").toContain("/admin/sem-acesso");
+  for (const [label, session] of [["SELLER_ADMIN", seller], ["ADMIN legado", legacy]] as const) {
+    await session.page.goto("/admin/conta");
+    await postForgedEntry(session.page, actionField!, `Pergunta forjada ${label}?`);
+    await expect(session.page, label).toHaveURL(/\/admin\/sem-acesso/);
   }
   expect(await assistantEntryCount()).toBe(before);
-  const forged = await withDatabase((db) => db.query(`SELECT 1 FROM "VirtualAssistantEntry" WHERE question = 'Pergunta forjada?'`));
+  const forged = await withDatabase((db) => db.query(`SELECT 1 FROM "VirtualAssistantEntry" WHERE question LIKE 'Pergunta forjada%'`));
   expect(forged.rowCount).toBe(0);
+  const audit = await withDatabase((db) => db.query(`SELECT 1 FROM "AdminAuditLog" WHERE after::text LIKE '%Pergunta forjada%'`));
+  expect(audit.rowCount).toBe(0);
 });
 
 test("SYSTEM_ADMIN cannot enable an empty assistant, then creates, edits, deactivates and reactivates answers (all audited)", async () => {
@@ -163,7 +194,7 @@ test("SYSTEM_ADMIN cannot enable an empty assistant, then creates, edits, deacti
   await page.getByRole("button", { name: "Salvar configuração" }).click();
   await expect(page.getByText("Cadastre e ative ao menos uma resposta antes de ativar o Assistente.")).toBeVisible();
 
-  for (const entry of ENTRIES) {
+  for (const [index, entry] of ENTRIES.entries()) {
     const form = page.locator("#nova-pergunta form");
     await form.getByLabel("Pergunta", { exact: true }).fill(entry.question);
     await form.getByLabel("Resposta", { exact: true }).fill(entry.answer);
@@ -171,11 +202,16 @@ test("SYSTEM_ADMIN cannot enable an empty assistant, then creates, edits, deacti
     await form.getByLabel("Categoria").fill(entry.category);
     await form.getByLabel(/Prioridade/).fill(entry.priority);
     await form.getByRole("button", { name: "Criar pergunta" }).click();
-    await expect(page.getByText("Pergunta criada.")).toBeVisible();
+    // Wait for the server round trip (the previous toast may still be on screen).
+    await expect(page.locator("[data-assistant-entry]")).toHaveCount(index + 1);
+    await expect(page.locator("[data-assistant-entry]").filter({ hasText: entry.question })).toHaveCount(1);
   }
   await expect(page.locator('[data-assistant-entry="active"]')).toHaveCount(ENTRIES.length);
   // Hostile text is shown as text in the Admin too.
-  await expect(page.getByText("<img src=x onerror=alert(1)>", { exact: false })).toBeVisible();
+  const hostileAnswer = page.locator("[data-assistant-entry] > p").filter({ hasText: "<img src=x onerror=alert(1)>" });
+  await expect(hostileAnswer).toHaveCount(1);
+  await expect(hostileAnswer).toBeVisible();
+  expect(await page.locator("[data-assistant-entry] img, [data-assistant-entry] script").count()).toBe(0);
 
   // Edit: change an answer.
   const payment = page.locator("[data-assistant-entry]").filter({ hasText: "Quais formas de pagamento?" });
@@ -309,6 +345,15 @@ test("widget: widths 320–1440 on home, category and product page, no overflow,
       expect(box.width, `touch target ${width}`).toBeGreaterThanOrEqual(44);
       expect(box.height).toBeGreaterThanOrEqual(44);
       expect(box.x + box.width).toBeLessThanOrEqual(width);
+      // On phones the product page has a fixed buy bar: the launcher must sit above it, never on "Adicionar".
+      const buyBar = page.locator('[data-testid="pdp-buy-bar"]');
+      if (await buyBar.isVisible()) {
+        await expect.poll(async () => {
+          const [launcherBox, barBox] = [await launcher.boundingBox(), await buyBar.boundingBox()];
+          return launcherBox && barBox ? launcherBox.y + launcherBox.height <= barBox.y + 0.5 : false;
+        }, { message: `launcher above the buy bar ${route} @${width}` }).toBe(true);
+        await page.screenshot({ path: path.join(shots, `store-widget-pdp-buybar-${width}.png`) });
+      }
       await launcher.click();
       const panel = page.locator("[data-assistant-panel]");
       await expect(panel).toBeVisible();
@@ -397,9 +442,15 @@ test("disabling the assistant removes it from the store at once; Admin can still
   await expect(preview.locator("[data-assistant-preview-outcome]")).toHaveAttribute("data-assistant-preview-outcome", "matched");
 
   const { context, page: shopper } = await storefront(browser);
+  // The endpoint reads fresh data: closed on the very next question.
   await shopper.goto("/");
   await waitForStore(shopper);
-  await expect(shopper.locator("[data-assistant-launcher]")).toHaveCount(0);
+  // The widget props come from a 15 s cache in the layout (other instances/bundles converge within it).
+  await expect.poll(async () => {
+    await shopper.reload();
+    await waitForStore(shopper);
+    return shopper.locator("[data-assistant-launcher]").count();
+  }, { timeout: 25_000, intervals: [0, 5_000, 5_000, 5_000, 5_000] }).toBe(0);
   const status = await shopper.evaluate(async () => (await fetch("/api/assistant", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message: "prazo" }) })).status);
   expect(status).toBe(404);
   await context.close();

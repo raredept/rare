@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ASSISTANT_RATE_LIMIT, ASSISTANT_RATE_WINDOW_MS, ASSISTANT_REQUEST_MAX_BYTES, assistantMessageSchema } from "@/lib/assistant/config";
 import { getAssistantEngine } from "@/lib/assistant/engine";
-import { getPublicAssistantSnapshot } from "@/lib/assistant/store";
+import { readPublicAssistantSnapshot } from "@/lib/assistant/store";
 import { getClientIp } from "@/lib/client-ip";
 import { rateLimit } from "@/lib/rate-limit";
 import { readBoundedRequestBody, RequestBodyTooLargeError } from "@/lib/request-body";
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
 
   let snapshot;
   try {
-    snapshot = await getPublicAssistantSnapshot();
+    snapshot = await readPublicAssistantSnapshot();
   } catch (error) {
     // Kind only: never the message, never the request.
     console.error("[assistant] answer unavailable", error instanceof Error ? error.name : "unknown");

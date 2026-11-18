@@ -8,6 +8,12 @@ Release e backend permanecem pausados. Estes itens são limitações observadas 
 | Leitura de settings faz upsert | Navegação/QA de leitura sem escrita incidental | `src/lib/settings.ts` → StoreLayout/home/institucionais | Separar inicialização explícita da leitura com fallback validado; testes garantindo read-only | P1 |
 | JSON-LD do PDP calcula estoque sem filtrar variant.active | Semântica de disponibilidade consistente com cards/PDP | `src/app/(store)/produto/[slug]/page.tsx` | Unificar disponibilidade em helper/testes; manter Offer omitida enquanto checkout pausado | P2 |
 | Não há fluxo de recuperação de senha | Recuperação segura com token expirável e entrega homologada | `/entrar`, `/cadastro`; nenhuma rota de recuperação | Projetar serviço/token/rate limit/email e somente então adicionar UI | P2 |
+| **RARE-PUSH-DELIVERY-RETRY-02** — a `AdminNotification` é criada antes da tentativa de Web Push; numa falha temporária do provedor de push, o replay do webhook esbarra no dedupe da notificação e não tenta entregar o push de novo | Entrega de push com retry, backoff e idempotência por notificação + assinatura, separada do dedupe lógico da `AdminNotification` | `src/lib/admin-notifications.ts` (dedupe) → webhook Asaas; venda e notificação interna continuam corretas, só o alerta push pode se perder. Não afeta pagamento, Asaas, idempotência do webhook, estoque ou pedido | Outbox / delivery-status com retry e backoff (provavelmente exige migration: ciclo próprio) | P2 |
+
+> Verificação em 2026-11-18 (RARE-FINAL-AUDIT-ASSISTANT-01, `docs/cycles/RARE_FINAL_AUDIT_ASSISTANT_01.md`): as três primeiras linhas
+> não se reproduzem mais no código atual — o build e o typecheck passam; `getStoreSettings()` faz `upsert` com `update: {}` e,
+> medido num PostgreSQL descartável, **não grava** numa linha existente (0 UPDATE, `updatedAt` intacto); e o JSON-LD do PDP
+> usa só variações ativas (`src/lib/product-offer.ts`). Ficam aqui como histórico até uma limpeza do backlog.
 
 ## Sequência recomendada (após autorização)
 

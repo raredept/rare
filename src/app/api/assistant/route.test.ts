@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
   rateLimit: vi.fn(),
 }));
 
-vi.mock("@/lib/assistant/store", () => ({ getPublicAssistantSnapshot: mocks.snapshot }));
+vi.mock("@/lib/assistant/store", () => ({ readPublicAssistantSnapshot: mocks.snapshot }));
 vi.mock("@/lib/rate-limit", () => ({ rateLimit: mocks.rateLimit }));
 
 import { POST } from "@/app/api/assistant/route";

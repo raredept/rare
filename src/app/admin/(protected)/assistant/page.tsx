@@ -110,20 +110,21 @@ export default async function AdminAssistantPage() {
               <span className={label}>Botão de suporte — texto</span>
               <input id="assistant-cta-label" name="supportCtaLabel" required maxLength={ASSISTANT_LIMITS.supportCtaLabel} defaultValue={config.supportCtaLabel} className="admin-input" />
             </label>
-            <label className="block" htmlFor="assistant-cta-href">
-              <span className={label}>Botão de suporte — destino</span>
+            <div className="block">
+              <label htmlFor="assistant-cta-href" className={label}>Botão de suporte — destino</label>
               <input
                 id="assistant-cta-href"
                 name="supportCtaHref"
                 required
+                aria-describedby="assistant-cta-href-hint"
                 maxLength={ASSISTANT_LIMITS.supportCtaHref}
                 defaultValue={config.supportCtaHref}
                 pattern="(/(?!/)[^\s\\]*|https://[^\s\\]+)"
                 title="Use um caminho do site (ex.: /suporte) ou um endereço https://"
                 className="admin-input"
               />
-              <span className="mt-1.5 block text-xs text-neutral-500">Caminho do site (ex.: /suporte) ou endereço https://.</span>
-            </label>
+              <p id="assistant-cta-href-hint" className="mt-1.5 text-xs text-neutral-500">Caminho do site (ex.: /suporte) ou endereço https://.</p>
+            </div>
           </div>
           <div>
             <AdminSubmitButton idleLabel="Salvar configuração" pendingLabel="Salvando..." className={primaryButton} />

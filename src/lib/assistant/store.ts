@@ -5,10 +5,10 @@ import { prisma } from "@/lib/prisma";
 // RARE Assistant — database access. Reads only what the Admin wrote; nothing a shopper types is
 // ever written here (no table, no log, no analytics).
 //
-// A short in-process cache keeps the storefront layout and the public endpoint from querying on
-// every request. Every Admin mutation clears it in the instance that served the mutation, and any
-// other instance converges within ASSISTANT_CACHE_TTL_MS, so a saved answer is never stale for
-// long. Errors are never cached.
+// A short in-process cache keeps the storefront layout from querying on every page view. Every
+// Admin mutation clears it where it can, and any other instance or bundle converges within
+// ASSISTANT_CACHE_TTL_MS, so the widget is never stale for long. Errors are never cached. The public
+// endpoint does not use this cache (see readPublicAssistantSnapshot).
 
 export const ASSISTANT_CACHE_TTL_MS = 15_000;
 
@@ -60,6 +60,16 @@ export async function readActiveAssistantEntries(client: Pick<typeof prisma, "vi
   });
 }
 
+/**
+ * Uncached read for the public endpoint. Next bundles Route Handlers separately from pages and
+ * Server Actions, so a module-level cache there would not see the Admin's invalidation: the
+ * endpoint therefore always reads (two indexed queries, under a 30/min rate limit), and disabling
+ * the assistant or editing an answer takes effect on the very next question.
+ */
+export async function readPublicAssistantSnapshot(): Promise<PublicAssistantSnapshot> {
+  return loadSnapshot();
+}
+
 async function loadSnapshot(): Promise<PublicAssistantSnapshot> {
   const config = await readAssistantConfig();
   // A disabled assistant needs no entries at all on the storefront.
@@ -67,7 +77,7 @@ async function loadSnapshot(): Promise<PublicAssistantSnapshot> {
   return { config, entries };
 }
 
-/** Cached view for the storefront and the public endpoint. Throws on database failure. */
+/** Cached view for the storefront layout (widget props). Throws on database failure. */
 export async function getPublicAssistantSnapshot(now = Date.now()): Promise<PublicAssistantSnapshot> {
   if (cache && cache.expiresAt > now) return cache.value;
   if (inflight) return inflight;

@@ -1,19 +1,28 @@
 "use client";
 
-import { MessageCircle } from "lucide-react";
-import dynamic from "next/dynamic";
+import { Loader2, MessageCircle } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
-import { getConsentSnapshot, subscribeToConsent } from "@/lib/cookie-consent-client";
+import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from "react";
 import type { PublicAssistantBootstrap } from "@/lib/assistant/store";
 
 // RARE Assistant launcher. Tiny on purpose: the conversation panel is a separate chunk loaded only
 // when the shopper opens it. Nothing here touches cookies, storage or analytics.
 
-const AssistantPanel = dynamic(() => import("@/components/store/assistant-panel").then((module) => module.AssistantPanel), {
-  ssr: false,
-  loading: () => null,
-});
+// Separate chunk, requested on hover/focus (prefetch) or on the first open; never rendered on the server.
+const AssistantPanel = lazy(() => import("@/components/store/assistant-panel").then((module) => ({ default: module.AssistantPanel })));
+
+/** Shown only while the panel chunk loads after a tap (no hover on phones): the shopper never sees nothing. */
+function PanelLoading({ title }: { title: string }) {
+  return (
+    <div role="status" className="assistant-panel fixed z-[60] flex flex-col overflow-hidden rounded-lg border border-neutral-300 bg-white text-neutral-950 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
+      <div className="bg-black px-4 py-3 text-sm font-black uppercase tracking-[0.16em] text-white">{title}</div>
+      <div className="flex flex-1 items-center justify-center gap-2 text-sm font-bold text-neutral-600">
+        <Loader2 aria-hidden="true" className="h-4 w-4 motion-safe:animate-spin" />
+        Carregando…
+      </div>
+    </div>
+  );
+}
 
 /** Payment and order-confirmation pages keep the screen for the purchase itself. */
 const HIDDEN_PREFIXES = ["/finalizar-compra", "/pedido/"];
@@ -23,47 +32,52 @@ export function isAssistantHiddenOnPath(pathname: string | null) {
   return HIDDEN_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix.endsWith("/") ? prefix : `${prefix}/`));
 }
 
-/** Height of the cookie banner while it is on screen, so the assistant sits above it. */
-function useCookieBannerOffset() {
-  const consent = useSyncExternalStore(subscribeToConsent, getConsentSnapshot, () => "server");
-  const bannerVisible = consent === "";
+/**
+ * Fixed bars that own the bottom of the screen: the cookie banner and the phone buy bar of the
+ * product page (both portaled/rendered elsewhere). The assistant always sits above them, so it never
+ * covers "Aceitar"/"Recusar" or "Adicionar".
+ */
+export const ASSISTANT_BOTTOM_OBSTACLES = ["[data-cookie-banner]", '[data-testid="pdp-buy-bar"]'] as const;
+
+/** How far the assistant must rise: the tallest visible bottom bar, measured from the viewport bottom. */
+function useBottomObstacleOffset() {
   const [offset, setOffset] = useState(0);
 
   useEffect(() => {
-    if (!bannerVisible) return;
-    let resize: ResizeObserver | null = null;
     let frame = 0;
-    const watch = (banner: HTMLElement) => {
-      const update = () => setOffset(Math.ceil(banner.getBoundingClientRect().height));
-      // ResizeObserver reports the current size as soon as it starts observing, then every change.
-      if (typeof ResizeObserver === "undefined") {
-        frame = window.requestAnimationFrame(update);
-        return;
+    const resize = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => schedule());
+    const observed = new Set<Element>();
+    function measure() {
+      frame = 0;
+      let next = 0;
+      for (const element of document.querySelectorAll<HTMLElement>(ASSISTANT_BOTTOM_OBSTACLES.join(","))) {
+        if (resize && !observed.has(element)) {
+          observed.add(element);
+          resize.observe(element);
+        }
+        const rect = element.getBoundingClientRect();
+        if (rect.height <= 0 || rect.width <= 0 || getComputedStyle(element).visibility === "hidden") continue;
+        next = Math.max(next, Math.ceil(window.innerHeight - rect.top));
       }
-      resize = new ResizeObserver(update);
-      resize.observe(banner);
-    };
-    const find = () => document.querySelector<HTMLElement>("[data-cookie-banner]");
-    const banner = find();
-    // The banner may mount a render after this effect (both follow the same consent store).
-    const mutations = banner
-      ? null
-      : new MutationObserver(() => {
-          const found = find();
-          if (!found) return;
-          mutations?.disconnect();
-          watch(found);
-        });
-    if (banner) watch(banner);
-    else mutations?.observe(document.body, { childList: true, subtree: true });
+      setOffset((current) => (current === next ? current : Math.max(0, next)));
+    }
+    function schedule() {
+      if (!frame) frame = window.requestAnimationFrame(measure);
+    }
+    // Bars mount, unmount and resize with consent, scrolling and viewport changes.
+    const mutations = new MutationObserver(schedule);
+    mutations.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style", "hidden"] });
+    window.addEventListener("resize", schedule);
+    schedule();
     return () => {
-      mutations?.disconnect();
+      mutations.disconnect();
       resize?.disconnect();
+      window.removeEventListener("resize", schedule);
       if (frame) window.cancelAnimationFrame(frame);
     };
-  }, [bannerVisible]);
+  }, []);
 
-  return bannerVisible ? offset : 0;
+  return offset;
 }
 
 export function AssistantLauncher({ bootstrap }: { bootstrap: PublicAssistantBootstrap }) {
@@ -72,7 +86,7 @@ export function AssistantLauncher({ bootstrap }: { bootstrap: PublicAssistantBoo
   const [requested, setRequested] = useState(false);
   const launcherRef = useRef<HTMLButtonElement | null>(null);
   const panelId = useId();
-  const offset = useCookieBannerOffset();
+  const offset = useBottomObstacleOffset();
 
   const close = useCallback(() => {
     setOpen(false);
@@ -84,7 +98,11 @@ export function AssistantLauncher({ bootstrap }: { bootstrap: PublicAssistantBoo
 
   return (
     <div data-assistant-root style={{ ["--assistant-offset" as string]: `${offset}px` }}>
-      {requested ? <AssistantPanel id={panelId} open={open} bootstrap={bootstrap} onClose={close} /> : null}
+      {requested ? (
+        <Suspense fallback={open ? <PanelLoading title={bootstrap.displayName} /> : null}>
+          <AssistantPanel id={panelId} open={open} bootstrap={bootstrap} onClose={close} />
+        </Suspense>
+      ) : null}
       {!open ? (
         <button
           ref={launcherRef}

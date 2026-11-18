@@ -15,6 +15,7 @@ import {
   getPublicAssistantSnapshot,
   invalidateAssistantCache,
   readAssistantConfig,
+  readPublicAssistantSnapshot,
   resetAssistantCacheForTests,
 } from "@/lib/assistant/store";
 import { DEFAULT_ASSISTANT_CONFIG } from "@/lib/assistant/config";
@@ -89,5 +90,11 @@ describe("assistant store", () => {
     expect(error).toHaveBeenCalledWith("[assistant] bootstrap unavailable", "Error");
     expect(await getPublicAssistantBootstrap()).not.toBeNull();
     error.mockRestore();
+  });
+
+  it("the public endpoint read is never cached (an Admin change applies to the next question)", async () => {
+    await readPublicAssistantSnapshot();
+    await readPublicAssistantSnapshot();
+    expect(mocks.config.findUnique).toHaveBeenCalledTimes(2);
   });
 });

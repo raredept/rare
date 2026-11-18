@@ -87,6 +87,22 @@ export function AssistantPanel({
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
+  // Esc also works when focus fell back to the page body (e.g. a control that just got disabled).
+  const sectionRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      const active = document.activeElement;
+      if (active === document.body || active === null || sectionRef.current?.contains(active)) {
+        event.preventDefault();
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose]);
+
   useEffect(() => {
     const log = logRef.current;
     if (log) log.scrollTop = log.scrollHeight;
@@ -104,6 +120,8 @@ export function AssistantPanel({
       push({ role: "user", text });
       setDraft("");
       setPending(true);
+      // The send button disables while waiting: keep the keyboard in the conversation.
+      inputRef.current?.focus({ preventScroll: true });
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
@@ -151,13 +169,8 @@ export function AssistantPanel({
       aria-modal="false"
       aria-labelledby={titleId}
       hidden={!open}
+      ref={sectionRef}
       data-assistant-panel
-      onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          event.stopPropagation();
-          onClose();
-        }
-      }}
       className="assistant-panel fixed z-[60] flex flex-col overflow-hidden rounded-lg border border-neutral-300 bg-white text-neutral-950 shadow-[0_24px_70px_rgba(0,0,0,0.32)]"
     >
       <header className="flex items-center justify-between gap-3 bg-black px-4 py-3 text-white">

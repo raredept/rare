@@ -2,7 +2,7 @@ import { ASSISTANT_LIMITS } from "@/lib/assistant/limits";
 import { ASSISTANT_PRIORITY_MAX } from "@/lib/assistant/matching";
 
 const label = "mb-1.5 block text-xs font-black uppercase tracking-wide text-neutral-500";
-const hint = "mt-1.5 block text-xs text-neutral-500";
+const hint = "mt-1.5 text-xs text-neutral-500";
 
 export type AssistantEntryFormValues = {
   question: string;
@@ -18,10 +18,11 @@ export type AssistantEntryFormValues = {
 export function AssistantEntryFields({ idPrefix, values, categoryListId }: { idPrefix: string; values?: AssistantEntryFormValues; categoryListId: string }) {
   return (
     <div className="grid gap-4">
-      <label className="block" htmlFor={`${idPrefix}-question`}>
-        <span className={label}>Pergunta</span>
+      <div className="block">
+        <label htmlFor={`${idPrefix}-question`} className={label}>Pergunta</label>
         <input
           id={`${idPrefix}-question`}
+          aria-describedby={`${idPrefix}-question-hint`}
           name="question"
           required
           minLength={3}
@@ -30,12 +31,13 @@ export function AssistantEntryFields({ idPrefix, values, categoryListId }: { idP
           placeholder="Qual o prazo de entrega?"
           className="admin-input"
         />
-        <span className={hint}>Aparece como sugestão na loja quando a resposta está ativa e entre as mais prioritárias.</span>
-      </label>
-      <label className="block" htmlFor={`${idPrefix}-answer`}>
-        <span className={label}>Resposta</span>
+        <p id={`${idPrefix}-question-hint`} className={hint}>Aparece como sugestão na loja quando a resposta está ativa e entre as mais prioritárias.</p>
+      </div>
+      <div className="block">
+        <label htmlFor={`${idPrefix}-answer`} className={label}>Resposta</label>
         <textarea
           id={`${idPrefix}-answer`}
+          aria-describedby={`${idPrefix}-answer-hint`}
           name="answer"
           required
           rows={5}
@@ -43,22 +45,23 @@ export function AssistantEntryFields({ idPrefix, values, categoryListId }: { idP
           defaultValue={values?.answer}
           className="admin-input"
         />
-        <span className={hint}>Somente texto (sem HTML). Quebras de linha são mantidas. Até {ASSISTANT_LIMITS.answer} caracteres.</span>
-      </label>
-      <label className="block" htmlFor={`${idPrefix}-keywords`}>
-        <span className={label}>Palavras-chave e sinônimos</span>
+        <p id={`${idPrefix}-answer-hint`} className={hint}>Somente texto (sem HTML). Quebras de linha são mantidas. Até {ASSISTANT_LIMITS.answer} caracteres.</p>
+      </div>
+      <div className="block">
+        <label htmlFor={`${idPrefix}-keywords`} className={label}>Palavras-chave e sinônimos</label>
         <textarea
           id={`${idPrefix}-keywords`}
+          aria-describedby={`${idPrefix}-keywords-hint`}
           name="keywords"
           rows={2}
           defaultValue={values?.keywords.join(", ")}
           placeholder="entrega, prazo, frete, chegar, demora, envio"
           className="admin-input"
         />
-        <span className={hint}>
+        <p id={`${idPrefix}-keywords-hint`} className={hint}>
           Separe por vírgula ou uma por linha (até {ASSISTANT_LIMITS.keywords}). Acentos e maiúsculas não importam; palavras muito comuns (“como”, “qual”, “de”) são ignoradas.
-        </span>
-      </label>
+        </p>
+      </div>
       <div className="grid gap-4 sm:grid-cols-3">
         <label className="block" htmlFor={`${idPrefix}-category`}>
           <span className={label}>Categoria</span>
