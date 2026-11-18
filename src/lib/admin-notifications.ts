@@ -13,8 +13,8 @@ type AdminNotificationPayload = {
   tag: string;
 };
 
-type PushDeliveryResult = {
-  status: "not_configured" | "sent";
+export type PushDeliveryResult = {
+  status: "not_configured" | "config_error" | "sent";
   attempted: number;
   sent: number;
   failed: number;
@@ -49,31 +49,11 @@ function buildPaidOrderNotification(order: { id: string; orderNumber: string; to
   };
 }
 
-async function sendAdminPushNotification(payload: AdminNotificationPayload): Promise<PushDeliveryResult> {
-  const config = getWebPushConfig();
-  if (!config) {
-    return {
-      status: "not_configured",
-      attempted: 0,
-      sent: 0,
-      failed: 0,
-      disabled: 0,
-    };
-  }
-
-  const subscriptions = await prisma.adminPushSubscription.findMany({
-    where: { active: true },
-    select: {
-      id: true,
-      endpoint: true,
-      p256dh: true,
-      auth: true,
-    },
-  });
-
-  webPush.setVapidDetails(config.subject, config.publicKey, config.privateKey);
-
-  const notificationPayload = JSON.stringify({
+// Only these fields leave the server. They are built from the order number and
+// total; customer data (name, e-mail, CPF, phone, address, card) never reaches a
+// push service.
+export function buildAdminPushPayload(payload: AdminNotificationPayload) {
+  return JSON.stringify({
     title: payload.title,
     body: payload.body,
     icon: "/brand/rare-logo.png",
@@ -81,13 +61,56 @@ async function sendAdminPushNotification(payload: AdminNotificationPayload): Pro
     url: payload.href,
     tag: payload.tag,
   });
+}
+
+function emptyDelivery(status: PushDeliveryResult["status"]): PushDeliveryResult {
+  return { status, attempted: 0, sent: 0, failed: 0, disabled: 0 };
+}
+
+async function recordDeliveryOutcome(subscriptionId: string, data: { lastNotifiedAt?: Date; failedAt: Date | null; active?: boolean }) {
+  try {
+    await prisma.adminPushSubscription.update({ where: { id: subscriptionId }, data });
+  } catch (error) {
+    // Bookkeeping must never turn a delivered (or failed) push into a thrown error.
+    console.error("[admin-push] subscription bookkeeping failed", { message: getSafePushErrorMessage(error) });
+  }
+}
+
+async function sendAdminPushNotification(
+  payload: AdminNotificationPayload,
+  options: { userId?: string; ttlSeconds?: number } = {},
+): Promise<PushDeliveryResult> {
+  const config = getWebPushConfig();
+  if (!config) return emptyDelivery("not_configured");
+
+  try {
+    webPush.setVapidDetails(config.subject, config.publicKey, config.privateKey);
+  } catch (error) {
+    // web-push validates the key pair and subject; the message never contains the key itself,
+    // and it is still passed through the redaction below.
+    console.error("[admin-push] invalid VAPID configuration", { message: getSafePushErrorMessage(error) });
+    return emptyDelivery("config_error");
+  }
+
+  const subscriptions = await prisma.adminPushSubscription.findMany({
+    where: { active: true, ...(options.userId ? { userId: options.userId } : {}) },
+    select: {
+      id: true,
+      endpoint: true,
+      p256dh: true,
+      auth: true,
+    },
+  });
+  // Stored rows are re-checked: the server must never POST to a non-push-service host.
+  const deliverable = subscriptions.filter((subscription) => isAllowedPushEndpoint(subscription.endpoint));
+  const notificationPayload = buildAdminPushPayload(payload);
 
   let sent = 0;
   let failed = 0;
   let disabled = 0;
 
   await Promise.all(
-    subscriptions.filter((subscription) => isAllowedPushEndpoint(subscription.endpoint)).map(async (subscription) => {
+    deliverable.map(async (subscription) => {
       try {
         await webPush.sendNotification(
           {
@@ -99,30 +122,23 @@ async function sendAdminPushNotification(payload: AdminNotificationPayload): Pro
           },
           notificationPayload,
           {
-            TTL: 60 * 60,
+            TTL: options.ttlSeconds ?? 60 * 60,
             urgency: "high",
           },
         );
         sent += 1;
-        await prisma.adminPushSubscription.update({
-          where: { id: subscription.id },
-          data: {
-            lastNotifiedAt: new Date(),
-            failedAt: null,
-          },
-        });
+        await recordDeliveryOutcome(subscription.id, { lastNotifiedAt: new Date(), failedAt: null });
       } catch (error) {
         failed += 1;
         const statusCode = getPushStatusCode(error);
+        // Only "gone" answers are permanent. 401/403 (VAPID), 413, 429 and 5xx are
+        // configuration or transient problems and must not drop the device.
         const shouldDisable = statusCode === 404 || statusCode === 410;
         if (shouldDisable) disabled += 1;
 
-        await prisma.adminPushSubscription.update({
-          where: { id: subscription.id },
-          data: {
-            failedAt: new Date(),
-            ...(shouldDisable ? { active: false } : {}),
-          },
+        await recordDeliveryOutcome(subscription.id, {
+          failedAt: new Date(),
+          ...(shouldDisable ? { active: false } : {}),
         });
 
         console.error("[admin-push] notification delivery failed", {
@@ -136,11 +152,27 @@ async function sendAdminPushNotification(payload: AdminNotificationPayload): Pro
 
   return {
     status: "sent",
-    attempted: subscriptions.length,
+    attempted: deliverable.length,
     sent,
     failed,
     disabled,
   };
+}
+
+export const adminTestPushTag = "rare-admin-test";
+
+// Homologation push: goes only to the requesting Admin's own active devices and
+// touches nothing else (no AdminNotification, Order, payment or stock row).
+export async function sendAdminTestPushNotification(adminUserId: string) {
+  return sendAdminPushNotification(
+    {
+      title: "Teste — RARE Admin",
+      body: "Notificação de teste. Nenhuma venda foi criada.",
+      href: "/admin/notifications",
+      tag: adminTestPushTag,
+    },
+    { userId: adminUserId, ttlSeconds: 5 * 60 },
+  );
 }
 
 export async function notifyAdminsOfPaidOrder(orderId: string) {

@@ -128,14 +128,50 @@ describe("admin push subscriptions route", () => {
     }));
   });
 
-  it("deactivates only the endpoint for the current device", async () => {
+  it("deactivates only the endpoint for the current device, scoped to the current Admin", async () => {
     const response = await DELETE(request("DELETE", { endpoint: subscription.endpoint }) as never);
 
     expect(response.status).toBe(200);
+    // Never "all rows of this user": the Admin's other devices keep receiving sale alerts.
+    expect(mocks.updateMany).toHaveBeenCalledTimes(1);
     expect(mocks.updateMany).toHaveBeenCalledWith({
-      where: { endpoint: subscription.endpoint },
+      where: { endpoint: subscription.endpoint, userId: "admin-1" },
       data: { active: false, failedAt: expect.any(Date) },
     });
+  });
+
+  it("creates a new device and refreshes the keys of a known one through the same endpoint upsert", async () => {
+    await POST(request("POST", subscription) as never);
+    const rotated = { ...subscription, keys: { p256dh: "rotated-p256dh", auth: "rotated-auth" } };
+    await POST(request("POST", rotated) as never);
+
+    expect(mocks.upsert).toHaveBeenCalledTimes(2);
+    expect(mocks.upsert.mock.calls[0][0]).toMatchObject({
+      where: { endpoint: subscription.endpoint },
+      create: { userId: "admin-1", endpoint: subscription.endpoint, p256dh: "public-encryption-key", auth: "auth-secret", userAgent: "test-browser", active: true },
+    });
+    expect(mocks.upsert.mock.calls[1][0]).toMatchObject({
+      where: { endpoint: subscription.endpoint },
+      update: { userId: "admin-1", p256dh: "rotated-p256dh", auth: "rotated-auth", active: true, failedAt: null },
+    });
+  });
+
+  it("supports several devices per Admin: uniqueness is the endpoint, never the user", async () => {
+    const iphone = { ...subscription, endpoint: "https://web.push.apple.com/QAbc-iphone" };
+    const desktop = { ...subscription, endpoint: "https://fcm.googleapis.com/fcm/send/desktop" };
+    expect((await POST(request("POST", iphone) as never)).status).toBe(200);
+    expect((await POST(request("POST", desktop) as never)).status).toBe(200);
+
+    expect(mocks.upsert.mock.calls.map(([args]) => args.where)).toEqual([
+      { endpoint: iphone.endpoint },
+      { endpoint: desktop.endpoint },
+    ]);
+  });
+
+  it("accepts an Apple Web Push endpoint from an iPhone Home Screen app", async () => {
+    const response = await POST(request("POST", { ...subscription, endpoint: "https://web.push.apple.com/QOZbYk-test-token" }) as never);
+    expect(response.status).toBe(200);
+    expect(mocks.upsert).toHaveBeenCalledTimes(1);
   });
 
   it("rejects malformed or oversized subscriptions", async () => {
