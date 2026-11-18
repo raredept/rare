@@ -119,8 +119,10 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Invalid push subscription" }, { status: 400 });
   }
 
+  // Scoped to the caller's own row: one Admin can never switch off another Admin's
+  // device, and the user's other devices (desktop, other browsers) stay active.
   await prisma.adminPushSubscription.updateMany({
-    where: { endpoint: parsed.data.endpoint },
+    where: { endpoint: parsed.data.endpoint, userId: admin.id },
     data: {
       active: false,
       failedAt: new Date(),
