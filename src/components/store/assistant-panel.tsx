@@ -1,14 +1,17 @@
 "use client";
 
-import { ArrowUp, Loader2, X } from "lucide-react";
+import { ArrowRight, ArrowUp, X } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import { firstOfEachRole, splitWelcomeMessage } from "@/components/store/assistant/welcome";
 import { ASSISTANT_LIMITS } from "@/lib/assistant/limits";
 import type { PublicAssistantBootstrap } from "@/lib/assistant/store";
 
 // RARE Assistant conversation panel (lazy chunk). The conversation lives only in this component's
 // memory for the current page: no cookie, localStorage, sessionStorage, database or analytics.
 // Every text is rendered as React text (never as HTML).
+// RARE-ASSISTANT-UIUX-02: presentation only (layout, motion states, typing, labels). The request,
+// the answer handling, the CTA safety rule and every functional message are unchanged.
 
 type Cta = { label: string; href: string };
 type NewMessage = { role: "user"; text: string } | { role: "assistant"; text: string; cta: Cta | null; tone?: "error" };
@@ -17,6 +20,8 @@ type Message = NewMessage & { id: number };
 type AnswerPayload = { matched: boolean; answer: string; category: string | null; cta: Cta | null };
 
 const MAX_MESSAGES = 40;
+/** Exit motion length (globals.css `assistant-panel-out`), plus a frame of margin. */
+const PANEL_EXIT_MS = 180;
 
 function isAnswerPayload(value: unknown): value is AnswerPayload {
   if (!value || typeof value !== "object") return false;
@@ -43,20 +48,34 @@ function safeCta(cta: Cta | null | undefined): Cta | null {
 }
 
 function CtaLink({ cta }: { cta: Cta }) {
-  const className =
-    "mt-3 inline-flex min-h-11 items-center justify-center rounded-lg border border-black bg-black px-4 text-xs font-black uppercase tracking-[0.14em] text-white transition-colors hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2";
+  const className = "assistant-cta group/cta";
+  const content = (
+    <>
+      <span>{cta.label}</span>
+      <ArrowRight aria-hidden="true" className="assistant-cta-arrow h-4 w-4 shrink-0" strokeWidth={2.25} />
+    </>
+  );
   if (cta.href.startsWith("/")) {
     return (
       <Link href={cta.href} className={className}>
-        {cta.label}
+        {content}
       </Link>
     );
   }
   return (
     <a href={cta.href} className={className} target="_blank" rel="noopener noreferrer">
-      {cta.label}
+      {content}
       <span className="sr-only"> (abre em nova aba)</span>
     </a>
+  );
+}
+
+/** Small author label above the first message of each side. Decorative: the sr-only prefix in the bubble names the author. */
+function AuthorLabel({ children, align }: { children: string; align: "start" | "end" }) {
+  return (
+    <p aria-hidden="true" className={`assistant-author ${align === "end" ? "text-right" : ""}`}>
+      {children}
+    </p>
   );
 }
 
@@ -80,6 +99,17 @@ export function AssistantPanel({
   const titleId = useId();
   const inputId = useId();
   const abortRef = useRef<AbortController | null>(null);
+
+  // Visual state only: "closing" keeps the panel on screen (inert) for its exit motion, then it is
+  // hidden like before. Opening and closing are still driven by the launcher's `open`.
+  const [shown, setShown] = useState(open);
+  if (open && !shown) setShown(true);
+  useEffect(() => {
+    if (open || !shown) return;
+    const timer = window.setTimeout(() => setShown(false), PANEL_EXIT_MS);
+    return () => window.clearTimeout(timer);
+  }, [open, shown]);
+  const state = open ? "open" : shown ? "closing" : "closed";
 
   useEffect(() => {
     if (open) inputRef.current?.focus({ preventScroll: true });
@@ -161,6 +191,9 @@ export function AssistantPanel({
   }
 
   const showSuggestions = bootstrap.suggestions.length > 0 && !messages.some((message) => message.role === "user");
+  const welcome = useMemo(() => splitWelcomeMessage(bootstrap.welcomeMessage), [bootstrap.welcomeMessage]);
+  const labelled = useMemo(() => firstOfEachRole(messages), [messages]);
+  const canSend = !pending && draft.trim().length > 0;
 
   return (
     <section
@@ -168,41 +201,52 @@ export function AssistantPanel({
       role="dialog"
       aria-modal="false"
       aria-labelledby={titleId}
-      hidden={!open}
+      hidden={state === "closed"}
+      inert={state === "closing"}
       ref={sectionRef}
       data-assistant-panel
-      className="assistant-panel fixed z-[60] flex flex-col overflow-hidden rounded-lg border border-neutral-300 bg-white text-neutral-950 shadow-[0_24px_70px_rgba(0,0,0,0.32)]"
+      data-state={state}
+      className="assistant-panel fixed z-[60] flex flex-col overflow-hidden bg-white text-neutral-950"
     >
-      <header className="flex items-center justify-between gap-3 bg-black px-4 py-3 text-white">
-        <h2 id={titleId} className="min-w-0 truncate text-sm font-black uppercase tracking-[0.16em]">
-          {bootstrap.displayName}
-        </h2>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label={`Fechar ${bootstrap.displayName}`}
-          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-        >
-          <X aria-hidden="true" className="h-5 w-5" />
-        </button>
+      <header className="assistant-header relative shrink-0 bg-black px-5 pb-3.5 pt-3 text-white">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            {/* The storefront's own wordmark: the panel reads as RARE, not as a plugin. A CSS background,
+                not an <img>, so the conversation keeps its "no image or script element" guarantee. */}
+            <span aria-hidden="true" className="assistant-wordmark -ml-1 block h-[38px] w-[76px]" />
+            <h2 id={titleId} className="mt-1.5 truncate text-[11px] font-black uppercase leading-4 tracking-[0.22em] text-white">
+              {bootstrap.displayName}
+            </h2>
+            <p className="mt-1.5 flex items-center gap-2 text-[11px] font-medium leading-4 text-white/65">
+              <span aria-hidden="true" className="assistant-status-dot" />
+              <span>Online · respostas automáticas</span>
+            </p>
+          </div>
+          <button type="button" onClick={onClose} aria-label={`Fechar ${bootstrap.displayName}`} className="assistant-close group/close -mr-1.5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full">
+            <X aria-hidden="true" className="h-[18px] w-[18px] transition-transform duration-200 group-hover/close:rotate-90" strokeWidth={2.25} />
+          </button>
+        </div>
       </header>
 
-      <div ref={logRef} role="log" aria-live="polite" aria-relevant="additions" aria-label="Conversa" className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4">
-        <p className="max-w-[90%] whitespace-pre-line rounded-lg bg-neutral-100 px-3.5 py-2.5 text-sm font-semibold leading-6 text-neutral-900">{bootstrap.welcomeMessage}</p>
+      <div ref={logRef} role="log" aria-live="polite" aria-relevant="additions" aria-label="Conversa" className="assistant-log min-h-0 flex-auto overflow-y-auto overscroll-contain px-5 pb-5 pt-5">
+        <div data-assistant-welcome className="assistant-rise" style={{ "--assistant-i": 0 } as CSSProperties}>
+          {welcome.lead ? <p className="assistant-lead">{welcome.lead}</p> : null}
+          {welcome.body ? <p className={`assistant-welcome-body ${welcome.lead ? "mt-2" : ""}`}>{welcome.body}</p> : null}
+        </div>
 
         {showSuggestions ? (
-          <div>
-            <p className="mb-2 text-[11px] font-black uppercase tracking-[0.16em] text-neutral-600">Perguntas frequentes</p>
-            <ul className="flex flex-col items-start gap-2">
-              {bootstrap.suggestions.map((suggestion) => (
-                <li key={suggestion} className="max-w-full">
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => void ask(suggestion)}
-                    className="min-h-11 max-w-full rounded-lg border border-neutral-300 bg-white px-3.5 py-2 text-left text-sm font-bold text-neutral-900 transition-colors hover:border-neutral-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 disabled:opacity-60"
-                  >
-                    {suggestion}
+          <div className="mt-6">
+            <p className="assistant-eyebrow assistant-rise" style={{ "--assistant-i": 1 } as CSSProperties}>
+              Perguntas frequentes
+            </p>
+            <ul className="mt-2 border-t border-neutral-200">
+              {bootstrap.suggestions.map((suggestion, index) => (
+                <li key={suggestion} className="assistant-rise border-b border-neutral-200" style={{ "--assistant-i": index + 2 } as CSSProperties}>
+                  <button type="button" disabled={pending} onClick={() => void ask(suggestion)} className="assistant-suggestion group/suggestion">
+                    <span className="min-w-0 flex-1 break-words">{suggestion}</span>
+                    <span aria-hidden="true" className="assistant-suggestion-arrow">
+                      <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.5} />
+                    </span>
                   </button>
                 </li>
               ))}
@@ -210,56 +254,63 @@ export function AssistantPanel({
           </div>
         ) : null}
 
-        {messages.map((message) =>
-          message.role === "user" ? (
-            <div key={message.id} className="flex justify-end">
-              <p className="max-w-[85%] whitespace-pre-line rounded-lg bg-black px-3.5 py-2.5 text-sm font-semibold leading-6 text-white" data-assistant-message="user">
-                <span className="sr-only">Você: </span>
-                {message.text}
-              </p>
-            </div>
-          ) : (
-            <div key={message.id} className="max-w-[90%]" data-assistant-message="assistant">
-              <p className={`whitespace-pre-line rounded-lg px-3.5 py-2.5 text-sm font-semibold leading-6 ${message.tone === "error" ? "border border-neutral-300 bg-white text-neutral-800" : "bg-neutral-100 text-neutral-900"}`}>
-                <span className="sr-only">{bootstrap.displayName}: </span>
-                {message.text}
-              </p>
-              {message.cta ? <CtaLink cta={message.cta} /> : null}
-            </div>
-          ),
-        )}
+        {messages.length > 0 ? (
+          <div className={`flex flex-col gap-3 ${showSuggestions ? "mt-6" : "mt-6 border-t border-neutral-200 pt-5"}`}>
+            {messages.map((message) =>
+              message.role === "user" ? (
+                <div key={message.id} className="assistant-message-in flex flex-col items-end">
+                  {labelled.has(message) ? <AuthorLabel align="end">Você</AuthorLabel> : null}
+                  <p className="assistant-bubble assistant-bubble-user" data-assistant-message="user">
+                    <span className="sr-only">Você: </span>
+                    {message.text}
+                  </p>
+                </div>
+              ) : (
+                <div key={message.id} className="assistant-message-in flex max-w-[92%] flex-col items-start" data-assistant-message="assistant">
+                  {labelled.has(message) ? <AuthorLabel align="start">RARE</AuthorLabel> : null}
+                  <p className={`assistant-bubble ${message.tone === "error" ? "assistant-bubble-note" : "assistant-bubble-assistant"}`}>
+                    <span className="sr-only">{bootstrap.displayName}: </span>
+                    {message.text}
+                  </p>
+                  {message.cta ? <CtaLink cta={message.cta} /> : null}
+                </div>
+              ),
+            )}
+          </div>
+        ) : null}
 
         {pending ? (
-          <p className="inline-flex items-center gap-2 text-xs font-bold text-neutral-600" aria-live="off">
-            <Loader2 aria-hidden="true" className="h-4 w-4 motion-safe:animate-spin" />
-            Procurando a resposta…
-          </p>
+          <div className="assistant-message-in mt-3 flex items-center gap-3" aria-live="off" data-assistant-typing>
+            <span className="assistant-typing" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </span>
+            <span className="text-xs font-medium text-neutral-500">Buscando a resposta…</span>
+          </div>
         ) : null}
       </div>
 
-      <form onSubmit={onSubmit} className="flex items-end gap-2 border-t border-neutral-200 bg-white p-3">
-        <label htmlFor={inputId} className="sr-only">
-          Sua pergunta
-        </label>
-        <input
-          ref={inputRef}
-          id={inputId}
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          maxLength={ASSISTANT_LIMITS.message}
-          placeholder={bootstrap.inputPlaceholder}
-          autoComplete="off"
-          enterKeyHint="send"
-          className="h-12 min-w-0 flex-1 rounded-lg border border-neutral-300 bg-white px-3.5 text-base font-semibold text-neutral-950 placeholder:text-neutral-500 focus:border-neutral-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950"
-        />
-        <button
-          type="submit"
-          disabled={pending || !draft.trim()}
-          aria-label="Enviar pergunta"
-          className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-black text-white transition-colors hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-neutral-400"
-        >
-          <ArrowUp aria-hidden="true" className="h-5 w-5" />
-        </button>
+      <form onSubmit={onSubmit} className="assistant-composer shrink-0 border-t border-neutral-200 bg-white px-3 pb-3 pt-3">
+        <div className="assistant-field">
+          <label htmlFor={inputId} className="sr-only">
+            Sua pergunta
+          </label>
+          <input
+            ref={inputRef}
+            id={inputId}
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            maxLength={ASSISTANT_LIMITS.message}
+            placeholder={bootstrap.inputPlaceholder}
+            autoComplete="off"
+            enterKeyHint="send"
+            className="h-12 min-w-0 flex-1 bg-transparent pl-4 text-[0.9375rem] font-medium text-neutral-950 placeholder:text-neutral-500 focus:outline-none focus-visible:outline-none"
+          />
+          <button type="submit" disabled={!canSend} aria-label="Enviar pergunta" className="assistant-send inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full">
+            <ArrowUp aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={2.5} />
+          </button>
+        </div>
       </form>
     </section>
   );

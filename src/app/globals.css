@@ -132,30 +132,560 @@ html {
 
 /* RARE Assistant (RARE-FINAL-AUDIT-ASSISTANT-01): bottom-right, inside the iPhone safe area, lifted
    above the cookie banner while it is on screen (--assistant-offset is the banner height). Below the
-   header (z-40) and every modal overlay (cart z-80, menu z-85, gallery z-90). */
+   header (z-40) and every modal overlay (cart z-80, menu z-85, gallery z-90).
+   RARE-ASSISTANT-UIUX-02: monochrome concierge styling and motion, scoped to `assistant-*` classes;
+   the tokens live on the widget root. */
+[data-assistant-root] {
+  --assistant-radius: 1.25rem;
+  --assistant-panel-width: 25rem;
+  --assistant-shadow: 0 32px 80px -24px rgb(0 0 0 / 0.5), 0 12px 28px -12px rgb(0 0 0 / 0.22), 0 0 0 1px rgb(0 0 0 / 0.08);
+  --assistant-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --assistant-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --assistant-enter-y: 20px;
+  /* Room kept above the panel on phones: the status bar / Dynamic Island and a sliver of the page. */
+  --assistant-top-room: max(0.75rem, env(safe-area-inset-top));
+}
+
 .assistant-launcher {
   right: max(1rem, env(safe-area-inset-right));
   bottom: calc(max(1rem, env(safe-area-inset-bottom)) + var(--assistant-offset, 0px));
+  border: 1px solid rgb(255 255 255 / 0.22);
+  background: #000;
+  color: #fff;
+  box-shadow: 0 14px 34px -12px rgb(0 0 0 / 0.55), 0 0 0 1px #000;
+  transition:
+    background-color 200ms ease-out,
+    color 200ms ease-out,
+    border-color 200ms ease-out,
+    box-shadow 200ms ease-out,
+    transform 160ms var(--assistant-ease-out),
+    bottom 220ms var(--assistant-ease-out);
+  animation: assistant-launcher-in 260ms var(--assistant-ease-out) both;
+}
+
+.assistant-launcher-label {
+  letter-spacing: 0.2em;
+  transition: letter-spacing 200ms var(--assistant-ease-out);
+}
+
+.assistant-launcher-icon > svg {
+  transition: transform 200ms var(--assistant-ease-out);
+}
+
+/* A small white point on the icon: the assistant is there. Presentation only, not an operator status. */
+.assistant-launcher-dot {
+  position: absolute;
+  top: -1px;
+  right: -2px;
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 0 0 2px #000;
+  transition: background-color 200ms ease-out, box-shadow 200ms ease-out;
+}
+
+@media (hover: hover) {
+  .assistant-launcher:hover {
+    background: #fff;
+    color: #000;
+    border-color: #000;
+    box-shadow: 0 18px 40px -14px rgb(0 0 0 / 0.45), 0 0 0 1px #000;
+  }
+  .assistant-launcher:hover .assistant-launcher-label {
+    letter-spacing: 0.26em;
+  }
+  .assistant-launcher:hover .assistant-launcher-icon > svg {
+    transform: translate(-1px, -2px) rotate(-8deg);
+  }
+  .assistant-launcher:hover .assistant-launcher-dot {
+    background: #000;
+    box-shadow: 0 0 0 2px #fff;
+  }
+}
+
+.assistant-launcher:active {
+  transform: scale(0.96);
+}
+
+.assistant-launcher:focus-visible {
+  outline: 2px solid #000;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 5px #fff, 0 14px 34px -12px rgb(0 0 0 / 0.55);
 }
 
 .assistant-panel {
   left: max(0.5rem, env(safe-area-inset-left));
   right: max(0.5rem, env(safe-area-inset-right));
   bottom: calc(max(0.5rem, env(safe-area-inset-bottom)) + var(--assistant-offset, 0px));
-  height: min(36rem, calc(100dvh - var(--assistant-offset, 0px) - 4.75rem));
+  /* vh first: a browser without dvh keeps a usable panel. */
+  max-height: calc(100vh - var(--assistant-offset, 0px) - 1.75rem);
+  max-height: min(40rem, calc(100dvh - var(--assistant-offset, 0px) - max(0.5rem, env(safe-area-inset-bottom)) - var(--assistant-top-room)));
+  min-height: min(26rem, calc(100dvh - var(--assistant-offset, 0px) - max(0.5rem, env(safe-area-inset-bottom)) - var(--assistant-top-room)));
+  border-radius: var(--assistant-radius);
+  box-shadow: var(--assistant-shadow);
+  transform-origin: 100% 100%;
 }
 
 .assistant-panel[hidden] {
   display: none !important;
 }
 
+.assistant-panel[data-state="open"] {
+  animation: assistant-panel-in 260ms var(--assistant-ease-out) both;
+}
+
+.assistant-panel[data-state="closing"] {
+  pointer-events: none;
+  animation: assistant-panel-out 160ms var(--assistant-ease-in) forwards;
+}
+
 @media (min-width: 640px) {
+  [data-assistant-root] {
+    --assistant-enter-y: 10px;
+  }
   .assistant-panel {
     left: auto;
     right: max(1.5rem, env(safe-area-inset-right));
     bottom: calc(max(1.5rem, env(safe-area-inset-bottom)) + var(--assistant-offset, 0px));
-    width: 24rem;
-    height: min(36rem, calc(100dvh - var(--assistant-offset, 0px) - 7rem));
+    width: var(--assistant-panel-width);
+    max-height: calc(100vh - var(--assistant-offset, 0px) - 3rem);
+    max-height: min(42rem, calc(100dvh - var(--assistant-offset, 0px) - max(1.5rem, env(safe-area-inset-bottom)) - 1.5rem));
+    min-height: min(28rem, calc(100dvh - var(--assistant-offset, 0px) - max(1.5rem, env(safe-area-inset-bottom)) - 1.5rem));
+  }
+}
+
+.assistant-wordmark {
+  background: url("/brand/rare-logo.png") left center / contain no-repeat;
+}
+
+.assistant-status-dot {
+  position: relative;
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: #fff;
+}
+
+.assistant-status-dot::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  border: 1px solid rgb(255 255 255 / 0.55);
+  animation: assistant-status-ring 2.4s ease-out infinite;
+}
+
+.assistant-close {
+  color: #fff;
+  border: 1px solid rgb(255 255 255 / 0.22);
+  transition: background-color 180ms ease-out, color 180ms ease-out, border-color 180ms ease-out, transform 120ms ease-out;
+}
+
+@media (hover: hover) {
+  .assistant-close:hover {
+    background: #fff;
+    color: #000;
+    border-color: #fff;
+  }
+}
+
+.assistant-close:active {
+  transform: scale(0.94);
+}
+
+.assistant-close:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.assistant-log {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(0 0 0 / 0.2) transparent;
+}
+
+/* The Admin's own welcome text, set as an editorial opening rather than a bubble. */
+.assistant-lead {
+  font-size: 1.625rem;
+  font-weight: 900;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  color: #000;
+  overflow-wrap: anywhere;
+}
+
+.assistant-welcome-body {
+  max-width: 34ch;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.55;
+  color: #525252;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.assistant-eyebrow {
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #737373;
+}
+
+.assistant-suggestion {
+  display: flex;
+  width: 100%;
+  min-height: 3.25rem;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.75rem 0.125rem 0.75rem 0;
+  text-align: left;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #0a0a0a;
+  transition: padding 200ms var(--assistant-ease-out), color 160ms ease-out, background-color 160ms ease-out;
+}
+
+.assistant-suggestion-arrow {
+  display: inline-flex;
+  height: 1.75rem;
+  width: 1.75rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid #d4d4d4;
+  color: #0a0a0a;
+  transition: background-color 180ms ease-out, border-color 180ms ease-out, color 180ms ease-out, transform 200ms var(--assistant-ease-out);
+}
+
+@media (hover: hover) {
+  .assistant-suggestion:hover:not(:disabled) {
+    padding-left: 0.375rem;
+  }
+  .assistant-suggestion:hover:not(:disabled) .assistant-suggestion-arrow {
+    background: #000;
+    border-color: #000;
+    color: #fff;
+    transform: translateX(2px);
+  }
+}
+
+.assistant-suggestion:active:not(:disabled) {
+  background: #f5f5f5;
+}
+
+.assistant-suggestion:active:not(:disabled) .assistant-suggestion-arrow {
+  background: #000;
+  border-color: #000;
+  color: #fff;
+}
+
+.assistant-suggestion:focus-visible {
+  outline: 2px solid #000;
+  outline-offset: 2px;
+  border-radius: 0.5rem;
+}
+
+.assistant-suggestion:disabled {
+  cursor: not-allowed;
+  color: #a3a3a3;
+}
+
+.assistant-author {
+  margin-bottom: 0.375rem;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #737373;
+}
+
+.assistant-bubble {
+  max-width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 1rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.55;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.assistant-bubble-user {
+  max-width: 85%;
+  background: #000;
+  color: #fff;
+}
+
+.assistant-bubble-assistant {
+  background: #f5f5f5;
+  color: #0a0a0a;
+}
+
+/* Network and rate-limit notes: part of the conversation, not an alarm. */
+.assistant-bubble-note {
+  border-radius: 0.25rem 1rem 1rem 0.25rem;
+  border-left: 2px solid #000;
+  background: #fafafa;
+  color: #404040;
+}
+
+.assistant-cta {
+  margin-top: 0.625rem;
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.75rem;
+  border-radius: 9999px;
+  background: #000;
+  padding: 0 1.125rem 0 1.25rem;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #fff;
+  transition: background-color 180ms ease-out, transform 120ms ease-out;
+}
+
+.assistant-cta-arrow {
+  transition: transform 200ms var(--assistant-ease-out);
+}
+
+@media (hover: hover) {
+  .assistant-cta:hover {
+    background: #262626;
+  }
+  .assistant-cta:hover .assistant-cta-arrow {
+    transform: translateX(3px);
+  }
+}
+
+.assistant-cta:active {
+  transform: scale(0.98);
+}
+
+.assistant-cta:focus-visible {
+  outline: 2px solid #000;
+  outline-offset: 3px;
+}
+
+.assistant-typing {
+  display: inline-flex;
+  height: 2.25rem;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 1rem;
+  background: #f5f5f5;
+  padding: 0 0.875rem;
+}
+
+.assistant-typing > span {
+  width: 5px;
+  height: 5px;
+  border-radius: 9999px;
+  background: #0a0a0a;
+  animation: assistant-typing 1.1s ease-in-out infinite both;
+}
+
+.assistant-typing > span:nth-child(2) {
+  animation-delay: 0.16s;
+}
+
+.assistant-typing > span:nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+.assistant-field {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 3.25rem;
+  padding-right: 0.25rem;
+  border-radius: 9999px;
+  border: 1px solid #d4d4d4;
+  background: #fafafa;
+  transition: border-color 160ms ease-out, background-color 160ms ease-out, box-shadow 160ms ease-out;
+}
+
+.assistant-field:focus-within {
+  border-color: #000;
+  background: #fff;
+  box-shadow: 0 0 0 1px #000, 0 0 0 5px rgb(0 0 0 / 0.06);
+}
+
+/* The field's own ring (above) is the focus indicator: the global input outline (unlayered, so it
+   beats utilities) would draw a square inside the pill. */
+.assistant-field input:focus-visible {
+  outline: none;
+}
+
+.assistant-send {
+  background: #000;
+  color: #fff;
+  transition: background-color 160ms ease-out, color 160ms ease-out, transform 140ms var(--assistant-ease-out);
+}
+
+@media (hover: hover) {
+  .assistant-send:hover:not(:disabled) {
+    transform: translateY(-1px);
+    background: #262626;
+  }
+}
+
+.assistant-send:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.assistant-send:disabled {
+  cursor: not-allowed;
+  background: #e5e5e5;
+  color: #a3a3a3;
+}
+
+.assistant-send:focus-visible {
+  outline: 2px solid #000;
+  outline-offset: 2px;
+}
+
+.assistant-skeleton {
+  display: block;
+  border-radius: 0.5rem;
+  background: #f0f0f0;
+  animation: assistant-skeleton 1.2s ease-in-out infinite;
+}
+
+/* The opening content rises in once, just behind the panel. */
+.assistant-panel[data-state="open"] .assistant-rise {
+  animation: assistant-rise 360ms var(--assistant-ease-out) both;
+  animation-delay: calc(60ms + var(--assistant-i, 0) * 35ms);
+}
+
+.assistant-message-in {
+  animation: assistant-rise 240ms var(--assistant-ease-out) both;
+}
+
+@keyframes assistant-launcher-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+}
+
+@keyframes assistant-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--assistant-enter-y, 10px)) scale(0.98);
+  }
+}
+
+@keyframes assistant-panel-out {
+  to {
+    opacity: 0;
+    transform: translateY(calc(var(--assistant-enter-y, 10px) * 0.6)) scale(0.985);
+  }
+}
+
+@keyframes assistant-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes assistant-typing {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes assistant-status-ring {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.6);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+
+@keyframes assistant-skeleton {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@keyframes assistant-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes assistant-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Reduced motion: no movement, scale or looping; opening and closing keep a short fade only. */
+@media (prefers-reduced-motion: reduce) {
+  .assistant-launcher,
+  .assistant-message-in,
+  .assistant-panel[data-state="open"] .assistant-rise,
+  .assistant-typing > span,
+  .assistant-status-dot::after,
+  .assistant-skeleton {
+    animation: none;
+  }
+  .assistant-panel[data-state="open"] {
+    animation: assistant-fade-in 120ms linear both;
+  }
+  .assistant-panel[data-state="closing"] {
+    animation: assistant-fade-out 100ms linear forwards;
+  }
+  .assistant-typing > span {
+    opacity: 0.6;
+  }
+  .assistant-launcher,
+  .assistant-launcher-label,
+  .assistant-launcher-icon > svg,
+  .assistant-suggestion,
+  .assistant-suggestion-arrow,
+  .assistant-cta,
+  .assistant-cta-arrow,
+  .assistant-send,
+  .assistant-close {
+    transition-property: background-color, color, border-color, box-shadow;
+  }
+  .assistant-launcher:hover .assistant-launcher-icon > svg,
+  .assistant-launcher:active,
+  .assistant-send:hover:not(:disabled),
+  .assistant-send:active:not(:disabled),
+  .assistant-cta:hover .assistant-cta-arrow,
+  .assistant-cta:active,
+  .assistant-close:active,
+  .assistant-suggestion:hover:not(:disabled) .assistant-suggestion-arrow {
+    transform: none;
+  }
+  .assistant-suggestion:hover:not(:disabled) {
+    padding-left: 0;
+  }
+  .assistant-close svg {
+    transition: none;
+    transform: none !important;
   }
 }
 
