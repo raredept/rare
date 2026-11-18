@@ -32,6 +32,7 @@ const institutionalLinks = [
   { href: "/politica-de-envio", label: "Política de envio" },
   { href: "/privacidade-e-termos", label: "Privacidade e termos" },
   { href: "/politica-de-cookies", label: "Política de cookies" },
+  { href: "/admin/login?next=%2Fadmin%2Fnotifications", label: "Acesso da equipe" },
 ];
 
 const footerLinkClass =
