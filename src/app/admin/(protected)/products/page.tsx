@@ -4,12 +4,12 @@ import type { ReactNode } from "react";
 import { AdminSubmitButton } from "@/components/admin/admin-submit-button";
 import { ConfirmButton } from "@/components/admin/confirm-button";
 import { AdminPagination } from "@/components/admin/admin-pagination";
-import { deleteProductAction, toggleProductActiveAction } from "@/app/admin/(protected)/products/actions";
+import { deleteProductAction, moveProductInCatalogAction, toggleProductActiveAction } from "@/app/admin/(protected)/products/actions";
 import { getAdminCategoryFilterLabel, sortAdminCategoryFilterOptions } from "@/lib/admin-category-options";
 import { classifyProductImageUrl, getProductMediaLabel, getProductMediaTypeFromUrl } from "@/lib/admin-product-images";
 import { formatMoney } from "@/lib/money";
 import { normalizeAdminPage } from "@/lib/admin-pagination";
-import { getAdminProductRows, getAdminProductSummary, parseAdminProductStockFilter } from "@/lib/admin-products-data";
+import { getAdminProductRows, getAdminProductSummary, getCatalogPositions, parseAdminProductStockFilter } from "@/lib/admin-products-data";
 import { getInventoryIntegrityReport } from "@/lib/inventory-integrity";
 import { STOCK_POLICY_LABELS, STOCK_STATE_LABELS, STOCK_STATE_TONES, type StockStateTone } from "@/lib/stock-policy";
 import { prisma } from "@/lib/prisma";
@@ -30,7 +30,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   const stock = parseAdminProductStockFilter(filters.stock);
   const category = typeof filters.category === "string" ? filters.category.trim().slice(0, 100) || undefined : undefined;
   const normalizedFilters = { page, query, status, featured, stock, category };
-  const [categories, productPage, summary] = await Promise.all([
+  const [categories, productPage, summary, catalogPositions] = await Promise.all([
     prisma.category.findMany({
       where: { active: true },
       include: { parent: true },
@@ -38,8 +38,11 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
     }),
     getAdminProductRows(normalizedFilters),
     getAdminProductSummary(),
+    getCatalogPositions(),
   ]);
-  const { products, hasNextPage } = productPage;
+  const { products, hasNextPage, previousId, nextId } = productPage;
+  // Hidden fields that bring the operator back to the same filtered page after ↑ / ↓.
+  const returnParams = { page: page > 1 ? String(page) : undefined, q: query, category, status, featured, stock };
   // Stock state of the listed products only, read in one snapshot with their orders.
   const stockReport = await getInventoryIntegrityReport(products.map((product) => product.id));
   const stockByProduct = new Map(stockReport.products.map((entry) => [entry.productId, entry]));
@@ -53,6 +56,9 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
           <p className="text-xs font-black uppercase tracking-[0.22em] text-neutral-500">Catálogo</p>
           <h1 className="mt-2 text-2xl font-black text-neutral-950">Produtos</h1>
           <p className="mt-1 text-sm text-neutral-500">Gerencie imagens, status, destaque, categorias e estoque por variação.</p>
+          <p className="mt-1 text-xs font-semibold text-neutral-500">
+            A lista segue a ordem da loja: use ↑ ↓ ou o campo &quot;Posição no catálogo&quot; do produto. Na loja, peças esgotadas aparecem depois das disponíveis.
+          </p>
         </div>
         <Link href="/admin/products/new" className="inline-flex h-11 items-center justify-center rounded-lg bg-black px-5 text-sm font-black text-white">
           Novo produto
@@ -106,7 +112,10 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
           <span>Ações</span>
         </div>
         <div className="divide-y divide-neutral-200">
-          {products.map((product) => {
+          {products.map((product, index) => {
+            const upNeighborId = products[index - 1]?.id ?? previousId;
+            const downNeighborId = products[index + 1]?.id ?? nextId;
+            const catalogPosition = catalogPositions.get(product.id);
             const stock = product.variants.reduce((sum, variant) => sum + variant.stock - variant.reservedStock, 0);
             const reservedStock = product.variants.reduce((sum, variant) => sum + variant.reservedStock, 0);
             const stockEntry = stockByProduct.get(product.id);
@@ -117,6 +126,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
             return (
               <div
                 key={product.id}
+                id={`product-${product.id}`}
                 // UIUX-ADMIN-004: below 1280 px two columns (category | price, stock | actions) instead of
                 // one tall stack per product; secondary lines appear only on the wide table.
                 className="grid grid-cols-2 gap-x-4 gap-y-3 px-4 py-3 transition hover:bg-white/[0.03] sm:px-5 xl:grid-cols-[minmax(0,1fr)_190px_120px_140px_190px] xl:items-center xl:py-4"
@@ -143,6 +153,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                       </p>
                     ) : null}
                     <div className="mt-2 flex flex-wrap gap-1">
+                      {catalogPosition ? <Badge tone="dark">{`Posição ${catalogPosition}`}</Badge> : null}
                       <Badge tone={product.active ? "neutral" : "muted"}>{product.active ? "Ativo" : "Oculto"}</Badge>
                       {product.featured ? (
                         <>
@@ -180,6 +191,8 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                   ) : null}
                 </div>
                 <div className="flex flex-wrap justify-end gap-2 xl:justify-start">
+                  <CatalogMoveButton productId={product.id} neighborId={upNeighborId} direction="up" title={product.title} returnParams={returnParams} />
+                  <CatalogMoveButton productId={product.id} neighborId={downNeighborId} direction="down" title={product.title} returnParams={returnParams} />
                   <Link href={`/admin/products/${product.id}/edit`} className="inline-flex min-h-11 items-center rounded-lg border border-neutral-700 px-3 py-2 text-xs font-black text-neutral-200 transition hover:border-neutral-300 hover:bg-white hover:text-black">
                     Editar
                   </Link>
@@ -222,6 +235,40 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
         />
       </section>
     </div>
+  );
+}
+
+function CatalogMoveButton({
+  productId,
+  neighborId,
+  direction,
+  title,
+  returnParams,
+}: {
+  productId: string;
+  neighborId: string | null;
+  direction: "up" | "down";
+  title: string;
+  returnParams: Record<string, string | undefined>;
+}) {
+  const label = direction === "up" ? `Subir ${title} uma posição` : `Descer ${title} uma posição`;
+  const className =
+    "inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-neutral-700 px-3 py-2 text-sm font-black text-neutral-200 transition hover:border-neutral-300 hover:bg-white hover:text-black disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-neutral-200";
+  if (!neighborId) {
+    return (
+      <button type="button" disabled aria-label={label} title={label} className={className}>
+        {direction === "up" ? "↑" : "↓"}
+      </button>
+    );
+  }
+  return (
+    <form action={moveProductInCatalogAction}>
+      <input type="hidden" name="id" value={productId} />
+      <input type="hidden" name="neighborId" value={neighborId} />
+      <input type="hidden" name="direction" value={direction} />
+      {Object.entries(returnParams).map(([key, value]) => (value ? <input key={key} type="hidden" name={`return_${key}`} value={value} /> : null))}
+      <AdminSubmitButton idleLabel={direction === "up" ? "↑" : "↓"} pendingLabel="" ariaLabel={label} title={label} className={className} />
+    </form>
   );
 }
 

@@ -3,6 +3,7 @@ import { ADMIN_PAGE_SIZE } from "@/lib/admin-pagination";
 import { prisma } from "@/lib/prisma";
 import { skuSearchTerm } from "@/lib/sku";
 import { LOW_STOCK_THRESHOLD } from "@/lib/stock-policy";
+import { PRODUCT_CATALOG_ORDER_BY, readCatalogOrder } from "@/lib/product-catalog-order";
 
 export type AdminProductListFilters = {
   category?: string;
@@ -78,18 +79,35 @@ function buildSqlConditions(filters: AdminProductListFilters) {
   return conditions;
 }
 
+/**
+ * One page of the Admin list plus the row right before and right after it (`previousId` /
+ * `nextId`), so ↑ on the first row and ↓ on the last row can still move a piece across pages.
+ */
 export async function getAdminProductRows(filters: AdminProductListFilters) {
   const skip = (filters.page - 1) * ADMIN_PAGE_SIZE;
+  // Read one row before the page (when there is one) and one after it.
+  const hasPreviousRow = skip > 0;
+  const windowSkip = hasPreviousRow ? skip - 1 : 0;
+  const windowTake = ADMIN_PAGE_SIZE + 1 + (hasPreviousRow ? 1 : 0);
+  const splitWindow = <T extends { id: string }>(rows: T[]) => {
+    const pageRows = hasPreviousRow ? rows.slice(1) : rows;
+    return {
+      products: pageRows.slice(0, ADMIN_PAGE_SIZE),
+      hasNextPage: pageRows.length > ADMIN_PAGE_SIZE,
+      previousId: hasPreviousRow ? (rows[0]?.id ?? null) : null,
+      nextId: pageRows[ADMIN_PAGE_SIZE]?.id ?? null,
+    };
+  };
 
   if (!filters.stock) {
     const rows = await prisma.product.findMany({
       where: buildPrismaWhere(filters),
       include: productListInclude,
-      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }, { id: "asc" }],
-      skip,
-      take: ADMIN_PAGE_SIZE + 1,
+      orderBy: PRODUCT_CATALOG_ORDER_BY,
+      skip: windowSkip,
+      take: windowTake,
     });
-    return { products: rows.slice(0, ADMIN_PAGE_SIZE), hasNextPage: rows.length > ADMIN_PAGE_SIZE };
+    return splitWindow(rows);
   }
 
   const conditions = buildSqlConditions(filters);
@@ -105,10 +123,11 @@ export async function getAdminProductRows(filters: AdminProductListFilters) {
     LEFT JOIN stock ON stock."productId" = product."id"
     WHERE ${Prisma.join(conditions, " AND ")}
     ORDER BY product."sortOrder" ASC, product."createdAt" DESC, product."id" ASC
-    OFFSET ${skip}
-    LIMIT ${ADMIN_PAGE_SIZE + 1}
+    OFFSET ${windowSkip}
+    LIMIT ${windowTake}
   `);
-  const pageIds = idRows.slice(0, ADMIN_PAGE_SIZE).map((row) => row.id);
+  const window = splitWindow(idRows);
+  const pageIds = window.products.map((row) => row.id);
   const unorderedProducts = pageIds.length
     ? await prisma.product.findMany({
         where: { id: { in: pageIds } },
@@ -122,8 +141,16 @@ export async function getAdminProductRows(filters: AdminProductListFilters) {
       const product = productById.get(id);
       return product ? [product] : [];
     }),
-    hasNextPage: idRows.length > ADMIN_PAGE_SIZE,
+    hasNextPage: window.hasNextPage,
+    previousId: window.previousId,
+    nextId: window.nextId,
   };
+}
+
+/** 1-based position of every product in the manual catalog order (the number the form shows). */
+export async function getCatalogPositions() {
+  const ids = await readCatalogOrder(prisma);
+  return new Map(ids.map((id, index) => [id, index + 1]));
 }
 
 export async function getAdminProductSummary() {

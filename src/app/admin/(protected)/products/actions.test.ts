@@ -22,9 +22,14 @@ const mocks = vi.hoisted(() => ({
     $transaction: vi.fn(),
   },
   tx: {
+    $executeRaw: vi.fn(),
+    adminAuditLog: {
+      create: vi.fn(),
+    },
     product: {
       update: vi.fn(),
       create: vi.fn(),
+      findMany: vi.fn(),
     },
     productImage: {
       deleteMany: vi.fn(),
@@ -72,6 +77,8 @@ function buildProductFormData(
     featuredSortOrder?: string;
     active?: boolean;
     shippingData?: ShippingFormData | null;
+    catalogPosition?: string;
+    originalCatalogPosition?: string;
   } = {},
 ) {
   const formData = new FormData();
@@ -83,7 +90,8 @@ function buildProductFormData(
   formData.set("categoryId", "cat-accessories");
   formData.set("subcategoryId", "cat-bags");
   formData.set("price", "R$ 529,99");
-  formData.set("sortOrder", "0");
+  if (options.catalogPosition !== undefined) formData.set("catalogPosition", options.catalogPosition);
+  if (options.originalCatalogPosition !== undefined) formData.set("originalCatalogPosition", options.originalCatalogPosition);
   if (options.active ?? true) {
     formData.set("active", "on");
   }
@@ -111,7 +119,9 @@ function buildProductFormData(
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.requireAdmin.mockResolvedValue({ id: "admin-1" });
+  mocks.requireAdmin.mockResolvedValue({ id: "admin-1", username: "operador", email: "op@rare.example" });
+  mocks.tx.product.findMany.mockResolvedValue([{ id: "prod-new" }, { id: "prod-a" }, { id: "prod-1" }, { id: "prod-b" }]);
+  mocks.tx.$executeRaw.mockResolvedValue(0);
   // Lookup by id returns the edited product; lookup by slug (the uniqueness
   // pre-check) finds no other owner unless a test says so.
   mocks.prisma.product.findUnique.mockImplementation(async ({ where }: { where: { id?: string; slug?: string } }) =>
@@ -560,6 +570,144 @@ describe("SKU (RARE-ORDER-ITEM-IMAGE-01)", () => {
 
     await expect(saveProductAction(null, formData)).rejects.toThrow("NEXT_REDIRECT:");
     expect(decodeURIComponent(lastRedirect())).toContain("Informe tamanho e estoque");
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe("manual catalog position (RARE-PRODUCT-CATALOG-ORDER-01)", () => {
+  /** The renumbering UPDATE: ids and positions are bound as two arrays. */
+  function renumberCall() {
+    const call = mocks.tx.$executeRaw.mock.calls.find(([sql]) => (sql as TemplateStringsArray).join("?").includes('UPDATE "Product"'));
+    return call ? { ids: call[1] as string[], positions: call[2] as number[] } : null;
+  }
+
+  it("moves an edited product to the typed position, renumbers 1..N and records the audit", async () => {
+    const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
+    await expect(
+      saveProductAction("prod-1", buildProductFormData({ catalogPosition: "1", originalCatalogPosition: "3" })),
+    ).rejects.toThrow(/success=product-saved/);
+
+    // Serialized by the advisory lock before reading the order.
+    expect((mocks.tx.$executeRaw.mock.calls[0][0] as TemplateStringsArray).join("?")).toContain("pg_advisory_xact_lock");
+    expect(renumberCall()).toEqual({ ids: ["prod-1", "prod-new", "prod-a", "prod-b"], positions: [1, 2, 3, 4] });
+    // The form never writes sortOrder directly any more.
+    expect(mocks.tx.product.update.mock.calls[0][0].data).not.toHaveProperty("sortOrder");
+    expect(mocks.tx.adminAuditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorUserId: "admin-1",
+        actorLabel: "operador",
+        action: "product.catalog_position_changed",
+        entityType: "Product",
+        entityId: "prod-1",
+        before: { position: 3 },
+        after: { position: 1, total: 4, source: "form" },
+      }),
+    });
+  }, 60000);
+
+  it("a position past the end puts the piece last", async () => {
+    const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
+    await expect(saveProductAction("prod-1", buildProductFormData({ catalogPosition: "99", originalCatalogPosition: "3" }))).rejects.toThrow(
+      /success=product-saved/,
+    );
+    expect(renumberCall()?.ids).toEqual(["prod-new", "prod-a", "prod-b", "prod-1"]);
+  }, 60000);
+
+  it("saving without changing the shown position never reorders (even if the list changed meanwhile)", async () => {
+    const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
+    await expect(saveProductAction("prod-1", buildProductFormData({ catalogPosition: "3", originalCatalogPosition: "3" }))).rejects.toThrow(
+      /success=product-saved/,
+    );
+    expect(mocks.tx.$executeRaw).not.toHaveBeenCalled();
+    expect(mocks.tx.adminAuditLog.create).not.toHaveBeenCalled();
+  }, 60000);
+
+  it("a new product goes to position 1 by default", async () => {
+    mocks.tx.product.findMany.mockResolvedValue([{ id: "prod-a" }, { id: "prod-new" }, { id: "prod-b" }]);
+    const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
+    await expect(saveProductAction(null, buildProductFormData())).rejects.toThrow(/success=product-created/);
+    expect(mocks.tx.product.create.mock.calls[0][0].data.sortOrder).toBe(0);
+    expect(renumberCall()?.ids).toEqual(["prod-new", "prod-a", "prod-b"]);
+  }, 60000);
+
+  it("a new product can be created directly at a chosen position", async () => {
+    mocks.tx.product.findMany.mockResolvedValue([{ id: "prod-new" }, { id: "prod-a" }, { id: "prod-b" }]);
+    const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
+    await expect(saveProductAction(null, buildProductFormData({ catalogPosition: "2" }))).rejects.toThrow(/success=product-created/);
+    expect(renumberCall()?.ids).toEqual(["prod-a", "prod-new", "prod-b"]);
+  }, 60000);
+
+  it.each(["0", "-1", "1.5", "abc", "1e3"])("rejects position %s with a readable message and writes nothing", async (value) => {
+    const { saveProductAction } = await import("@/app/admin/(protected)/products/actions");
+    await expect(saveProductAction("prod-1", buildProductFormData({ catalogPosition: value, originalCatalogPosition: "3" }))).rejects.toThrow(
+      /error=Informe%20a%20posi%C3%A7%C3%A3o%20no%20cat%C3%A1logo/,
+    );
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  }, 60000);
+});
+
+describe("moveProductInCatalogAction (up / down arrows in the Admin list)", () => {
+  function moveForm(fields: Record<string, string>) {
+    const formData = new FormData();
+    for (const [key, value] of Object.entries(fields)) formData.set(key, value);
+    return formData;
+  }
+
+  function renumberedIds() {
+    const call = mocks.tx.$executeRaw.mock.calls.find(([sql]) => (sql as TemplateStringsArray).join("?").includes('UPDATE "Product"'));
+    return call?.[1];
+  }
+
+  beforeEach(() => {
+    mocks.prisma.product.findUnique.mockResolvedValue({ id: "prod-b", slug: "peca-b", category: { slug: "camisetas" }, subcategory: null });
+  });
+
+  it("requires the commerce.products permission", async () => {
+    mocks.requireAdmin.mockRejectedValueOnce(new Error("NEXT_REDIRECT:/admin/access-denied"));
+    const { moveProductInCatalogAction } = await import("@/app/admin/(protected)/products/actions");
+    await expect(moveProductInCatalogAction(moveForm({ id: "prod-b", neighborId: "prod-a", direction: "up" }))).rejects.toThrow(/access-denied/);
+    expect(mocks.requireAdmin).toHaveBeenCalledWith("commerce.products");
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("up puts the piece right before the row above, keeps the filters and audits", async () => {
+    const { moveProductInCatalogAction } = await import("@/app/admin/(protected)/products/actions");
+    await expect(
+      moveProductInCatalogAction(
+        moveForm({ id: "prod-b", neighborId: "prod-a", direction: "up", return_page: "2", return_q: "bag", return_evil: "x" }),
+      ),
+    ).rejects.toThrow(/^NEXT_REDIRECT:\/admin\/products\?page=2&q=bag&success=product-moved&refresh=\d+#product-prod-b$/);
+    expect(renumberedIds()).toEqual(["prod-new", "prod-b", "prod-a", "prod-1"]);
+    expect(mocks.tx.adminAuditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ entityId: "prod-b", before: { position: 4 }, after: { position: 2, total: 4, source: "arrow" } }),
+    });
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/categoria/camisetas");
+  });
+
+  it("down puts the piece right after the row below (that row may be on the next page)", async () => {
+    const { moveProductInCatalogAction } = await import("@/app/admin/(protected)/products/actions");
+    await expect(moveProductInCatalogAction(moveForm({ id: "prod-new", neighborId: "prod-1", direction: "down" }))).rejects.toThrow(
+      /success=product-moved/,
+    );
+    expect(renumberedIds()).toEqual(["prod-a", "prod-1", "prod-new", "prod-b"]);
+  });
+
+  it("refuses a neighbour that no longer exists without writing anything", async () => {
+    const { moveProductInCatalogAction } = await import("@/app/admin/(protected)/products/actions");
+    await expect(moveProductInCatalogAction(moveForm({ id: "prod-b", neighborId: "gone", direction: "up" }))).rejects.toThrow(
+      /error=N%C3%A3o%20foi%20poss%C3%ADvel%20mover/,
+    );
+    expect(mocks.tx.adminAuditLog.create).not.toHaveBeenCalled();
+    expect(mocks.tx.$executeRaw).toHaveBeenCalledTimes(1); // only the lock
+  });
+
+  it.each([
+    { id: "prod-b", neighborId: "prod-a", direction: "sideways" },
+    { id: "", neighborId: "prod-a", direction: "up" },
+    { id: "prod-b", neighborId: "", direction: "down" },
+  ])("rejects an invalid move %o", async (fields) => {
+    const { moveProductInCatalogAction } = await import("@/app/admin/(protected)/products/actions");
+    await expect(moveProductInCatalogAction(moveForm(fields))).rejects.toThrow(/error=Movimento%20inv%C3%A1lido/);
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });
 });

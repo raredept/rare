@@ -10,11 +10,19 @@ import { requireAdmin } from "@/lib/auth";
 import { saveUploadedImage } from "@/lib/storage";
 import { ACTIVE_PRODUCT_SHIPPING_DATA_ERROR, hasCompleteProductShippingData, productFormSchema } from "@/lib/validators";
 import { slugify } from "@/lib/slug";
-import { PRODUCT_SLUG_TAKEN_MESSAGE, UNIQUE_STOCK_LIMIT_MESSAGE } from "@/lib/feedback-messages";
+import {
+  CATALOG_POSITION_INVALID_MESSAGE,
+  PRODUCT_MOVE_INVALID_MESSAGE,
+  PRODUCT_MOVE_STALE_MESSAGE,
+  PRODUCT_SLUG_TAKEN_MESSAGE,
+  UNIQUE_STOCK_LIMIT_MESSAGE,
+} from "@/lib/feedback-messages";
 import { isUniqueViolationOn } from "@/lib/prisma-errors";
 import { PRODUCT_SHIPPING_LIMITS, type ProductShippingField } from "@/lib/product-shipping-readiness";
 import { parseAdminEntityId } from "@/lib/admin-action-input";
 import { SKU_TAKEN_MESSAGE, findRepeatedSku, parseSkuInput } from "@/lib/sku";
+import { recordAdminAudit } from "@/lib/admin-audit";
+import { type CatalogMoveResult, moveInCatalogOrder, parseCatalogPosition, placeAtPosition, placeNextTo } from "@/lib/product-catalog-order";
 
 function productFormPath(productId: string | null) {
   return productId ? `/admin/products/${productId}/edit` : "/admin/products/new";
@@ -72,6 +80,43 @@ function parseOptionalFeaturedSortOrder(formData: FormData) {
   if (!/^\d+$/.test(raw)) return Number.NaN;
   const value = Number(raw);
   return Number.isSafeInteger(value) && value >= 1 ? value : Number.NaN;
+}
+
+type AdminActor = { id: string; username?: string | null; email?: string | null };
+
+function actorOf(admin: AdminActor) {
+  return { id: admin.id, label: admin.username ?? admin.email ?? admin.id };
+}
+
+async function recordCatalogMove(
+  tx: Parameters<typeof recordAdminAudit>[0],
+  admin: AdminActor,
+  productId: string,
+  move: CatalogMoveResult,
+  source: "form" | "arrow",
+) {
+  await recordAdminAudit(tx, {
+    actor: actorOf(admin),
+    action: "product.catalog_position_changed",
+    entityType: "Product",
+    entityId: productId,
+    before: { position: move.before },
+    after: { position: move.after, total: move.total, source },
+  });
+}
+
+/**
+ * New products default to the first place (the newest piece on top, as before). An edit moves the
+ * piece only when the operator changed the number shown, so saving an unrelated field never moves it
+ * even if other pieces were reordered meanwhile.
+ */
+function readCatalogPositionRequest(formData: FormData, isNew: boolean): { position: number | null; error?: string } {
+  const raw = getString(formData, "catalogPosition").trim();
+  if (!raw) return { position: isNew ? 1 : null };
+  const position = parseCatalogPosition(raw);
+  if (position === null) return { position: null, error: CATALOG_POSITION_INVALID_MESSAGE };
+  if (!isNew && getString(formData, "originalCatalogPosition").trim() === String(position)) return { position: null };
+  return { position };
 }
 
 function parseImageUrls(formData: FormData) {
@@ -239,7 +284,7 @@ async function collectUploadedUrls(formData: FormData) {
 }
 
 export async function saveProductAction(productId: string | null, formData: FormData) {
-  await requireAdmin("commerce.products");
+  const admin = await requireAdmin("commerce.products");
   const normalizedProductId = productId ? parseAdminEntityId(productId) : null;
   if (productId && !normalizedProductId) {
     redirectWithProductsListError("Produto inválido.");
@@ -282,6 +327,9 @@ export async function saveProductAction(productId: string | null, formData: Form
     redirectWithProductFormError(productId, "Informe uma ordem de destaque inteira maior ou igual a 1, ou deixe em branco.");
   }
 
+  const catalogPositionRequest = readCatalogPositionRequest(formData, !productId);
+  if (catalogPositionRequest.error) redirectWithProductFormError(productId, catalogPositionRequest.error, shippingDraft);
+
   if (active && !hasCompleteProductShippingData(shippingData)) {
     redirectWithProductFormError(productId, ACTIVE_PRODUCT_SHIPPING_DATA_ERROR, shippingDraft);
   }
@@ -303,7 +351,6 @@ export async function saveProductAction(productId: string | null, formData: Form
     active,
     featured,
     featuredSortOrder,
-    sortOrder: Number(getString(formData, "sortOrder") || 0),
     stockPolicy: getString(formData, "stockPolicy") || undefined,
   });
 
@@ -380,7 +427,6 @@ export async function saveProductAction(productId: string | null, formData: Form
             active: parsed.active,
             featured: parsed.featured,
             featuredSortOrder: parsed.featured ? parsed.featuredSortOrder : null,
-            sortOrder: parsed.sortOrder,
             stockPolicy: parsed.stockPolicy,
           },
           include: {
@@ -390,6 +436,8 @@ export async function saveProductAction(productId: string | null, formData: Form
         })
       : await tx.product.create({
           data: {
+            // Placeholder: the position is written by the catalog reorder right below.
+            sortOrder: 0,
             title: parsed.title,
             slug,
             shortDescription: parsed.shortDescription,
@@ -406,7 +454,6 @@ export async function saveProductAction(productId: string | null, formData: Form
             active: parsed.active,
             featured: parsed.featured,
             featuredSortOrder: parsed.featured ? parsed.featuredSortOrder : null,
-            sortOrder: parsed.sortOrder,
             stockPolicy: parsed.stockPolicy,
           },
           include: {
@@ -414,6 +461,12 @@ export async function saveProductAction(productId: string | null, formData: Form
             subcategory: { select: { slug: true } },
           },
         });
+
+    const requestedPosition = catalogPositionRequest.position;
+    if (requestedPosition !== null) {
+      const move = await moveInCatalogOrder(tx, product.id, (ids) => placeAtPosition(ids, product.id, requestedPosition));
+      if (move?.changed) await recordCatalogMove(tx, admin, product.id, move, "form");
+    }
 
     await tx.productImage.deleteMany({ where: { productId: product.id } });
     if (imageUrls.length) {
@@ -546,4 +599,46 @@ export async function deleteProductAction(formData: FormData) {
     revalidatePath("/admin/products");
   }
   redirect(withAdminActionRefresh("/admin/products?success=product-deleted"));
+}
+
+const ADMIN_PRODUCT_LIST_PARAMS = ["page", "q", "category", "status", "featured", "stock"] as const;
+
+/** Keeps the operator on the same filtered page after a move. Only known list params, bounded. */
+function productListReturnQuery(formData: FormData) {
+  const params = new URLSearchParams();
+  for (const key of ADMIN_PRODUCT_LIST_PARAMS) {
+    const value = getString(formData, `return_${key}`).trim().slice(0, 100);
+    if (value) params.set(key, value);
+  }
+  return params;
+}
+
+/** ↑ / ↓ in the Admin list: puts the piece right before / after the neighbouring row the operator saw. */
+export async function moveProductInCatalogAction(formData: FormData) {
+  const admin = await requireAdmin("commerce.products");
+  const id = parseAdminEntityId(formData.get("id"));
+  const neighborId = parseAdminEntityId(formData.get("neighborId"));
+  const direction = getString(formData, "direction");
+  const params = productListReturnQuery(formData);
+  if (!id || !neighborId || (direction !== "up" && direction !== "down")) redirectWithProductsListError(PRODUCT_MOVE_INVALID_MESSAGE);
+
+  const result = await prisma.$transaction(async (tx) => {
+    const move = await moveInCatalogOrder(tx, id, (ids) => placeNextTo(ids, id, neighborId, direction));
+    if (!move) return null;
+    if (move.changed) await recordCatalogMove(tx, admin, id, move, "arrow");
+    return move;
+  });
+  if (!result) {
+    redirectWithProductsListError(PRODUCT_MOVE_STALE_MESSAGE);
+  }
+
+  const product = await prisma.product.findUnique({
+    where: { id },
+    select: { id: true, slug: true, category: { select: { slug: true } }, subcategory: { select: { slug: true } } },
+  });
+  if (product) revalidateProductPaths(product);
+  else revalidatePath("/admin/products");
+
+  params.set("success", "product-moved");
+  redirect(`${withAdminActionRefresh(`/admin/products?${params.toString()}`)}#product-${encodeURIComponent(id)}`);
 }

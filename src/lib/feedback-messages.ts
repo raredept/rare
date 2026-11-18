@@ -65,6 +65,7 @@ const adminSuccessCodes = new Map([
   ["product-hidden", "Produto ocultado."],
   ["product-visible", "Produto ativado."],
   ["product-deleted", "Produto removido."],
+  ["product-moved", "Posição no catálogo atualizada."],
   ["category-created", "Categoria criada com sucesso."],
   ["category-saved", "Categoria salva com sucesso."],
   ["category-hidden", "Categoria ocultada."],
@@ -98,6 +99,10 @@ const adminSuccessCodes = new Map([
   ["assistant-entry-deactivated", "Pergunta desativada. Ela deixa de aparecer na loja."],
 ]);
 
+export const CATALOG_POSITION_INVALID_MESSAGE = "Informe a posição no catálogo como número inteiro a partir de 1 (1 = primeira peça).";
+export const PRODUCT_MOVE_INVALID_MESSAGE = "Movimento inválido.";
+export const PRODUCT_MOVE_STALE_MESSAGE = "Não foi possível mover: a lista mudou. Atualize a página e tente de novo.";
+
 /** Literal messages the Admin actions send as free text. */
 export const ADMIN_SERVER_MESSAGES: ReadonlySet<string> = new Set([
   // products
@@ -115,6 +120,9 @@ export const ADMIN_SERVER_MESSAGES: ReadonlySet<string> = new Set([
   ACTIVE_PRODUCT_SHIPPING_DATA_MESSAGE,
   PRODUCT_SLUG_TAKEN_MESSAGE,
   UNIQUE_STOCK_LIMIT_MESSAGE,
+  CATALOG_POSITION_INVALID_MESSAGE,
+  PRODUCT_MOVE_INVALID_MESSAGE,
+  PRODUCT_MOVE_STALE_MESSAGE,
   // banners
   "Nao foi possivel salvar o banner.",
   "Banner nao encontrado.",

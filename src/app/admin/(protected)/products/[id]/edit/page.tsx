@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { ProductForm } from "@/components/admin/product-form";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
+import { getCatalogPositions } from "@/lib/admin-products-data";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export default async function EditProductPage({ params, searchParams }: EditProd
   const { id } = await params;
   const query = await searchParams;
   const { error } = query;
-  const [product, categories] = await Promise.all([
+  const [product, categories, positions] = await Promise.all([
     prisma.product.findUnique({
       where: { id },
       include: {
@@ -32,9 +33,11 @@ export default async function EditProductPage({ params, searchParams }: EditProd
       where: { active: true },
       orderBy: [{ name: "asc" }, { sortOrder: "asc" }],
     }),
+    getCatalogPositions(),
   ]);
 
   if (!product) notFound();
+  const position = positions.get(product.id);
 
   return (
     <div>
@@ -44,6 +47,7 @@ export default async function EditProductPage({ params, searchParams }: EditProd
           product={product}
           categories={categories}
           error={error}
+          catalogPosition={position ? { position, total: positions.size } : undefined}
           shippingDraft={{
             weightGrams: query.draft_weightGrams,
             lengthCm: query.draft_lengthCm,
