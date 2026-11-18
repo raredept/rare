@@ -29,7 +29,6 @@ type ProductFormProps = {
     active: boolean;
     featured: boolean;
     featuredSortOrder: number | null;
-    sortOrder: number;
     images: { id?: string; url: string }[];
     variants: { size: string; stock: number; sku: string | null }[];
     stockPolicy?: StockPolicy;
@@ -37,9 +36,11 @@ type ProductFormProps = {
   categories: { id: string; name: string; parentId: string | null; active?: boolean }[];
   error?: string;
   shippingDraft?: Partial<Record<ProductShippingField, string>>;
+  /** Current place of the product in the manual catalog order (1 = first) and the list size. */
+  catalogPosition?: { position: number; total: number };
 };
 
-export function ProductForm({ product, categories, error, shippingDraft }: ProductFormProps) {
+export function ProductForm({ product, categories, error, shippingDraft, catalogPosition }: ProductFormProps) {
   const action = saveProductAction.bind(null, product?.id ?? null);
   const activeCategories = categories.filter((category) => category.active !== false);
   const topCategories = sortProductFormCategoryOptions(activeCategories.filter((category) => !category.parentId));
@@ -113,9 +114,26 @@ export function ProductForm({ product, categories, error, shippingDraft }: Produ
               ))}
             </select>
           </Field>
-          <Field label="Ordem no catálogo">
-            <input name="sortOrder" type="number" min={0} defaultValue={product?.sortOrder ?? 0} className="admin-input" />
+          <Field
+            label="Posição no catálogo"
+            help={
+              product && catalogPosition
+                ? `Hoje é a ${catalogPosition.position}ª de ${catalogPosition.total} peças. 1 = primeira da loja; as outras peças andam uma casa. Peças esgotadas aparecem depois das disponíveis.`
+                : "1 = primeira da loja (padrão para peça nova); as outras peças andam uma casa. Peças esgotadas aparecem depois das disponíveis."
+            }
+          >
+            <input
+              name="catalogPosition"
+              type="number"
+              min={1}
+              step={1}
+              inputMode="numeric"
+              required
+              defaultValue={product ? (catalogPosition?.position ?? "") : 1}
+              className="admin-input"
+            />
           </Field>
+          {product && catalogPosition ? <input type="hidden" name="originalCatalogPosition" value={catalogPosition.position} /> : null}
           <label className="flex items-center gap-3 text-sm font-black text-neutral-800">
             <input name="active" type="checkbox" defaultChecked={product?.active ?? true} className="h-4 w-4" />
             Produto ativo
@@ -124,7 +142,7 @@ export function ProductForm({ product, categories, error, shippingDraft }: Produ
             <input name="featured" type="checkbox" defaultChecked={product?.featured ?? false} className="h-4 w-4" />
             Produto em destaque
           </label>
-          <Field label="Ordem nos destaques" help="Produtos com número menor aparecem primeiro em Destaques do mês. Ative o destaque para usar essa ordem.">
+          <Field label="Ordem nos destaques" help="Produtos com número menor aparecem primeiro em Destaques do mês e na home. Ative o destaque para usar essa ordem. Não muda a posição no catálogo geral.">
             <input
               name="featuredSortOrder"
               type="number"

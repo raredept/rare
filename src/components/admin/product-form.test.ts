@@ -19,8 +19,17 @@ describe("ProductForm", () => {
     expect(html).toContain("Ordem nos destaques");
     expect(html).toContain('name="featuredSortOrder"');
     expect(html).toContain('min="1"');
-    expect(html).toContain("Produtos com número menor aparecem primeiro em Destaques do mês.");
+    expect(html).toContain("Produtos com número menor aparecem primeiro em Destaques do mês e na home.");
     expect(html).toContain("Ative o destaque para usar essa ordem.");
+    expect(html).toContain("Não muda a posição no catálogo geral.");
+  });
+
+  it("renders the catalog position as a real place (1 = first), never the old weight field", () => {
+    const newHtml = renderToStaticMarkup(createElement(ProductForm, { categories: [] }) as ReactElement);
+    expect(newHtml).toContain("Posição no catálogo");
+    expect(newHtml).toMatch(/name="catalogPosition"[^>]*value="1"|value="1"[^>]*name="catalogPosition"/);
+    expect(newHtml).not.toContain('name="sortOrder"');
+    expect(newHtml).not.toContain('name="originalCatalogPosition"');
   });
 
   it("renders category and subcategory selects from A to Z", () => {

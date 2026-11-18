@@ -155,7 +155,6 @@ export const productFormSchema = z
     active: z.boolean(),
     featured: z.boolean(),
     featuredSortOrder: z.number().int().min(1).max(999999).nullable(),
-    sortOrder: z.number().int().min(0).max(999999),
     stockPolicy: z.enum(STOCK_POLICIES).default("STANDARD"),
   })
   .superRefine((data, context) => {

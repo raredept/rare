@@ -67,7 +67,10 @@ export type GroupedCatalogSection = {
 };
 
 const accessorySubcategoryOrder = new Map(accessoryCatalogSubcategories.map((category, index) => [category.slug, index]));
-const productOrderBy = [{ featured: "desc" }, { sortOrder: "asc" }, { createdAt: "desc" }] satisfies Prisma.ProductOrderByWithRelationInput[];
+// Manual catalog order chosen in the Admin ("Posição no catálogo" / ↑ ↓). Featured pieces do NOT
+// jump ahead here: "Destaque" and its own order only drive the home and /categoria/destaques.
+// Same order as PRODUCT_CATALOG_ORDER_BY (lib/product-catalog-order); getProducts adds the id itself.
+const productOrderBy = [{ sortOrder: "asc" }, { createdAt: "desc" }] satisfies Prisma.ProductOrderByWithRelationInput[];
 const featuredProductOrderBy = [
   { featuredSortOrder: { sort: "asc", nulls: "last" } },
   { updatedAt: "desc" },

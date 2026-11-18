@@ -36,6 +36,7 @@ vi.mock("@/app/admin/(protected)/categories/actions", () => ({
 
 vi.mock("@/app/admin/(protected)/products/actions", () => ({
   deleteProductAction: "/admin/products/delete",
+  moveProductInCatalogAction: "/admin/products/move",
   toggleProductActiveAction: "/admin/products/toggle",
 }));
 
@@ -50,6 +51,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.prisma.category.findMany.mockReset();
   mocks.prisma.product.findMany.mockReset();
+  // Catalog positions read the whole manual order; tests queue the page rows with *Once.
+  mocks.prisma.product.findMany.mockResolvedValue([]);
   mocks.prisma.product.count.mockResolvedValue(0);
   mocks.prisma.$queryRaw.mockResolvedValue([{ count: 0 }]);
 });
