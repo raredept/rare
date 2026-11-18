@@ -39,7 +39,7 @@ export function isAssistantHiddenOnPath(pathname: string | null) {
  */
 export const ASSISTANT_BOTTOM_OBSTACLES = ["[data-cookie-banner]", '[data-testid="pdp-buy-bar"]'] as const;
 
-/** How far the assistant must rise: the tallest visible bottom bar, measured from the viewport bottom. */
+/** How far the assistant must rise: the height of the tallest visible bottom bar. */
 function useBottomObstacleOffset() {
   const [offset, setOffset] = useState(0);
 
@@ -55,9 +55,10 @@ function useBottomObstacleOffset() {
           observed.add(element);
           resize.observe(element);
         }
-        const rect = element.getBoundingClientRect();
-        if (rect.height <= 0 || rect.width <= 0 || getComputedStyle(element).visibility === "hidden") continue;
-        next = Math.max(next, Math.ceil(window.innerHeight - rect.top));
+        // Both bars are fixed to the bottom edge: their layout height is the space they take. offsetHeight
+        // ignores transforms, so a bar sliding in is measured at its final size, not mid-animation.
+        if (element.getClientRects().length === 0 || getComputedStyle(element).visibility === "hidden") continue;
+        next = Math.max(next, Math.ceil(element.offsetHeight));
       }
       setOffset((current) => (current === next ? current : Math.max(0, next)));
     }
@@ -68,11 +69,15 @@ function useBottomObstacleOffset() {
     const mutations = new MutationObserver(schedule);
     mutations.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style", "hidden"] });
     window.addEventListener("resize", schedule);
+    document.addEventListener("transitionend", schedule, true);
+    document.addEventListener("animationend", schedule, true);
     schedule();
     return () => {
       mutations.disconnect();
       resize?.disconnect();
       window.removeEventListener("resize", schedule);
+      document.removeEventListener("transitionend", schedule, true);
+      document.removeEventListener("animationend", schedule, true);
       if (frame) window.cancelAnimationFrame(frame);
     };
   }, []);

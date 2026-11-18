@@ -332,6 +332,8 @@ test("storefront widget: suggestions, answers, fallback, text-only rendering, ke
 });
 
 test("widget: widths 320–1440 on home, category and product page, no overflow, inside the viewport", async ({ browser }) => {
+  // 8 widths × several pages: WebKit on Windows needs seconds per driver call.
+  test.setTimeout(2_400_000);
   const slug = requireEnv("QA_BF_PRODUCT_SLUG");
   for (const width of WIDTHS) {
     const { context, page } = await storefront(browser, { width });
@@ -346,14 +348,15 @@ test("widget: widths 320–1440 on home, category and product page, no overflow,
       expect(box.height).toBeGreaterThanOrEqual(44);
       expect(box.x + box.width).toBeLessThanOrEqual(width);
       // On phones the product page has a fixed buy bar: the launcher must sit above it, never on "Adicionar".
-      const buyBar = page.locator('[data-testid="pdp-buy-bar"]');
-      if (await buyBar.isVisible()) {
-        await expect.poll(async () => {
-          const [launcherBox, barBox] = [await launcher.boundingBox(), await buyBar.boundingBox()];
-          return launcherBox && barBox ? launcherBox.y + launcherBox.height <= barBox.y + 0.5 : false;
-        }, { message: `launcher above the buy bar ${route} @${width}` }).toBe(true);
-        await page.screenshot({ path: path.join(shots, `store-widget-pdp-buybar-${width}.png`) });
-      }
+      // Measured inside the page (one driver call: each one costs seconds in WebKit on Windows).
+      const buyBarCheck = await page.waitForFunction(() => {
+        const bar = document.querySelector('[data-testid="pdp-buy-bar"]');
+        const button = document.querySelector("[data-assistant-launcher]");
+        if (!bar || !button || bar.getClientRects().length === 0) return "no-bar";
+        return button.getBoundingClientRect().bottom <= bar.getBoundingClientRect().top + 0.5 ? "above" : false;
+      }, undefined, { timeout: 10_000 }).then((handle) => handle.jsonValue()).catch(() => "overlapping");
+      expect(buyBarCheck, `launcher above the buy bar ${route} @${width}`).not.toBe("overlapping");
+      if (buyBarCheck === "above") await page.screenshot({ path: path.join(shots, `store-widget-pdp-buybar-${width}.png`) });
       await launcher.click();
       const panel = page.locator("[data-assistant-panel]");
       await expect(panel).toBeVisible();
@@ -372,6 +375,8 @@ test("widget: widths 320–1440 on home, category and product page, no overflow,
 });
 
 test("widget: stays above the cookie banner at every width and never covers its buttons", async ({ browser }) => {
+  // 8 widths × several pages: WebKit on Windows needs seconds per driver call.
+  test.setTimeout(2_400_000);
   for (const width of WIDTHS) {
     const { context, page } = await storefront(browser, { width, cookieConsent: "undecided" });
     await page.goto("/");
@@ -379,11 +384,13 @@ test("widget: stays above the cookie banner at every width and never covers its 
     await expect(banner).toBeVisible();
     const launcher = page.locator("[data-assistant-launcher]");
     await expect(launcher).toBeVisible();
-    // The offset follows the banner (ResizeObserver).
-    await expect.poll(async () => {
-      const [launcherBox, bannerBox] = [await launcher.boundingBox(), await banner.boundingBox()];
-      return launcherBox && bannerBox ? launcherBox.y + launcherBox.height <= bannerBox.y + 0.5 : false;
-    }, { message: `launcher above banner @${width}` }).toBe(true);
+    // The offset follows the banner (measured inside the page: one driver call).
+    const bannerCheck = await page.waitForFunction(() => {
+      const bar = document.querySelector("[data-cookie-banner]");
+      const button = document.querySelector("[data-assistant-launcher]");
+      return Boolean(bar && button && button.getBoundingClientRect().bottom <= bar.getBoundingClientRect().top + 0.5);
+    }, undefined, { timeout: 10_000 }).then(() => "above").catch(() => "overlapping");
+    expect(bannerCheck, `launcher above banner @${width}`).toBe("above");
     await expectNoHorizontalOverflow(page, `banner @${width}`);
     await launcher.click();
     const panel = page.locator("[data-assistant-panel]");
