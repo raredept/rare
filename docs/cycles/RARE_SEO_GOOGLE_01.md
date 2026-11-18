@@ -10,11 +10,28 @@
 - Evidências pesadas (fora do Git): `output/seo-google-01/` (`prod/` auditoria pública, `lab/` runtime local,
   `cwv/` Lighthouse, `build.log`).
 
+### Status de ativação (revisão final do PR #10)
+
+```
+FEED_ROUTE_READY=YES
+MERCHANT_SOURCE_ACTIVATION=HOLD_ATTRIBUTE_GAPS
+SEARCH_CONSOLE=MANUAL_PENDING (independe do Merchant)
+```
+
+- A rota `/feeds/google-products.xml` **pode ser deployada** com esta branch (noindex, só dados públicos, 503 em erro).
+- **Não cadastrar ainda a fonte no Merchant Center**: o catálogo de vestuário não tem `color`, `gender` e `age_group`
+  (obrigatórios para vestuário no Brasil) e há produtos sem `brand`. Cadastrar agora só geraria itens reprovados/
+  limitados. A ativação fica em espera até um ciclo próprio (com migration e preenchimento no Admin) fechar os
+  gaps — ver `MERCHANT_ATTRIBUTE_GAPS` e a seção 8.
+- Nenhum desses atributos é inventado ou assumido globalmente (`gender=unisex`, `age_group=adult`, `condition=new`
+  **não** são enviados sem confirmação do dado real).
+- O Search Console **não depende** do Merchant: verificação, sitemap e inspeção de URL seguem normalmente após o deploy.
+
 ## 1. Auditoria do código existente (antes do ciclo)
 
 | Item | Arquivo | Classificação | Achado |
 |---|---|---|---|
-| robots.txt | `src/app/robots.ts` | **FIX** | `Disallow: /conta` é prefixo e **bloqueava `/contato`** (página pública no sitemap). `host:` é ignorado pelo Google. |
+| robots.txt | `src/app/robots.ts` | **FIX** | `Disallow: /conta` é prefixo e **bloqueava `/contato`** (página pública no sitemap). `host:` é ignorado pelo Google. Corrigido para `/conta$` + `/conta?` + `/conta/`. |
 | Staging noindex/disallow | `src/lib/seo.ts`, `robots.ts` | KEEP | Correto (`isPublicIndexingEnabled`). |
 | sitemap.xml | `src/app/sitemap.ts` | IMPROVE | Conteúdo correto; home, `/categoria/tudo`, `/destaques` sem `lastmod`; categoria com `lastmod` só da própria linha (não muda quando os produtos mudam). Não usava `new Date()` (bom). |
 | Canonical / metadataBase | `src/lib/seo.ts` | KEEP + **FIX** | Sempre `https://raredept.com.br`, nunca localhost/www/railway. **Paginação `?page=N` canonicalizava para a página 1.** |
@@ -64,7 +81,10 @@ Detalhe por rota em `output/seo-google-01/prod/routes.json` e `routes-2.json`.
 ## 3. O que mudou
 
 ### Robots (`src/app/robots.ts`)
-- `/conta` → `/conta$` + `/conta/` (o resto dos bloqueios privados preservado: `/admin`, `/api`, `/checkout`,
+- `/conta` → `/conta$` (caminho exato) + `/conta?` (o mesmo caminho com qualquer query string, ex.
+  `/conta?tab=perfil`, `/conta?redirect=/pedidos` — `$` sozinho é o fim absoluto da URL e deixaria essas abertas) +
+  `/conta/` (filhos). `/contato` e `/contato?utm_source=x` continuam liberados. **Nunca voltar ao `/conta` sem âncora.**
+  O resto dos bloqueios privados preservado: `/admin`, `/api`, `/checkout`,
   `/finalizar-compra`, `/cart`, `/minha-conta`, `/entrar`, `/cadastro`, `/pedido`, `/pedidos`, `/_next/data`).
 - Linha `Host:` removida (ignorada pelo Google). CSS/JS/imagens (`/_next/static`, `/_next/image`, R2) continuam liberados.
 - Staging/preview/dev: `Disallow: /` + metadata `noindex, nofollow` (inalterado).
@@ -136,7 +156,7 @@ preço de catálogo, promoção, disponibilidade por tamanho) usado pelo JSON-LD
 | `gender` | não existe | idem (obrigatório vestuário BR) |
 | `age_group` | não existe | idem (obrigatório vestuário BR) |
 | `gtin` / `mpn` | não existem | desempenho limitado; não enviados (nem `identifier_exists=no`, que só é correto em casos específicos) |
-| `condition` | não existe | omitido → Merchant assume "novo"; confirmar que todo o catálogo é novo |
+| `condition` | não existe | não enviado; **não** assumir `new` globalmente sem confirmar que todo o catálogo é novo |
 | `google_product_category` | não mapeado | opcional (Google infere) |
 | `brand` | 7 produtos sem marca | obrigatório para produtos novos; preencher no Admin |
 | `sale_price_effective_date` | promoções sem início/fim | omitido |
@@ -144,9 +164,12 @@ preço de catálogo, promoção, disponibilidade por tamanho) usado pelo JSON-LD
 
 Para fechar os gaps é preciso um ciclo próprio com migration (ex.: `Product.color`, `Product.gender`,
 `Product.ageGroup`, `ProductVariant.gtin`) e preenchimento no Admin. **Nenhuma migration foi criada aqui.**
+Enquanto `color`/`gender`/`age_group` faltarem no vestuário e houver produto sem `brand`:
+**`MERCHANT_SOURCE_ACTIVATION=HOLD_ATTRIBUTE_GAPS`** (a rota do feed fica pronta, mas a fonte não é cadastrada).
 
 ## 4. Merchant Center
 
+- **Status**: `FEED_ROUTE_READY=YES` · `MERCHANT_SOURCE_ACTIVATION=HOLD_ATTRIBUTE_GAPS` (ver seção 8).
 - **Content API for Shopping: NÃO usada** (sunset 2026-08-18; falhas 410 desde 2026-09-01).
 - **Estratégia**: feed RSS 2.0 (`xmlns:g`) gerado no servidor em **`/feeds/google-products.xml`**
   (`src/app/feeds/google-products.xml/route.ts`, `src/lib/google-merchant-feed.ts`), consumido por uma fonte de dados
@@ -196,6 +219,8 @@ upload de banners; (2) produtos legados sem variantes (`bag-supreme.png`) → ba
 
 ## 7. Search Console (MANUAL_PENDING — nenhum acesso autenticado usado, nenhum DNS alterado)
 
+Independe do Merchant Center: pode (e deve) ser feito logo após o deploy, mesmo com o Merchant em espera.
+
 Estado: `raredept.com.br` **não tem** registro TXT `google-site-verification` (consulta pública em 2026-11-17; só SPF).
 
 1. **Propriedade de domínio**: https://search.google.com/search-console → Adicionar propriedade → **Domínio** →
@@ -213,22 +238,37 @@ Estado: `raredept.com.br` **não tem** registro TXT `google-site-verification` (
 5. Acompanhar: Indexação › Páginas (as URLs filtradas devem aparecer como "Excluída pela tag noindex"), Experiência ›
    Core Web Vitals (INP de campo) e Shopping › Listagens do comerciante.
 
-## 8. Merchant Center (MANUAL_PENDING)
+## 8. Merchant Center (HOLD_ATTRIBUTE_GAPS)
 
-1. Após o deploy, conferir `https://raredept.com.br/feeds/google-products.xml` (200, XML, ~213 itens).
-2. Merchant Center (conta da RARE, país **Brasil**, idioma **português**, moeda **BRL**) → Produtos › Fontes de dados ›
+`FEED_ROUTE_READY=YES` · `MERCHANT_SOURCE_ACTIVATION=HOLD_ATTRIBUTE_GAPS`
+
+**Agora (após o deploy desta branch)** — só verificação, sem cadastrar nada no Merchant Center:
+1. Conferir `https://raredept.com.br/feeds/google-products.xml` (200, XML, `X-Robots-Tag: noindex`, ~213 itens) —
+   o smoke (`seo:merchant-feed`) já faz isso.
+
+**Não fazer ainda**: criar a fonte de dados no Merchant Center. Vestuário sem `color`/`gender`/`age_group` (obrigatórios
+no Brasil) e produtos sem `brand` seriam reprovados/limitados; não há valor seguro para preencher globalmente.
+
+**Pré-requisitos para liberar a ativação** (ciclo próprio):
+- Migration + campos no Admin para `color`, `gender`, `age_group` (e, se houver, `gtin`/`mpn`), preenchidos com o dado
+  real de cada peça; `condition` só se confirmado.
+- `brand` preenchida em todos os produtos (hoje 7 sem marca) e categoria nos 2 sem categoria.
+- Feed atualizado para exportar esses campos + testes de consistência estendidos.
+
+**Quando liberado** (só então):
+1. Merchant Center (conta da RARE, país **Brasil**, idioma **português**, moeda **BRL**) → Produtos › Fontes de dados ›
    Adicionar fonte de produtos › **Adicionar produtos de um arquivo** › **Inserir um link para o arquivo** →
    `https://raredept.com.br/feeds/google-products.xml` → frequência **Diária** (horário de baixo tráfego). Sem autenticação.
-3. Verificar/reivindicar o site `raredept.com.br` no Merchant Center (pode reaproveitar a verificação do Search Console).
-4. Configurar **frete** e **política de devolução** na conta (não vão no feed).
-5. Esperado inicialmente: avisos/reprovações por `color`/`gender`/`age_group` em vestuário e por marca ausente
-   (ver gaps). Marcas de terceiros podem passar por revisão de política de marca registrada/autenticidade do Google —
-   manter comprovação de procedência disponível.
+2. Verificar/reivindicar o site `raredept.com.br` no Merchant Center (pode reaproveitar a verificação do Search Console).
+3. Configurar **frete** e **política de devolução** na conta (não vão no feed).
+4. Marcas de terceiros podem passar por revisão de política de marca registrada/autenticidade do Google — manter
+   comprovação de procedência disponível.
 
 ## 9. Testes e verificação
 
 - Unit: `seo-listing.test.ts`, `product-offer.test.ts`, `google-merchant-feed.test.ts` (inclui consistência Merchant × site),
-  `feeds/google-products.xml/route.test.ts`, `robots.test.ts` (inclui "nenhuma página pública bloqueada por prefixo"),
+  `feeds/google-products.xml/route.test.ts`, `robots.test.ts` (matcher no padrão Google — prefixo, query string, `*`, `$` — com `/conta`, `/conta?tab=perfil`,
+  `/conta?redirect=x`, `/conta/dados` bloqueados e `/contato`, `/contato?utm_source=x` liberados),
   `sitemap.test.ts` (lastmod real; sem filtros/coleções/feed), `structured-data.test.ts`, PDP/categoria/home page tests,
   `public-site-smoke.test.ts` (checagens SEO).
 - Smoke: `npm run smoke -- https://raredept.com.br` agora inclui checagens de indexação (`--no-seo` desliga).

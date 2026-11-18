@@ -203,6 +203,7 @@ describe("public site smoke — SEO checks", () => {
     "Disallow: /checkout",
     "Disallow: /finalizar-compra",
     "Disallow: /conta$",
+    "Disallow: /conta?",
     "Disallow: /conta/",
     "Disallow: /minha-conta",
     "Disallow: /entrar",
@@ -243,9 +244,17 @@ describe("public site smoke — SEO checks", () => {
   });
 
   it("fails when robots.txt blocks /contato through the bare /conta prefix (bug found in production)", async () => {
-    const robots = goodRobots.replace("Disallow: /conta$\nDisallow: /conta/", "Disallow: /conta");
+    const robots = goodRobots.replace("Disallow: /conta$\nDisallow: /conta?\nDisallow: /conta/", "Disallow: /conta");
+    expect(robots).not.toBe(goodRobots);
     const result = await runPublicSiteSmoke({ baseUrl: "https://raredept.com.br", fetchImpl: seoFetch({ robots }), timeoutMs: 1000, seo: true });
     expect(result.checks).toContainEqual(expect.objectContaining({ status: "FAIL", label: "seo:robots-public", message: expect.stringContaining("/contato") }));
+  });
+
+  it("fails when /conta is only blocked with '$' (query-string URLs stay crawlable)", async () => {
+    const robots = goodRobots.replace("Disallow: /conta?\n", "");
+    expect(robots).not.toBe(goodRobots);
+    const result = await runPublicSiteSmoke({ baseUrl: "https://raredept.com.br", fetchImpl: seoFetch({ robots }), timeoutMs: 1000, seo: true });
+    expect(result.checks).toContainEqual(expect.objectContaining({ status: "FAIL", label: "seo:robots-private", message: expect.stringContaining("/conta?tab=perfil") }));
   });
 
   it("ignores Disallow rules of other crawlers' groups", () => {
@@ -253,7 +262,9 @@ describe("public site smoke — SEO checks", () => {
     expect(robotsRuleMatches("/conta$", "/conta")).toBe(true);
     expect(robotsRuleMatches("/conta$", "/contato")).toBe(false);
     expect(robotsRuleMatches("/conta", "/contato")).toBe(true);
-    expect(robotsRuleMatches("/*?*sort=", "/categoria/tudo?sort=price-asc")).toBe(true);
+    expect(robotsRuleMatches("/conta?", "/conta?tab=perfil")).toBe(true);
+    expect(robotsRuleMatches("/conta?", "/contato?utm_source=x")).toBe(false);
+    expect(robotsRuleMatches("/*?*sort=","/categoria/tudo?sort=price-asc")).toBe(true);
   });
 
   it("fails an indexable filtered listing and warns while the feed is not deployed", async () => {

@@ -265,8 +265,8 @@ function scanForSecretLeaks(checks: PublicSmokeCheck[], responses: CapturedRespo
 
 const CANONICAL_HOST = "raredept.com.br";
 const CANONICAL_ORIGIN = `https://${CANONICAL_HOST}`;
-const SEO_PUBLIC_PATHS = ["/", "/contato", "/sobre", "/suporte", "/categoria/tudo", "/produto/exemplo", "/_next/static/chunks/app.js", "/feeds/google-products.xml"];
-const SEO_PRIVATE_PATHS = ["/admin", "/api/health", "/checkout", "/finalizar-compra", "/minha-conta", "/entrar"];
+const SEO_PUBLIC_PATHS = ["/", "/contato", "/contato?utm_source=x", "/sobre", "/suporte", "/categoria/tudo", "/produto/exemplo", "/_next/static/chunks/app.js", "/feeds/google-products.xml"];
+const SEO_PRIVATE_PATHS = ["/admin", "/api/health", "/checkout", "/finalizar-compra", "/minha-conta", "/entrar", "/conta", "/conta?tab=perfil", "/conta/dados"];
 const FILTERED_LISTING_PATH = "/categoria/tudo?sort=price-asc";
 export const MERCHANT_FEED_SMOKE_PATH = "/feeds/google-products.xml";
 
